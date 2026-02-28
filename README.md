@@ -48,6 +48,8 @@ SynthiaCore is a Core + Addons platform with a built-in scheduler, system metric
 - Store workdir cleanup runs at install/update start:
   - `STORE_BACKUP_RETENTION` (default `3`)
   - `STORE_STAGING_TTL_MINUTES` (default `60`)
+- Admin audit endpoint:
+  - `GET /api/store/admin/audit?addon_id=&action=&status=&page=&page_size=` (admin token required)
 
 Catalog query parameters:
 - `q` free-text search over id/name/description/categories

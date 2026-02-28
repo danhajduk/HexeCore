@@ -305,6 +305,25 @@ class StoreAuditLogStore:
         async with self._lock:
             await asyncio.to_thread(self._record_sync, action, addon_id, version, status, message, actor)
 
+    async def list_rows(
+        self,
+        *,
+        addon_id: str | None,
+        action: str | None,
+        status: str | None,
+        page: int,
+        page_size: int,
+    ) -> dict[str, Any]:
+        async with self._lock:
+            return await asyncio.to_thread(
+                self._list_rows_sync,
+                addon_id,
+                action,
+                status,
+                int(page),
+                int(page_size),
+            )
+
     def _record_sync(
         self,
         action: str,
@@ -322,6 +341,67 @@ class StoreAuditLogStore:
             (_utcnow_iso(), action, addon_id, version, status, message, actor),
         )
         self._conn.commit()
+
+    def _list_rows_sync(
+        self,
+        addon_id: str | None,
+        action: str | None,
+        status: str | None,
+        page: int,
+        page_size: int,
+    ) -> dict[str, Any]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if addon_id:
+            clauses.append("addon_id = ?")
+            params.append(addon_id)
+        if action:
+            clauses.append("action = ?")
+            params.append(action)
+        if status:
+            clauses.append("status = ?")
+            params.append(status)
+
+        where = ""
+        if clauses:
+            where = " WHERE " + " AND ".join(clauses)
+
+        count_sql = f"SELECT COUNT(*) AS c FROM store_audit_log{where}"
+        total = int(self._conn.execute(count_sql, params).fetchone()["c"])
+
+        page = max(1, int(page))
+        page_size = max(1, min(200, int(page_size)))
+        offset = (page - 1) * page_size
+
+        query_sql = (
+            "SELECT id, timestamp, action, addon_id, version, status, message, actor "
+            f"FROM store_audit_log{where} "
+            "ORDER BY id DESC "
+            "LIMIT ? OFFSET ?"
+        )
+        rows = self._conn.execute(query_sql, [*params, page_size, offset]).fetchall()
+        items = [
+            {
+                "id": int(r["id"]),
+                "timestamp": r["timestamp"],
+                "action": r["action"],
+                "addon_id": r["addon_id"],
+                "version": r["version"],
+                "status": r["status"],
+                "message": r["message"],
+                "actor": r["actor"],
+            }
+            for r in rows
+        ]
+        return {
+            "ok": True,
+            "items": items,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "has_next": (offset + page_size) < total,
+            "filters": {"addon_id": addon_id, "action": action, "status": status},
+        }
 
 
 def build_store_router(registry: AddonRegistry, audit_store: StoreAuditLogStore) -> APIRouter:
@@ -611,5 +691,23 @@ def build_store_router(registry: AddonRegistry, audit_store: StoreAuditLogStore)
             "enabled": registry.is_enabled(addon_id),
             "version": version or (registry.addons[addon_id].meta.version if addon_id in registry.addons else None),
         }
+
+    @router.get("/admin/audit")
+    async def store_audit_list(
+        addon_id: str | None = Query(default=None),
+        action: str | None = Query(default=None),
+        status: str | None = Query(default=None),
+        page: int = Query(default=1, ge=1),
+        page_size: int = Query(default=50, ge=1, le=200),
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token)
+        return await audit_store.list_rows(
+            addon_id=addon_id,
+            action=action,
+            status=status,
+            page=page,
+            page_size=page_size,
+        )
 
     return router
