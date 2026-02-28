@@ -66,6 +66,36 @@ class TestStoreAuditEndpoint(unittest.TestCase):
                 self.assertEqual(payload["total"], 1)
                 self.assertEqual(payload["items"][0]["addon_id"], "addon_b")
                 self.assertEqual(payload["items"][0]["status"], "failed")
+
+                all_rows = client.get(
+                    "/api/store/admin/audit",
+                    headers={"X-Admin-Token": "test-token"},
+                )
+                self.assertEqual(all_rows.status_code, 200, all_rows.text)
+                rows_payload = all_rows.json()
+                self.assertEqual(rows_payload["total"], 2)
+                newer_ts = rows_payload["items"][0]["timestamp"]
+                older_ts = rows_payload["items"][1]["timestamp"]
+
+                older_only = client.get(
+                    "/api/store/admin/audit",
+                    params={"to_ts": older_ts},
+                    headers={"X-Admin-Token": "test-token"},
+                )
+                self.assertEqual(older_only.status_code, 200, older_only.text)
+                older_payload = older_only.json()
+                self.assertEqual(older_payload["total"], 1)
+                self.assertEqual(older_payload["items"][0]["timestamp"], older_ts)
+
+                newer_only = client.get(
+                    "/api/store/admin/audit",
+                    params={"from_ts": newer_ts},
+                    headers={"X-Admin-Token": "test-token"},
+                )
+                self.assertEqual(newer_only.status_code, 200, newer_only.text)
+                newer_payload = newer_only.json()
+                self.assertEqual(newer_payload["total"], 1)
+                self.assertEqual(newer_payload["items"][0]["timestamp"], newer_ts)
         finally:
             if old_token is None:
                 os.environ.pop("SYNTHIA_ADMIN_TOKEN", None)

@@ -804,6 +804,8 @@ def build_store_router(
         addon_id: str | None = Query(default=None),
         action: str | None = Query(default=None),
         status: str | None = Query(default=None),
+        from_ts: str | None = Query(default=None),
+        to_ts: str | None = Query(default=None),
         page: int = Query(default=1, ge=1),
         page_size: int = Query(default=50, ge=1, le=200),
         x_admin_token: str | None = Header(default=None),
@@ -813,6 +815,8 @@ def build_store_router(
             addon_id=addon_id,
             action=action,
             status=status,
+            from_ts=from_ts,
+            to_ts=to_ts,
             page=page,
             page_size=page_size,
         )

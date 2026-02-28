@@ -55,7 +55,7 @@ SynthiaCore is a Core + Addons platform with a built-in scheduler, system metric
   - `STORE_BACKUP_RETENTION` (default `3`)
   - `STORE_STAGING_TTL_MINUTES` (default `60`)
 - Admin audit endpoint:
-  - `GET /api/store/admin/audit?addon_id=&action=&status=&page=&page_size=` (admin token required)
+  - `GET /api/store/admin/audit?addon_id=&action=&status=&from_ts=&to_ts=&page=&page_size=` (admin token required)
 
 Store sources endpoints:
 - `GET /api/store/sources`

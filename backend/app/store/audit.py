@@ -59,6 +59,8 @@ class StoreAuditLogStore:
         addon_id: str | None,
         action: str | None,
         status: str | None,
+        from_ts: str | None,
+        to_ts: str | None,
         page: int,
         page_size: int,
     ) -> dict[str, Any]:
@@ -68,6 +70,8 @@ class StoreAuditLogStore:
                 addon_id,
                 action,
                 status,
+                from_ts,
+                to_ts,
                 int(page),
                 int(page_size),
             )
@@ -95,6 +99,8 @@ class StoreAuditLogStore:
         addon_id: str | None,
         action: str | None,
         status: str | None,
+        from_ts: str | None,
+        to_ts: str | None,
         page: int,
         page_size: int,
     ) -> dict[str, Any]:
@@ -109,6 +115,12 @@ class StoreAuditLogStore:
         if status:
             clauses.append("status = ?")
             params.append(status)
+        if from_ts:
+            clauses.append("timestamp >= ?")
+            params.append(from_ts)
+        if to_ts:
+            clauses.append("timestamp <= ?")
+            params.append(to_ts)
 
         where = ""
         if clauses:
@@ -148,5 +160,11 @@ class StoreAuditLogStore:
             "page": page,
             "page_size": page_size,
             "has_next": (offset + page_size) < total,
-            "filters": {"addon_id": addon_id, "action": action, "status": status},
+            "filters": {
+                "addon_id": addon_id,
+                "action": action,
+                "status": status,
+                "from_ts": from_ts,
+                "to_ts": to_ts,
+            },
         }
