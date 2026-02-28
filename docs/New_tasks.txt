@@ -20,11 +20,7 @@ Date reviewed: 2026-02-28
 
 8) Implement usage telemetry ingestion - Completed on 02/28/2026 12:23
 
-9) Enforce security baseline
-- Separate auth roles: admin, guest, service.
-- Keep secrets out of MQTT payloads and logs.
-- Add audit logs for grant changes, revocations, and privileged config updates.
-- Add TLS requirement checks/warnings for non-localhost base_url targets.
+9) Enforce security baseline - Completed on 02/28/2026 12:33
 
 10) Frontend updates for new control-plane model
 - Expand Addons page to show remote base_url, capabilities, health, last_seen, auth_mode.
