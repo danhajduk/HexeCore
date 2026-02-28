@@ -97,6 +97,15 @@ def _compare_semver(a: str, b: str) -> int:
 
 
 def _to_manifest_fields(manifest: AddonManifest | ReleaseManifest) -> tuple[str, str, str, str | None, list[str], list[str]]:
+    if isinstance(manifest, ReleaseManifest):
+        return (
+            manifest.id,
+            manifest.version,
+            manifest.compatibility.core_min_version,
+            manifest.compatibility.core_max_version,
+            list(manifest.compatibility.dependencies),
+            list(manifest.compatibility.conflicts),
+        )
     return (
         manifest.id,
         manifest.version,

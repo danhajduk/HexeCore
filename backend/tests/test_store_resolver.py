@@ -27,6 +27,12 @@ def _manifest(**overrides) -> ReleaseManifest:
         },
     }
     base.update(overrides)
+    base["compatibility"] = {
+        "core_min_version": base["core_min_version"],
+        "core_max_version": base["core_max_version"],
+        "dependencies": list(base["dependencies"]),
+        "conflicts": list(base["conflicts"]),
+    }
     return ReleaseManifest(**base)
 
 

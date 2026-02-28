@@ -4,7 +4,7 @@ import re
 from typing import Literal
 
 from fastapi import APIRouter
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 SEMVER_RE = re.compile(
     r"^(0|[1-9]\d*)\."
@@ -85,6 +85,8 @@ class ReleaseManifest(BaseModel):
     id: str = Field(..., min_length=1)
     name: str = Field(..., min_length=1)
     version: str = Field(..., min_length=1)
+    # Deprecated top-level compatibility fields.
+    # Kept as soft-compat adapter surface; nested `compatibility` is the source of truth.
     core_min_version: str = Field(..., min_length=1)
     core_max_version: str | None = Field(default=None)
     dependencies: list[str] = Field(...)
@@ -94,6 +96,36 @@ class ReleaseManifest(BaseModel):
     permissions: list[PermissionType] = Field(...)
     signature: SignatureBlock = Field(...)
     compatibility: CompatibilitySpec = Field(...)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _compatibility_adapter(cls, raw):
+        if not isinstance(raw, dict):
+            return raw
+        data = dict(raw)
+        compat = data.get("compatibility")
+
+        # Legacy payload support: synthesize nested compatibility from top-level fields.
+        if compat is None:
+            data["compatibility"] = {
+                "core_min_version": data.get("core_min_version"),
+                "core_max_version": data.get("core_max_version"),
+                "dependencies": data.get("dependencies", []),
+                "conflicts": data.get("conflicts", []),
+            }
+            compat = data["compatibility"]
+
+        # Ensure required top-level fields still validate from nested compatibility.
+        if isinstance(compat, dict):
+            if "core_min_version" not in data:
+                data["core_min_version"] = compat.get("core_min_version")
+            if "core_max_version" not in data:
+                data["core_max_version"] = compat.get("core_max_version")
+            if "dependencies" not in data:
+                data["dependencies"] = compat.get("dependencies", [])
+            if "conflicts" not in data:
+                data["conflicts"] = compat.get("conflicts", [])
+        return data
 
     @field_validator("version", "core_min_version")
     @classmethod
@@ -106,6 +138,15 @@ class ReleaseManifest(BaseModel):
         if value is None:
             return None
         return _validate_semver(value, "core_max_version")
+
+    @model_validator(mode="after")
+    def _canonicalize_top_level_compat(self):
+        # Nested compatibility remains the source of truth.
+        self.core_min_version = self.compatibility.core_min_version
+        self.core_max_version = self.compatibility.core_max_version
+        self.dependencies = list(self.compatibility.dependencies)
+        self.conflicts = list(self.compatibility.conflicts)
+        return self
 
 
 def build_store_models_router() -> APIRouter:

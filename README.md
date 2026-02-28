@@ -25,6 +25,8 @@ SynthiaCore is a Core + Addons platform with a built-in scheduler, system metric
 
 ### Addon Store Schema Endpoint (Phase 1)
 - `GET /api/store/schema` returns JSON schemas for `AddonManifest`, `ReleaseManifest`, `CompatibilitySpec`, and `SignatureBlock`.
+- `ReleaseManifest.compatibility` is canonical for core-version/dependency/conflict constraints.
+- Legacy top-level compatibility fields are soft-deprecated and adapter-backed for backward compatibility.
 
 ### Addon Store Signing (Phase 1)
 - `backend/app/store/signing.py` enforces pre-enable verification: SHA256 checksum + RSA signature validation.
