@@ -19,3 +19,4 @@
 2026-02-28 - Added frontend control-plane UI: addon metadata expansion, admin registry CRUD, MQTT status, and service resolver surfaces.
 2026-02-28 - Session complete: Task 10 frontend control-plane updates implemented.
 2026-02-28 - Added addon store Phase 1 product requirements documentation (roles, install flow, trust model, security, offline, marketplace).
+2026-02-28 - Session complete: Task 1 addon store product requirements documentation finalized.
