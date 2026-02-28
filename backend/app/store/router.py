@@ -106,6 +106,23 @@ def _get_install_state(addon_id: str) -> dict[str, Any] | None:
     return None
 
 
+def _installed_summary_map() -> dict[str, dict[str, Any]]:
+    state = _load_install_state()
+    out: dict[str, dict[str, Any]] = {}
+    for addon_id, raw in state.items():
+        if not isinstance(raw, dict):
+            continue
+        version = raw.get("installed_version")
+        installed_at = raw.get("installed_at")
+        if version is None and installed_at is None:
+            continue
+        out[str(addon_id)] = {
+            "version": version,
+            "installed_at": installed_at,
+        }
+    return out
+
+
 def _hex_sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
@@ -324,6 +341,7 @@ def build_store_router(
                 message=str(status.get("message") or "catalog_error"),
                 actor="system",
             )
+        payload["installed"] = _installed_summary_map()
         return payload
 
     @router.get("/sources")

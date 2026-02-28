@@ -72,6 +72,7 @@ Catalog cache behavior (Phase 2):
   - `STORE_CATALOG_PUBLIC_KEYS_JSON` (inline JSON override; supports multi-key rotation)
 - `GET /api/store/catalog` now reads cached catalog content (source-aware) and returns structured status fields:
   - `status`, `source_id`, `last_success_at`, `last_error_at`, `last_error_message`.
+  - `installed` map payload: `{ [addon_id]: { version, installed_at } }`
 - Catalog install flow:
   - resolves release from cached catalog by addon/version (defaults to latest compatible release),
   - downloads artifact with catalog client redirect/timeout/size protections,

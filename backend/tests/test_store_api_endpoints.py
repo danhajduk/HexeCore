@@ -189,11 +189,23 @@ class TestStoreApiEndpoints(unittest.TestCase):
         )
 
     def test_catalog_endpoint(self) -> None:
-        res = self.client.get("/api/store/catalog")
+        with patch(
+            "app.store.router._load_install_state",
+            return_value={
+                "hello_world": {
+                    "installed_version": "1.0.0",
+                    "installed_at": "2026-02-28T15:00:00+00:00",
+                }
+            },
+        ):
+            res = self.client.get("/api/store/catalog")
         self.assertEqual(res.status_code, 200, res.text)
         payload = res.json()
         self.assertIn("items", payload)
         self.assertIn("catalog_status", payload)
+        self.assertIn("installed", payload)
+        self.assertEqual(payload["installed"]["hello_world"]["version"], "1.0.0")
+        self.assertEqual(payload["installed"]["hello_world"]["installed_at"], "2026-02-28T15:00:00+00:00")
 
     def test_install_success_and_invalid_signature(self) -> None:
         pkg = Path(self.tmp.name) / "bundle.zip"
