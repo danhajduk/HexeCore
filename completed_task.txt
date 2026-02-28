@@ -22,3 +22,4 @@
 2026-02-28 - Session complete: Task 1 addon store product requirements documentation finalized.
 2026-02-28 - Added addon store package models with semver/permission validation and /api/store/schema export endpoint.
 2026-02-28 - Added store signing verification (RSA + checksum), fail-closed errors, pre-enable pipeline hook, and unit tests.
+2026-02-28 - Added addon compatibility resolver with deterministic dependency ordering, structured failures, and resolver unit tests.

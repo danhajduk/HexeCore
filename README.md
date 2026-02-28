@@ -30,6 +30,10 @@ SynthiaCore is a Core + Addons platform with a built-in scheduler, system metric
 - `backend/app/store/signing.py` enforces pre-enable verification: SHA256 checksum + RSA signature validation.
 - Verification fails closed with structured error payloads (`code`, `message`, `details`).
 
+### Addon Store Resolver (Phase 1)
+- `backend/app/store/resolver.py` validates core-version compatibility, dependencies, and conflicts.
+- Resolution is deterministic (sorted dependency/conflict sets) and blocks on validation failures only (no auto-download path).
+
 ## Scheduler (Pull-Based Leasing)
 - Priority queues: `high`, `normal`, `low`, `background`.
 - Leases: workers request leases and receive a job + capacity allocation.

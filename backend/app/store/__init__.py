@@ -12,6 +12,7 @@ from .signing import (
     verify_release_artifact,
     verify_rsa_signature,
 )
+from .resolver import ResolverError, ResolutionResult, resolve_manifest_compatibility
 
 __all__ = [
     "AddonManifest",
@@ -24,4 +25,7 @@ __all__ = [
     "verify_rsa_signature",
     "verify_release_artifact",
     "run_pre_enable_verification",
+    "ResolverError",
+    "ResolutionResult",
+    "resolve_manifest_compatibility",
 ]
