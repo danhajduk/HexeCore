@@ -36,3 +36,4 @@
 2026-02-28 - C3 cleanup: clarified scheduler lease capabilities as reserved+ignored and added model-level safety tests.
 2026-02-28 - C2 cleanup: gated scheduler debug fields/routes behind SCHEDULER_DEBUG_ENABLED and added default-hidden route test.
 2026-02-28 - E1 cleanup: added admin audit query endpoint for store_audit_log with filters/pagination and test coverage.
+2026-02-28 - D1 cleanup: archived legacy TODO docs and created docs/ROADMAP.md as single active planning source.

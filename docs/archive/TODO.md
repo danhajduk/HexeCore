@@ -1,3 +1,10 @@
+# Archived TODO (Deprecated)
+
+This file is archived and kept for historical reference only.
+Source of truth moved to `docs/ROADMAP.md` on 2026-02-28.
+
+---
+
 # Docs TODO Summary
 
 **Completed**

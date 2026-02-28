@@ -169,3 +169,4 @@ Demonstrates core addon features:
 ## Notes
 - Scheduler live state is in-memory; history is persisted to SQLite.
 - If `origin/main` is unreachable, repo status will show as unavailable.
+- Active planning source is `docs/ROADMAP.md`; legacy TODO docs are archived in `docs/archive/`.
