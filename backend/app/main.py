@@ -12,7 +12,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from .core.logging import setup_logging
 from .core.health import router as health_router
 from .addons.registry import build_registry, register_addons
+from .addons.proxy import AddonProxy, build_proxy_router
 from .api.system import build_system_router
+from .api.admin_registry import build_admin_registry_router
 from .system.api_metrics import ApiMetricsCollector, ApiMetricsMiddleware
 from app.system.sampler import (
     stats_fast_sampler_loop,
@@ -30,6 +32,9 @@ from app.system.scheduler.engine import SchedulerEngine
 from app.system.scheduler.history import SchedulerHistoryStore
 from app.system.settings.store import SettingsStore
 from app.system.settings.router import build_settings_router
+from app.system.mqtt import MqttManager, build_mqtt_router
+from app.system.services import ServiceCatalogStore, build_service_resolution_router
+from app.system.auth import ServiceTokenKeyStore, build_auth_router
 from app.system.repo_status import router as repo_status_router
 from app.system.scheduler import build_scheduler_router
 
@@ -82,6 +87,30 @@ def create_app() -> FastAPI:
 
         asyncio.create_task(history_cleanup_loop())
 
+        async def addon_health_poll_loop() -> None:
+            while True:
+                try:
+                    registry = getattr(app.state, "addon_registry", None)
+                    if registry is not None:
+                        await registry.refresh_registered_health()
+                except Exception:
+                    pass
+                await asyncio.sleep(30.0)
+
+        asyncio.create_task(addon_health_poll_loop())
+        mqtt_manager = getattr(app.state, "mqtt_manager", None)
+        if mqtt_manager is not None:
+            await mqtt_manager.start()
+
+    @app.on_event("shutdown")
+    async def shutdown_background_tasks():
+        proxy = getattr(app.state, "addon_proxy", None)
+        if proxy is not None:
+            await proxy.aclose()
+        mqtt_manager = getattr(app.state, "mqtt_manager", None)
+        if mqtt_manager is not None:
+            await mqtt_manager.stop()
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
@@ -113,6 +142,12 @@ def create_app() -> FastAPI:
         os.path.join(os.getcwd(), "var", "app_settings.db"),
     )
     settings_store = SettingsStore(settings_db)
+    service_token_keys = ServiceTokenKeyStore(settings_store)
+    service_catalog_db = os.getenv(
+        "SERVICE_CATALOG_DB",
+        os.path.join(os.getcwd(), "var", "service_catalogs.json"),
+    )
+    service_catalog_store = ServiceCatalogStore(service_catalog_db)
 
     def metrics_provider():
         # SchedulerEngine will handle None/staleness conservatively.
@@ -132,6 +167,8 @@ def create_app() -> FastAPI:
     app.state.scheduler_engine = engine
     app.state.scheduler_history = history_store
     app.state.settings_store = settings_store
+    app.state.service_token_keys = service_token_keys
+    app.state.service_catalog_store = service_catalog_store
 
     app.include_router(build_settings_router(settings_store), prefix="/api/system", tags=["settings"])
     app.include_router(repo_status_router, prefix="/api/system", tags=["repo"])
@@ -143,10 +180,27 @@ def create_app() -> FastAPI:
     log.info("Building addon registry and registering addons")
     registry = build_registry()
     app.state.addon_registry = registry
+    mqtt_manager = MqttManager(
+        settings_store=settings_store,
+        registry=registry,
+        service_catalog_store=service_catalog_store,
+    )
+    app.state.mqtt_manager = mqtt_manager
     register_addons(app, registry)
+    addon_proxy = AddonProxy(registry)
+    app.state.addon_proxy = addon_proxy
+    app.include_router(build_proxy_router(addon_proxy))
 
     # System API using the registry
     app.include_router(build_system_router(registry), prefix="/api")
+    app.include_router(build_admin_registry_router(registry), prefix="/api")
+    app.include_router(build_mqtt_router(mqtt_manager), prefix="/api/system", tags=["mqtt"])
+    app.include_router(build_auth_router(service_token_keys), prefix="/api/auth", tags=["auth"])
+    app.include_router(
+        build_service_resolution_router(registry, service_catalog_store),
+        prefix="/api/services",
+        tags=["services"],
+    )
 
     return app
 
