@@ -1,0 +1,189 @@
+import { useEffect, useMemo, useState } from "react";
+import "./admin-reload-card.css";
+import { LS_ADMIN_TOKEN_KEY, LS_API_BASE_KEY, defaultApiBase } from "./localKeys";
+
+type RegisteredAddon = {
+  id: string;
+  name: string;
+  version: string;
+  base_url: string;
+  capabilities: string[];
+  health_status: string;
+  last_seen?: string | null;
+  auth_mode: string;
+  tls_warning?: string | null;
+};
+
+export default function RegistryAdminCard() {
+  const [apiBase, setApiBase] = useState<string>(() => localStorage.getItem(LS_API_BASE_KEY) || defaultApiBase());
+  const [token, setToken] = useState<string>(() => localStorage.getItem(LS_ADMIN_TOKEN_KEY) || "");
+  const [items, setItems] = useState<RegisteredAddon[]>([]);
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const [id, setId] = useState("");
+  const [name, setName] = useState("");
+  const [version, setVersion] = useState("0.1.0");
+  const [baseUrl, setBaseUrl] = useState("http://localhost:9002");
+  const [capabilities, setCapabilities] = useState("");
+  const [authMode, setAuthMode] = useState("none");
+
+  useEffect(() => {
+    localStorage.setItem(LS_ADMIN_TOKEN_KEY, token);
+  }, [token]);
+
+  useEffect(() => {
+    localStorage.setItem(LS_API_BASE_KEY, apiBase);
+  }, [apiBase]);
+
+  const headers = useMemo(() => {
+    const h: Record<string, string> = { "Content-Type": "application/json" };
+    if (token.trim()) h["X-Admin-Token"] = token.trim();
+    return h;
+  }, [token]);
+
+  async function loadRegistry() {
+    setErr(null);
+    try {
+      const res = await fetch(`${apiBase}/api/admin/addons/registry`, { headers });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const payload = (await res.json()) as RegisteredAddon[];
+      setItems(payload);
+    } catch (e: any) {
+      setErr(e?.message ?? String(e));
+      setItems([]);
+    }
+  }
+
+  async function createOrUpdate() {
+    setErr(null);
+    setBusy(true);
+    try {
+      const body = {
+        id,
+        name: name || id,
+        version,
+        base_url: baseUrl,
+        capabilities: capabilities
+          .split(",")
+          .map((x) => x.trim())
+          .filter(Boolean),
+        auth_mode: authMode || "none",
+      };
+      const res = await fetch(`${apiBase}/api/admin/addons/registry`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(`HTTP ${res.status} ${txt}`);
+      }
+      await loadRegistry();
+    } catch (e: any) {
+      setErr(e?.message ?? String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(id: string) {
+    setErr(null);
+    try {
+      const res = await fetch(`${apiBase}/api/admin/addons/registry/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        headers,
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await loadRegistry();
+    } catch (e: any) {
+      setErr(e?.message ?? String(e));
+    }
+  }
+
+  useEffect(() => {
+    loadRegistry();
+  }, []);
+
+  return (
+    <section className="admin-card">
+      <div className="admin-header">
+        <div>
+          <div className="admin-title">Addon Registry</div>
+          <div className="admin-subtitle">Admin CRUD for registered remote addons.</div>
+        </div>
+      </div>
+
+      <div className="admin-form">
+        <label className="admin-label">
+          <div className="admin-label-text">API Base</div>
+          <input value={apiBase} onChange={(e) => setApiBase(e.target.value)} className="admin-input" />
+        </label>
+        <label className="admin-label">
+          <div className="admin-label-text">Admin Token</div>
+          <input value={token} onChange={(e) => setToken(e.target.value)} className="admin-input admin-input-mono" />
+        </label>
+
+        <div className="admin-actions">
+          <button className="admin-btn" onClick={loadRegistry} disabled={!token.trim()}>
+            Refresh Registry
+          </button>
+        </div>
+
+        <label className="admin-label">
+          <div className="admin-label-text">ID</div>
+          <input value={id} onChange={(e) => setId(e.target.value)} className="admin-input admin-input-mono" />
+        </label>
+        <label className="admin-label">
+          <div className="admin-label-text">Name</div>
+          <input value={name} onChange={(e) => setName(e.target.value)} className="admin-input" />
+        </label>
+        <label className="admin-label">
+          <div className="admin-label-text">Version</div>
+          <input value={version} onChange={(e) => setVersion(e.target.value)} className="admin-input" />
+        </label>
+        <label className="admin-label">
+          <div className="admin-label-text">Base URL</div>
+          <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} className="admin-input" />
+        </label>
+        <label className="admin-label">
+          <div className="admin-label-text">Capabilities (comma-separated)</div>
+          <input value={capabilities} onChange={(e) => setCapabilities(e.target.value)} className="admin-input" />
+        </label>
+        <label className="admin-label">
+          <div className="admin-label-text">Auth Mode</div>
+          <input value={authMode} onChange={(e) => setAuthMode(e.target.value)} className="admin-input" />
+        </label>
+
+        <div className="admin-actions">
+          <button className="admin-btn admin-btn-primary" onClick={createOrUpdate} disabled={!token.trim() || !id.trim() || busy}>
+            {busy ? "Saving..." : "Create / Update"}
+          </button>
+        </div>
+
+        {err && <pre className="admin-error">{err}</pre>}
+
+        <div>
+          <div className="admin-log-label">Registered Addons</div>
+          <div className="admin-form">
+            {items.map((x) => (
+              <div key={x.id} className="admin-log">
+                <div><strong>{x.id}</strong> • {x.name} • {x.version}</div>
+                <div>base_url: {x.base_url}</div>
+                <div>health: {x.health_status} • auth: {x.auth_mode} • last_seen: {x.last_seen ? new Date(x.last_seen).toLocaleString() : "-"}</div>
+                <div>capabilities: {(x.capabilities || []).join(", ") || "-"}</div>
+                {x.tls_warning && <div className="admin-error">{x.tls_warning}</div>}
+                <div className="admin-actions">
+                  <button className="admin-btn admin-btn-muted" onClick={() => remove(x.id)} disabled={!token.trim()}>
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+            {items.length === 0 && <div className="admin-log">(no registered addons)</div>}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}

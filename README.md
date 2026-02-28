@@ -102,6 +102,11 @@ Frontend shows “Update available” / “Up to date” / “Repo status unavai
 - `/settings/metrics` — System metrics + job summary (queued/leased).
 - `/settings/statistics` — Job history stats by addon.
 - `/addons` — Addon cards with enable/disable and open links.
+- `/settings` also includes admin control-plane tools:
+  - core reload controls
+  - remote addon registry CRUD (`/api/admin/addons/registry`)
+  - MQTT status view and service resolver probe
+- `/addons` includes control-plane metadata fields (`base_url`, `capabilities`, `health`, `last_seen`, `auth_mode`, `tls_warning`).
 
 ## Hello World Addon
 Demonstrates core addon features:

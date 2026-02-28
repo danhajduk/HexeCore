@@ -1,21 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./admin-reload-card.css";
+import { LS_ADMIN_TOKEN_KEY, LS_API_BASE_KEY, defaultApiBase } from "./localKeys";
 
 type ReloadStartResponse = { started: boolean; unit?: string; log?: string };
 type ReloadStatusResponse = { exists: boolean; tail: string };
 
-const LS_TOKEN_KEY = "synthia_admin_token";
-const LS_API_BASE_KEY = "synthia_api_base";
-
-// Default to same host, backend port 9001
-function defaultApiBase(): string {
-  const host = window.location.hostname || "localhost";
-  return `http://${host}:9001`;
-}
-
 export default function AdminReloadCard() {
   const [apiBase, setApiBase] = useState<string>(() => localStorage.getItem(LS_API_BASE_KEY) || defaultApiBase());
-  const [token, setToken] = useState<string>(() => localStorage.getItem(LS_TOKEN_KEY) || "");
+  const [token, setToken] = useState<string>(() => localStorage.getItem(LS_ADMIN_TOKEN_KEY) || "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [tail, setTail] = useState<string>("");
@@ -23,7 +15,7 @@ export default function AdminReloadCard() {
   const pollTimer = useRef<number | null>(null);
 
   useEffect(() => {
-    localStorage.setItem(LS_TOKEN_KEY, token);
+    localStorage.setItem(LS_ADMIN_TOKEN_KEY, token);
   }, [token]);
 
   useEffect(() => {

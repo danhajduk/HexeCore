@@ -9,6 +9,13 @@ type AddonInfo = {
   description: string;
   show_sidebar?: boolean;
   enabled?: boolean;
+  base_url?: string | null;
+  capabilities?: string[];
+  health_status?: string;
+  last_seen?: string | null;
+  auth_mode?: string;
+  tls_warning?: string | null;
+  discovery_source?: string;
 };
 
 export default function Addons() {
@@ -65,6 +72,19 @@ export default function Addons() {
                   </div>
                 </div>
                 <div className="addon-meta">{a.id} • {a.version}</div>
+                {a.base_url && <div className="addon-meta">base_url: {a.base_url}</div>}
+                <div className="addon-meta">
+                  health: {a.health_status ?? "unknown"}
+                  {a.auth_mode ? ` • auth: ${a.auth_mode}` : ""}
+                  {a.discovery_source ? ` • source: ${a.discovery_source}` : ""}
+                </div>
+                {a.last_seen && (
+                  <div className="addon-meta">last seen: {new Date(a.last_seen).toLocaleString()}</div>
+                )}
+                {a.capabilities && a.capabilities.length > 0 && (
+                  <div className="addon-desc">capabilities: {a.capabilities.join(", ")}</div>
+                )}
+                {a.tls_warning && <div className="addons-error">{a.tls_warning}</div>}
                 {a.description && <div className="addon-desc">{a.description}</div>}
                 <div className="addon-actions">
                   <button
