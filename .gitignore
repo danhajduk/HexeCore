@@ -8,6 +8,7 @@ __pycache__/
 node_modules/
 dist/
 .vite/
+*.tsbuildinfo
 
 # Frontend addon sync target (symlinks/copies)
 frontend/src/addons/*
@@ -30,3 +31,7 @@ logs/
 *.sqlite-shm
 *.sqlite3-wal
 *.sqlite3-shm
+
+# Runtime state
+data/addons_state.json
+data/addons_registry.json
