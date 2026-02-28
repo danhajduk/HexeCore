@@ -50,25 +50,7 @@ Security-first architecture only.
 
 ---
 
-## 3️⃣ Add Signing + Verification Layer
-
-Create:
-
-backend/app/store/signing.py
-
-Implement:
-
-- RSA public key verification
-- Checksum validation before unpack
-- Signature verification
-- Fail closed (reject unsigned or invalid addons)
-- Clear structured error responses
-
-Integrate verification into install pipeline BEFORE enabling.
-
-Add unit tests.
-
-Commit after tests pass.
+## 3️⃣ Add Signing + Verification Layer - Completed on 02/28/2026 14:08
 
 ---
 

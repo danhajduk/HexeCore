@@ -21,3 +21,4 @@
 2026-02-28 - Added addon store Phase 1 product requirements documentation (roles, install flow, trust model, security, offline, marketplace).
 2026-02-28 - Session complete: Task 1 addon store product requirements documentation finalized.
 2026-02-28 - Added addon store package models with semver/permission validation and /api/store/schema export endpoint.
+2026-02-28 - Added store signing verification (RSA + checksum), fail-closed errors, pre-enable pipeline hook, and unit tests.

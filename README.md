@@ -26,6 +26,10 @@ SynthiaCore is a Core + Addons platform with a built-in scheduler, system metric
 ### Addon Store Schema Endpoint (Phase 1)
 - `GET /api/store/schema` returns JSON schemas for `AddonManifest`, `ReleaseManifest`, `CompatibilitySpec`, and `SignatureBlock`.
 
+### Addon Store Signing (Phase 1)
+- `backend/app/store/signing.py` enforces pre-enable verification: SHA256 checksum + RSA signature validation.
+- Verification fails closed with structured error payloads (`code`, `message`, `details`).
+
 ## Scheduler (Pull-Based Leasing)
 - Priority queues: `high`, `normal`, `low`, `background`.
 - Leases: workers request leases and receive a job + capacity allocation.
