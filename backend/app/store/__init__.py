@@ -14,6 +14,7 @@ from .signing import (
 )
 from .resolver import ResolverError, ResolutionResult, resolve_manifest_compatibility
 from .router import StoreAuditLogStore, build_store_router
+from .catalog import CatalogQuery, StaticCatalogStore
 
 __all__ = [
     "AddonManifest",
@@ -31,4 +32,6 @@ __all__ = [
     "resolve_manifest_compatibility",
     "StoreAuditLogStore",
     "build_store_router",
+    "CatalogQuery",
+    "StaticCatalogStore",
 ]

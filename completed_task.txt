@@ -24,3 +24,4 @@
 2026-02-28 - Added store signing verification (RSA + checksum), fail-closed errors, pre-enable pipeline hook, and unit tests.
 2026-02-28 - Added addon compatibility resolver with deterministic dependency ordering, structured failures, and resolver unit tests.
 2026-02-28 - Added store lifecycle APIs (install/update/uninstall/status/catalog), atomic deploy+rollback, and SQLite store_audit_log.
+2026-02-28 - Added static JSON catalog backend with search/category/featured filters, recent sorting, pagination, and tests.

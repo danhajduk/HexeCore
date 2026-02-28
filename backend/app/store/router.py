@@ -13,12 +13,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.addons.discovery import repo_root
 from app.addons.registry import AddonRegistry
 from app.api.admin import require_admin_token
+from .catalog import CatalogQuery, StaticCatalogStore
 from .models import ReleaseManifest
 from .resolver import ResolverError, resolve_manifest_compatibility
 from .signing import VerificationError, verify_release_artifact
@@ -273,10 +274,27 @@ class StoreAuditLogStore:
 
 def build_store_router(registry: AddonRegistry, audit_store: StoreAuditLogStore) -> APIRouter:
     router = APIRouter()
+    catalog_store = StaticCatalogStore.from_default_path()
 
     @router.get("/catalog")
-    async def get_catalog():
-        return {"ok": True, "items": [], "note": "catalog backend arrives in Task 6"}
+    async def get_catalog(
+        q: str | None = Query(default=None),
+        category: str | None = Query(default=None),
+        featured: bool | None = Query(default=None),
+        sort: str = Query(default="recent"),
+        page: int = Query(default=1, ge=1),
+        page_size: int = Query(default=20, ge=1, le=100),
+    ):
+        return catalog_store.query(
+            CatalogQuery(
+                q=q,
+                category=category,
+                featured=featured,
+                sort=sort,
+                page=page,
+                page_size=page_size,
+            )
+        )
 
     @router.post("/install")
     async def install_addon(

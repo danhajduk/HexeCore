@@ -42,6 +42,13 @@ SynthiaCore is a Core + Addons platform with a built-in scheduler, system metric
 - `GET /api/store/status/{addon_id}`
 - Store lifecycle audit events are persisted to SQLite table `store_audit_log` (`STORE_AUDIT_DB`, default `var/store_audit.db`).
 
+Catalog query parameters:
+- `q` free-text search over id/name/description/categories
+- `category` category filter
+- `featured` featured-only filter
+- `sort` supports `recent`, `name`, fallback `id`
+- `page`, `page_size` pagination
+
 ## Scheduler (Pull-Based Leasing)
 - Priority queues: `high`, `normal`, `low`, `background`.
 - Leases: workers request leases and receive a job + capacity allocation.
