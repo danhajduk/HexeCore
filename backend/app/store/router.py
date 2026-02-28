@@ -1,407 +1,53 @@
 from __future__ import annotations
 
-import asyncio
 import json
 import os
-import shutil
-import sqlite3
-import tarfile
-import tempfile
-import time
-import zipfile
-from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException, Query
-from pydantic import BaseModel, Field
 
-from app.addons.discovery import repo_root
 from app.addons.registry import AddonRegistry
 from app.api.admin import require_admin_token
+from .audit import StoreAuditLogStore
 from .catalog import CatalogQuery, StaticCatalogStore
-from .models import ReleaseManifest
+from . import lifecycle as lifecycle_mod
+from .lifecycle import (
+    AtomicResult,
+    StoreInstallRequest,
+    StoreUpdateRequest,
+    StoreUninstallRequest,
+    addons_root,
+    atomic_install_or_update,
+    atomic_uninstall,
+    cleanup_store_workdirs,
+    installed_addons_with_versions,
+    store_backup_retention,
+    store_staging_ttl_minutes,
+)
 from .resolver import ResolverError, resolve_manifest_compatibility
 from .signing import VerificationError, verify_release_artifact
 
-
-def _utcnow_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-def _addons_root() -> Path:
-    return repo_root() / "addons"
+# Backward-compatible wrappers kept for tests and gradual refactor migration.
+def _addons_root():
+    return addons_root()
 
 
-def _env_int(name: str, default: int, min_value: int = 0) -> int:
-    raw = os.getenv(name)
-    if raw is None or raw.strip() == "":
-        return default
+def _atomic_install_or_update(*, manifest, package_path, allow_replace):
+    orig = lifecycle_mod.addons_root
+    lifecycle_mod.addons_root = _addons_root
     try:
-        return max(min_value, int(raw))
-    except ValueError:
-        return default
+        return atomic_install_or_update(manifest=manifest, package_path=package_path, allow_replace=allow_replace)
+    finally:
+        lifecycle_mod.addons_root = orig
 
 
-def _store_backup_retention() -> int:
-    return _env_int("STORE_BACKUP_RETENTION", 3, min_value=0)
-
-
-def _store_staging_ttl_minutes() -> int:
-    return _env_int("STORE_STAGING_TTL_MINUTES", 60, min_value=1)
-
-
-def _cleanup_store_workdirs(backup_retention: int, staging_ttl_minutes: int) -> dict[str, int]:
-    addons_root = _addons_root()
-    backup_root = addons_root / ".store_backup"
-    staging_root = addons_root / ".store_staging"
-    backup_root.mkdir(parents=True, exist_ok=True)
-    staging_root.mkdir(parents=True, exist_ok=True)
-
-    backup_dirs = [p for p in backup_root.iterdir() if p.is_dir()]
-    backup_dirs.sort(key=lambda p: p.stat().st_mtime, reverse=True)
-    backup_pruned = 0
-    if backup_retention >= 0:
-        for old in backup_dirs[backup_retention:]:
-            shutil.rmtree(old, ignore_errors=True)
-            backup_pruned += 1
-
-    staging_pruned = 0
-    cutoff = time.time() - (staging_ttl_minutes * 60)
-    for entry in [p for p in staging_root.iterdir() if p.is_dir()]:
-        if entry.stat().st_mtime < cutoff:
-            shutil.rmtree(entry, ignore_errors=True)
-            staging_pruned += 1
-
-    return {"backup_pruned": backup_pruned, "staging_pruned": staging_pruned}
-
-
-def _safe_extract_zip(zip_path: Path, extract_dir: Path) -> None:
-    with zipfile.ZipFile(zip_path) as zf:
-        for member in zf.infolist():
-            member_path = Path(member.filename)
-            if member_path.is_absolute() or ".." in member_path.parts:
-                raise RuntimeError(f"unsafe_archive_path:{member.filename}")
-            target = (extract_dir / member_path).resolve()
-            if not str(target).startswith(str(extract_dir.resolve())):
-                raise RuntimeError(f"unsafe_archive_target:{member.filename}")
-        zf.extractall(extract_dir)
-
-
-def _safe_extract_tar(tar_path: Path, extract_dir: Path) -> None:
-    with tarfile.open(tar_path) as tf:
-        for member in tf.getmembers():
-            member_path = Path(member.name)
-            if member_path.is_absolute() or ".." in member_path.parts:
-                raise RuntimeError(f"unsafe_archive_path:{member.name}")
-            target = (extract_dir / member_path).resolve()
-            if not str(target).startswith(str(extract_dir.resolve())):
-                raise RuntimeError(f"unsafe_archive_target:{member.name}")
-        tf.extractall(extract_dir)
-
-
-def _extract_package(package_path: Path, extract_dir: Path) -> None:
-    suffixes = [s.lower() for s in package_path.suffixes]
-    if package_path.suffix.lower() == ".zip":
-        _safe_extract_zip(package_path, extract_dir)
-        return
-    if suffixes[-2:] in [[".tar", ".gz"], [".tar", ".bz2"], [".tar", ".xz"]] or package_path.suffix.lower() == ".tar":
-        _safe_extract_tar(package_path, extract_dir)
-        return
-    raise RuntimeError("unsupported_package_type")
-
-
-def _find_addon_dir(extract_dir: Path, addon_id: str) -> Path:
-    candidate = extract_dir / addon_id
-    if candidate.is_dir():
-        return candidate
-    return extract_dir
-
-
-def _validate_addon_layout(addon_dir: Path, addon_id: str) -> dict[str, Any]:
-    manifest_path = addon_dir / "manifest.json"
-    backend_entry = addon_dir / "backend" / "addon.py"
-    if not manifest_path.exists():
-        raise RuntimeError("missing_manifest_json")
-    if not backend_entry.exists():
-        raise RuntimeError("missing_backend_entrypoint")
+def _cleanup_store_workdirs(backup_retention: int, staging_ttl_minutes: int):
+    orig = lifecycle_mod.addons_root
+    lifecycle_mod.addons_root = _addons_root
     try:
-        manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except Exception as exc:
-        raise RuntimeError("invalid_manifest_json") from exc
-    if str(manifest_data.get("id", "")).strip() != addon_id:
-        raise RuntimeError("manifest_id_mismatch")
-    return manifest_data
-
-
-def _installed_addons_with_versions(registry: AddonRegistry) -> dict[str, str]:
-    out: dict[str, str] = {}
-    for addon_id, addon in registry.addons.items():
-        out[addon_id] = addon.meta.version
-
-    addons_root = _addons_root()
-    if addons_root.exists():
-        for entry in sorted(p for p in addons_root.iterdir() if p.is_dir() and not p.name.startswith(".")):
-            manifest_path = entry / "manifest.json"
-            if not manifest_path.exists():
-                continue
-            try:
-                data = json.loads(manifest_path.read_text(encoding="utf-8"))
-                addon_id = str(data.get("id", "")).strip() or entry.name
-                version = str(data.get("version", "unknown")).strip() or "unknown"
-                out[addon_id] = version
-            except Exception:
-                continue
-    return out
-
-
-@dataclass
-class AtomicResult:
-    addon_dir: Path
-    backup_dir: Path | None
-    # Internal-only metadata for future phases (catalog integrity + UI detail enrichments).
-    # Not persisted in audit DB and not exposed directly to clients in Phase 1.
-    installed_manifest: dict[str, Any]
-
-
-def _atomic_install_or_update(
-    *,
-    manifest: ReleaseManifest,
-    package_path: Path,
-    allow_replace: bool,
-) -> AtomicResult:
-    """
-    Perform atomic addon install/update with rollback safety.
-
-    Returns AtomicResult where installed_manifest is an internal-only payload
-    kept for forward-compatible post-install validation paths.
-    """
-    addons_root = _addons_root()
-    addons_root.mkdir(parents=True, exist_ok=True)
-    target_dir = addons_root / manifest.id
-    staging_root = addons_root / ".store_staging"
-    backup_root = addons_root / ".store_backup"
-    staging_root.mkdir(parents=True, exist_ok=True)
-    backup_root.mkdir(parents=True, exist_ok=True)
-
-    if target_dir.exists() and not allow_replace:
-        raise RuntimeError("addon_already_installed")
-
-    work_dir = Path(tempfile.mkdtemp(prefix=f"{manifest.id}-", dir=str(staging_root)))
-    extract_dir = work_dir / "extract"
-    extract_dir.mkdir(parents=True, exist_ok=True)
-    ready_dir = work_dir / "ready"
-
-    backup_dir: Path | None = None
-    manifest_data: dict[str, Any]
-
-    try:
-        _extract_package(package_path, extract_dir)
-        source_dir = _find_addon_dir(extract_dir, manifest.id)
-        manifest_data = _validate_addon_layout(source_dir, manifest.id)
-        shutil.copytree(source_dir, ready_dir)
-
-        if target_dir.exists():
-            backup_dir = backup_root / f"{manifest.id}-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
-            os.replace(target_dir, backup_dir)
-
-        os.replace(ready_dir, target_dir)
-        shutil.rmtree(work_dir, ignore_errors=True)
-        return AtomicResult(addon_dir=target_dir, backup_dir=backup_dir, installed_manifest=manifest_data)
-    except Exception:
-        try:
-            if target_dir.exists() and backup_dir is not None and backup_dir.exists():
-                shutil.rmtree(target_dir, ignore_errors=True)
-                os.replace(backup_dir, target_dir)
-            elif (not target_dir.exists()) and backup_dir is not None and backup_dir.exists():
-                os.replace(backup_dir, target_dir)
-        finally:
-            shutil.rmtree(work_dir, ignore_errors=True)
-        raise
-
-
-def _atomic_uninstall(addon_id: str) -> None:
-    target_dir = _addons_root() / addon_id
-    if not target_dir.exists():
-        raise RuntimeError("addon_not_installed")
-
-    staging_root = _addons_root() / ".store_staging"
-    staging_root.mkdir(parents=True, exist_ok=True)
-    trash_dir = Path(tempfile.mkdtemp(prefix=f"delete-{addon_id}-", dir=str(staging_root)))
-    moved_dir = trash_dir / addon_id
-
-    try:
-        os.replace(target_dir, moved_dir)
-        shutil.rmtree(moved_dir)
-        shutil.rmtree(trash_dir, ignore_errors=True)
-    except Exception:
-        if moved_dir.exists() and not target_dir.exists():
-            os.replace(moved_dir, target_dir)
-        shutil.rmtree(trash_dir, ignore_errors=True)
-        raise
-
-
-class StoreInstallRequest(BaseModel):
-    package_path: str = Field(..., min_length=1)
-    manifest: ReleaseManifest
-    public_key_pem: str = Field(..., min_length=1)
-    enable: bool = True
-    actor: str | None = None
-
-
-class StoreUpdateRequest(BaseModel):
-    package_path: str = Field(..., min_length=1)
-    manifest: ReleaseManifest
-    public_key_pem: str = Field(..., min_length=1)
-    enable: bool = True
-    actor: str | None = None
-
-
-class StoreUninstallRequest(BaseModel):
-    addon_id: str = Field(..., min_length=1)
-    actor: str | None = None
-
-
-class StoreAuditLogStore:
-    def __init__(self, db_path: str) -> None:
-        self.db_path = db_path
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
-        self._conn = sqlite3.connect(db_path, check_same_thread=False)
-        self._conn.row_factory = sqlite3.Row
-        self._lock = asyncio.Lock()
-        self._init_db()
-
-    def _init_db(self) -> None:
-        cur = self._conn.cursor()
-        cur.execute(
-            """
-            CREATE TABLE IF NOT EXISTS store_audit_log (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              timestamp TEXT NOT NULL,
-              action TEXT NOT NULL,
-              addon_id TEXT NOT NULL,
-              version TEXT,
-              status TEXT NOT NULL,
-              message TEXT NOT NULL,
-              actor TEXT
-            )
-            """
-        )
-        cur.execute("CREATE INDEX IF NOT EXISTS idx_store_audit_ts ON store_audit_log(timestamp)")
-        cur.execute("CREATE INDEX IF NOT EXISTS idx_store_audit_addon ON store_audit_log(addon_id)")
-        self._conn.commit()
-
-    async def record(
-        self,
-        *,
-        action: str,
-        addon_id: str,
-        version: str | None,
-        status: str,
-        message: str,
-        actor: str | None,
-    ) -> None:
-        async with self._lock:
-            await asyncio.to_thread(self._record_sync, action, addon_id, version, status, message, actor)
-
-    async def list_rows(
-        self,
-        *,
-        addon_id: str | None,
-        action: str | None,
-        status: str | None,
-        page: int,
-        page_size: int,
-    ) -> dict[str, Any]:
-        async with self._lock:
-            return await asyncio.to_thread(
-                self._list_rows_sync,
-                addon_id,
-                action,
-                status,
-                int(page),
-                int(page_size),
-            )
-
-    def _record_sync(
-        self,
-        action: str,
-        addon_id: str,
-        version: str | None,
-        status: str,
-        message: str,
-        actor: str | None,
-    ) -> None:
-        self._conn.execute(
-            """
-            INSERT INTO store_audit_log (timestamp, action, addon_id, version, status, message, actor)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (_utcnow_iso(), action, addon_id, version, status, message, actor),
-        )
-        self._conn.commit()
-
-    def _list_rows_sync(
-        self,
-        addon_id: str | None,
-        action: str | None,
-        status: str | None,
-        page: int,
-        page_size: int,
-    ) -> dict[str, Any]:
-        clauses: list[str] = []
-        params: list[Any] = []
-        if addon_id:
-            clauses.append("addon_id = ?")
-            params.append(addon_id)
-        if action:
-            clauses.append("action = ?")
-            params.append(action)
-        if status:
-            clauses.append("status = ?")
-            params.append(status)
-
-        where = ""
-        if clauses:
-            where = " WHERE " + " AND ".join(clauses)
-
-        count_sql = f"SELECT COUNT(*) AS c FROM store_audit_log{where}"
-        total = int(self._conn.execute(count_sql, params).fetchone()["c"])
-
-        page = max(1, int(page))
-        page_size = max(1, min(200, int(page_size)))
-        offset = (page - 1) * page_size
-
-        query_sql = (
-            "SELECT id, timestamp, action, addon_id, version, status, message, actor "
-            f"FROM store_audit_log{where} "
-            "ORDER BY id DESC "
-            "LIMIT ? OFFSET ?"
-        )
-        rows = self._conn.execute(query_sql, [*params, page_size, offset]).fetchall()
-        items = [
-            {
-                "id": int(r["id"]),
-                "timestamp": r["timestamp"],
-                "action": r["action"],
-                "addon_id": r["addon_id"],
-                "version": r["version"],
-                "status": r["status"],
-                "message": r["message"],
-                "actor": r["actor"],
-            }
-            for r in rows
-        ]
-        return {
-            "ok": True,
-            "items": items,
-            "total": total,
-            "page": page,
-            "page_size": page_size,
-            "has_next": (offset + page_size) < total,
-            "filters": {"addon_id": addon_id, "action": action, "status": status},
-        }
+        return cleanup_store_workdirs(backup_retention=backup_retention, staging_ttl_minutes=staging_ttl_minutes)
+    finally:
+        lifecycle_mod.addons_root = orig
 
 
 def build_store_router(registry: AddonRegistry, audit_store: StoreAuditLogStore) -> APIRouter:
@@ -452,8 +98,8 @@ def build_store_router(registry: AddonRegistry, audit_store: StoreAuditLogStore)
         actor = body.actor or "admin_token"
         try:
             cleanup = _cleanup_store_workdirs(
-                backup_retention=_store_backup_retention(),
-                staging_ttl_minutes=_store_staging_ttl_minutes(),
+                backup_retention=store_backup_retention(),
+                staging_ttl_minutes=store_staging_ttl_minutes(),
             )
             if cleanup["backup_pruned"] or cleanup["staging_pruned"]:
                 await audit_store.record(
@@ -471,7 +117,7 @@ def build_store_router(registry: AddonRegistry, audit_store: StoreAuditLogStore)
             resolve_manifest_compatibility(
                 body.manifest,
                 core_version=os.getenv("SYNTHIA_CORE_VERSION", "0.1.0"),
-                installed_addons=_installed_addons_with_versions(registry),
+                installed_addons=installed_addons_with_versions(registry),
             )
 
             result = _atomic_install_or_update(
@@ -548,8 +194,8 @@ def build_store_router(registry: AddonRegistry, audit_store: StoreAuditLogStore)
         actor = body.actor or "admin_token"
         try:
             cleanup = _cleanup_store_workdirs(
-                backup_retention=_store_backup_retention(),
-                staging_ttl_minutes=_store_staging_ttl_minutes(),
+                backup_retention=store_backup_retention(),
+                staging_ttl_minutes=store_staging_ttl_minutes(),
             )
             if cleanup["backup_pruned"] or cleanup["staging_pruned"]:
                 await audit_store.record(
@@ -567,7 +213,7 @@ def build_store_router(registry: AddonRegistry, audit_store: StoreAuditLogStore)
             resolve_manifest_compatibility(
                 body.manifest,
                 core_version=os.getenv("SYNTHIA_CORE_VERSION", "0.1.0"),
-                installed_addons=_installed_addons_with_versions(registry),
+                installed_addons=installed_addons_with_versions(registry),
             )
 
             result = _atomic_install_or_update(
@@ -647,7 +293,7 @@ def build_store_router(registry: AddonRegistry, audit_store: StoreAuditLogStore)
                 except Exception:
                     version = None
 
-            _atomic_uninstall(addon_id)
+            atomic_uninstall(addon_id)
             registry.set_enabled(addon_id, False)
             await audit_store.record(
                 action="uninstall",

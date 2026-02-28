@@ -13,8 +13,10 @@ from .signing import (
     verify_rsa_signature,
 )
 from .resolver import ResolverError, ResolutionResult, resolve_manifest_compatibility
-from .router import StoreAuditLogStore, build_store_router
+from .audit import StoreAuditLogStore
+from .router import build_store_router
 from .catalog import CatalogQuery, StaticCatalogStore
+from .lifecycle import AtomicResult
 
 __all__ = [
     "AddonManifest",
@@ -34,4 +36,5 @@ __all__ = [
     "build_store_router",
     "CatalogQuery",
     "StaticCatalogStore",
+    "AtomicResult",
 ]

@@ -36,6 +36,12 @@ SynthiaCore is a Core + Addons platform with a built-in scheduler, system metric
 - `backend/app/store/resolver.py` validates core-version compatibility, dependencies, and conflicts.
 - Resolution is deterministic (sorted dependency/conflict sets) and blocks on validation failures only (no auto-download path).
 
+### Store Module Layout
+- `backend/app/store/router.py` now focuses on endpoint wiring.
+- `backend/app/store/lifecycle.py` contains install/update/uninstall and retention cleanup logic.
+- `backend/app/store/extract.py` contains safe archive extraction and layout validation.
+- `backend/app/store/audit.py` owns `store_audit_log` persistence.
+
 ### Addon Store Lifecycle APIs (Phase 1)
 - `GET /api/store/catalog` (stub in Task 5, backed by catalog module in Task 6)
 - `POST /api/store/install` (admin token required)
