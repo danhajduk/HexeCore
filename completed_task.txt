@@ -1,0 +1,12 @@
+2026-02-28 - Added registered addon enable support and finalized Task 1 backend registry merge behavior.
+2026-02-28 - Session complete: Task 1 distributed addon registry backend implementation finalized.
+2026-02-28 - Added reverse proxy for registered addon API/UI with timeout/retry/circuit-breaker and server-side auth headers.
+2026-02-28 - Session complete: Task 2 reverse proxy and addons UI visibility implemented.
+2026-02-28 - Standardized addon contract endpoints and added registration+polling validation.
+2026-02-28 - Session complete: Task 3 addon contract validation implemented.
+2026-02-28 - Added MQTT control-plane manager, API endpoints, subscriptions, and registry announce/health updates.
+2026-02-28 - Session complete: Task 4 MQTT control-plane integration implemented.
+2026-02-28 - Added /api/services/resolve with registry-first and MQTT catalog fallback resolution.
+2026-02-28 - Session complete: Task 5 service discovery endpoint implemented.
+2026-02-28 - Added JWT service-token auth with keyring rotation and reusable validation dependency.
+2026-02-28 - Session complete: Task 6 service-token auth implemented.

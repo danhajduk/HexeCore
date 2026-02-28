@@ -1,0 +1,39 @@
+Workflow skill: $synthia-workflow 
+(/home/dan/.codex/skills/synthia-workflow/SKILL.md)
+
+Synthia policy alignment tasks (from docs/Policy documentations.)
+Date reviewed: 2026-02-28
+
+1) Build distributed addon registry (not only local filesystem discovery) - Completed on 02/28/2026 11:41
+
+2) Add reverse proxy for remote addon API/UI - Completed on 02/28/2026 11:47
+
+3) Standardize addon contract validation - Completed on 02/28/2026 12:00
+
+4) Add MQTT control-plane integration - Completed on 02/28/2026 12:11
+
+5) Add service discovery endpoint - Completed on 02/28/2026 12:17
+
+6) Implement service-token auth (JWT) - Completed on 02/28/2026 12:27
+
+7) Implement quota grants + revocations (policy authority in Core)
+- Add grant model (grant_id, consumer_addon_id, service, period_start/end, limits, status).
+- Publish retained grant and revocation updates over MQTT.
+- Add polling fallback endpoints for revocations/grants.
+- Code areas: new policy/grants store + router, MQTT publisher.
+
+8) Implement usage telemetry ingestion
+- Add POST /api/telemetry/usage endpoint for service addon reports.
+- Persist usage by service/consumer/grant and expose for dashboard/history.
+- Code areas: new telemetry router/store, optional frontend settings metrics views.
+
+9) Enforce security baseline
+- Separate auth roles: admin, guest, service.
+- Keep secrets out of MQTT payloads and logs.
+- Add audit logs for grant changes, revocations, and privileged config updates.
+- Add TLS requirement checks/warnings for non-localhost base_url targets.
+
+10) Frontend updates for new control-plane model
+- Expand Addons page to show remote base_url, capabilities, health, last_seen, auth_mode.
+- Add registry management UI for admin CRUD.
+- Add service resolution and MQTT status surfaces in settings/admin pages.
