@@ -23,6 +23,9 @@ SynthiaCore is a Core + Addons platform with a built-in scheduler, system metric
 - `GET /api/addons` list addon metadata.
 - `GET /api/addons/errors` addon load errors without blocking boot.
 
+### Addon Store Schema Endpoint (Phase 1)
+- `GET /api/store/schema` returns JSON schemas for `AddonManifest`, `ReleaseManifest`, `CompatibilitySpec`, and `SignatureBlock`.
+
 ## Scheduler (Pull-Based Leasing)
 - Priority queues: `high`, `normal`, `low`, `background`.
 - Leases: workers request leases and receive a job + capacity allocation.

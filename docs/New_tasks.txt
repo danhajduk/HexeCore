@@ -46,41 +46,7 @@ Security-first architecture only.
 
 ---
 
-## 2️⃣ Add Addon Package Specification
-
-Create:
-
-backend/app/store/models.py
-
-Define Pydantic models:
-
-- AddonManifest
-- ReleaseManifest
-- CompatibilitySpec
-- SignatureBlock
-
-Required fields:
-
-- id
-- name
-- version (semver validated)
-- core_min_version
-- core_max_version (optional)
-- dependencies
-- conflicts
-- checksum
-- signature
-- publisher_id
-- permissions (explicit sandbox capability list)
-
-Requirements:
-
-- Enforce semver validation.
-- Export JSON schema endpoint for validation.
-- Reject unknown permission types.
-- No optional silent fallbacks.
-
-Commit after implementation.
+## 2️⃣ Add Addon Package Specification - Completed on 02/28/2026 14:08
 
 ---
 

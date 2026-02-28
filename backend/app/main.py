@@ -40,6 +40,7 @@ from app.system.telemetry import UsageTelemetryStore, build_telemetry_router
 from app.system.audit import AuditLogStore
 from app.system.repo_status import router as repo_status_router
 from app.system.scheduler import build_scheduler_router
+from app.store import build_store_models_router
 
 setup_logging()
 log = logging.getLogger("synthia.core")
@@ -228,6 +229,7 @@ def create_app() -> FastAPI:
         prefix="/api/services",
         tags=["services"],
     )
+    app.include_router(build_store_models_router(), prefix="/api/store", tags=["store"])
 
     return app
 
