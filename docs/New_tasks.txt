@@ -1,25 +1,257 @@
 Workflow skill: $synthia-workflow 
 (/home/dan/.codex/skills/synthia-workflow/SKILL.md)
 
-Synthia policy alignment tasks (from docs/Policy documentations.)
-Date reviewed: 2026-02-28
+# SYNTHIA CORE — ADDON STORE (PHASE 1 FOUNDATION)
 
-1) Build distributed addon registry (not only local filesystem discovery) - Completed on 02/28/2026 11:41
+Use `synthia-workflow` skill for this entire task.
 
-2) Add reverse proxy for remote addon API/UI - Completed on 02/28/2026 11:47
+Follow project discipline:
+- Document and commit after each step.
+- Sign off in `completed_task.txt` with date + summary.
+- Rebuild docker when backend changes are complete.
+- Ensure `completed_task.txt` remains gitignored.
+- No breaking changes to existing addon runtime.
 
-3) Standardize addon contract validation - Completed on 02/28/2026 12:00
+---
 
-4) Add MQTT control-plane integration - Completed on 02/28/2026 12:11
+# OBJECTIVE
 
-5) Add service discovery endpoint - Completed on 02/28/2026 12:17
+Implement Phase 1 (Foundation Architecture) for the Synthia Core Addon Store.
 
-6) Implement service-token auth (JWT) - Completed on 02/28/2026 12:27
+This phase builds secure backend scaffolding:
+- Store models
+- Signing enforcement
+- Compatibility resolver
+- Lifecycle APIs
+- Catalog backend
+- Audit logging
 
-7) Implement quota grants + revocations (policy authority in Core) - Completed on 02/28/2026 12:28
+Do NOT implement:
+- Billing
+- Reviews
+- Ratings
+- Publisher portal
+- Telemetry
+- Sandbox runtime enforcement
 
-8) Implement usage telemetry ingestion - Completed on 02/28/2026 12:23
+Security-first architecture only.
 
-9) Enforce security baseline - Completed on 02/28/2026 12:33
+---
 
-10) Frontend updates for new control-plane model - Completed on 02/28/2026 12:39
+# PHASE 1 TASKS
+
+---
+
+## 1️⃣ Define Product Requirements (Documentation) - Completed on 02/28/2026 14:02
+
+---
+
+## 2️⃣ Add Addon Package Specification
+
+Create:
+
+backend/app/store/models.py
+
+Define Pydantic models:
+
+- AddonManifest
+- ReleaseManifest
+- CompatibilitySpec
+- SignatureBlock
+
+Required fields:
+
+- id
+- name
+- version (semver validated)
+- core_min_version
+- core_max_version (optional)
+- dependencies
+- conflicts
+- checksum
+- signature
+- publisher_id
+- permissions (explicit sandbox capability list)
+
+Requirements:
+
+- Enforce semver validation.
+- Export JSON schema endpoint for validation.
+- Reject unknown permission types.
+- No optional silent fallbacks.
+
+Commit after implementation.
+
+---
+
+## 3️⃣ Add Signing + Verification Layer
+
+Create:
+
+backend/app/store/signing.py
+
+Implement:
+
+- RSA public key verification
+- Checksum validation before unpack
+- Signature verification
+- Fail closed (reject unsigned or invalid addons)
+- Clear structured error responses
+
+Integrate verification into install pipeline BEFORE enabling.
+
+Add unit tests.
+
+Commit after tests pass.
+
+---
+
+## 4️⃣ Dependency & Compatibility Resolver
+
+Create:
+
+backend/app/store/resolver.py
+
+Implement:
+
+- Core version compatibility check
+- Dependency validation
+- Conflict detection
+- Deterministic resolution order
+- Structured error responses
+
+No auto-download of dependencies.
+Validation + blocking only.
+
+Commit.
+
+---
+
+## 5️⃣ Install / Update / Uninstall Lifecycle APIs
+
+Create:
+
+backend/app/store/router.py
+
+Endpoints:
+
+- GET /api/store/catalog
+- POST /api/store/install
+- POST /api/store/update
+- POST /api/store/uninstall
+- GET /api/store/status/{addon_id}
+
+Requirements:
+
+- Install is atomic.
+- Extract safely into addons/<id>.
+- Backup previous version before update.
+- Rollback on failure.
+- Write structured audit entries to SQLite.
+- Never enable addon until verification passes.
+- Reject partial installs.
+
+Add SQLite table:
+
+store_audit_log
+
+Columns:
+
+- id
+- timestamp
+- action
+- addon_id
+- version
+- status
+- message
+- actor (if available)
+
+Commit after implementation.
+
+Rebuild docker after this step.
+
+---
+
+## 6️⃣ Catalog Backend (Minimal)
+
+Create:
+
+backend/app/store/catalog.py  
+backend/app/store/catalog.json
+
+Catalog features:
+
+- search
+- categories
+- pagination
+- featured flag
+- recent sorting
+
+No ranking AI.
+No reviews.
+Static JSON-backed catalog is acceptable.
+
+Commit after implementation.
+
+---
+
+# SECURITY REQUIREMENTS
+
+- All installs must be signature-verified.
+- No unsigned addons can be enabled.
+- Permissions must be declared explicitly.
+- Unknown permissions are rejected.
+- All failures logged to audit table.
+- No debug bypass flags.
+
+Fail closed.
+
+---
+
+# DOCUMENTATION
+
+Create or update:
+
+docs/addon-store/architecture.md
+
+Include:
+
+- Package structure
+- Trust chain
+- Install lifecycle
+- Dependency resolution model
+- Future billing hook points
+- Future sandbox hook points
+- Future telemetry hook points
+
+Commit documentation separately.
+
+---
+
+# FINALIZATION CHECKLIST
+
+1. Run all tests.
+2. Rebuild docker:
+   ./scripts/rebuild.sh
+3. Update completed_task.txt with:
+   - Date
+   - Summary
+   - Files added
+   - APIs added
+4. Confirm completed_task.txt remains gitignored.
+5. Commit final state.
+
+---
+
+# DELIVERABLES (END OF PHASE 1)
+
+✔ Store backend scaffold  
+✔ Secure install pipeline  
+✔ RSA signing enforcement  
+✔ Dependency resolver  
+✔ Audit logging  
+✔ Catalog browsing API  
+
+---
+
+END OF PHASE 1
