@@ -37,3 +37,4 @@
 2026-02-28 - C2 cleanup: gated scheduler debug fields/routes behind SCHEDULER_DEBUG_ENABLED and added default-hidden route test.
 2026-02-28 - E1 cleanup: added admin audit query endpoint for store_audit_log with filters/pagination and test coverage.
 2026-02-28 - D1 cleanup: archived legacy TODO docs and created docs/ROADMAP.md as single active planning source.
+2026-02-28 - D2 cleanup: updated ARCHITECTURE.md with addon store control-plane flow, trust chain, and lifecycle endpoint model.

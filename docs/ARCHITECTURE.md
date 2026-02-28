@@ -232,3 +232,55 @@ Phase 4: Frontend addon sync + auto routing/nav
 5. Frontend routes under `/addons/<id>`.  
 6. Frontend imports only from `src/addons/*` (synced boundary).  
 7. Core never manually imports addon code; discovery does it.
+
+---
+
+## 8) Addon Store Control Plane (Current)
+
+### 8.1 Runtime model
+Synthia now supports artifact-based addon lifecycle operations in addition to local folder discovery.
+
+Store API endpoints:
+- `GET /api/store/schema`
+- `GET /api/store/catalog`
+- `POST /api/store/install`
+- `POST /api/store/update`
+- `POST /api/store/uninstall`
+- `GET /api/store/status/{addon_id}`
+- `GET /api/store/admin/audit` (admin token required)
+
+### 8.2 Trust chain
+Install/update flow is fail-closed:
+1. Receive `ReleaseManifest` + package artifact.
+2. Verify checksum (`sha256`) and RSA signature.
+3. Resolve compatibility (core version, dependencies, conflicts).
+4. Extract package safely with traversal protection.
+5. Perform atomic swap with rollback safety.
+6. Record lifecycle and maintenance events in `store_audit_log`.
+
+Unsigned or invalid artifacts are rejected before install/enable.
+
+### 8.3 Control-plane sequence
+```
+Catalog Source (static JSON now, remote later)
+        |
+        v
+GET /api/store/catalog
+        |
+        v
+Core Verification Pipeline
+(checksum + signature + resolver)
+        |
+        v
+Atomic Install/Update/Uninstall
+        |
+        +--> store_audit_log (SQLite)
+        |
+        v
+Addon Filesystem + Registry Visibility
+```
+
+### 8.4 Relationship to local discovery
+- Filesystem discovery (`addons/*/backend/addon.py`) remains the runtime loader.
+- Store lifecycle mutates addon filesystem content safely.
+- Runtime hot-reload is not yet implemented; newly installed addons become active after reload/startup discovery cycle.
