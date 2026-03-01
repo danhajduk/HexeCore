@@ -3,9 +3,11 @@ from __future__ import annotations
 import base64
 import hashlib
 import os
+import tarfile
 import tempfile
 import unittest
 import zipfile
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
 
@@ -840,6 +842,58 @@ class TestStoreApiEndpoints(unittest.TestCase):
                 json={"source_id": "official", "addon_id": "hello_world", "enable": True},
             )
         self.assertEqual(res.status_code, 200, res.text)
+
+    def test_catalog_install_invalid_layout_returns_structured_diagnostics(self) -> None:
+        manifest_bytes = b'{"id":"hello_world","name":"hello_world","version":"1.0.0"}'
+        app_main_bytes = b"from fastapi import FastAPI\napp = FastAPI()\n"
+        pkg = Path(self.tmp.name) / "invalid-layout.tgz"
+        with tarfile.open(pkg, "w:gz") as tf:
+            manifest_info = tarfile.TarInfo(name="manifest.json")
+            manifest_info.size = len(manifest_bytes)
+            tf.addfile(manifest_info, BytesIO(manifest_bytes))
+            app_main_info = tarfile.TarInfo(name="app/main.py")
+            app_main_info.size = len(app_main_bytes)
+            tf.addfile(app_main_info, BytesIO(app_main_bytes))
+        artifact_bytes = pkg.read_bytes()
+        fake_catalog = self._build_catalog_client(
+            artifact_bytes=artifact_bytes,
+            release_sig=self._sign_artifact(artifact_bytes),
+            release_url="https://example.test/hello_world-1.0.0.tgz",
+        )
+        app = FastAPI()
+        app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
+        client = TestClient(app)
+
+        with patch("app.store.router.resolve_manifest_compatibility", return_value=None), patch(
+            "app.store.router._addons_root", return_value=Path(self.tmp.name) / "addons"
+        ):
+            res = client.post(
+                "/api/store/install",
+                headers={"X-Admin-Token": "test-token"},
+                json={"source_id": "official", "addon_id": "hello_world", "enable": True},
+            )
+        self.assertEqual(res.status_code, 400, res.text)
+        detail = res.json()["detail"]
+        self.assertEqual(detail["error"], "catalog_package_layout_invalid")
+        self.assertEqual(detail["reason"], "missing_backend_entrypoint")
+        self.assertEqual(detail["source_id"], "official")
+        self.assertEqual(detail["resolved_base_url"], "https://raw.githubusercontent.test/catalog")
+        self.assertEqual(detail["artifact_url"], "https://example.test/hello_world-1.0.0.tgz")
+        self.assertEqual(detail["expected_backend_entrypoint"], "backend/addon.py")
+        self.assertEqual(detail["layout_hint"], "service_layout_app_main")
+        self.assertIn("standalone service package", detail["hint"])
+
+        with patch("app.store.router._addons_root", return_value=Path(self.tmp.name) / "addons"):
+            status = client.get("/api/store/status/hello_world")
+        self.assertEqual(status.status_code, 200, status.text)
+        status_payload = status.json()
+        self.assertIsNotNone(status_payload["last_install_error"])
+        self.assertEqual(status_payload["last_install_error"]["error"], "catalog_package_layout_invalid")
+        self.assertEqual(status_payload["last_install_error"]["source_id"], "official")
+        self.assertEqual(
+            status_payload["last_install_error"]["artifact_url"],
+            "https://example.test/hello_world-1.0.0.tgz",
+        )
 
 
 if __name__ == "__main__":

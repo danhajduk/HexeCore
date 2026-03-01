@@ -981,6 +981,26 @@ def build_store_router(
             detail = str(exc) or type(exc).__name__
             if detail == "addon_already_installed":
                 raise HTTPException(status_code=409, detail=detail)
+            if catalog_install and detail.startswith("missing_backend_entrypoint"):
+                layout_hint = None
+                if detail == "missing_backend_entrypoint:service_layout_app_main":
+                    layout_hint = "service_layout_app_main"
+                error_payload: dict[str, Any] = {
+                    "error": "catalog_package_layout_invalid",
+                    "reason": "missing_backend_entrypoint",
+                    "source_id": debug_source_id,
+                    "resolved_base_url": debug_resolved_base_url,
+                    "artifact_url": debug_artifact_url,
+                    "expected_backend_entrypoint": "backend/addon.py",
+                }
+                if layout_hint == "service_layout_app_main":
+                    error_payload["layout_hint"] = layout_hint
+                    error_payload["hint"] = (
+                        "artifact appears to be a standalone service package (app/main.py); "
+                        "embedded addon installs require backend/addon.py"
+                    )
+                _persist_last_install_error(error_code="catalog_package_layout_invalid")
+                raise HTTPException(status_code=400, detail=error_payload)
             _persist_last_install_error(error_code=detail)
             raise HTTPException(status_code=400, detail=detail)
         finally:

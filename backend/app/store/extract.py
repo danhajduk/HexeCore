@@ -69,6 +69,8 @@ def validate_addon_layout(addon_dir: Path, addon_id: str) -> dict[str, Any]:
     if not manifest_path.exists():
         raise RuntimeError("missing_manifest_json")
     if not backend_entry.exists():
+        if (addon_dir / "app" / "main.py").exists():
+            raise RuntimeError("missing_backend_entrypoint:service_layout_app_main")
         raise RuntimeError("missing_backend_entrypoint")
     try:
         manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
