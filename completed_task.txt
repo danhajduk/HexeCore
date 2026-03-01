@@ -77,3 +77,4 @@
 2026-03-01 - Added ALLOW_INSECURE_CATALOG emergency bypass (with warning metadata), enabled it in runtime admin env, and documented it in README/env example.
 2026-03-01 - Session complete: ALLOW_INSECURE_CATALOG emergency bypass implemented, enabled in runtime admin env, and documented.
 2026-03-01 - Fixed catalog install ReleaseManifest publisher_id validation by deriving publisher from publisher_key_id and supporting publisher payload field aliases; added API regression coverage.
+2026-03-01 - Session complete: install_http_400 ReleaseManifest publisher_id validation fixed for publisher_key_id-only catalog entries.
