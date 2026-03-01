@@ -123,3 +123,4 @@
 2026-03-01 - Session complete: Tasks 53-54 delivered (profile mismatch diagnostics and expanded SAS release-selection regression coverage).
 2026-03-01 - Resolved catalog_releases_missing for wrapped channel release schemas in store install flow.
 2026-03-01 - Normalized cached catalog channel releases for UI metadata fields (version, release count, publisher) with regression tests.
+2026-03-01 - Hardened Addon Store UI catalog normalization to display release details from release_count and channel-based payload variants.

@@ -235,7 +235,7 @@ Frontend shows “Update available” / “Up to date” / “Repo status unavai
 ## Frontend Pages
 - Guest access is limited to `/` (Home). Non-home routes redirect to `/` until an admin session is active.
 - Home page includes admin username/password sign-in and sign-out controls backed by `/api/admin/session/*` cookie-session endpoints.
-- `/store` — Addon Store catalog page with refresh, client-side search, and install actions.
+- `/store` — Addon Store catalog page with refresh, client-side search, install actions, and channel-aware release detail rendering.
 - `/addons` — Addons inventory plus distributed install wizard (install session start, permissions, deployment choice, discovery polling, configure, verify, and UI link).
 - `/settings` — App settings (stored in SQLite).
 - `/settings/jobs` — Live scheduler jobs + filters.

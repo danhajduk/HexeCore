@@ -16,6 +16,8 @@ type RawCatalogItem = {
   published_at?: unknown;
   publisher_id?: unknown;
   releases?: unknown;
+  release_count?: unknown;
+  channels?: unknown;
 };
 
 type CatalogItem = {
@@ -65,13 +67,59 @@ function asStringArray(value: unknown): string[] {
     .filter((entry): entry is string => Boolean(entry));
 }
 
+function asReleaseArray(value: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) return [];
+  return value.filter((entry): entry is Record<string, unknown> => typeof entry === "object" && entry !== null);
+}
+
+function asNonNegativeInt(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  return Math.max(0, Math.trunc(value));
+}
+
+function channelReleases(channels: unknown): Array<Record<string, unknown>> {
+  if (!channels || typeof channels !== "object") return [];
+  const obj = channels as Record<string, unknown>;
+  const preferred = ["stable", "beta", "nightly"];
+  const remaining = Object.keys(obj).filter((name) => !preferred.includes(name)).sort();
+  const names = [...preferred, ...remaining];
+  const out: Array<Record<string, unknown>> = [];
+
+  for (const name of names) {
+    const rawChannel = obj[name];
+    if (Array.isArray(rawChannel)) {
+      out.push(
+        ...rawChannel.filter((entry): entry is Record<string, unknown> => typeof entry === "object" && entry !== null),
+      );
+      continue;
+    }
+    if (!rawChannel || typeof rawChannel !== "object") {
+      continue;
+    }
+    const wrapped = (rawChannel as Record<string, unknown>).releases;
+    if (Array.isArray(wrapped)) {
+      out.push(
+        ...wrapped.filter((entry): entry is Record<string, unknown> => typeof entry === "object" && entry !== null),
+      );
+      continue;
+    }
+    const maybeRelease = rawChannel as Record<string, unknown>;
+    if (typeof maybeRelease.version === "string" && maybeRelease.version.trim()) {
+      out.push(maybeRelease);
+    }
+  }
+
+  return out;
+}
+
 function normalizeCatalogItem(item: RawCatalogItem, index: number): CatalogItem {
   const addonId = asString(item.id);
   const fallbackId = `unknown-${index + 1}`;
-  const releases = Array.isArray(item.releases)
-    ? (item.releases as Array<Record<string, unknown>>)
-    : [];
-  const latestRelease = releases[0] || {};
+  const releases = asReleaseArray(item.releases);
+  const releasesFromChannels = channelReleases(item.channels);
+  const effectiveReleases = releases.length > 0 ? releases : releasesFromChannels;
+  const releaseCount = asNonNegativeInt(item.release_count);
+  const latestRelease = effectiveReleases[0] || {};
   const version =
     asString(item.version) ||
     asString(latestRelease.version) ||
@@ -88,7 +136,7 @@ function normalizeCatalogItem(item: RawCatalogItem, index: number): CatalogItem 
     version,
     publishedAt: asString(item.published_at),
     publisherId: asString(item.publisher_id),
-    releaseCount: releases.length,
+    releaseCount: releaseCount ?? effectiveReleases.length,
   };
 }
 
