@@ -9,6 +9,7 @@ SynthiaCore is a Core + Addons platform with a built-in scheduler, system metric
 - **Settings**: App settings stored in SQLite, plus dedicated Settings pages for Jobs, Metrics, Statistics.
 - **Repo status badge**: Header shows whether `origin/main` is ahead of the local repo.
 - **Hello World addon**: Full UI and backend demo with job enqueue, scheduler controls, and worker simulator.
+- **Distributed addon policy baseline**: `docs/distributed_addons/README.md` maps current implementation to policy docs and tracked gap tasks.
 
 ## Core Runtime
 - **Backend**: FastAPI app that mounts core system routes and addon routers.

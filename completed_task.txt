@@ -102,3 +102,4 @@
 2026-03-01 - Fixed catalog installs for .tgz/tar artifacts by preserving artifact extension in temp files and adding content-based archive extraction fallback; added regression tests.
 2026-03-01 - Session complete: Task 40 delivered with tgz/tar catalog artifact extraction support and regression coverage.
 2026-03-01 - Added structured catalog package-layout diagnostics for missing_backend_entrypoint (including service-layout hint and expected backend entrypoint) and regression coverage.
+2026-03-01 - Added distributed-addon policy alignment baseline doc linking policy references and mapping current implementation gaps/tasks.
