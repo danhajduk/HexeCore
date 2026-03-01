@@ -75,3 +75,4 @@
 2026-02-28 - Session complete: catalog_signature_invalid mitigated by official source /master -> /main migration and startup auto-heal.
 2026-02-28 - Added official catalog branch fallback on 404 (main<->master) to prevent catalog_http_error:404 during refresh; added cache-client regression test.
 2026-03-01 - Added ALLOW_INSECURE_CATALOG emergency bypass (with warning metadata), enabled it in runtime admin env, and documented it in README/env example.
+2026-03-01 - Session complete: ALLOW_INSECURE_CATALOG emergency bypass implemented, enabled in runtime admin env, and documented.
