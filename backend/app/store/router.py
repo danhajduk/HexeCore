@@ -313,6 +313,13 @@ def _build_release_manifest(addon_id: str, addon_item: dict[str, Any], release_i
     ).strip()
     signature_b64 = _release_signature_b64(release_item)
     checksum = _release_checksum(release_item)
+    package_profile = str(
+        release_item.get("package_profile")
+        or addon_item.get("package_profile")
+        or release_item.get("profile")
+        or addon_item.get("profile")
+        or "embedded_addon"
+    ).strip()
 
     manifest_payload = release_item.get("manifest")
     if isinstance(manifest_payload, dict):
@@ -321,6 +328,7 @@ def _build_release_manifest(addon_id: str, addon_item: dict[str, Any], release_i
         data.setdefault("name", str(addon_item.get("name") or addon_id))
         data.setdefault("publisher_id", publisher_id)
         data.setdefault("checksum", checksum)
+        data.setdefault("package_profile", package_profile)
         data.setdefault("signature", {"publisher_id": publisher_id, "signature": signature_b64})
         data.setdefault("compatibility", compat)
         data.setdefault("permissions", addon_item.get("permissions") or release_item.get("permissions") or [])
@@ -337,6 +345,7 @@ def _build_release_manifest(addon_id: str, addon_item: dict[str, Any], release_i
             "conflicts": compat["conflicts"],
             "checksum": checksum,
             "publisher_id": publisher_id,
+            "package_profile": package_profile,
             "permissions": addon_item.get("permissions") or release_item.get("permissions") or [],
             "signature": {"publisher_id": publisher_id, "signature": signature_b64},
             "compatibility": compat,
@@ -574,6 +583,7 @@ def build_store_router(
         debug_actual_sha256: str | None = None
         debug_publisher_key_id: str | None = None
         debug_signature_type: str | None = None
+        debug_package_profile: str | None = None
 
         def _persist_last_install_error(
             *,
@@ -638,6 +648,7 @@ def build_store_router(
                 public_key_pem = str(body.public_key_pem)
                 artifact_bytes = package_path.read_bytes()
                 expected_sha256 = manifest.checksum
+                debug_package_profile = manifest.package_profile
                 debug_source_id = source_id
             else:
                 if sources is None:
@@ -701,6 +712,7 @@ def build_store_router(
                                 },
                             )
                         raise HTTPException(status_code=409, detail="catalog_no_compatible_release")
+                    debug_package_profile = manifest.package_profile
                     release_signature_b64 = _release_signature_b64(release_item)
                     publisher_key_id = str(release_item.get("publisher_key_id") or "").strip()
                     if not publisher_key_id:
@@ -845,6 +857,22 @@ def build_store_router(
                 core_version=_configured_core_version(),
                 installed_addons=installed_addons_with_versions(registry),
             )
+
+            if manifest.package_profile != "embedded_addon":
+                error_payload: dict[str, Any] = {
+                    "error": "catalog_package_profile_unsupported" if catalog_install else "package_profile_unsupported",
+                    "package_profile": manifest.package_profile,
+                    "supported_profiles": ["embedded_addon"],
+                    "hint": (
+                        "standalone_service packages are not installable as embedded addons; "
+                        "deploy service package externally and register via /api/admin/addons/registry"
+                    ),
+                }
+                if catalog_install:
+                    error_payload["source_id"] = debug_source_id
+                    error_payload["resolved_base_url"] = debug_resolved_base_url
+                    error_payload["artifact_url"] = debug_artifact_url
+                raise HTTPException(status_code=400, detail=error_payload)
 
             result = _atomic_install_or_update(
                 manifest=manifest,
@@ -991,13 +1019,16 @@ def build_store_router(
                     "source_id": debug_source_id,
                     "resolved_base_url": debug_resolved_base_url,
                     "artifact_url": debug_artifact_url,
+                    "expected_package_profile": debug_package_profile or "embedded_addon",
                     "expected_backend_entrypoint": "backend/addon.py",
                 }
                 if layout_hint == "service_layout_app_main":
                     error_payload["layout_hint"] = layout_hint
+                    error_payload["detected_package_profile"] = "standalone_service"
                     error_payload["hint"] = (
                         "artifact appears to be a standalone service package (app/main.py); "
-                        "embedded addon installs require backend/addon.py"
+                        "set package_profile=standalone_service and deploy/register externally, "
+                        "or ship embedded_addon layout with backend/addon.py"
                     )
                 _persist_last_install_error(error_code="catalog_package_layout_invalid")
                 raise HTTPException(status_code=400, detail=error_payload)

@@ -108,3 +108,4 @@
 2026-03-01 - Updated revocation publishing to retained consumer_addon_id and grant_id topics with legacy id-topic compatibility, including policy API regression tests.
 2026-03-01 - Added automatic retained synthia/core/mqtt/info publish on MQTT connect/restart with sanitized broker metadata and heartbeat timestamp, with manager tests.
 2026-03-01 - Added service-principal auth flow for /api/auth/service-token (env-configured principals with subject/audience/scope/TTL constraints) while keeping admin issuance, plus auth API tests.
+2026-03-01 - Added explicit release package_profile handling (embedded_addon vs standalone_service) with catalog install-time enforcement and structured deployment guidance, plus store API regression tests.

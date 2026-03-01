@@ -130,6 +130,7 @@ def _manifest_payload(addon_id: str = "hello_world") -> dict:
         "conflicts": [],
         "checksum": "abc123",
         "publisher_id": "pub-1",
+        "package_profile": "embedded_addon",
         "permissions": ["filesystem.read"],
         "signature": {"publisher_id": "pub-1", "signature": "c2ln"},
         "compatibility": {
@@ -191,6 +192,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         use_nested_artifact_url: bool = False,
         core_min_version: str = "0.1.0",
         release_url: str = "https://example.test/hello_world-1.0.0.zip",
+        package_profile: str = "embedded_addon",
         fail_first_download_404: bool = False,
         fail_all_download_404: bool = False,
         refreshed_release_url: str | None = None,
@@ -213,6 +215,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
             "checksum": release_checksum if release_checksum is not None else digest,
             "release_sig": release_sig,
             "publisher_key_id": publisher_key_id,
+            "package_profile": package_profile,
             **release_publisher,
             "compatibility": {
                 "core_min_version": core_min_version,
@@ -879,6 +882,8 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(detail["source_id"], "official")
         self.assertEqual(detail["resolved_base_url"], "https://raw.githubusercontent.test/catalog")
         self.assertEqual(detail["artifact_url"], "https://example.test/hello_world-1.0.0.tgz")
+        self.assertEqual(detail["expected_package_profile"], "embedded_addon")
+        self.assertEqual(detail["detected_package_profile"], "standalone_service")
         self.assertEqual(detail["expected_backend_entrypoint"], "backend/addon.py")
         self.assertEqual(detail["layout_hint"], "service_layout_app_main")
         self.assertIn("standalone service package", detail["hint"])
@@ -894,6 +899,37 @@ class TestStoreApiEndpoints(unittest.TestCase):
             status_payload["last_install_error"]["artifact_url"],
             "https://example.test/hello_world-1.0.0.tgz",
         )
+
+    def test_catalog_install_rejects_standalone_service_profile_with_guidance(self) -> None:
+        pkg = Path(self.tmp.name) / "bundle-standalone.zip"
+        with zipfile.ZipFile(pkg, "w") as zf:
+            zf.writestr("hello_world/manifest.json", '{"id":"hello_world","name":"hello_world","version":"1.0.0"}')
+            zf.writestr("hello_world/backend/addon.py", "addon = None\n")
+        artifact_bytes = pkg.read_bytes()
+        fake_catalog = self._build_catalog_client(
+            artifact_bytes=artifact_bytes,
+            release_sig=self._sign_artifact(artifact_bytes),
+            package_profile="standalone_service",
+        )
+        app = FastAPI()
+        app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
+        client = TestClient(app)
+
+        with patch("app.store.router.resolve_manifest_compatibility", return_value=None), patch(
+            "app.store.router._atomic_install_or_update"
+        ):
+            res = client.post(
+                "/api/store/install",
+                headers={"X-Admin-Token": "test-token"},
+                json={"source_id": "official", "addon_id": "hello_world", "enable": True},
+            )
+        self.assertEqual(res.status_code, 400, res.text)
+        detail = res.json()["detail"]
+        self.assertEqual(detail["error"], "catalog_package_profile_unsupported")
+        self.assertEqual(detail["package_profile"], "standalone_service")
+        self.assertEqual(detail["supported_profiles"], ["embedded_addon"])
+        self.assertEqual(detail["source_id"], "official")
+        self.assertIn("deploy service package externally", detail["hint"])
 
 
 if __name__ == "__main__":

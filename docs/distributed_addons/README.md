@@ -23,10 +23,10 @@ This document maps the current implementation to the policy set in `docs/Policie
 | Service tokens | Service-to-service JWT issuance | `/api/auth/service-token` now supports constrained service-principal issuance (`X-Service-Principal-Id`/`X-Service-Principal-Secret`) in addition to admin issuance | Aligned |
 | Policy grants schema | General limits (`max_requests`, `max_tokens`, `max_cost_cents`, `max_bytes`) | API/persistence/MQTT grant payloads now use the policy limit keys; legacy `max_units`/`burst` inputs are normalized for compatibility | Aligned |
 | Revocation topic model | Revocation keyed by both consumer and grant | Core now publishes retained revocations on `consumer_addon_id` and `grant_id` topics, plus legacy `{id}` compatibility topic | Aligned |
-| Addon package profiles | Clear embedded-addon vs standalone-service handling | Embedded addon layout enforced; invalid service layout now returns structured diagnostics | Partial |
+| Addon package profiles | Clear embedded-addon vs standalone-service handling | Release manifests now carry `package_profile`; catalog installs enforce `embedded_addon` and return explicit standalone-service deployment guidance when unsupported | Aligned |
 
 ## Gap-to-Task Mapping
-- Task 48: Formalize package profiles and install-time validation for `embedded addon` vs `standalone service`.
+- None. Tasks 43-48 are complete as of 03/01/2026.
 
 ## Notes
 - This baseline is intentionally implementation-focused and is updated as each gap task lands.

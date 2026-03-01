@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -24,6 +24,7 @@ PermissionType = Literal[
     "mqtt.publish",
     "mqtt.subscribe",
 ]
+PackageProfile = Literal["embedded_addon", "standalone_service"]
 
 
 def _validate_semver(value: str, field_name: str) -> str:
@@ -93,6 +94,7 @@ class ReleaseManifest(BaseModel):
     conflicts: list[str] = Field(...)
     checksum: str = Field(..., min_length=1)
     publisher_id: str = Field(..., min_length=1)
+    package_profile: PackageProfile = Field(default="embedded_addon")
     permissions: list[PermissionType] = Field(...)
     signature: SignatureBlock = Field(...)
     compatibility: CompatibilitySpec = Field(...)
@@ -138,6 +140,20 @@ class ReleaseManifest(BaseModel):
         if value is None:
             return None
         return _validate_semver(value, "core_max_version")
+
+    @field_validator("package_profile", mode="before")
+    @classmethod
+    def _normalize_package_profile(cls, value: Any) -> Any:
+        if value is None:
+            return "embedded_addon"
+        normalized = str(value).strip().lower().replace("-", "_").replace(" ", "_")
+        aliases = {
+            "embedded": "embedded_addon",
+            "addon": "embedded_addon",
+            "standalone": "standalone_service",
+            "service": "standalone_service",
+        }
+        return aliases.get(normalized, normalized)
 
     @model_validator(mode="after")
     def _canonicalize_top_level_compat(self):
