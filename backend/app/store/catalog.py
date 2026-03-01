@@ -358,6 +358,17 @@ class CatalogCacheClient:
             raise RuntimeError("catalog_redirect_limit_exceeded")
 
     def _extract_items(self, index_payload: Any) -> list[dict[str, Any]]:
+        def _channel_release_entries(raw_channel: Any) -> list[dict[str, Any]]:
+            if isinstance(raw_channel, list):
+                return [dict(item) for item in raw_channel if isinstance(item, dict)]
+            if isinstance(raw_channel, dict):
+                nested = raw_channel.get("releases")
+                if isinstance(nested, list):
+                    return [dict(item) for item in nested if isinstance(item, dict)]
+                if "version" in raw_channel:
+                    return [dict(raw_channel)]
+            return []
+
         if isinstance(index_payload, list):
             return [x for x in index_payload if isinstance(x, dict)]
         if isinstance(index_payload, dict):
@@ -368,15 +379,41 @@ class CatalogCacheClient:
                 for raw in index_payload["addons"]:
                     if not isinstance(raw, dict):
                         continue
-                    releases = [x for x in raw.get("releases", []) if isinstance(x, dict)]
+                    releases: list[dict[str, Any]] = []
+                    channels = raw.get("channels")
+                    if isinstance(channels, dict):
+                        preferred_order = ["stable", "beta", "nightly"]
+                        remaining = [name for name in channels.keys() if str(name) not in preferred_order]
+                        channel_names = preferred_order + sorted(str(name) for name in remaining)
+                        for channel_name in channel_names:
+                            for release in _channel_release_entries(channels.get(channel_name)):
+                                item = dict(release)
+                                item.setdefault("channel", channel_name)
+                                releases.append(item)
+                    if not releases:
+                        releases = [dict(x) for x in raw.get("releases", []) if isinstance(x, dict)]
                     latest_release = releases[0] if releases else {}
                     addon_id = raw.get("id") or raw.get("addon_id")
                     manifest = raw.get("manifest") if isinstance(raw.get("manifest"), dict) else {}
+                    latest_manifest = latest_release.get("manifest") if isinstance(latest_release.get("manifest"), dict) else {}
+                    latest_manifest_publisher = (
+                        latest_manifest.get("publisher")
+                        if isinstance(latest_manifest.get("publisher"), dict)
+                        else {}
+                    )
+                    manifest_publisher = manifest.get("publisher") if isinstance(manifest.get("publisher"), dict) else {}
+                    categories = raw.get("categories")
+                    if not isinstance(categories, list):
+                        categories = latest_manifest.get("categories")
+                    if not isinstance(categories, list):
+                        categories = manifest.get("categories")
+                    if not isinstance(categories, list):
+                        categories = []
                     item = {
                         "id": addon_id or manifest.get("id"),
-                        "name": raw.get("name") or addon_id or manifest.get("name"),
-                        "description": raw.get("description") or manifest.get("description") or "",
-                        "categories": raw.get("categories", []),
+                        "name": raw.get("name") or addon_id or latest_manifest.get("name") or manifest.get("name"),
+                        "description": raw.get("description") or latest_manifest.get("description") or manifest.get("description") or "",
+                        "categories": categories,
                         "featured": bool(raw.get("featured", False)),
                         "version": raw.get("version") or latest_release.get("version"),
                         "published_at": raw.get("published_at") or raw.get("updated_at") or "",
@@ -384,7 +421,9 @@ class CatalogCacheClient:
                             raw.get("publisher_id")
                             or latest_release.get("publisher_id")
                             or latest_release.get("publisher_key_id")
+                            or latest_manifest_publisher.get("id")
                             or manifest.get("publisher_id")
+                            or manifest_publisher.get("id")
                         ),
                         "release_count": len(releases),
                         "releases": releases,

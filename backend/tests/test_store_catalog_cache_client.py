@@ -225,6 +225,60 @@ class TestCatalogCacheClient(unittest.TestCase):
             self.assertEqual(status.get("catalog_integrity_mode"), "insecure_bypass")
             self.assertIn("ALLOW_INSECURE_CATALOG", str(status.get("catalog_integrity_warning")))
 
+    def test_query_cached_normalizes_channels_wrapped_release_details(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            client = self._client(Path(td))
+            source = self._source()
+
+            index_payload = {
+                "schema_version": "1.0",
+                "addons": [
+                    {
+                        "addon_id": "hello_world",
+                        "name": "Hello World",
+                        "description": "Example addon",
+                        "channels": {
+                            "stable": {
+                                "releases": [
+                                    {
+                                        "version": "1.2.3",
+                                        "publisher_key_id": "key-1",
+                                        "artifact_url": "https://example.test/hello_world-1.2.3.tgz",
+                                    }
+                                ]
+                            },
+                            "beta": [],
+                            "nightly": [],
+                        },
+                    }
+                ],
+            }
+            index_bytes = json.dumps(index_payload).encode("utf-8")
+            publishers = b'{"publishers":[]}'
+            fetch_map = {
+                "catalog/v1/index.json": index_bytes,
+                "catalog/v1/index.json.sig": self._sig(index_bytes),
+                "catalog/v1/publishers.json": publishers,
+                "catalog/v1/publishers.json.sig": self._sig(publishers),
+            }
+
+            with patch.object(
+                CatalogCacheClient,
+                "_download_bytes",
+                side_effect=lambda url: fetch_map[url.split(source.base_url.rstrip("/") + "/")[1]],
+            ):
+                refresh = client.refresh_source(source)
+
+            self.assertTrue(refresh["ok"])
+            result = client.query_cached(source.id, CatalogQuery())
+            self.assertEqual(result["total"], 1)
+            item = result["items"][0]
+            self.assertEqual(item["id"], "hello_world")
+            self.assertEqual(item["version"], "1.2.3")
+            self.assertEqual(item["release_count"], 1)
+            self.assertEqual(item["publisher_id"], "key-1")
+            self.assertEqual(item["releases"][0]["channel"], "stable")
+
 
 if __name__ == "__main__":
     unittest.main()
