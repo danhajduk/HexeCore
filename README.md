@@ -109,14 +109,17 @@ Catalog cache behavior (Phase 2):
   - enforces `release.publisher_key_id` lookup in cached `publishers.json` (must exist and be enabled),
   - enforces detached signature type support (`rsa-sha256` only),
   - verifies SHA256 + detached `release_sig` over artifact bytes before atomic install,
-  - records source metadata used by `GET /api/store/status/{addon_id}`.
+  - records source metadata used by `GET /api/store/status/{addon_id}`,
+  - persists `last_install_error` debug context after catalog install failures (error code, source id, resolved base URL, artifact URL, expected/actual SHA256).
 
 Store status response fields (Phase 2):
 - `installed_version`
 - `installed_from_source_id`
+- `installed_resolved_base_url`
 - `installed_release_url`
 - `installed_sha256`
 - `installed_at`
+- `last_install_error` (or `null` after successful install)
 
 Catalog query parameters:
 - `q` free-text search over id/name/description/categories

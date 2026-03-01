@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import logging
 import os
 import shutil
 import tempfile
@@ -34,6 +35,8 @@ from .models import ReleaseManifest
 from .resolver import ResolverError, resolve_manifest_compatibility
 from .signing import VerificationError, verify_detached_artifact_signature, verify_release_artifact
 from .sources import StoreSource, StoreSourcesStore
+
+log = logging.getLogger("synthia.store")
 
 # Backward-compatible wrappers kept for tests and gradual refactor migration.
 def _addons_root():
@@ -91,6 +94,15 @@ def _set_install_state(addon_id: str, data: dict[str, Any]) -> None:
     _save_install_state(state)
 
 
+def _update_install_state(addon_id: str, data: dict[str, Any]) -> None:
+    state = _load_install_state()
+    current = state.get(addon_id)
+    payload: dict[str, Any] = dict(current) if isinstance(current, dict) else {}
+    payload.update(data)
+    state[addon_id] = payload
+    _save_install_state(state)
+
+
 def _clear_install_state(addon_id: str) -> None:
     state = _load_install_state()
     if addon_id in state:
@@ -104,6 +116,26 @@ def _get_install_state(addon_id: str) -> dict[str, Any] | None:
     if isinstance(value, dict):
         return value
     return None
+
+
+def _resolved_base_url_for_source(
+    cache_catalog: CatalogCacheClient,
+    source_id: str | None,
+    fallback: str | None = None,
+) -> str | None:
+    if not source_id:
+        return fallback
+    loader = getattr(cache_catalog, "load_source_metadata", None)
+    if not callable(loader):
+        return fallback
+    try:
+        payload = loader(source_id)
+    except Exception:
+        return fallback
+    if not isinstance(payload, dict):
+        return fallback
+    resolved = str(payload.get("resolved_base_url") or "").strip()
+    return resolved or fallback
 
 
 def _installed_summary_map() -> dict[str, dict[str, Any]]:
@@ -521,6 +553,44 @@ def build_store_router(
         if not local_install and not catalog_install:
             raise HTTPException(status_code=400, detail="install_mode_missing")
         temp_install_dir: Path | None = None
+        target_addon_id = (
+            body.addon_id.strip()
+            if body.addon_id and body.addon_id.strip()
+            else (body.manifest.id if body.manifest is not None else None)
+        )
+        debug_source_id: str | None = None
+        debug_resolved_base_url: str | None = None
+        debug_artifact_url: str | None = None
+        debug_expected_sha256: list[str] | None = None
+        debug_actual_sha256: str | None = None
+
+        def _persist_last_install_error(
+            *,
+            error_code: str | None,
+            source_id: str | None = None,
+            resolved_base_url: str | None = None,
+            artifact_url: str | None = None,
+            expected_sha256: list[str] | None = None,
+            actual_sha256: str | None = None,
+        ) -> None:
+            if not catalog_install or not target_addon_id:
+                return
+            sid = source_id or debug_source_id
+            resolved = _resolved_base_url_for_source(
+                cache_catalog,
+                sid,
+                resolved_base_url or debug_resolved_base_url,
+            )
+            payload = {
+                "error": error_code or "install_failed",
+                "source_id": sid,
+                "resolved_base_url": resolved,
+                "artifact_url": artifact_url or debug_artifact_url,
+                "expected_sha256": expected_sha256 if expected_sha256 is not None else debug_expected_sha256,
+                "actual_sha256": actual_sha256 or debug_actual_sha256,
+                "occurred_at": _utcnow_iso(),
+            }
+            _update_install_state(target_addon_id, {"last_install_error": payload})
 
         try:
             cleanup = _cleanup_store_workdirs(
@@ -553,6 +623,7 @@ def build_store_router(
                 public_key_pem = str(body.public_key_pem)
                 artifact_bytes = package_path.read_bytes()
                 expected_sha256 = manifest.checksum
+                debug_source_id = source_id
             else:
                 if sources is None:
                     raise HTTPException(status_code=500, detail="sources_store_not_configured")
@@ -564,6 +635,8 @@ def build_store_router(
                 if selected is None:
                     raise HTTPException(status_code=404, detail="store_source_not_found_or_disabled")
                 source_id = selected.id
+                debug_source_id = source_id
+                debug_resolved_base_url = _resolved_base_url_for_source(cache_catalog, source_id, selected.base_url)
                 index_payload, publishers_payload = cache_catalog.load_cached_documents(selected.id)
                 if index_payload is None:
                     raise HTTPException(status_code=400, detail="catalog_cache_missing")
@@ -634,6 +707,7 @@ def build_store_router(
                     source_release_url = _release_artifact_url(release_item)
                     if not source_release_url:
                         raise HTTPException(status_code=400, detail="catalog_artifact_url_missing")
+                    debug_artifact_url = source_release_url
 
                     await audit_store.record(
                         action="catalog_download",
@@ -664,6 +738,17 @@ def build_store_router(
                             raise RuntimeError(
                                 str(refresh.get("catalog_status", {}).get("last_error_message") or "catalog_refresh_failed")
                             )
+                        refresh_status = refresh.get("catalog_status", {})
+                        if isinstance(refresh_status, dict):
+                            refresh_resolved = str(refresh_status.get("resolved_base_url") or "").strip()
+                            if refresh_resolved:
+                                debug_resolved_base_url = refresh_resolved
+                            else:
+                                debug_resolved_base_url = _resolved_base_url_for_source(
+                                    cache_catalog,
+                                    source_id,
+                                    debug_resolved_base_url or selected.base_url,
+                                )
                         index_payload, publishers_payload = cache_catalog.load_cached_documents(selected.id)
                         if index_payload is None:
                             raise HTTPException(status_code=400, detail="catalog_cache_missing")
@@ -676,6 +761,8 @@ def build_store_router(
                 actual_sha256 = _hex_sha256(artifact_bytes)
                 expected_sha256_candidates = _release_checksum_candidates(release_item, manifest.checksum)
                 expected_sha256 = expected_sha256_candidates[0] if expected_sha256_candidates else ""
+                debug_expected_sha256 = expected_sha256_candidates
+                debug_actual_sha256 = actual_sha256
                 checksum_match = any(hmac.compare_digest(actual_sha256, candidate) for candidate in expected_sha256_candidates)
                 if not checksum_match:
                     log.error(
@@ -754,9 +841,11 @@ def build_store_router(
             install_state = {
                 "installed_version": manifest.version,
                 "installed_from_source_id": source_id,
+                "installed_resolved_base_url": debug_resolved_base_url,
                 "installed_release_url": source_release_url,
                 "installed_sha256": expected_sha256,
                 "installed_at": _utcnow_iso(),
+                "last_install_error": None,
             }
             _set_install_state(manifest.id, install_state)
 
@@ -778,10 +867,12 @@ def build_store_router(
                 # TODO(phase3): report true hot-reload runtime status once dynamic module reload is supported.
                 "hot_loaded": False,
                 "installed_from_source_id": source_id,
+                "installed_resolved_base_url": debug_resolved_base_url,
                 "installed_release_url": source_release_url,
                 "installed_sha256": expected_sha256,
             }
         except VerificationError as exc:
+            _persist_last_install_error(error_code=exc.code)
             await audit_store.record(
                 action="install",
                 addon_id=(body.manifest.id if body.manifest is not None else (body.addon_id or "__unknown__")),
@@ -792,6 +883,7 @@ def build_store_router(
             )
             raise HTTPException(status_code=400, detail=exc.to_dict())
         except ResolverError as exc:
+            _persist_last_install_error(error_code=exc.code)
             await audit_store.record(
                 action="install",
                 addon_id=(body.manifest.id if body.manifest is not None else (body.addon_id or "__unknown__")),
@@ -802,6 +894,31 @@ def build_store_router(
             )
             raise HTTPException(status_code=409, detail=exc.to_dict())
         except HTTPException as exc:
+            detail_source_id: str | None = None
+            detail_artifact_url: str | None = None
+            detail_expected_sha256: list[str] | None = None
+            detail_actual_sha256: str | None = None
+            error_code: str | None = None
+            detail_payload = exc.detail
+            if isinstance(detail_payload, dict):
+                error_code = str(detail_payload.get("error") or detail_payload.get("code") or "").strip() or None
+                detail_source_id = str(detail_payload.get("source_id") or "").strip() or None
+                detail_artifact_url = str(detail_payload.get("artifact_url") or "").strip() or None
+                detail_actual_sha256 = str(detail_payload.get("actual_sha256") or "").strip() or None
+                raw_expected = detail_payload.get("expected_sha256")
+                if isinstance(raw_expected, list):
+                    detail_expected_sha256 = [str(item).strip() for item in raw_expected if str(item).strip()]
+                elif isinstance(raw_expected, str) and raw_expected.strip():
+                    detail_expected_sha256 = [raw_expected.strip()]
+            elif isinstance(detail_payload, str) and detail_payload.strip():
+                error_code = detail_payload.strip()
+            _persist_last_install_error(
+                error_code=error_code,
+                source_id=detail_source_id,
+                artifact_url=detail_artifact_url,
+                expected_sha256=detail_expected_sha256,
+                actual_sha256=detail_actual_sha256,
+            )
             await audit_store.record(
                 action="install",
                 addon_id=(body.manifest.id if body.manifest is not None else (body.addon_id or "__unknown__")),
@@ -823,6 +940,7 @@ def build_store_router(
             detail = str(exc) or type(exc).__name__
             if detail == "addon_already_installed":
                 raise HTTPException(status_code=409, detail=detail)
+            _persist_last_install_error(error_code=detail)
             raise HTTPException(status_code=400, detail=detail)
         finally:
             if temp_install_dir is not None:
@@ -979,6 +1097,9 @@ def build_store_router(
             except Exception:
                 version = None
         install_state = _get_install_state(addon_id) or {}
+        last_install_error = install_state.get("last_install_error")
+        if not isinstance(last_install_error, dict):
+            last_install_error = None
 
         return {
             "ok": True,
@@ -989,9 +1110,11 @@ def build_store_router(
             "version": version or (registry.addons[addon_id].meta.version if addon_id in registry.addons else None),
             "installed_version": install_state.get("installed_version"),
             "installed_from_source_id": install_state.get("installed_from_source_id"),
+            "installed_resolved_base_url": install_state.get("installed_resolved_base_url"),
             "installed_release_url": install_state.get("installed_release_url"),
             "installed_sha256": install_state.get("installed_sha256"),
             "installed_at": install_state.get("installed_at"),
+            "last_install_error": last_install_error,
         }
 
     @router.get("/admin/audit")

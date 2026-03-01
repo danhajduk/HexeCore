@@ -65,6 +65,7 @@ class _FakeCatalogClient:
         fail_all_download_404: bool = False,
         refreshed_index_payload: dict | None = None,
         refreshed_publishers_payload: dict | None = None,
+        resolved_base_url: str = "https://raw.githubusercontent.test/catalog",
     ) -> None:
         self._index_payload = index_payload
         self._publishers_payload = publishers_payload
@@ -76,6 +77,7 @@ class _FakeCatalogClient:
         self.downloaded_urls: list[str] = []
         self._refreshed_index_payload = refreshed_index_payload
         self._refreshed_publishers_payload = refreshed_publishers_payload
+        self._resolved_base_url = resolved_base_url
 
     def select_source(self, sources, source_id):
         for src in sources:
@@ -94,7 +96,16 @@ class _FakeCatalogClient:
             self._index_payload = self._refreshed_index_payload
         if self._refreshed_publishers_payload is not None:
             self._publishers_payload = self._refreshed_publishers_payload
-        return {"ok": True, "source_id": source.id, "catalog_status": {"status": "ok"}}
+        return {
+            "ok": True,
+            "source_id": source.id,
+            "catalog_status": {"status": "ok", "resolved_base_url": self._resolved_base_url},
+        }
+
+    def load_source_metadata(self, source_id: str) -> dict:
+        if source_id != "official":
+            return {}
+        return {"source_id": source_id, "resolved_base_url": self._resolved_base_url}
 
     def download_artifact(self, url: str) -> bytes:
         self.downloaded_urls.append(url)
@@ -347,9 +358,11 @@ class TestStoreApiEndpoints(unittest.TestCase):
             payload = res.json()
             self.assertIn("installed", payload)
             self.assertIn("installed_from_source_id", payload)
+            self.assertIn("installed_resolved_base_url", payload)
             self.assertIn("installed_release_url", payload)
             self.assertIn("installed_sha256", payload)
             self.assertIn("installed_at", payload)
+            self.assertIn("last_install_error", payload)
 
         uninstall_res = self.client.post(
             "/api/store/uninstall",
@@ -427,9 +440,11 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(status.status_code, 200, status.text)
         status_payload = status.json()
         self.assertEqual(status_payload["installed_from_source_id"], "official")
+        self.assertEqual(status_payload["installed_resolved_base_url"], "https://raw.githubusercontent.test/catalog")
         self.assertEqual(status_payload["installed_release_url"], "https://example.test/hello_world-1.0.0.zip")
         self.assertEqual(status_payload["installed_sha256"], hashlib.sha256(artifact_bytes).hexdigest())
         self.assertIsNotNone(status_payload["installed_at"])
+        self.assertIsNone(status_payload["last_install_error"])
 
     def test_catalog_install_accepts_addon_id_alias(self) -> None:
         pkg = Path(self.tmp.name) / "bundle-alias.zip"
@@ -617,6 +632,31 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(detail["source_id"], "official")
         self.assertEqual(detail["expected_sha256"], [("0" * 64)])
         self.assertEqual(detail["actual_sha256"], hashlib.sha256(artifact_bytes).hexdigest())
+
+        with patch("app.store.router._addons_root", return_value=Path(self.tmp.name) / "addons"):
+            status = client.get("/api/store/status/hello_world")
+        self.assertEqual(status.status_code, 200, status.text)
+        status_payload = status.json()
+        self.assertEqual(status_payload["installed_from_source_id"], None)
+        self.assertIsNone(status_payload["installed_resolved_base_url"])
+        self.assertIsNone(status_payload["installed_release_url"])
+        self.assertIsNone(status_payload["installed_sha256"])
+        self.assertIsNotNone(status_payload["last_install_error"])
+        self.assertEqual(status_payload["last_install_error"]["error"], "catalog_sha256_mismatch")
+        self.assertEqual(status_payload["last_install_error"]["source_id"], "official")
+        self.assertEqual(
+            status_payload["last_install_error"]["resolved_base_url"],
+            "https://raw.githubusercontent.test/catalog",
+        )
+        self.assertEqual(
+            status_payload["last_install_error"]["artifact_url"],
+            "https://example.test/hello_world-1.0.0.zip",
+        )
+        self.assertEqual(status_payload["last_install_error"]["expected_sha256"], [("0" * 64)])
+        self.assertEqual(
+            status_payload["last_install_error"]["actual_sha256"],
+            hashlib.sha256(artifact_bytes).hexdigest(),
+        )
 
     def test_catalog_install_no_compatible_release_includes_reason_details(self) -> None:
         artifact_bytes = b"artifact-incompatible"

@@ -595,5 +595,8 @@ class CatalogCacheClient:
             publishers_payload = None
         return index_payload, publishers_payload
 
+    def load_source_metadata(self, source_id: str) -> dict[str, Any]:
+        return _safe_json_load(self._metadata_path(source_id))
+
     def download_artifact(self, url: str) -> bytes:
         return self._download_bytes(url)

@@ -90,3 +90,4 @@
 2026-03-01 - Added persistent artifact-404 handling: after one refresh/retry, install now returns catalog_artifact_unavailable with source/artifact detail; added regression coverage.
 2026-03-01 - Session complete: Task 32 delivered with explicit catalog_artifact_unavailable response after refresh/retry exhaustion.
 2026-03-01 - Reconciled catalog checksum parsing (including sha256-prefixed forms) and changed sha256 mismatch failures to detailed 409 payloads with expected/actual digest diagnostics.
+2026-03-01 - Added operator-visible store status diagnostics with resolved source URL and last catalog install failure checksum/artifact context.
