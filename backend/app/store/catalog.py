@@ -212,22 +212,37 @@ def _verify_detached_signature(payload: bytes, signature_bytes: bytes, public_ke
     if not signature_bytes or not signature_bytes.strip():
         raise RuntimeError("catalog_signature_missing")
 
+    if not signature_bytes:
+        raise RuntimeError("catalog_signature_missing")
+    raw_sig = signature_bytes
+    sig_input = signature_bytes.strip()
+    signature_candidates: list[bytes] = []
     try:
-        signature = base64.b64decode(signature_bytes.strip(), validate=True)
-    except Exception as exc:
-        raise RuntimeError("catalog_signature_invalid_encoding") from exc
+        # Accept base64-encoded detached signatures when provided in text form.
+        decoded = base64.b64decode(sig_input, validate=True)
+        if decoded:
+            signature_candidates.append(decoded)
+    except Exception:
+        pass
+    # Also accept raw OpenSSL signature bytes (*.sig) as produced by `openssl dgst -sign`.
+    signature_candidates.append(raw_sig)
+    deduped_candidates: list[bytes] = []
+    for candidate in signature_candidates:
+        if candidate not in deduped_candidates:
+            deduped_candidates.append(candidate)
 
-    for pem in public_keys_pem:
-        try:
-            key = serialization.load_pem_public_key(pem.encode("utf-8"))
-            if not isinstance(key, rsa.RSAPublicKey):
+    for signature in deduped_candidates:
+        for pem in public_keys_pem:
+            try:
+                key = serialization.load_pem_public_key(pem.encode("utf-8"))
+                if not isinstance(key, rsa.RSAPublicKey):
+                    continue
+                key.verify(signature, payload, padding.PKCS1v15(), hashes.SHA256())
+                return
+            except InvalidSignature:
                 continue
-            key.verify(signature, payload, padding.PKCS1v15(), hashes.SHA256())
-            return
-        except InvalidSignature:
-            continue
-        except Exception:
-            continue
+            except Exception:
+                continue
     raise RuntimeError("catalog_signature_invalid")
 
 

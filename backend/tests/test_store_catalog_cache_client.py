@@ -116,7 +116,7 @@ class TestCatalogCacheClient(unittest.TestCase):
             self.assertEqual(cached_index[0]["id"], "addon_a")
             result = client.query_cached(source.id, CatalogQuery())
             self.assertEqual(result["catalog_status"]["status"], "error")
-            self.assertEqual(result["catalog_status"]["last_error_message"], "catalog_signature_invalid_encoding")
+            self.assertEqual(result["catalog_status"]["last_error_message"], "catalog_signature_invalid")
 
     def test_missing_signature_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -140,6 +140,31 @@ class TestCatalogCacheClient(unittest.TestCase):
 
             self.assertFalse(refresh["ok"])
             self.assertEqual(refresh["catalog_status"]["last_error_message"], "catalog_index_signature_missing")
+
+    def test_raw_binary_signature_accepted(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            client = self._client(Path(td))
+            source = self._source()
+
+            index_payload = b'[{"id":"addon_raw"}]'
+            publishers = b'{"publishers":[]}'
+            raw_fetch = {
+                "catalog/v1/index.json": index_payload,
+                "catalog/v1/index.json.sig": self._private_key.sign(index_payload, padding.PKCS1v15(), hashes.SHA256()),
+                "catalog/v1/publishers.json": publishers,
+                "catalog/v1/publishers.json.sig": self._private_key.sign(publishers, padding.PKCS1v15(), hashes.SHA256()),
+            }
+            with patch.object(
+                CatalogCacheClient,
+                "_download_bytes",
+                side_effect=lambda url: raw_fetch[url.split(source.base_url.rstrip("/") + "/")[1]],
+            ):
+                refresh = client.refresh_source(source)
+
+            self.assertTrue(refresh["ok"])
+            result = client.query_cached(source.id, CatalogQuery())
+            self.assertEqual(result["catalog_status"]["status"], "ok")
+            self.assertEqual(result["items"][0]["id"], "addon_raw")
 
 
 if __name__ == "__main__":
