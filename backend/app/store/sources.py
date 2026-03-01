@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 OFFICIAL_SOURCE_ID = "official"
 OFFICIAL_SOURCE_BASE_URL = "https://raw.githubusercontent.com/danhajduk/Synthia-Addon-Catalog/main"
+OFFICIAL_SOURCE_LEGACY_BASE_URL = "https://raw.githubusercontent.com/danhajduk/Synthia-Addon-Catalog/master"
 
 
 def _utcnow_iso() -> str:
@@ -68,8 +69,17 @@ class StoreSourcesStore:
             self._write_sync(self._default_sources())
             return
         data = self._read_sync()
+        updated = False
+        for item in data:
+            if str(item.get("id", "")).strip() != OFFICIAL_SOURCE_ID:
+                continue
+            if str(item.get("base_url", "")).strip() == OFFICIAL_SOURCE_LEGACY_BASE_URL:
+                item["base_url"] = OFFICIAL_SOURCE_BASE_URL
+                updated = True
         if not any(str(x.get("id", "")).strip() == OFFICIAL_SOURCE_ID for x in data):
             data.append(self._default_sources()[0])
+            updated = True
+        if updated:
             self._write_sync(data)
 
     def _read_sync(self) -> list[dict]:

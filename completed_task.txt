@@ -71,3 +71,4 @@
 2026-02-28 - Session complete: Task 26 frontend Addons install wizard UI delivered with install-session controls and no-MQTT status polling UX.
 2026-02-28 - Fixed store catalog install lookup to match both id/addon_id keys and added regression coverage for addon_id-only catalog entries.
 2026-02-28 - Session complete: Task 27 catalog install id/addon_id compatibility fix delivered with regression test coverage.
+2026-02-28 - Auto-migrated legacy official store source URL (/master -> /main) to prevent catalog signature mismatches; updated source store tests.

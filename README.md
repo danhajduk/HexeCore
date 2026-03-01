@@ -78,6 +78,7 @@ Store sources endpoints:
 - `POST /api/store/sources/{id}/refresh` (admin auth required)
 
 Catalog cache behavior (Phase 2):
+- Official source uses `https://raw.githubusercontent.com/danhajduk/Synthia-Addon-Catalog/main`; legacy `/master` official configs are auto-migrated to `/main` at startup.
 - Source refresh fetches `catalog/v1/index.json`, `index.json.sig`, `publishers.json`, `publishers.json.sig`.
 - Cache path: `runtime/store/cache/<source_id>/` with `metadata.json`.
 - Catalog signatures are verified against configured store public key(s); refresh fails closed and keeps last-known-good cache on invalid/missing signatures.

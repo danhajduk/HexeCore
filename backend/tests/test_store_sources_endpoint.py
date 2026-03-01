@@ -10,7 +10,12 @@ from fastapi.testclient import TestClient
 
 from app.store.audit import StoreAuditLogStore
 from app.store.router import build_store_router
-from app.store.sources import OFFICIAL_SOURCE_ID, StoreSourcesStore
+from app.store.sources import (
+    OFFICIAL_SOURCE_BASE_URL,
+    OFFICIAL_SOURCE_ID,
+    OFFICIAL_SOURCE_LEGACY_BASE_URL,
+    StoreSourcesStore,
+)
 
 
 class _FakeRegistry:
@@ -95,6 +100,26 @@ class TestStoreSourcesEndpoint(unittest.TestCase):
             headers={"X-Admin-Token": "test-token"},
         )
         self.assertEqual(res.status_code, 400, res.text)
+
+    def test_official_legacy_master_url_is_migrated_to_main(self) -> None:
+        path = Path(self.tmp.name) / "store_sources_legacy.json"
+        path.write_text(
+            (
+                '[{"id":"official","type":"github_raw","base_url":"'
+                + OFFICIAL_SOURCE_LEGACY_BASE_URL
+                + '","enabled":true,"refresh_seconds":300}]'
+            ),
+            encoding="utf-8",
+        )
+        sources = StoreSourcesStore(str(path))
+        items = self._run_async(sources.list_sources())
+        official = next(x for x in items if x.id == OFFICIAL_SOURCE_ID)
+        self.assertEqual(official.base_url, OFFICIAL_SOURCE_BASE_URL)
+
+    def _run_async(self, coro):
+        import asyncio
+
+        return asyncio.run(coro)
 
 
 if __name__ == "__main__":
