@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import "./admin-reload-card.css";
 import { LS_API_BASE_KEY, defaultApiBase } from "./localKeys";
 
@@ -16,7 +16,6 @@ type RegisteredAddon = {
 
 export default function RegistryAdminCard() {
   const [apiBase, setApiBase] = useState<string>(() => localStorage.getItem(LS_API_BASE_KEY) || defaultApiBase());
-  const [token, setToken] = useState<string>("");
   const [items, setItems] = useState<RegisteredAddon[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -32,16 +31,12 @@ export default function RegistryAdminCard() {
     localStorage.setItem(LS_API_BASE_KEY, apiBase);
   }, [apiBase]);
 
-  const headers = useMemo(() => {
-    const h: Record<string, string> = { "Content-Type": "application/json" };
-    if (token.trim()) h["X-Admin-Token"] = token.trim();
-    return h;
-  }, [token]);
+  const jsonHeaders: Record<string, string> = { "Content-Type": "application/json" };
 
   async function loadRegistry() {
     setErr(null);
     try {
-      const res = await fetch(`${apiBase}/api/admin/addons/registry`, { headers, credentials: "include" });
+      const res = await fetch(`${apiBase}/api/admin/addons/registry`, { credentials: "include" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const payload = (await res.json()) as RegisteredAddon[];
       setItems(payload);
@@ -68,7 +63,7 @@ export default function RegistryAdminCard() {
       };
       const res = await fetch(`${apiBase}/api/admin/addons/registry`, {
         method: "POST",
-        headers,
+        headers: jsonHeaders,
         credentials: "include",
         body: JSON.stringify(body),
       });
@@ -89,7 +84,7 @@ export default function RegistryAdminCard() {
     try {
       const res = await fetch(`${apiBase}/api/admin/addons/registry/${encodeURIComponent(id)}`, {
         method: "DELETE",
-        headers,
+        headers: jsonHeaders,
         credentials: "include",
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -117,11 +112,6 @@ export default function RegistryAdminCard() {
           <div className="admin-label-text">API Base</div>
           <input value={apiBase} onChange={(e) => setApiBase(e.target.value)} className="admin-input" />
         </label>
-        <label className="admin-label">
-          <div className="admin-label-text">Admin Token (optional legacy header)</div>
-          <input value={token} onChange={(e) => setToken(e.target.value)} className="admin-input admin-input-mono" />
-        </label>
-
         <div className="admin-actions">
           <button className="admin-btn" onClick={loadRegistry}>
             Refresh Registry

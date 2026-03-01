@@ -3,6 +3,7 @@ import "./settings.css";
 import AdminReloadCard from "./settings/AdminReloadCard";
 import RegistryAdminCard from "./settings/RegistryAdminCard";
 import ControlPlaneCard from "./settings/ControlPlaneCard";
+import UserManagementCard from "./settings/UserManagementCard";
 
 type SettingsResponse = {
   ok: boolean;
@@ -102,6 +103,7 @@ export default function Settings() {
 
       <AdminReloadCard />
       <RegistryAdminCard />
+      <UserManagementCard />
       <ControlPlaneCard />
     </div>
   );

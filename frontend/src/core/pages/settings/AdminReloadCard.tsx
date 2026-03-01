@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./admin-reload-card.css";
 import { LS_API_BASE_KEY, defaultApiBase } from "./localKeys";
 
@@ -7,7 +7,6 @@ type ReloadStatusResponse = { exists: boolean; tail: string };
 
 export default function AdminReloadCard() {
   const [apiBase, setApiBase] = useState<string>(() => localStorage.getItem(LS_API_BASE_KEY) || defaultApiBase());
-  const [token, setToken] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [tail, setTail] = useState<string>("");
@@ -18,12 +17,6 @@ export default function AdminReloadCard() {
     localStorage.setItem(LS_API_BASE_KEY, apiBase);
   }, [apiBase]);
 
-  const headers = useMemo(() => {
-    const h: Record<string, string> = {};
-    if (token.trim()) h["X-Admin-Token"] = token.trim();
-    return h;
-  }, [token]);
-
   function stopPolling() {
     if (pollTimer.current) {
       window.clearInterval(pollTimer.current);
@@ -32,7 +25,7 @@ export default function AdminReloadCard() {
   }
 
   async function fetchStatusOnce() {
-    const res = await fetch(`${apiBase}/api/admin/reload/status`, { headers, credentials: "include" });
+    const res = await fetch(`${apiBase}/api/admin/reload/status`, { credentials: "include" });
     if (!res.ok) throw new Error(`Status failed: HTTP ${res.status}`);
     const data = (await res.json()) as ReloadStatusResponse;
     setTail(data.tail || "");
@@ -52,7 +45,6 @@ export default function AdminReloadCard() {
       // kick the updater
       const res = await fetch(`${apiBase}/api/admin/reload`, {
         method: "POST",
-        headers,
         credentials: "include",
       });
       if (!res.ok) {
@@ -104,16 +96,6 @@ export default function AdminReloadCard() {
             onChange={(e) => setApiBase(e.target.value)}
             placeholder="http://10.0.0.100:9001"
             className="admin-input"
-          />
-        </label>
-
-        <label className="admin-label">
-          <div className="admin-label-text">Admin Token (optional legacy header)</div>
-          <input
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-            placeholder="Optional legacy X-Admin-Token"
-            className="admin-input admin-input-mono"
           />
         </label>
 

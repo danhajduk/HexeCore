@@ -9,7 +9,7 @@ type AdminSessionContextValue = {
   ready: boolean;
   authenticated: boolean;
   refresh: () => Promise<void>;
-  login: (token: string) => Promise<LoginResult>;
+  login: (username: string, password: string) => Promise<LoginResult>;
   logout: () => Promise<void>;
 };
 
@@ -39,15 +39,15 @@ export function AdminSessionProvider({ children }: { children: React.ReactNode }
     }
   }, []);
 
-  const login = useCallback(async (token: string): Promise<LoginResult> => {
+  const login = useCallback(async (username: string, password: string): Promise<LoginResult> => {
     try {
-      const res = await fetch("/api/admin/session/login", {
+      const res = await fetch("/api/admin/session/login-user", {
         method: "POST",
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({ username, password }),
       });
       if (!res.ok) {
         const text = await res.text();
