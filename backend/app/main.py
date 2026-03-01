@@ -24,7 +24,7 @@ from app.system.sampler import (
 )
 from app.system.config import load_config
 
-from .api.admin import router as admin_router
+from .api.admin import router as admin_router, configure_admin_users_store
 from .system.stats.router import router as stats_router
 
 # NEW: scheduler components
@@ -39,6 +39,7 @@ from app.system.auth import ServiceTokenKeyStore, build_auth_router
 from app.system.policy import PolicyStore, build_policy_router
 from app.system.telemetry import UsageTelemetryStore, build_telemetry_router
 from app.system.audit import AuditLogStore
+from app.system.users import UsersStore, build_users_router
 from app.system.repo_status import router as repo_status_router
 from app.system.scheduler import build_scheduler_router
 from app.store import CatalogCacheClient, build_store_models_router, StoreAuditLogStore, StoreSourcesStore, build_store_router
@@ -104,6 +105,9 @@ def create_app() -> FastAPI:
                 await asyncio.sleep(30.0)
 
         asyncio.create_task(addon_health_poll_loop())
+        users_store = getattr(app.state, "users_store", None)
+        if users_store is not None:
+            await users_store.ensure_admin_user(seeded_admin_username, seeded_admin_password)
         mqtt_manager = getattr(app.state, "mqtt_manager", None)
         if mqtt_manager is not None:
             await mqtt_manager.start()
@@ -127,9 +131,6 @@ def create_app() -> FastAPI:
 
     # Core routes
     app.include_router(health_router, prefix="/api")
-
-    # Admin routes
-    app.include_router(admin_router, prefix="/api")
 
     # System stats routes
     app.include_router(stats_router, prefix="/api")
@@ -183,6 +184,17 @@ def create_app() -> FastAPI:
         os.path.join(os.getcwd(), "var", "store_sources.json"),
     )
     store_sources_store = StoreSourcesStore(store_sources_path)
+    users_db = os.getenv(
+        "APP_USERS_DB",
+        os.path.join(os.getcwd(), "var", "users.db"),
+    )
+    users_store = UsersStore(users_db)
+    seeded_admin_username = os.getenv("SYNTHIA_ADMIN_USERNAME", "admin").strip() or "admin"
+    seeded_admin_password = os.getenv("SYNTHIA_ADMIN_PASSWORD", "") or os.getenv("SYNTHIA_ADMIN_TOKEN", "")
+
+    # Admin routes
+    configure_admin_users_store(users_store)
+    app.include_router(admin_router, prefix="/api")
 
     def metrics_provider():
         # SchedulerEngine will handle None/staleness conservatively.
@@ -209,8 +221,10 @@ def create_app() -> FastAPI:
     app.state.audit_store = audit_store
     app.state.store_audit_store = store_audit_store
     app.state.store_sources_store = store_sources_store
+    app.state.users_store = users_store
 
     app.include_router(build_settings_router(settings_store, audit_store), prefix="/api/system", tags=["settings"])
+    app.include_router(build_users_router(users_store, audit_store), prefix="/api/admin", tags=["admin-users"])
     app.include_router(repo_status_router, prefix="/api/system", tags=["repo"])
 
     scheduler_router = build_scheduler_router(

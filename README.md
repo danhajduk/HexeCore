@@ -163,8 +163,16 @@ Grant model:
   - `X-Admin-Token` header (legacy/dev compatibility)
   - HttpOnly signed cookie session via:
     - `POST /api/admin/session/login` with `{ "token": "..." }`
+    - `POST /api/admin/session/login-user` with `{ "username": "...", "password": "..." }` (admin-role user required)
     - `GET /api/admin/session/status`
     - `POST /api/admin/session/logout`
+- Admin user-management endpoints:
+  - `GET /api/admin/users`
+  - `POST /api/admin/users`
+  - `DELETE /api/admin/users/{username}`
+- Admin users are seeded/enforced from env at startup:
+  - `SYNTHIA_ADMIN_USERNAME` (default `admin`)
+  - `SYNTHIA_ADMIN_PASSWORD` (fallback: `SYNTHIA_ADMIN_TOKEN`)
 - Secret redaction is applied to outbound MQTT payloads before publish.
 - Audit log records are written for:
   - grant changes

@@ -7,19 +7,34 @@ import secrets
 import subprocess
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Header, HTTPException, Request, Response
 from pydantic import BaseModel
 
 router = APIRouter()
 
+if TYPE_CHECKING:
+    from app.system.users import UsersStore
+
 LOG_FILE = Path("/tmp/synthia_update.log")
 ADMIN_SESSION_COOKIE = "synthia_admin_session"
 DEFAULT_SESSION_TTL_SECONDS = 8 * 60 * 60
+_users_store: "UsersStore | None" = None
 
 
 class AdminSessionLoginRequest(BaseModel):
     token: str
+
+
+class AdminUserSessionLoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+def configure_admin_users_store(store: "UsersStore | None") -> None:
+    global _users_store
+    _users_store = store
 
 
 def _admin_token_expected() -> str:
@@ -109,6 +124,46 @@ def admin_session_login(body: AdminSessionLoginRequest, response: Response):
         path="/",
     )
     return {"ok": True, "authenticated": True, "expires_at": expires_at}
+
+
+@router.post("/admin/session/login-user")
+async def admin_session_login_user(body: AdminUserSessionLoginRequest, response: Response):
+    if _users_store is None:
+        raise HTTPException(status_code=500, detail="users_store_not_configured")
+    username = body.username.strip()
+    password = body.password
+    if not username or not password:
+        raise HTTPException(status_code=400, detail="username_and_password_required")
+
+    user = await _users_store.verify_credentials(username, password)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    if str(user.get("role") or "").strip().lower() != "admin":
+        raise HTTPException(status_code=403, detail="admin_role_required")
+
+    expected = _admin_token_expected()
+    if not expected:
+        raise HTTPException(status_code=500, detail="SYNTHIA_ADMIN_TOKEN not configured")
+    cookie_value, expires_at = _build_session_cookie(expected_token=expected)
+    max_age = max(expires_at - int(time.time()), 1)
+    response.set_cookie(
+        key=ADMIN_SESSION_COOKIE,
+        value=cookie_value,
+        max_age=max_age,
+        httponly=True,
+        secure=_cookie_secure(),
+        samesite="lax",
+        path="/",
+    )
+    return {
+        "ok": True,
+        "authenticated": True,
+        "expires_at": expires_at,
+        "user": {
+            "username": user.get("username"),
+            "role": user.get("role"),
+        },
+    }
 
 
 @router.post("/admin/session/logout")
