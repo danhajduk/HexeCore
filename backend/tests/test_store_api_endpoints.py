@@ -181,6 +181,8 @@ class TestStoreApiEndpoints(unittest.TestCase):
         fail_first_download_404: bool = False,
         fail_all_download_404: bool = False,
         refreshed_release_url: str | None = None,
+        release_sha256: str | None = None,
+        release_checksum: str | None = None,
     ) -> _FakeCatalogClient:
         digest = hashlib.sha256(artifact_bytes).hexdigest()
         addon_identity = {"addon_id": "hello_world"} if use_addon_id_field else {"id": "hello_world"}
@@ -188,8 +190,8 @@ class TestStoreApiEndpoints(unittest.TestCase):
         release_publisher = {} if omit_publisher_id else {"publisher_id": "pub-1"}
         release_payload = {
             "version": "1.0.0",
-            "sha256": digest,
-            "checksum": digest,
+            "sha256": release_sha256 if release_sha256 is not None else digest,
+            "checksum": release_checksum if release_checksum is not None else digest,
             "release_sig": release_sig,
             "publisher_key_id": publisher_key_id,
             **release_publisher,
@@ -560,6 +562,61 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(detail["retry_after_refresh"], True)
         self.assertEqual(fake_catalog._refresh_calls, 1)
         self.assertEqual(fake_catalog.downloaded_urls, ["https://example.test/stale.zip", "https://example.test/still-missing.zip"])
+
+    def test_catalog_install_accepts_prefixed_sha256_checksum(self) -> None:
+        artifact_bytes = b"artifact-prefixed-sha256"
+        digest = hashlib.sha256(artifact_bytes).hexdigest()
+        fake_catalog = self._build_catalog_client(
+            artifact_bytes=artifact_bytes,
+            release_sig=self._sign_artifact(artifact_bytes),
+            release_sha256=f"sha256:{digest}",
+        )
+        app = FastAPI()
+        app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
+        client = TestClient(app)
+
+        with patch("app.store.router.resolve_manifest_compatibility", return_value=None), patch(
+            "app.store.router._atomic_install_or_update",
+            return_value=AtomicResult(
+                addon_dir=Path(self.tmp.name) / "addons" / "hello_world",
+                backup_dir=None,
+                installed_manifest={"id": "hello_world"},
+            ),
+        ):
+            res = client.post(
+                "/api/store/install",
+                headers={"X-Admin-Token": "test-token"},
+                json={"source_id": "official", "addon_id": "hello_world", "enable": True},
+            )
+        self.assertEqual(res.status_code, 200, res.text)
+        self.assertEqual(res.json()["installed_sha256"], digest)
+
+    def test_catalog_install_sha256_mismatch_returns_detailed_payload(self) -> None:
+        artifact_bytes = b"artifact-mismatch"
+        fake_catalog = self._build_catalog_client(
+            artifact_bytes=artifact_bytes,
+            release_sig=self._sign_artifact(artifact_bytes),
+            release_sha256=("0" * 64),
+            release_checksum="",
+        )
+        app = FastAPI()
+        app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
+        client = TestClient(app)
+
+        with patch("app.store.router.resolve_manifest_compatibility", return_value=None), patch(
+            "app.store.router._atomic_install_or_update"
+        ):
+            res = client.post(
+                "/api/store/install",
+                headers={"X-Admin-Token": "test-token"},
+                json={"source_id": "official", "addon_id": "hello_world", "enable": True},
+            )
+        self.assertEqual(res.status_code, 409, res.text)
+        detail = res.json()["detail"]
+        self.assertEqual(detail["error"], "catalog_sha256_mismatch")
+        self.assertEqual(detail["source_id"], "official")
+        self.assertEqual(detail["expected_sha256"], [("0" * 64)])
+        self.assertEqual(detail["actual_sha256"], hashlib.sha256(artifact_bytes).hexdigest())
 
     def test_catalog_install_no_compatible_release_includes_reason_details(self) -> None:
         artifact_bytes = b"artifact-incompatible"

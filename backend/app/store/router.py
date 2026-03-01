@@ -184,6 +184,43 @@ def _release_checksum(release_item: dict[str, Any]) -> str:
     ).strip()
 
 
+def _normalize_sha256(value: str | None) -> str:
+    if value is None:
+        return ""
+    text = str(value).strip().lower()
+    if not text:
+        return ""
+    for prefix in ("sha256:", "sha256=", "sha256-"):
+        if text.startswith(prefix):
+            text = text[len(prefix) :].strip()
+            break
+    if len(text) == 64 and all(ch in "0123456789abcdef" for ch in text):
+        return text
+    return ""
+
+
+def _release_checksum_candidates(release_item: dict[str, Any], manifest_checksum: str | None = None) -> list[str]:
+    artifact = _release_artifact_payload(release_item)
+    raw_candidates: list[str | None] = [
+        _release_checksum(release_item),
+        str(release_item.get("digest") or "").strip(),
+        str(release_item.get("integrity") or "").strip(),
+        str(artifact.get("digest") or "").strip(),
+        str(artifact.get("integrity") or "").strip(),
+        manifest_checksum,
+    ]
+    checksums_payload = artifact.get("checksums")
+    if isinstance(checksums_payload, dict):
+        raw_candidates.append(str(checksums_payload.get("sha256") or "").strip())
+
+    normalized: list[str] = []
+    for raw in raw_candidates:
+        checksum = _normalize_sha256(raw)
+        if checksum and checksum not in normalized:
+            normalized.append(checksum)
+    return normalized
+
+
 def _parse_semver_key(value: str) -> tuple[int, int, int, str]:
     try:
         base = value.split("-", 1)[0]
@@ -637,8 +674,19 @@ def build_store_router(
                         )
                         did_refresh_retry = True
                 actual_sha256 = _hex_sha256(artifact_bytes)
-                expected_sha256 = str(_release_checksum(release_item) or manifest.checksum).strip()
-                if not expected_sha256 or not hmac.compare_digest(actual_sha256, expected_sha256.lower()):
+                expected_sha256_candidates = _release_checksum_candidates(release_item, manifest.checksum)
+                expected_sha256 = expected_sha256_candidates[0] if expected_sha256_candidates else ""
+                checksum_match = any(hmac.compare_digest(actual_sha256, candidate) for candidate in expected_sha256_candidates)
+                if not checksum_match:
+                    log.error(
+                        "Catalog sha256 mismatch addon_id=%s version=%s source_id=%s release_url=%s expected=%s actual=%s",
+                        manifest.id,
+                        manifest.version,
+                        source_id,
+                        source_release_url,
+                        expected_sha256_candidates,
+                        actual_sha256,
+                    )
                     await audit_store.record(
                         action="catalog_verify",
                         addon_id=manifest.id,
@@ -647,7 +695,16 @@ def build_store_router(
                         message="catalog_sha256_mismatch",
                         actor=actor,
                     )
-                    raise HTTPException(status_code=400, detail="catalog_sha256_mismatch")
+                    raise HTTPException(
+                        status_code=409,
+                        detail={
+                            "error": "catalog_sha256_mismatch",
+                            "source_id": source_id,
+                            "artifact_url": source_release_url,
+                            "expected_sha256": expected_sha256_candidates,
+                            "actual_sha256": actual_sha256,
+                        },
+                    )
                 await audit_store.record(
                     action="catalog_download",
                     addon_id=manifest.id,
