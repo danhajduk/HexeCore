@@ -200,6 +200,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         refreshed_release_url: str | None = None,
         release_sha256: str | None = None,
         release_checksum: str | None = None,
+        release_manifest_package_profile: str | None = None,
         escape_publishers_public_key_pem: bool = False,
     ) -> _FakeCatalogClient:
         digest = hashlib.sha256(artifact_bytes).hexdigest()
@@ -230,6 +231,8 @@ class TestStoreApiEndpoints(unittest.TestCase):
         else:
             release_payload["release_sig"] = release_sig
             release_payload["signature_type"] = signature_type
+        if release_manifest_package_profile is not None:
+            release_payload["manifest"] = {"package_profile": release_manifest_package_profile}
         if use_nested_artifact_url:
             release_payload["artifact"] = {"url": release_url}
         else:
@@ -999,6 +1002,39 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(detail["supported_profiles"], ["embedded_addon"])
         self.assertEqual(detail["source_id"], "official")
         self.assertIn("deploy service package externally", detail["hint"])
+
+    def test_catalog_install_rejects_catalog_manifest_profile_mismatch(self) -> None:
+        pkg = Path(self.tmp.name) / "bundle-profile-mismatch.zip"
+        with zipfile.ZipFile(pkg, "w") as zf:
+            zf.writestr("hello_world/manifest.json", '{"id":"hello_world","name":"hello_world","version":"1.0.0"}')
+            zf.writestr("hello_world/backend/addon.py", "addon = None\n")
+        artifact_bytes = pkg.read_bytes()
+        fake_catalog = self._build_catalog_client(
+            artifact_bytes=artifact_bytes,
+            release_sig=self._sign_artifact(artifact_bytes),
+            package_profile="standalone_service",
+            release_manifest_package_profile="embedded_addon",
+        )
+        app = FastAPI()
+        app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
+        client = TestClient(app)
+
+        with patch("app.store.router.resolve_manifest_compatibility", return_value=None), patch(
+            "app.store.router._atomic_install_or_update"
+        ):
+            res = client.post(
+                "/api/store/install",
+                headers={"X-Admin-Token": "test-token"},
+                json={"source_id": "official", "addon_id": "hello_world", "enable": True},
+            )
+        self.assertEqual(res.status_code, 409, res.text)
+        detail = res.json()["detail"]
+        self.assertEqual(detail["error"], "catalog_manifest_profile_mismatch")
+        self.assertEqual(detail["source_id"], "official")
+        self.assertEqual(detail["expected_package_profile"], "standalone_service")
+        self.assertEqual(detail["detected_package_profile"], "embedded_addon")
+        self.assertEqual(detail["artifact_url"], "https://example.test/hello_world-1.0.0.zip")
+        self.assertIn("must match manifest package_profile", detail["hint"])
 
 
 if __name__ == "__main__":

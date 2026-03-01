@@ -118,3 +118,4 @@
 2026-03-01 - Implemented SAS v1.1 permission alias normalization in store manifest models (network.outbound|inbound, mqtt.client) with regression tests.
 2026-03-01 - Added SAS catalog channels support in store release resolution (stable/beta/nightly) with legacy releases[] fallback and regression coverage.
 2026-03-01 - Added SAS signature object metadata support in store parsing (signature.type/signature.value) with legacy release_sig compatibility and regression tests.
+2026-03-01 - Added strict catalog release-vs-manifest package_profile cross-check (catalog_manifest_profile_mismatch) with regression coverage.

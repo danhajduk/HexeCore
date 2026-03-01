@@ -273,6 +273,27 @@ def _release_checksum(release_item: dict[str, Any]) -> str:
     ).strip()
 
 
+def _normalize_package_profile(value: Any) -> str:
+    normalized = str(value or "embedded_addon").strip().lower().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "embedded": "embedded_addon",
+        "addon": "embedded_addon",
+        "standalone": "standalone_service",
+        "service": "standalone_service",
+    }
+    return aliases.get(normalized, normalized)
+
+
+def _release_package_profile(addon_item: dict[str, Any], release_item: dict[str, Any]) -> str:
+    return _normalize_package_profile(
+        release_item.get("package_profile")
+        or addon_item.get("package_profile")
+        or release_item.get("profile")
+        or addon_item.get("profile")
+        or "embedded_addon"
+    )
+
+
 def _normalize_sha256(value: str | None) -> str:
     if value is None:
         return ""
@@ -361,19 +382,14 @@ def _build_release_manifest(addon_id: str, addon_item: dict[str, Any], release_i
     ).strip()
     signature_b64 = _release_signature_b64(release_item)
     checksum = _release_checksum(release_item)
-    package_profile = str(
-        release_item.get("package_profile")
-        or addon_item.get("package_profile")
-        or release_item.get("profile")
-        or addon_item.get("profile")
-        or "embedded_addon"
-    ).strip()
+    package_profile = _release_package_profile(addon_item, release_item)
 
     manifest_payload = release_item.get("manifest")
     if isinstance(manifest_payload, dict):
         data = dict(manifest_payload)
         data.setdefault("id", addon_id)
         data.setdefault("name", str(addon_item.get("name") or addon_id))
+        data.setdefault("version", str(release_item.get("version") or addon_item.get("version") or "").strip())
         data.setdefault("publisher_id", publisher_id)
         data.setdefault("checksum", checksum)
         data.setdefault("package_profile", package_profile)
@@ -778,6 +794,27 @@ def build_store_router(
                             )
                         raise HTTPException(status_code=409, detail="catalog_no_compatible_release")
                     debug_package_profile = manifest.package_profile
+                    catalog_package_profile = _release_package_profile(addon_item, release_item)
+                    if manifest.package_profile != catalog_package_profile:
+                        release_url = _release_artifact_url(release_item)
+                        if release_url:
+                            debug_artifact_url = release_url
+                        raise HTTPException(
+                            status_code=409,
+                            detail={
+                                "error": "catalog_manifest_profile_mismatch",
+                                "source_id": source_id,
+                                "resolved_base_url": debug_resolved_base_url,
+                                "artifact_url": release_url or None,
+                                "version": manifest.version,
+                                "expected_package_profile": catalog_package_profile,
+                                "detected_package_profile": manifest.package_profile,
+                                "hint": (
+                                    "catalog release package_profile must match manifest package_profile; "
+                                    "align both fields to the same profile before install"
+                                ),
+                            },
+                        )
                     release_signature_b64 = _release_signature_b64(release_item)
                     publisher_key_id = str(release_item.get("publisher_key_id") or "").strip()
                     if not publisher_key_id:
