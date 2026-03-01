@@ -44,10 +44,12 @@ class MqttManager:
         settings_store: SettingsStore,
         registry: AddonRegistry,
         service_catalog_store: ServiceCatalogStore,
+        enabled: bool = True,
     ) -> None:
         self._settings = settings_store
         self._registry = registry
         self._service_catalogs = service_catalog_store
+        self._enabled = enabled
         self._loop: asyncio.AbstractEventLoop | None = None
         self._client: Any = None
         self._config: MqttConfig | None = None
@@ -57,6 +59,10 @@ class MqttManager:
         self._message_count = 0
 
     async def start(self) -> None:
+        if not self._enabled:
+            self._last_error = "mqtt_disabled"
+            self._connected = False
+            return
         self._loop = asyncio.get_running_loop()
         await self.restart()
 
@@ -72,6 +78,11 @@ class MqttManager:
                 self._last_error = f"stop_failed:{type(e).__name__}"
 
     async def restart(self) -> None:
+        if not self._enabled:
+            await self.stop()
+            self._last_error = "mqtt_disabled"
+            self._connected = False
+            return
         await self.stop()
         cfg = await self._load_config()
         self._config = cfg
@@ -87,6 +98,7 @@ class MqttManager:
         cfg = self._config
         return {
             "ok": True,
+            "enabled": self._enabled,
             "connected": self._connected,
             "mode": cfg.mode if cfg else None,
             "host": cfg.host if cfg else None,
@@ -99,6 +111,8 @@ class MqttManager:
         }
 
     async def publish_test(self, topic: str | None = None, payload: dict | None = None) -> dict[str, Any]:
+        if not self._enabled:
+            return {"ok": False, "error": "mqtt_disabled"}
         if self._client is None:
             return {"ok": False, "error": "mqtt_not_initialized"}
         msg_topic = topic or "synthia/core/mqtt/info"
@@ -118,6 +132,8 @@ class MqttManager:
         return {"ok": bool(getattr(result, "rc", 1) == 0), "topic": msg_topic, "rc": int(getattr(result, "rc", 1))}
 
     async def publish(self, topic: str, payload: dict[str, Any], retain: bool = True, qos: int = 1) -> dict[str, Any]:
+        if not self._enabled:
+            return {"ok": False, "error": "mqtt_disabled", "topic": topic}
         if self._client is None:
             return {"ok": False, "error": "mqtt_not_initialized", "topic": topic}
         safe_payload = redact_secrets(payload)

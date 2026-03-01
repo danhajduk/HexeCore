@@ -180,6 +180,8 @@ Grant model:
   - revocation changes
   - privileged config updates
 - Registered addon `base_url` targets produce TLS warnings for non-HTTPS non-localhost URLs (`tls_warning` field).
+- MQTT listener controls:
+  - `MQTT_LISTENER_ENABLED` (default `true`) toggles Core MQTT listener startup without affecting backend boot.
 
 ## Repo Status (Header Badge)
 Backend checks `HEAD` vs `origin/main` and exposes:

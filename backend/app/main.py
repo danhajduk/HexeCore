@@ -241,6 +241,7 @@ def create_app() -> FastAPI:
         settings_store=settings_store,
         registry=registry,
         service_catalog_store=service_catalog_store,
+        enabled=bool(getattr(cfg_boot, "mqtt_listener_enabled", True)),
     )
     app.state.mqtt_manager = mqtt_manager
     register_addons(app, registry)
