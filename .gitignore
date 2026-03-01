@@ -46,3 +46,4 @@ scripts/*.local.env
 *.key
 *.p12
 *.pfx
+completed_task.txt
