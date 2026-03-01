@@ -423,6 +423,32 @@ def _publisher_key_from_payload(
     publisher_id: str,
     publisher_key_id: str,
 ) -> tuple[str, str] | None:
+    def _is_enabled(enabled_flag: Any, status_value: Any) -> bool:
+        if enabled_flag is True:
+            return True
+        if enabled_flag is False:
+            return False
+        status = str(status_value or "enabled").strip().lower()
+        if status in {"enabled", "active", "ok"}:
+            return True
+        if status in {"disabled", "revoked", "inactive", "blocked"}:
+            return False
+        return True
+
+    def _to_pem(value: Any) -> str:
+        if not isinstance(value, str):
+            return ""
+        text = value.strip()
+        if not text:
+            return ""
+        if "BEGIN PUBLIC KEY" in text:
+            return text
+        compact = "".join(text.split())
+        if not compact:
+            return ""
+        lines = [compact[i : i + 64] for i in range(0, len(compact), 64)]
+        return "-----BEGIN PUBLIC KEY-----\n" + "\n".join(lines) + "\n-----END PUBLIC KEY-----"
+
     if not isinstance(publishers_payload, dict):
         return None
     publishers = publishers_payload.get("publishers")
@@ -434,10 +460,7 @@ def _publisher_key_from_payload(
         pub_id = str(pub.get("id") or pub.get("publisher_id") or "").strip()
         if pub_id != publisher_id:
             continue
-        pub_enabled = pub.get("enabled")
-        if pub_enabled is False:
-            continue
-        if pub_enabled is None and str(pub.get("status") or "enabled").strip().lower() != "enabled":
+        if not _is_enabled(pub.get("enabled"), pub.get("status")):
             continue
         keys = pub.get("keys")
         if isinstance(keys, list):
@@ -447,20 +470,19 @@ def _publisher_key_from_payload(
                 item_id = str(item.get("id") or item.get("key_id") or "").strip()
                 if item_id != publisher_key_id:
                     continue
-                item_enabled = item.get("enabled")
-                if item_enabled is False:
+                if not _is_enabled(item.get("enabled"), item.get("status")):
                     continue
-                if item_enabled is None and str(item.get("status") or "enabled").strip().lower() != "enabled":
-                    continue
-                pem = item.get("public_key_pem") or item.get("pem")
+                pem = _to_pem(item.get("public_key_pem") or item.get("pem") or item.get("public_key"))
                 if isinstance(pem, str) and pem.strip():
-                    sig_type = str(item.get("signature_type") or item.get("type") or "rsa-sha256").strip().lower()
+                    sig_type = str(
+                        item.get("signature_type") or item.get("type") or item.get("algorithm") or "rsa-sha256"
+                    ).strip().lower()
                     return pem, sig_type
         # Backward-compat shape: publisher carries a single key directly.
         if str(pub.get("key_id", "")).strip() == publisher_key_id:
-            pem = pub.get("public_key_pem")
+            pem = _to_pem(pub.get("public_key_pem") or pub.get("pem") or pub.get("public_key"))
             if isinstance(pem, str) and pem.strip():
-                sig_type = str(pub.get("signature_type") or pub.get("type") or "rsa-sha256").strip().lower()
+                sig_type = str(pub.get("signature_type") or pub.get("type") or pub.get("algorithm") or "rsa-sha256").strip().lower()
                 return pem, sig_type
     return None
 

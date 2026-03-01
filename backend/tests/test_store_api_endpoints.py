@@ -188,6 +188,9 @@ class TestStoreApiEndpoints(unittest.TestCase):
         signature_type: str = "rsa-sha256",
         use_addon_id_field: bool = False,
         use_publishers_alias_schema: bool = False,
+        use_publishers_alias_public_key_field: bool = False,
+        alias_publisher_status_value: str = "enabled",
+        alias_key_status_value: str = "enabled",
         omit_publisher_id: bool = False,
         use_nested_artifact_url: bool = False,
         core_min_version: str = "0.1.0",
@@ -212,6 +215,11 @@ class TestStoreApiEndpoints(unittest.TestCase):
             self._public_key_pem.replace("\n", "\\n")
             if escape_publishers_public_key_pem
             else self._public_key_pem
+        )
+        publisher_public_key_base64 = "".join(
+            line.strip()
+            for line in self._public_key_pem.splitlines()
+            if line.strip() and "BEGIN PUBLIC KEY" not in line and "END PUBLIC KEY" not in line
         )
         release_payload = {
             "version": "1.0.0",
@@ -238,18 +246,20 @@ class TestStoreApiEndpoints(unittest.TestCase):
             release_payload["artifact"] = {"url": release_url}
         else:
             release_payload["artifact_url"] = release_url
+        alias_key_payload: dict[str, object] = {
+            "key_id": publishers_key_id,
+            "status": alias_key_status_value if key_enabled else "revoked",
+            "type": signature_type,
+        }
+        if use_publishers_alias_public_key_field:
+            alias_key_payload["public_key"] = publisher_public_key_base64
+        else:
+            alias_key_payload["public_key_pem"] = publisher_public_key_pem
         publisher_record = (
             {
                 "publisher_id": "pub-1",
-                "status": "enabled",
-                "keys": [
-                    {
-                        "key_id": publishers_key_id,
-                        "status": "enabled" if key_enabled else "revoked",
-                        "type": signature_type,
-                        "public_key_pem": publisher_public_key_pem,
-                    }
-                ],
+                "status": alias_publisher_status_value,
+                "keys": [alias_key_payload],
             }
             if use_publishers_alias_schema
             else {
@@ -1131,6 +1141,39 @@ class TestStoreApiEndpoints(unittest.TestCase):
             artifact_bytes=artifact_bytes,
             release_sig=self._sign_artifact(artifact_bytes),
             escape_publishers_public_key_pem=True,
+        )
+        app = FastAPI()
+        app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
+        client = TestClient(app)
+
+        with patch("app.store.router.resolve_manifest_compatibility", return_value=None), patch(
+            "app.store.router._atomic_install_or_update",
+            return_value=AtomicResult(
+                addon_dir=Path(self.tmp.name) / "addons" / "hello_world",
+                backup_dir=None,
+                installed_manifest={"id": "hello_world"},
+            ),
+        ):
+            res = client.post(
+                "/api/store/install",
+                headers={"X-Admin-Token": "test-token"},
+                json={"source_id": "official", "addon_id": "hello_world", "enable": True},
+            )
+        self.assertEqual(res.status_code, 200, res.text)
+
+    def test_catalog_install_accepts_active_alias_status_and_public_key_field(self) -> None:
+        pkg = Path(self.tmp.name) / "bundle-active-public-key-alias.zip"
+        with zipfile.ZipFile(pkg, "w") as zf:
+            zf.writestr("hello_world/manifest.json", '{"id":"hello_world","name":"hello_world","version":"1.0.0"}')
+            zf.writestr("hello_world/backend/addon.py", "addon = None\n")
+        artifact_bytes = pkg.read_bytes()
+        fake_catalog = self._build_catalog_client(
+            artifact_bytes=artifact_bytes,
+            release_sig=self._sign_artifact(artifact_bytes),
+            use_publishers_alias_schema=True,
+            use_publishers_alias_public_key_field=True,
+            alias_publisher_status_value="active",
+            alias_key_status_value="active",
         )
         app = FastAPI()
         app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
