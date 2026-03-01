@@ -16,6 +16,7 @@ from .addons.registry import build_registry, register_addons
 from .addons.proxy import AddonProxy, build_proxy_router
 from .api.system import build_system_router
 from .api.admin_registry import build_admin_registry_router
+from .api.addons_registry import build_addons_registry_router
 from .system.api_metrics import ApiMetricsCollector, ApiMetricsMiddleware
 from app.system.sampler import (
     stats_fast_sampler_loop,
@@ -251,6 +252,7 @@ def create_app() -> FastAPI:
 
     # System API using the registry
     app.include_router(build_system_router(registry), prefix="/api")
+    app.include_router(build_addons_registry_router(registry), prefix="/api")
     app.include_router(build_admin_registry_router(registry), prefix="/api")
     app.include_router(build_mqtt_router(mqtt_manager), prefix="/api/system", tags=["mqtt"])
     app.include_router(build_auth_router(service_token_keys), prefix="/api/auth", tags=["auth"])

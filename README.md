@@ -22,6 +22,11 @@ SynthiaCore is a Core + Addons platform with a built-in scheduler, system metric
 ### Addon Registry Endpoints
 - `GET /api/addons` list addon metadata.
 - `GET /api/addons/errors` addon load errors without blocking boot.
+- `GET /api/addons/registry` list registered distributed addons.
+- `GET /api/addons/registry/{addon_id}` get one registered addon.
+- `POST /api/addons/registry/{addon_id}/register` (admin auth required) upsert base URL and refresh remote addon meta/capabilities.
+- `POST /api/addons/registry/{addon_id}/configure` (admin auth required) forward config payload to addon `/api/addon/config`.
+- `POST /api/addons/registry/{addon_id}/verify` (admin auth required) probe addon `/api/addon/health` and update registry health fields.
 
 ### Addon Store Schema Endpoint (Phase 1)
 - `GET /api/store/schema` returns JSON schemas for `AddonManifest`, `ReleaseManifest`, `CompatibilitySpec`, and `SignatureBlock`.

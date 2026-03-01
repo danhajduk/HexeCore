@@ -44,3 +44,6 @@ class RegisteredAddon(BaseModel):
     tls_warning: str | None = None
     contract_ok: bool = False
     contract_errors: list[str] = Field(default_factory=list)
+    discovered_at: str | None = None
+    updated_at: str | None = None
+    last_health: dict[str, Any] = Field(default_factory=dict)

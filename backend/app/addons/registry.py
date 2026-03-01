@@ -4,9 +4,10 @@ import json
 import logging
 import os
 import time
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 from urllib.parse import urlparse
 
 import httpx
@@ -16,6 +17,10 @@ from .discovery import discover_backend_addons, repo_root
 from .models import BackendAddon, RegisteredAddon
 
 log = logging.getLogger("synthia.addons")
+
+
+def _utcnow_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 @dataclass
 class AddonRegistry:
@@ -39,6 +44,7 @@ class AddonRegistry:
         return sorted(self.registered.values(), key=lambda a: a.id)
 
     def upsert_registered(self, addon: RegisteredAddon) -> RegisteredAddon:
+        now = _utcnow_iso()
         addon.tls_warning = _tls_warning_for_base_url(addon.base_url)
         if addon.tls_warning:
             log.warning("Registered addon '%s' TLS warning: %s", addon.id, addon.tls_warning)
@@ -52,6 +58,10 @@ class AddonRegistry:
         addon.health_status = "ok" if addon.contract_ok else "unhealthy"
         if addon.contract_ok:
             addon.last_seen = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            addon.last_health = {"status": addon.health_status, "last_seen": addon.last_seen}
+        if not addon.discovered_at:
+            addon.discovered_at = now
+        addon.updated_at = now
         self.registered[addon.id] = addon
         _save_registered_addons(self.registered)
         return addon
@@ -64,6 +74,7 @@ class AddonRegistry:
         return existed
 
     def update_from_mqtt_announce(self, addon_id: str, payload: dict) -> RegisteredAddon:
+        now = _utcnow_iso()
         existing = self.registered.get(addon_id)
         base_url = str(
             payload.get("base_url")
@@ -89,11 +100,16 @@ class AddonRegistry:
             addon.auth_mode = str(payload.get("auth_mode"))
         addon.health_status = str(payload.get("health_status") or addon.health_status or "unknown")
         addon.last_seen = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        addon.last_health = {"status": addon.health_status, "last_seen": addon.last_seen}
+        if not addon.discovered_at:
+            addon.discovered_at = now
+        addon.updated_at = now
         self.registered[addon_id] = addon
         _save_registered_addons(self.registered)
         return addon
 
     def update_from_mqtt_health(self, addon_id: str, payload: dict) -> RegisteredAddon:
+        now = _utcnow_iso()
         existing = self.registered.get(addon_id)
         addon = existing or RegisteredAddon(
             id=addon_id,
@@ -111,6 +127,10 @@ class AddonRegistry:
         else:
             addon.health_status = "unknown"
         addon.last_seen = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        addon.last_health = {"status": addon.health_status, "last_seen": addon.last_seen}
+        if not addon.discovered_at:
+            addon.discovered_at = now
+        addon.updated_at = now
         self.registered[addon_id] = addon
         _save_registered_addons(self.registered)
         return addon
@@ -167,6 +187,111 @@ class AddonRegistry:
                     pass
         return errors, observed_capabilities
 
+    async def register_remote(
+        self,
+        addon_id: str,
+        *,
+        base_url: str,
+        name: str | None = None,
+        version: str | None = None,
+    ) -> RegisteredAddon:
+        now = _utcnow_iso()
+        existing = self.registered.get(addon_id)
+        addon = existing or RegisteredAddon(
+            id=addon_id,
+            name=name or addon_id,
+            version=version or "unknown",
+            base_url=base_url,
+        )
+        addon.base_url = base_url
+        addon.tls_warning = _tls_warning_for_base_url(base_url)
+        if name:
+            addon.name = name
+        if version:
+            addon.version = version
+        if not addon.discovered_at:
+            addon.discovered_at = now
+        addon.updated_at = now
+
+        timeout_s = max(0.1, float(addon.proxy_timeout_s))
+        headers = self._auth_headers(addon)
+        base = addon.base_url.rstrip("/")
+        async with httpx.AsyncClient(timeout=httpx.Timeout(timeout_s), follow_redirects=False) as client:
+            try:
+                meta_resp = await client.get(f"{base}/api/addon/meta", headers=headers)
+                if meta_resp.status_code < 400:
+                    payload = meta_resp.json()
+                    if isinstance(payload, dict):
+                        addon.name = str(payload.get("name") or addon.name)
+                        addon.version = str(payload.get("version") or addon.version)
+            except Exception:
+                pass
+
+            try:
+                cap_resp = await client.get(f"{base}/api/addon/capabilities", headers=headers)
+                if cap_resp.status_code < 400:
+                    payload = cap_resp.json()
+                    if isinstance(payload, dict) and isinstance(payload.get("capabilities"), list):
+                        addon.capabilities = [str(x) for x in payload.get("capabilities", [])]
+            except Exception:
+                pass
+
+        self.registered[addon_id] = addon
+        _save_registered_addons(self.registered)
+        return addon
+
+    async def configure_registered(self, addon_id: str, config: dict[str, Any]) -> dict[str, Any]:
+        addon = self.registered.get(addon_id)
+        if addon is None:
+            raise KeyError("addon_not_found")
+        timeout_s = max(0.1, float(addon.proxy_timeout_s))
+        headers = self._auth_headers(addon)
+        base = addon.base_url.rstrip("/")
+
+        async with httpx.AsyncClient(timeout=httpx.Timeout(timeout_s), follow_redirects=False) as client:
+            resp = await client.post(f"{base}/api/addon/config", headers=headers, json=config)
+        if resp.status_code >= 400:
+            raise RuntimeError(f"configure_http_{resp.status_code}")
+
+        addon.updated_at = _utcnow_iso()
+        self.registered[addon_id] = addon
+        _save_registered_addons(self.registered)
+        payload: dict[str, Any]
+        try:
+            data = resp.json()
+            payload = data if isinstance(data, dict) else {"result": data}
+        except Exception:
+            payload = {"result": resp.text}
+        return payload
+
+    async def verify_registered(self, addon_id: str) -> dict[str, Any]:
+        addon = self.registered.get(addon_id)
+        if addon is None:
+            raise KeyError("addon_not_found")
+        timeout_s = max(0.1, float(addon.proxy_timeout_s))
+        headers = self._auth_headers(addon)
+        base = addon.base_url.rstrip("/")
+        async with httpx.AsyncClient(timeout=httpx.Timeout(timeout_s), follow_redirects=False) as client:
+            resp = await client.get(f"{base}/api/addon/health", headers=headers)
+        if resp.status_code >= 400:
+            raise RuntimeError(f"verify_http_{resp.status_code}")
+
+        payload: dict[str, Any]
+        try:
+            data = resp.json()
+            payload = data if isinstance(data, dict) else {"result": data}
+        except Exception:
+            payload = {"result": resp.text}
+
+        status = str(payload.get("status") or payload.get("health_status") or "unknown")
+        addon.health_status = status
+        addon.last_seen = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        addon.last_health = {"status": status, "last_seen": addon.last_seen}
+        addon.updated_at = _utcnow_iso()
+        self.registered[addon_id] = addon
+        _save_registered_addons(self.registered)
+        return payload
+
     async def refresh_registered_health(self) -> None:
         changed = False
         for addon in self.registered.values():
@@ -179,6 +304,8 @@ class AddonRegistry:
             addon.health_status = "ok" if addon.contract_ok else "unhealthy"
             if addon.contract_ok:
                 addon.last_seen = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            addon.last_health = {"status": addon.health_status, "last_seen": addon.last_seen}
+            addon.updated_at = _utcnow_iso()
             if addon.model_dump(mode="json") != before:
                 changed = True
         if changed:
@@ -356,7 +483,10 @@ def list_addons(registry: AddonRegistry) -> List[dict]:
             "base_url": addon.base_url,
             "capabilities": addon.capabilities,
             "health_status": addon.health_status,
+            "last_health": addon.last_health,
             "last_seen": addon.last_seen,
+            "discovered_at": addon.discovered_at,
+            "updated_at": addon.updated_at,
             "auth_mode": addon.auth_mode,
             "tls_warning": addon.tls_warning,
             "discovery_source": "registered",
@@ -373,7 +503,10 @@ def list_addons(registry: AddonRegistry) -> List[dict]:
             meta.setdefault("base_url", None)
             meta.setdefault("capabilities", [])
             meta.setdefault("health_status", "unknown")
+            meta.setdefault("last_health", {})
             meta.setdefault("last_seen", None)
+            meta.setdefault("discovered_at", None)
+            meta.setdefault("updated_at", None)
             meta.setdefault("auth_mode", "none")
             meta.setdefault("tls_warning", None)
             meta["discovery_source"] = "local"
