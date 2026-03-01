@@ -36,9 +36,23 @@ def extract_package(package_path: Path, extract_dir: Path) -> None:
     if package_path.suffix.lower() == ".zip":
         safe_extract_zip(package_path, extract_dir)
         return
-    if suffixes[-2:] in [[".tar", ".gz"], [".tar", ".bz2"], [".tar", ".xz"]] or package_path.suffix.lower() == ".tar":
+    if (
+        suffixes[-2:] in [[".tar", ".gz"], [".tar", ".bz2"], [".tar", ".xz"]]
+        or package_path.suffix.lower() in {".tar", ".tgz", ".tbz2", ".txz"}
+    ):
         safe_extract_tar(package_path, extract_dir)
         return
+    # Fallback to content-based detection when extension is missing/incorrect.
+    try:
+        safe_extract_zip(package_path, extract_dir)
+        return
+    except zipfile.BadZipFile:
+        pass
+    try:
+        safe_extract_tar(package_path, extract_dir)
+        return
+    except tarfile.TarError:
+        pass
     raise RuntimeError("unsupported_package_type")
 
 

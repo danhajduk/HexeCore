@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.store.router import AtomicResult, StoreAuditLogStore, build_store_router
+from app.store.router import AtomicResult, StoreAuditLogStore, _artifact_temp_filename, build_store_router
 from app.store.signing import VerificationError
 from app.store.sources import StoreSource
 
@@ -314,6 +314,10 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertIn("installed", payload)
         self.assertEqual(payload["installed"]["hello_world"]["version"], "1.0.0")
         self.assertEqual(payload["installed"]["hello_world"]["installed_at"], "2026-02-28T15:00:00+00:00")
+
+    def test_artifact_temp_filename_infers_tgz_suffix(self) -> None:
+        filename = _artifact_temp_filename("https://example.test/releases/download/v1.0.0/addon.tgz")
+        self.assertEqual(filename, "artifact.tgz")
 
     def test_install_success_and_invalid_signature(self) -> None:
         pkg = Path(self.tmp.name) / "bundle.zip"

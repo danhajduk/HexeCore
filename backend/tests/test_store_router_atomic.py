@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import tarfile
 import tempfile
 import unittest
 import zipfile
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
 
@@ -41,6 +43,20 @@ def _build_addon_zip(zip_path: Path, addon_id: str, version: str, valid_layout: 
             zf.writestr(f"{addon_id}/backend/addon.py", "addon = None\n")
 
 
+def _build_addon_tgz(tgz_path: Path, addon_id: str, version: str, valid_layout: bool = True) -> None:
+    manifest = {"id": addon_id, "name": addon_id, "version": version}
+    with tarfile.open(tgz_path, "w:gz") as tf:
+        manifest_bytes = json.dumps(manifest).encode("utf-8")
+        manifest_info = tarfile.TarInfo(name=f"{addon_id}/manifest.json")
+        manifest_info.size = len(manifest_bytes)
+        tf.addfile(manifest_info, BytesIO(manifest_bytes))
+        if valid_layout:
+            addon_bytes = b"addon = None\n"
+            addon_info = tarfile.TarInfo(name=f"{addon_id}/backend/addon.py")
+            addon_info.size = len(addon_bytes)
+            tf.addfile(addon_info, BytesIO(addon_bytes))
+
+
 class TestStoreRouterAtomic(unittest.TestCase):
     def test_atomic_install_success(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -59,6 +75,24 @@ class TestStoreRouterAtomic(unittest.TestCase):
 
             self.assertTrue((addons_root / "addon_ok").exists())
             self.assertEqual(result.installed_manifest["id"], "addon_ok")
+
+    def test_atomic_install_tgz_success(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            addons_root = root / "addons"
+            addons_root.mkdir(parents=True, exist_ok=True)
+            package = root / "pkg.tgz"
+            _build_addon_tgz(package, "addon_tgz", "1.0.0", valid_layout=True)
+
+            with patch("app.store.router._addons_root", return_value=addons_root):
+                result = _atomic_install_or_update(
+                    manifest=_manifest("addon_tgz", "1.0.0"),
+                    package_path=package,
+                    allow_replace=False,
+                )
+
+            self.assertTrue((addons_root / "addon_tgz").exists())
+            self.assertEqual(result.installed_manifest["id"], "addon_tgz")
 
     def test_update_rolls_back_on_failure(self) -> None:
         with tempfile.TemporaryDirectory() as td:

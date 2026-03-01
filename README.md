@@ -106,6 +106,7 @@ Catalog cache behavior (Phase 2):
   - when no compatible release exists, install returns `409` with `catalog_no_compatible_release` plus resolver reasons (for example core-version minimum mismatch),
   - derives missing `publisher_id` from `publisher_key_id` when catalog releases omit explicit publisher id,
   - accepts release artifact metadata in either top-level (`artifact_url`/`url`/`download_url`) or nested (`artifact.url`) forms,
+  - supports both `.zip` and tar-based addon artifacts (including `.tgz`) for catalog installs,
   - accepts publishers payload aliases (`publisher_id`/`key_id`/`status`/`type`) alongside legacy (`id`/`enabled`/`signature_type`) fields,
   - accepts publisher public keys encoded with escaped newlines (`\\n`) as well as standard PEM multi-line formatting,
   - downloads artifact with catalog client redirect/timeout/size protections,

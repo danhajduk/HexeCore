@@ -10,6 +10,7 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request
 
@@ -192,6 +193,14 @@ def _release_artifact_url(release_item: dict[str, Any]) -> str:
         or artifact.get("download_url")
         or ""
     ).strip()
+
+
+def _artifact_temp_filename(artifact_url: str | None) -> str:
+    path = urlparse(str(artifact_url or "")).path.lower()
+    for suffix in (".tar.gz", ".tar.bz2", ".tar.xz", ".tgz", ".tbz2", ".txz", ".zip", ".tar"):
+        if path.endswith(suffix):
+            return f"artifact{suffix}"
+    return "artifact.bin"
 
 
 def _release_signature_b64(release_item: dict[str, Any]) -> str:
@@ -810,7 +819,7 @@ def build_store_router(
                 )
 
                 temp_install_dir = Path(tempfile.mkdtemp(prefix=f"store-install-{manifest.id}-", dir=str(Path(tempfile.gettempdir()))))
-                package_path = temp_install_dir / "artifact.zip"
+                package_path = temp_install_dir / _artifact_temp_filename(source_release_url)
                 package_path.write_bytes(artifact_bytes)
 
             if source_id == "local":
