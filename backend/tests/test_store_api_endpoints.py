@@ -194,11 +194,17 @@ class TestStoreApiEndpoints(unittest.TestCase):
         refreshed_release_url: str | None = None,
         release_sha256: str | None = None,
         release_checksum: str | None = None,
+        escape_publishers_public_key_pem: bool = False,
     ) -> _FakeCatalogClient:
         digest = hashlib.sha256(artifact_bytes).hexdigest()
         addon_identity = {"addon_id": "hello_world"} if use_addon_id_field else {"id": "hello_world"}
         addon_publisher = {} if omit_publisher_id else {"publisher_id": "pub-1"}
         release_publisher = {} if omit_publisher_id else {"publisher_id": "pub-1"}
+        publisher_public_key_pem = (
+            self._public_key_pem.replace("\n", "\\n")
+            if escape_publishers_public_key_pem
+            else self._public_key_pem
+        )
         release_payload = {
             "version": "1.0.0",
             "sha256": release_sha256 if release_sha256 is not None else digest,
@@ -226,7 +232,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
                         "key_id": publishers_key_id,
                         "status": "enabled" if key_enabled else "revoked",
                         "type": signature_type,
-                        "public_key_pem": self._public_key_pem,
+                        "public_key_pem": publisher_public_key_pem,
                     }
                 ],
             }
@@ -239,7 +245,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
                         "id": publishers_key_id,
                         "enabled": key_enabled,
                         "signature_type": signature_type,
-                        "public_key_pem": self._public_key_pem,
+                        "public_key_pem": publisher_public_key_pem,
                     }
                 ],
             }
@@ -754,6 +760,36 @@ class TestStoreApiEndpoints(unittest.TestCase):
             publishers_key_id="pub-1#2026-03",
             use_publishers_alias_schema=True,
             omit_publisher_id=True,
+        )
+        app = FastAPI()
+        app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
+        client = TestClient(app)
+
+        with patch("app.store.router.resolve_manifest_compatibility", return_value=None), patch(
+            "app.store.router._atomic_install_or_update",
+            return_value=AtomicResult(
+                addon_dir=Path(self.tmp.name) / "addons" / "hello_world",
+                backup_dir=None,
+                installed_manifest={"id": "hello_world"},
+            ),
+        ):
+            res = client.post(
+                "/api/store/install",
+                headers={"X-Admin-Token": "test-token"},
+                json={"source_id": "official", "addon_id": "hello_world", "enable": True},
+            )
+        self.assertEqual(res.status_code, 200, res.text)
+
+    def test_catalog_install_accepts_escaped_newline_publisher_key(self) -> None:
+        pkg = Path(self.tmp.name) / "bundle-escaped-pem.zip"
+        with zipfile.ZipFile(pkg, "w") as zf:
+            zf.writestr("hello_world/manifest.json", '{"id":"hello_world","name":"hello_world","version":"1.0.0"}')
+            zf.writestr("hello_world/backend/addon.py", "addon = None\n")
+        artifact_bytes = pkg.read_bytes()
+        fake_catalog = self._build_catalog_client(
+            artifact_bytes=artifact_bytes,
+            release_sig=self._sign_artifact(artifact_bytes),
+            escape_publishers_public_key_pem=True,
         )
         app = FastAPI()
         app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")

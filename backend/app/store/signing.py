@@ -54,6 +54,17 @@ def _build_signature_payload(manifest: ReleaseManifest) -> bytes:
     return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 
+def _normalize_public_key_pem(public_key_pem: str) -> str:
+    text = str(public_key_pem or "").strip()
+    if not text:
+        return ""
+    if len(text) >= 2 and text[0] == text[-1] and text[0] in {"'", '"'}:
+        text = text[1:-1].strip()
+    if "\\n" in text or "\\r" in text:
+        text = text.replace("\\r\\n", "\n").replace("\\n", "\n").replace("\\r", "\n")
+    return text
+
+
 def verify_checksum(artifact_bytes: bytes, expected_checksum: str) -> None:
     actual = _hex_sha256(artifact_bytes)
     if not hmac.compare_digest(actual, expected_checksum.lower().strip()):
@@ -71,7 +82,8 @@ def verify_rsa_signature(manifest: ReleaseManifest, public_key_pem: str) -> None
             code="signature_missing",
             message="Release manifest signature is missing.",
         )
-    if not public_key_pem.strip():
+    normalized_public_key_pem = _normalize_public_key_pem(public_key_pem)
+    if not normalized_public_key_pem:
         raise VerificationError(
             code="public_key_missing",
             message="Publisher public key is missing.",
@@ -87,7 +99,7 @@ def verify_rsa_signature(manifest: ReleaseManifest, public_key_pem: str) -> None
         )
 
     try:
-        key = serialization.load_pem_public_key(public_key_pem.encode("utf-8"))
+        key = serialization.load_pem_public_key(normalized_public_key_pem.encode("utf-8"))
     except Exception as exc:
         raise VerificationError(
             code="public_key_invalid",
@@ -142,13 +154,14 @@ def verify_detached_artifact_signature(
             code="signature_missing",
             message="Detached release signature is missing.",
         )
-    if not public_key_pem.strip():
+    normalized_public_key_pem = _normalize_public_key_pem(public_key_pem)
+    if not normalized_public_key_pem:
         raise VerificationError(
             code="public_key_missing",
             message="Publisher public key is missing.",
         )
     try:
-        key = serialization.load_pem_public_key(public_key_pem.encode("utf-8"))
+        key = serialization.load_pem_public_key(normalized_public_key_pem.encode("utf-8"))
     except Exception as exc:
         raise VerificationError(
             code="public_key_invalid",

@@ -8,7 +8,12 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
 from app.store.models import ReleaseManifest
-from app.store.signing import VerificationError, run_pre_enable_verification, verify_release_artifact
+from app.store.signing import (
+    VerificationError,
+    run_pre_enable_verification,
+    verify_detached_artifact_signature,
+    verify_release_artifact,
+)
 import app.store.signing as signing_mod
 
 
@@ -82,6 +87,42 @@ class TestStoreSigning(unittest.TestCase):
         with self.assertRaises(VerificationError) as ctx:
             verify_release_artifact(manifest, b"tampered-bytes", public_key_pem)
         self.assertEqual(ctx.exception.code, "checksum_mismatch")
+
+    def test_verify_release_artifact_accepts_escaped_newline_public_key(self) -> None:
+        private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        public_key_pem = private_key.public_key().public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        ).decode("utf-8")
+        escaped_public_key_pem = public_key_pem.replace("\n", "\\n")
+
+        artifact = b"addon-bundle-bytes-escaped-pem"
+        unsigned = _build_release_manifest(artifact_bytes=artifact, signature_b64="a")
+        payload = signing_mod._build_signature_payload(unsigned)
+        signature = private_key.sign(payload, padding.PKCS1v15(), hashes.SHA256())
+        manifest = _build_release_manifest(
+            artifact_bytes=artifact,
+            signature_b64=base64.b64encode(signature).decode("ascii"),
+        )
+
+        verify_release_artifact(manifest, artifact, escaped_public_key_pem)
+
+    def test_verify_detached_signature_accepts_escaped_newline_public_key(self) -> None:
+        private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        public_key_pem = private_key.public_key().public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        ).decode("utf-8")
+        escaped_public_key_pem = public_key_pem.replace("\n", "\\n")
+        artifact = b"artifact-bytes-detached-escaped-pem"
+        signature = private_key.sign(artifact, padding.PKCS1v15(), hashes.SHA256())
+
+        verify_detached_artifact_signature(
+            artifact_bytes=artifact,
+            signature_b64=base64.b64encode(signature).decode("ascii"),
+            public_key_pem=escaped_public_key_pem,
+            signature_type="rsa-sha256",
+        )
 
     def test_pre_enable_pipeline_blocks_enable_on_invalid_signature(self) -> None:
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)

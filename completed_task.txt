@@ -93,3 +93,4 @@
 2026-03-01 - Added operator-visible store status diagnostics with resolved source URL and last catalog install failure checksum/artifact context.
 2026-03-01 - Documented addon store incident runbook for catalog_artifact_unavailable and catalog_sha256_mismatch, including refresh, verification, and rollback procedures.
 2026-03-01 - Session complete: Tasks 35-36 delivered with store debug status diagnostics and incident runbook documentation.
+2026-03-01 - Fixed store install public_key_invalid failures by normalizing escaped PEM publisher keys (\\n) during signature verification; added regression coverage.
