@@ -145,6 +145,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         use_publishers_alias_schema: bool = False,
         omit_publisher_id: bool = False,
         use_nested_artifact_url: bool = False,
+        core_min_version: str = "0.1.0",
     ) -> _FakeCatalogClient:
         digest = hashlib.sha256(artifact_bytes).hexdigest()
         addon_identity = {"addon_id": "hello_world"} if use_addon_id_field else {"id": "hello_world"}
@@ -158,7 +159,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
             "publisher_key_id": publisher_key_id,
             **release_publisher,
             "compatibility": {
-                "core_min_version": "0.1.0",
+                "core_min_version": core_min_version,
                 "core_max_version": None,
                 "dependencies": [],
                 "conflicts": [],
@@ -435,6 +436,30 @@ class TestStoreApiEndpoints(unittest.TestCase):
             )
         self.assertEqual(res.status_code, 200, res.text)
         self.assertEqual(res.json()["installed_release_url"], "https://example.test/hello_world-1.0.0.zip")
+
+    def test_catalog_install_no_compatible_release_includes_reason_details(self) -> None:
+        artifact_bytes = b"artifact-incompatible"
+        fake_catalog = self._build_catalog_client(
+            artifact_bytes=artifact_bytes,
+            release_sig=self._sign_artifact(artifact_bytes),
+            core_min_version="9.0.0",
+        )
+        app = FastAPI()
+        app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
+        client = TestClient(app)
+
+        with patch("app.store.router._atomic_install_or_update"):
+            res = client.post(
+                "/api/store/install",
+                headers={"X-Admin-Token": "test-token"},
+                json={"source_id": "official", "addon_id": "hello_world", "enable": True},
+            )
+        self.assertEqual(res.status_code, 409, res.text)
+        detail = res.json()["detail"]
+        self.assertEqual(detail["error"], "catalog_no_compatible_release")
+        self.assertEqual(detail["core_version"], "0.1.0")
+        self.assertEqual(detail["reasons"][0]["error"]["code"], "core_version_too_low")
+        self.assertEqual(detail["reasons"][0]["error"]["details"]["required_min"], "9.0.0")
 
     def test_catalog_install_missing_publisher_key_rejected(self) -> None:
         artifact_bytes = b"artifact-a"

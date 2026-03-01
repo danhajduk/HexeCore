@@ -127,6 +127,10 @@ def _hex_sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def _configured_core_version() -> str:
+    return os.getenv("SYNTHIA_CORE_VERSION", "0.1.0")
+
+
 def _extract_catalog_items(index_payload: Any) -> list[dict[str, Any]]:
     if isinstance(index_payload, list):
         return [x for x in index_payload if isinstance(x, dict)]
@@ -534,6 +538,8 @@ def build_store_router(
                 )
                 release_item: dict[str, Any] | None = None
                 manifest: ReleaseManifest | None = None
+                core_version = _configured_core_version()
+                compatibility_failures: list[dict[str, Any]] = []
                 for candidate in release_candidates:
                     candidate_manifest = _build_release_manifest(body.addon_id.strip(), addon_item, candidate)
                     if body.version and body.version.strip():
@@ -543,15 +549,30 @@ def build_store_router(
                     try:
                         resolve_manifest_compatibility(
                             candidate_manifest,
-                            core_version=os.getenv("SYNTHIA_CORE_VERSION", "0.1.0"),
+                            core_version=core_version,
                             installed_addons=installed_addons_with_versions(registry),
                         )
                         manifest = candidate_manifest
                         release_item = candidate
                         break
-                    except ResolverError:
+                    except ResolverError as exc:
+                        compatibility_failures.append(
+                            {
+                                "version": str(candidate.get("version") or ""),
+                                "error": exc.to_dict().get("error", {"code": exc.code, "message": exc.message}),
+                            }
+                        )
                         continue
                 if manifest is None or release_item is None:
+                    if compatibility_failures:
+                        raise HTTPException(
+                            status_code=409,
+                            detail={
+                                "error": "catalog_no_compatible_release",
+                                "core_version": core_version,
+                                "reasons": compatibility_failures,
+                            },
+                        )
                     raise HTTPException(status_code=409, detail="catalog_no_compatible_release")
                 release_signature_b64 = _release_signature_b64(release_item)
                 publisher_key_id = str(release_item.get("publisher_key_id") or "").strip()
@@ -629,7 +650,7 @@ def build_store_router(
 
             resolve_manifest_compatibility(
                 manifest,
-                core_version=os.getenv("SYNTHIA_CORE_VERSION", "0.1.0"),
+                core_version=_configured_core_version(),
                 installed_addons=installed_addons_with_versions(registry),
             )
 
@@ -751,7 +772,7 @@ def build_store_router(
 
             resolve_manifest_compatibility(
                 body.manifest,
-                core_version=os.getenv("SYNTHIA_CORE_VERSION", "0.1.0"),
+                core_version=_configured_core_version(),
                 installed_addons=installed_addons_with_versions(registry),
             )
 
