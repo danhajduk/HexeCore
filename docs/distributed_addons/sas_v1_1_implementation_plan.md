@@ -28,7 +28,7 @@ Reference: `docs/Policies/Synthia_Addon_Standard.md`.
 - Completed: Task 51 (catalog release resolution now supports `channels` schema with `stable|beta|nightly` and legacy `releases[]` fallback).
 - Completed: Task 52 (signature metadata parsing supports SAS signature object shape: `signature.type` + `signature.value`, with legacy `release_sig` compatibility).
 - Completed: Task 53 (strict catalog release profile vs release manifest profile cross-check with structured mismatch diagnostics).
-- Pending: Task 54.
+- Completed: Task 54 (expanded regression coverage for SAS release selection paths, including channel precedence/fallback behavior).
 
 ## Sequencing
 1. Implement manifest normalization first (local correctness + low blast radius).

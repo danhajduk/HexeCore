@@ -493,15 +493,18 @@ def _resolve_catalog_release(
             entries = channels.get(channel_name)
             if not isinstance(entries, list):
                 continue
+            channel_release_items: list[dict[str, Any]] = []
             for item in entries:
                 if not isinstance(item, dict):
                     continue
                 row = dict(item)
                 row.setdefault("channel", channel_name)
-                release_items.append(row)
+                channel_release_items.append(row)
+            channel_release_items.sort(key=lambda r: _parse_semver_key(str(r.get("version", ""))), reverse=True)
+            release_items.extend(channel_release_items)
 
     releases = addon_item.get("releases")
-    if isinstance(releases, list):
+    if isinstance(releases, list) and not release_items:
         release_items.extend([x for x in releases if isinstance(x, dict)])
 
     if not release_items:
@@ -513,7 +516,8 @@ def _resolve_catalog_release(
                 return addon_item, [rel]
         raise RuntimeError("catalog_release_version_not_found")
 
-    release_items.sort(key=lambda r: _parse_semver_key(str(r.get("version", ""))), reverse=True)
+    if not isinstance(channels, dict):
+        release_items.sort(key=lambda r: _parse_semver_key(str(r.get("version", ""))), reverse=True)
     return addon_item, release_items
 
 

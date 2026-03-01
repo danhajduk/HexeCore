@@ -571,6 +571,202 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(res.status_code, 200, res.text)
         self.assertEqual(res.json()["installed_release_url"], "https://example.test/hello_world-1.0.0.zip")
 
+    def test_catalog_install_prefers_stable_channel_over_newer_beta(self) -> None:
+        pkg = Path(self.tmp.name) / "bundle-channels-precedence.zip"
+        with zipfile.ZipFile(pkg, "w") as zf:
+            zf.writestr("hello_world/manifest.json", '{"id":"hello_world","name":"hello_world","version":"1.0.0"}')
+            zf.writestr("hello_world/backend/addon.py", "addon = None\n")
+        artifact_bytes = pkg.read_bytes()
+        release_sig = self._sign_artifact(artifact_bytes)
+        index_payload = {
+            "addons": [
+                {
+                    "id": "hello_world",
+                    "name": "hello_world",
+                    "publisher_id": "pub-1",
+                    "permissions": ["filesystem.read"],
+                    "channels": {
+                        "stable": [
+                            {
+                                "version": "1.0.0",
+                                "sha256": hashlib.sha256(artifact_bytes).hexdigest(),
+                                "checksum": hashlib.sha256(artifact_bytes).hexdigest(),
+                                "publisher_key_id": "key-1",
+                                "package_profile": "embedded_addon",
+                                "publisher_id": "pub-1",
+                                "release_sig": release_sig,
+                                "signature_type": "rsa-sha256",
+                                "artifact_url": "https://example.test/stable-1.0.0.zip",
+                                "compatibility": {
+                                    "core_min_version": "0.1.0",
+                                    "core_max_version": None,
+                                    "dependencies": [],
+                                    "conflicts": [],
+                                },
+                            }
+                        ],
+                        "beta": [
+                            {
+                                "version": "9.0.0",
+                                "sha256": hashlib.sha256(artifact_bytes).hexdigest(),
+                                "checksum": hashlib.sha256(artifact_bytes).hexdigest(),
+                                "publisher_key_id": "key-1",
+                                "package_profile": "embedded_addon",
+                                "publisher_id": "pub-1",
+                                "release_sig": release_sig,
+                                "signature_type": "rsa-sha256",
+                                "artifact_url": "https://example.test/beta-9.0.0.zip",
+                                "compatibility": {
+                                    "core_min_version": "0.1.0",
+                                    "core_max_version": None,
+                                    "dependencies": [],
+                                    "conflicts": [],
+                                },
+                            }
+                        ],
+                        "nightly": [],
+                    },
+                }
+            ]
+        }
+        publishers_payload = {
+            "publishers": [
+                {
+                    "id": "pub-1",
+                    "enabled": True,
+                    "keys": [
+                        {
+                            "id": "key-1",
+                            "enabled": True,
+                            "signature_type": "rsa-sha256",
+                            "public_key_pem": self._public_key_pem,
+                        }
+                    ],
+                }
+            ]
+        }
+        fake_catalog = _FakeCatalogClient(
+            index_payload=index_payload,
+            publishers_payload=publishers_payload,
+            artifact_bytes=artifact_bytes,
+        )
+        app = FastAPI()
+        app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
+        client = TestClient(app)
+
+        with patch("app.store.router.resolve_manifest_compatibility", return_value=None), patch(
+            "app.store.router._atomic_install_or_update",
+            return_value=AtomicResult(
+                addon_dir=Path(self.tmp.name) / "addons" / "hello_world",
+                backup_dir=None,
+                installed_manifest={"id": "hello_world"},
+            ),
+        ):
+            res = client.post(
+                "/api/store/install",
+                headers={"X-Admin-Token": "test-token"},
+                json={"source_id": "official", "addon_id": "hello_world", "enable": True},
+            )
+        self.assertEqual(res.status_code, 200, res.text)
+        self.assertEqual(res.json()["installed_release_url"], "https://example.test/stable-1.0.0.zip")
+
+    def test_catalog_install_falls_back_to_beta_when_stable_has_no_compatible_release(self) -> None:
+        pkg = Path(self.tmp.name) / "bundle-channels-fallback.zip"
+        with zipfile.ZipFile(pkg, "w") as zf:
+            zf.writestr("hello_world/manifest.json", '{"id":"hello_world","name":"hello_world","version":"1.0.0"}')
+            zf.writestr("hello_world/backend/addon.py", "addon = None\n")
+        artifact_bytes = pkg.read_bytes()
+        release_sig = self._sign_artifact(artifact_bytes)
+        digest = hashlib.sha256(artifact_bytes).hexdigest()
+        index_payload = {
+            "addons": [
+                {
+                    "id": "hello_world",
+                    "name": "hello_world",
+                    "publisher_id": "pub-1",
+                    "permissions": ["filesystem.read"],
+                    "channels": {
+                        "stable": [
+                            {
+                                "version": "3.0.0",
+                                "sha256": digest,
+                                "checksum": digest,
+                                "publisher_key_id": "key-1",
+                                "package_profile": "embedded_addon",
+                                "publisher_id": "pub-1",
+                                "release_sig": release_sig,
+                                "signature_type": "rsa-sha256",
+                                "artifact_url": "https://example.test/stable-3.0.0.zip",
+                                "compatibility": {
+                                    "core_min_version": "9.0.0",
+                                    "core_max_version": None,
+                                    "dependencies": [],
+                                    "conflicts": [],
+                                },
+                            }
+                        ],
+                        "beta": [
+                            {
+                                "version": "2.0.0",
+                                "sha256": digest,
+                                "checksum": digest,
+                                "publisher_key_id": "key-1",
+                                "package_profile": "embedded_addon",
+                                "publisher_id": "pub-1",
+                                "release_sig": release_sig,
+                                "signature_type": "rsa-sha256",
+                                "artifact_url": "https://example.test/beta-2.0.0.zip",
+                                "compatibility": {
+                                    "core_min_version": "0.1.0",
+                                    "core_max_version": None,
+                                    "dependencies": [],
+                                    "conflicts": [],
+                                },
+                            }
+                        ],
+                        "nightly": [],
+                    },
+                }
+            ]
+        }
+        publishers_payload = {
+            "publishers": [
+                {
+                    "id": "pub-1",
+                    "enabled": True,
+                    "keys": [
+                        {
+                            "id": "key-1",
+                            "enabled": True,
+                            "signature_type": "rsa-sha256",
+                            "public_key_pem": self._public_key_pem,
+                        }
+                    ],
+                }
+            ]
+        }
+        fake_catalog = _FakeCatalogClient(
+            index_payload=index_payload,
+            publishers_payload=publishers_payload,
+            artifact_bytes=artifact_bytes,
+        )
+        app = FastAPI()
+        app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
+        client = TestClient(app)
+
+        with patch("app.store.router._atomic_install_or_update", return_value=AtomicResult(
+            addon_dir=Path(self.tmp.name) / "addons" / "hello_world",
+            backup_dir=None,
+            installed_manifest={"id": "hello_world"},
+        )):
+            res = client.post(
+                "/api/store/install",
+                headers={"X-Admin-Token": "test-token"},
+                json={"source_id": "official", "addon_id": "hello_world", "enable": True},
+            )
+        self.assertEqual(res.status_code, 200, res.text)
+        self.assertEqual(res.json()["installed_release_url"], "https://example.test/beta-2.0.0.zip")
+
     def test_catalog_install_accepts_signature_object_schema(self) -> None:
         pkg = Path(self.tmp.name) / "bundle-signature-object.zip"
         with zipfile.ZipFile(pkg, "w") as zf:
