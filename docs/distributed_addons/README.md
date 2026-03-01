@@ -20,13 +20,12 @@ This document maps the current implementation to the policy set in `docs/Policie
 | MQTT manager | Status/test/restart and subscriptions | `/api/system/mqtt/status|test|restart` plus topic subscriptions implemented | Aligned |
 | Core MQTT info topic | Retained `synthia/core/mqtt/info` publication | Auto-published on successful MQTT connect/restart with sanitized broker metadata and heartbeat timestamp | Aligned |
 | Service resolution | Capability-based service resolution endpoint | `/api/services/resolve` implemented (registry + catalog fallback) | Aligned |
-| Service tokens | Service-to-service JWT issuance | `/api/auth/service-token` exists but is admin-token gated (no service-principal issuance flow) | Partial |
+| Service tokens | Service-to-service JWT issuance | `/api/auth/service-token` now supports constrained service-principal issuance (`X-Service-Principal-Id`/`X-Service-Principal-Secret`) in addition to admin issuance | Aligned |
 | Policy grants schema | General limits (`max_requests`, `max_tokens`, `max_cost_cents`, `max_bytes`) | API/persistence/MQTT grant payloads now use the policy limit keys; legacy `max_units`/`burst` inputs are normalized for compatibility | Aligned |
 | Revocation topic model | Revocation keyed by both consumer and grant | Core now publishes retained revocations on `consumer_addon_id` and `grant_id` topics, plus legacy `{id}` compatibility topic | Aligned |
 | Addon package profiles | Clear embedded-addon vs standalone-service handling | Embedded addon layout enforced; invalid service layout now returns structured diagnostics | Partial |
 
 ## Gap-to-Task Mapping
-- Task 47: Add service-principal token issuance/auth for `/api/auth/service-token`.
 - Task 48: Formalize package profiles and install-time validation for `embedded addon` vs `standalone service`.
 
 ## Notes
