@@ -149,6 +149,29 @@ class MqttManager:
         )
         return {"ok": bool(getattr(result, "rc", 1) == 0), "topic": topic, "rc": int(getattr(result, "rc", 1))}
 
+    def _core_info_payload(self) -> dict[str, Any]:
+        cfg = self._config
+        return {
+            "source": "synthia-core",
+            "type": "core-mqtt-info",
+            "heartbeat_ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "broker": {
+                "mode": cfg.mode if cfg else None,
+                "host": cfg.host if cfg else None,
+                "port": cfg.port if cfg else None,
+                "tls_enabled": cfg.tls_enabled if cfg else None,
+                "client_id": cfg.client_id if cfg else None,
+                "username_set": bool(cfg.username) if cfg else False,
+            },
+        }
+
+    def _publish_core_info_retained(self, client: Any) -> None:
+        payload = redact_secrets(self._core_info_payload())
+        result = client.publish("synthia/core/mqtt/info", json.dumps(payload), 1, True)
+        rc = int(getattr(result, "rc", 1))
+        if rc != 0:
+            self._last_error = f"core_info_publish_rc:{rc}"
+
     async def _load_config(self) -> MqttConfig:
         mode = str((await self._settings.get("mqtt.mode")) or "local").lower()
         if mode not in {"local", "external"}:
@@ -200,6 +223,7 @@ class MqttManager:
             return
         for topic, qos in MQTT_SUBSCRIPTIONS:
             client.subscribe(topic, qos=qos)
+        self._publish_core_info_retained(client)
 
     def _on_disconnect(self, client: Any, userdata: Any, disconnect_flags: Any, reason_code: Any, properties: Any = None) -> None:
         self._connected = False

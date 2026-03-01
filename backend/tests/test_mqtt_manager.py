@@ -2,7 +2,7 @@ import asyncio
 import json
 import unittest
 
-from app.system.mqtt.manager import MqttManager
+from app.system.mqtt.manager import MQTT_SUBSCRIPTIONS, MqttConfig, MqttManager
 
 
 class _FakeSettingsStore:
@@ -44,6 +44,25 @@ class _Msg:
         self.payload = json.dumps(payload).encode("utf-8")
 
 
+class _PublishResult:
+    def __init__(self, rc: int = 0) -> None:
+        self.rc = rc
+
+
+class _FakeClient:
+    def __init__(self) -> None:
+        self.subscribed: list[tuple[str, int]] = []
+        self.published: list[tuple[str, dict, int, bool]] = []
+
+    def subscribe(self, topic: str, qos: int = 0):
+        self.subscribed.append((topic, qos))
+        return (0, 1)
+
+    def publish(self, topic: str, payload: str, qos: int = 0, retain: bool = False):
+        self.published.append((topic, json.loads(payload), qos, retain))
+        return _PublishResult(rc=0)
+
+
 class TestMqttManager(unittest.IsolatedAsyncioTestCase):
     async def test_disabled_listener_is_noop(self) -> None:
         manager = MqttManager(
@@ -80,6 +99,69 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(registry.calls[1][0], "health")
         self.assertEqual(registry.calls[1][1], "mqtt")
         self.assertEqual(sessions.calls, ["mqtt"])
+
+    async def test_on_connect_publishes_retained_core_info(self) -> None:
+        manager = MqttManager(
+            settings_store=_FakeSettingsStore(),
+            registry=_FakeRegistry(),
+            service_catalog_store=_FakeServiceCatalogStore(),
+            enabled=True,
+        )
+        manager._config = MqttConfig(
+            mode="external",
+            host="10.0.0.100",
+            port=1883,
+            username="broker-user",
+            password="secret-password",
+            keepalive_s=30,
+            tls_enabled=False,
+            client_id="synthia-core",
+        )
+        client = _FakeClient()
+
+        manager._on_connect(client, None, None, 0)
+
+        self.assertTrue(manager._connected)
+        self.assertEqual(client.subscribed, MQTT_SUBSCRIPTIONS)
+        self.assertEqual(len(client.published), 1)
+        topic, payload, qos, retain = client.published[0]
+        self.assertEqual(topic, "synthia/core/mqtt/info")
+        self.assertEqual(qos, 1)
+        self.assertTrue(retain)
+        self.assertEqual(payload["source"], "synthia-core")
+        self.assertEqual(payload["type"], "core-mqtt-info")
+        self.assertTrue(payload["heartbeat_ts"].endswith("Z"))
+        self.assertEqual(payload["broker"]["mode"], "external")
+        self.assertEqual(payload["broker"]["host"], "10.0.0.100")
+        self.assertEqual(payload["broker"]["port"], 1883)
+        self.assertFalse(payload["broker"]["tls_enabled"])
+        self.assertTrue(payload["broker"]["username_set"])
+
+    async def test_on_connect_failure_does_not_publish_core_info(self) -> None:
+        manager = MqttManager(
+            settings_store=_FakeSettingsStore(),
+            registry=_FakeRegistry(),
+            service_catalog_store=_FakeServiceCatalogStore(),
+            enabled=True,
+        )
+        manager._config = MqttConfig(
+            mode="external",
+            host="10.0.0.100",
+            port=1883,
+            username=None,
+            password=None,
+            keepalive_s=30,
+            tls_enabled=False,
+            client_id="synthia-core",
+        )
+        client = _FakeClient()
+
+        manager._on_connect(client, None, None, 5)
+
+        self.assertFalse(manager._connected)
+        self.assertEqual(manager._last_error, "connect_rc:5")
+        self.assertEqual(client.subscribed, [])
+        self.assertEqual(client.published, [])
 
 
 if __name__ == "__main__":
