@@ -309,9 +309,7 @@ export default function AddonStorePage() {
                 <div className="store-meta">
                   publisher:{" "}
                   {item.publisherDisplayName
-                    ? item.publisherId
-                      ? `${item.publisherDisplayName} (${item.publisherId})`
-                      : item.publisherDisplayName
+                    ? item.publisherDisplayName
                     : item.publisherId || "unknown"}
                 </div>
                 <div className="store-meta">releases: {item.releaseCount}</div>
