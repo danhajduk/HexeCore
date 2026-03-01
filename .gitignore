@@ -38,3 +38,11 @@ data/addons_registry.json
 var/store_install_state.json
 completed_task.txt
 docs/New_tasks.txt
+
+# Local/private operator config and key material
+.config/
+scripts/synthia.env
+scripts/*.local.env
+*.key
+*.p12
+*.pfx
