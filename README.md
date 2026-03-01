@@ -73,6 +73,7 @@ Catalog cache behavior (Phase 2):
 - `GET /api/store/catalog` now reads cached catalog content (source-aware) and returns structured status fields:
   - `status`, `source_id`, `last_success_at`, `last_error_at`, `last_error_message`.
   - `installed` map payload: `{ [addon_id]: { version, installed_at } }`
+  - when cache uses `addons[]` entries, backend normalizes `addon_id -> id` and includes `version`, `publisher_id`, `release_count`, and `releases` for richer UI metadata.
 - Catalog install flow:
   - resolves release from cached catalog by addon/version (defaults to latest compatible release),
   - downloads artifact with catalog client redirect/timeout/size protections,

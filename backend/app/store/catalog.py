@@ -342,14 +342,26 @@ class CatalogCacheClient:
                 for raw in index_payload["addons"]:
                     if not isinstance(raw, dict):
                         continue
+                    releases = [x for x in raw.get("releases", []) if isinstance(x, dict)]
+                    latest_release = releases[0] if releases else {}
+                    addon_id = raw.get("id") or raw.get("addon_id")
+                    manifest = raw.get("manifest") if isinstance(raw.get("manifest"), dict) else {}
                     item = {
-                        "id": raw.get("id"),
-                        "name": raw.get("name") or raw.get("id"),
-                        "description": raw.get("description", ""),
+                        "id": addon_id or manifest.get("id"),
+                        "name": raw.get("name") or addon_id or manifest.get("name"),
+                        "description": raw.get("description") or manifest.get("description") or "",
                         "categories": raw.get("categories", []),
                         "featured": bool(raw.get("featured", False)),
-                        "version": raw.get("version"),
+                        "version": raw.get("version") or latest_release.get("version"),
                         "published_at": raw.get("published_at") or raw.get("updated_at") or "",
+                        "publisher_id": (
+                            raw.get("publisher_id")
+                            or latest_release.get("publisher_id")
+                            or latest_release.get("publisher_key_id")
+                            or manifest.get("publisher_id")
+                        ),
+                        "release_count": len(releases),
+                        "releases": releases,
                     }
                     out.append(item)
                 return out
