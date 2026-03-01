@@ -97,6 +97,7 @@ Catalog cache behavior (Phase 2):
 - Catalog install flow:
   - resolves release from cached catalog by addon/version (accepts both `id` and `addon_id` source keys; defaults to latest compatible release),
   - derives missing `publisher_id` from `publisher_key_id` when catalog releases omit explicit publisher id,
+  - accepts release artifact metadata in either top-level (`artifact_url`/`url`/`download_url`) or nested (`artifact.url`) forms,
   - accepts publishers payload aliases (`publisher_id`/`key_id`/`status`/`type`) alongside legacy (`id`/`enabled`/`signature_type`) fields,
   - downloads artifact with catalog client redirect/timeout/size protections,
   - enforces `release.publisher_key_id` lookup in cached `publishers.json` (must exist and be enabled),

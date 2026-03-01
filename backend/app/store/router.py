@@ -138,6 +138,48 @@ def _extract_catalog_items(index_payload: Any) -> list[dict[str, Any]]:
     return []
 
 
+def _release_artifact_payload(release_item: dict[str, Any]) -> dict[str, Any]:
+    artifact = release_item.get("artifact")
+    if isinstance(artifact, dict):
+        return artifact
+    return {}
+
+
+def _release_artifact_url(release_item: dict[str, Any]) -> str:
+    artifact = _release_artifact_payload(release_item)
+    return str(
+        release_item.get("artifact_url")
+        or release_item.get("url")
+        or release_item.get("download_url")
+        or artifact.get("url")
+        or artifact.get("artifact_url")
+        or artifact.get("download_url")
+        or ""
+    ).strip()
+
+
+def _release_signature_b64(release_item: dict[str, Any]) -> str:
+    artifact = _release_artifact_payload(release_item)
+    return str(
+        release_item.get("release_sig")
+        or release_item.get("signature")
+        or artifact.get("release_sig")
+        or artifact.get("signature")
+        or ""
+    ).strip()
+
+
+def _release_checksum(release_item: dict[str, Any]) -> str:
+    artifact = _release_artifact_payload(release_item)
+    return str(
+        release_item.get("sha256")
+        or release_item.get("checksum")
+        or artifact.get("sha256")
+        or artifact.get("checksum")
+        or ""
+    ).strip()
+
+
 def _parse_semver_key(value: str) -> tuple[int, int, int, str]:
     try:
         base = value.split("-", 1)[0]
@@ -151,11 +193,16 @@ def _build_release_manifest(addon_id: str, addon_item: dict[str, Any], release_i
     compatibility_raw = release_item.get("compatibility") or addon_item.get("compatibility") or {}
     compat = {
         "core_min_version": compatibility_raw.get("core_min_version")
+        or compatibility_raw.get("core_min")
         or release_item.get("core_min_version")
+        or release_item.get("core_min")
         or addon_item.get("core_min_version")
+        or addon_item.get("core_min")
         or "0.1.0",
         "core_max_version": compatibility_raw.get("core_max_version")
+        or compatibility_raw.get("core_max")
         or release_item.get("core_max_version")
+        or release_item.get("core_max")
         or addon_item.get("core_max_version"),
         "dependencies": compatibility_raw.get("dependencies")
         or release_item.get("dependencies")
@@ -182,8 +229,8 @@ def _build_release_manifest(addon_id: str, addon_item: dict[str, Any], release_i
         or publisher_id_from_key
         or ""
     ).strip()
-    signature_b64 = str(release_item.get("release_sig") or release_item.get("signature") or "").strip()
-    checksum = str(release_item.get("sha256") or release_item.get("checksum") or "").strip()
+    signature_b64 = _release_signature_b64(release_item)
+    checksum = _release_checksum(release_item)
 
     manifest_payload = release_item.get("manifest")
     if isinstance(manifest_payload, dict):
@@ -506,7 +553,7 @@ def build_store_router(
                         continue
                 if manifest is None or release_item is None:
                     raise HTTPException(status_code=409, detail="catalog_no_compatible_release")
-                release_signature_b64 = str(release_item.get("release_sig") or "").strip()
+                release_signature_b64 = _release_signature_b64(release_item)
                 publisher_key_id = str(release_item.get("publisher_key_id") or "").strip()
                 if not publisher_key_id:
                     raise HTTPException(status_code=400, detail="catalog_publisher_key_missing")
@@ -524,12 +571,7 @@ def build_store_router(
                 if key_signature_type != release_signature_type:
                     raise HTTPException(status_code=400, detail="catalog_signature_type_mismatch")
 
-                source_release_url = str(
-                    release_item.get("artifact_url")
-                    or release_item.get("url")
-                    or release_item.get("download_url")
-                    or ""
-                ).strip()
+                source_release_url = _release_artifact_url(release_item)
                 if not source_release_url:
                     raise HTTPException(status_code=400, detail="catalog_artifact_url_missing")
 
@@ -543,7 +585,7 @@ def build_store_router(
                 )
                 artifact_bytes = cache_catalog.download_artifact(source_release_url)
                 actual_sha256 = _hex_sha256(artifact_bytes)
-                expected_sha256 = str(release_item.get("sha256") or release_item.get("checksum") or manifest.checksum).strip()
+                expected_sha256 = str(_release_checksum(release_item) or manifest.checksum).strip()
                 if not expected_sha256 or not hmac.compare_digest(actual_sha256, expected_sha256.lower()):
                     await audit_store.record(
                         action="catalog_verify",
