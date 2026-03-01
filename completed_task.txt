@@ -127,3 +127,4 @@
 2026-03-01 - Session complete: Tasks 55-56 delivered (catalog wrapped-release install fix and addon store detail rendering fix).
 2026-03-01 - Fixed catalog publisher key lookup for alias schemas using status=active and base64 public_key fields.
 2026-03-01 - Added publisher_display_name enrichment to /api/store/catalog responses from cached publishers metadata.
+2026-03-01 - Updated Addon Store UI publisher field to show publisher display name with publisher_id fallback.

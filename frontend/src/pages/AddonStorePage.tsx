@@ -15,6 +15,7 @@ type RawCatalogItem = {
   version?: unknown;
   published_at?: unknown;
   publisher_id?: unknown;
+  publisher_display_name?: unknown;
   releases?: unknown;
   release_count?: unknown;
   channels?: unknown;
@@ -30,6 +31,7 @@ type CatalogItem = {
   version: string;
   publishedAt: string | null;
   publisherId: string | null;
+  publisherDisplayName: string | null;
   releaseCount: number;
 };
 
@@ -136,6 +138,7 @@ function normalizeCatalogItem(item: RawCatalogItem, index: number): CatalogItem 
     version,
     publishedAt: asString(item.published_at),
     publisherId: asString(item.publisher_id),
+    publisherDisplayName: asString(item.publisher_display_name),
     releaseCount: releaseCount ?? effectiveReleases.length,
   };
 }
@@ -232,6 +235,7 @@ export default function AddonStorePage() {
         item.id,
         item.name,
         item.description,
+        item.publisherDisplayName || "",
         item.publisherId || "",
         ...(item.categories || []),
       ]
@@ -302,7 +306,14 @@ export default function AddonStorePage() {
                 <div className="store-meta">installed version: {info.version || "not installed"}</div>
                 <div className="store-meta">installed at: {formatTs(info.installed_at)}</div>
                 <div className="store-meta">published at: {formatTs(item.publishedAt)}</div>
-                <div className="store-meta">publisher: {item.publisherId || "unknown"}</div>
+                <div className="store-meta">
+                  publisher:{" "}
+                  {item.publisherDisplayName
+                    ? item.publisherId
+                      ? `${item.publisherDisplayName} (${item.publisherId})`
+                      : item.publisherDisplayName
+                    : item.publisherId || "unknown"}
+                </div>
                 <div className="store-meta">releases: {item.releaseCount}</div>
                 {item.featured && <div className="store-meta">featured: yes</div>}
                 <div className="store-row">
