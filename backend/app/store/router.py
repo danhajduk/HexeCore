@@ -205,6 +205,26 @@ def _artifact_temp_filename(artifact_url: str | None) -> str:
 
 def _release_signature_b64(release_item: dict[str, Any]) -> str:
     artifact = _release_artifact_payload(release_item)
+    release_signature = release_item.get("signature")
+    if isinstance(release_signature, dict):
+        value = str(
+            release_signature.get("value")
+            or release_signature.get("signature")
+            or release_signature.get("sig")
+            or ""
+        ).strip()
+        if value:
+            return value
+    artifact_signature = artifact.get("signature")
+    if isinstance(artifact_signature, dict):
+        value = str(
+            artifact_signature.get("value")
+            or artifact_signature.get("signature")
+            or artifact_signature.get("sig")
+            or ""
+        ).strip()
+        if value:
+            return value
     return str(
         release_item.get("release_sig")
         or release_item.get("signature")
@@ -212,6 +232,34 @@ def _release_signature_b64(release_item: dict[str, Any]) -> str:
         or artifact.get("signature")
         or ""
     ).strip()
+
+
+def _release_signature_type(release_item: dict[str, Any]) -> str:
+    artifact = _release_artifact_payload(release_item)
+    release_signature = release_item.get("signature")
+    if isinstance(release_signature, dict):
+        sig_type = str(
+            release_signature.get("type")
+            or release_signature.get("signature_type")
+            or ""
+        ).strip().lower()
+        if sig_type:
+            return sig_type
+    artifact_signature = artifact.get("signature")
+    if isinstance(artifact_signature, dict):
+        sig_type = str(
+            artifact_signature.get("type")
+            or artifact_signature.get("signature_type")
+            or ""
+        ).strip().lower()
+        if sig_type:
+            return sig_type
+    return str(
+        release_item.get("signature_type")
+        or release_item.get("release_sig_type")
+        or artifact.get("signature_type")
+        or "rsa-sha256"
+    ).strip().lower()
 
 
 def _release_checksum(release_item: dict[str, Any]) -> str:
@@ -743,9 +791,7 @@ def build_store_router(
                     if publisher_key is None:
                         raise HTTPException(status_code=400, detail="catalog_publisher_key_not_found_or_disabled")
                     public_key_pem, key_signature_type = publisher_key
-                    release_signature_type = str(
-                        release_item.get("signature_type") or release_item.get("release_sig_type") or "rsa-sha256"
-                    ).strip().lower()
+                    release_signature_type = _release_signature_type(release_item)
                     debug_signature_type = release_signature_type
                     if key_signature_type != release_signature_type:
                         raise HTTPException(status_code=400, detail="catalog_signature_type_mismatch")

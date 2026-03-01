@@ -26,7 +26,8 @@ Reference: `docs/Policies/Synthia_Addon_Standard.md`.
 ## Progress Notes
 - Completed: Task 50 (manifest permission alias normalization in store models for `network.outbound|inbound` and `mqtt.client`).
 - Completed: Task 51 (catalog release resolution now supports `channels` schema with `stable|beta|nightly` and legacy `releases[]` fallback).
-- Pending: Tasks 52-54.
+- Completed: Task 52 (signature metadata parsing supports SAS signature object shape: `signature.type` + `signature.value`, with legacy `release_sig` compatibility).
+- Pending: Tasks 53-54.
 
 ## Sequencing
 1. Implement manifest normalization first (local correctness + low blast radius).
