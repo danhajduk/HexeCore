@@ -23,11 +23,11 @@ class TestCatalogCacheClient(unittest.TestCase):
             format=serialization.PublicFormat.SubjectPublicKeyInfo,
         ).decode("utf-8")
 
-    def _source(self) -> StoreSource:
+    def _source(self, base_url: str = "https://raw.githubusercontent.test/catalog") -> StoreSource:
         return StoreSource(
             id="official",
             type="github_raw",
-            base_url="https://raw.githubusercontent.test/catalog",
+            base_url=base_url,
             enabled=True,
             refresh_seconds=300,
         )
@@ -165,6 +165,38 @@ class TestCatalogCacheClient(unittest.TestCase):
             result = client.query_cached(source.id, CatalogQuery())
             self.assertEqual(result["catalog_status"]["status"], "ok")
             self.assertEqual(result["items"][0]["id"], "addon_raw")
+
+    def test_official_branch_fallback_on_404(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            client = self._client(Path(td))
+            source = self._source("https://raw.githubusercontent.test/catalog/main")
+
+            index_payload = b'[{"id":"addon_fallback"}]'
+            publishers = b'{"publishers":[]}'
+            fetch_map = {
+                "catalog/v1/index.json": index_payload,
+                "catalog/v1/index.json.sig": self._sig(index_payload),
+                "catalog/v1/publishers.json": publishers,
+                "catalog/v1/publishers.json.sig": self._sig(publishers),
+            }
+
+            def _download(url: str) -> bytes:
+                if "/main/" in url:
+                    raise RuntimeError("catalog_http_error:404")
+                marker = "catalog/v1/"
+                if marker not in url:
+                    raise RuntimeError("bad_test_url")
+                rel = "catalog/v1/" + url.split(marker, 1)[1]
+                return fetch_map[rel]
+
+            with patch.object(CatalogCacheClient, "_download_bytes", side_effect=_download):
+                refresh = client.refresh_source(source)
+
+            self.assertTrue(refresh["ok"])
+            self.assertTrue(str(refresh["catalog_status"].get("resolved_base_url", "")).endswith("/master"))
+            result = client.query_cached(source.id, CatalogQuery())
+            self.assertEqual(result["catalog_status"]["status"], "ok")
+            self.assertEqual(result["items"][0]["id"], "addon_fallback")
 
 
 if __name__ == "__main__":

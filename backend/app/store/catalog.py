@@ -304,6 +304,20 @@ class CatalogCacheClient:
     def _metadata_path(self, source_id: str) -> Path:
         return self._source_dir(source_id) / "metadata.json"
 
+    def _candidate_base_urls(self, source: StoreSource) -> list[str]:
+        base = source.base_url.rstrip("/")
+        out = [base]
+        if source.id == OFFICIAL_SOURCE_ID:
+            if base.endswith("/main"):
+                out.append(base[: -len("/main")] + "/master")
+            elif base.endswith("/master"):
+                out.append(base[: -len("/master")] + "/main")
+        deduped: list[str] = []
+        for candidate in out:
+            if candidate not in deduped:
+                deduped.append(candidate)
+        return deduped
+
     def _download_bytes(self, url: str) -> bytes:
         timeout = httpx.Timeout(self.timeout_s)
         current = url
@@ -377,9 +391,22 @@ class CatalogCacheClient:
 
         fetched: dict[str, bytes] = {}
         try:
-            base = source.base_url.rstrip("/")
-            for rel in self.REQUIRED_FILES:
-                fetched[rel] = self._download_bytes(f"{base}/{rel}")
+            selected_base = source.base_url.rstrip("/")
+            last_exc: Exception | None = None
+            for base in self._candidate_base_urls(source):
+                try:
+                    fetched = {}
+                    for rel in self.REQUIRED_FILES:
+                        fetched[rel] = self._download_bytes(f"{base}/{rel}")
+                    selected_base = base
+                    last_exc = None
+                    break
+                except Exception as exc:
+                    last_exc = exc
+                    if str(exc) != "catalog_http_error:404":
+                        break
+            if last_exc is not None:
+                raise last_exc
 
             _verify_catalog_signatures(
                 fetched["catalog/v1/index.json"],
@@ -400,6 +427,7 @@ class CatalogCacheClient:
                     {
                         "source_id": source_id,
                         "status": "ok",
+                        "resolved_base_url": selected_base,
                         "last_success_at": _utcnow_iso(),
                         "last_error_at": None,
                         "last_error_message": None,
