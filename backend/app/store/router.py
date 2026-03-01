@@ -610,7 +610,17 @@ def build_store_router(
                         artifact_bytes = cache_catalog.download_artifact(source_release_url)
                         break
                     except Exception as exc:
-                        if str(exc) != "catalog_http_error:404" or did_refresh_retry:
+                        if str(exc) == "catalog_http_error:404" and did_refresh_retry:
+                            raise HTTPException(
+                                status_code=409,
+                                detail={
+                                    "error": "catalog_artifact_unavailable",
+                                    "artifact_url": source_release_url,
+                                    "source_id": source_id,
+                                    "retry_after_refresh": True,
+                                },
+                            )
+                        if str(exc) != "catalog_http_error:404":
                             raise
                         refresh = cache_catalog.refresh_source(selected)
                         if not bool(refresh.get("ok")):

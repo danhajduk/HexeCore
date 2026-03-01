@@ -62,6 +62,7 @@ class _FakeCatalogClient:
         publishers_payload: dict,
         artifact_bytes: bytes,
         fail_first_download_404: bool = False,
+        fail_all_download_404: bool = False,
         refreshed_index_payload: dict | None = None,
         refreshed_publishers_payload: dict | None = None,
     ) -> None:
@@ -69,6 +70,7 @@ class _FakeCatalogClient:
         self._publishers_payload = publishers_payload
         self._artifact_bytes = artifact_bytes
         self._fail_first_download_404 = fail_first_download_404
+        self._fail_all_download_404 = fail_all_download_404
         self._download_calls = 0
         self._refresh_calls = 0
         self.downloaded_urls: list[str] = []
@@ -97,6 +99,8 @@ class _FakeCatalogClient:
     def download_artifact(self, url: str) -> bytes:
         self.downloaded_urls.append(url)
         self._download_calls += 1
+        if self._fail_all_download_404:
+            raise RuntimeError("catalog_http_error:404")
         if self._fail_first_download_404 and self._download_calls == 1:
             raise RuntimeError("catalog_http_error:404")
         return self._artifact_bytes
@@ -175,6 +179,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         core_min_version: str = "0.1.0",
         release_url: str = "https://example.test/hello_world-1.0.0.zip",
         fail_first_download_404: bool = False,
+        fail_all_download_404: bool = False,
         refreshed_release_url: str | None = None,
     ) -> _FakeCatalogClient:
         digest = hashlib.sha256(artifact_bytes).hexdigest()
@@ -267,6 +272,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
             publishers_payload=publishers_payload,
             artifact_bytes=artifact_bytes,
             fail_first_download_404=fail_first_download_404,
+            fail_all_download_404=fail_all_download_404,
             refreshed_index_payload=refreshed_index_payload,
             refreshed_publishers_payload=publishers_payload if refreshed_index_payload is not None else None,
         )
@@ -526,6 +532,34 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(res.json()["installed_release_url"], "https://example.test/fresh.zip")
         self.assertEqual(fake_catalog._refresh_calls, 1)
         self.assertEqual(fake_catalog.downloaded_urls, ["https://example.test/stale.zip", "https://example.test/fresh.zip"])
+
+    def test_catalog_install_returns_unavailable_detail_when_artifact_404_persists_after_refresh(self) -> None:
+        artifact_bytes = b"artifact-still-missing"
+        fake_catalog = self._build_catalog_client(
+            artifact_bytes=artifact_bytes,
+            release_sig=self._sign_artifact(artifact_bytes),
+            release_url="https://example.test/stale.zip",
+            fail_all_download_404=True,
+            refreshed_release_url="https://example.test/still-missing.zip",
+        )
+        app = FastAPI()
+        app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
+        client = TestClient(app)
+
+        with patch("app.store.router._atomic_install_or_update"):
+            res = client.post(
+                "/api/store/install",
+                headers={"X-Admin-Token": "test-token"},
+                json={"source_id": "official", "addon_id": "hello_world", "enable": True},
+            )
+        self.assertEqual(res.status_code, 409, res.text)
+        detail = res.json()["detail"]
+        self.assertEqual(detail["error"], "catalog_artifact_unavailable")
+        self.assertEqual(detail["source_id"], "official")
+        self.assertEqual(detail["artifact_url"], "https://example.test/still-missing.zip")
+        self.assertEqual(detail["retry_after_refresh"], True)
+        self.assertEqual(fake_catalog._refresh_calls, 1)
+        self.assertEqual(fake_catalog.downloaded_urls, ["https://example.test/stale.zip", "https://example.test/still-missing.zip"])
 
     def test_catalog_install_no_compatible_release_includes_reason_details(self) -> None:
         artifact_bytes = b"artifact-incompatible"
