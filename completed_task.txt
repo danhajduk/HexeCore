@@ -100,3 +100,4 @@
 2026-03-01 - Ignored hidden addon folders (.store_backup/.store_staging) in backend addon discovery to remove noisy missing-entrypoint warnings; added regression test coverage.
 2026-03-01 - Session complete: Task 39 delivered with hidden-folder filtering in addon discovery and regression coverage.
 2026-03-01 - Fixed catalog installs for .tgz/tar artifacts by preserving artifact extension in temp files and adding content-based archive extraction fallback; added regression tests.
+2026-03-01 - Session complete: Task 40 delivered with tgz/tar catalog artifact extraction support and regression coverage.
