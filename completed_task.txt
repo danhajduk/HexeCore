@@ -111,3 +111,4 @@
 2026-03-01 - Added explicit release package_profile handling (embedded_addon vs standalone_service) with catalog install-time enforcement and structured deployment guidance, plus store API regression tests.
 2026-03-01 - Session complete: Tasks 42-48 delivered (policy alignment baseline, proxy aliases, grant/revocation model updates, MQTT core-info publish, service-principal token issuance, and package profile enforcement).
 2026-03-01 - Documented catalog_package_layout_invalid root-cause breakdown for embedded_addon vs standalone_service artifact layout mismatch.
+2026-03-01 - Added concrete remediation checklist for catalog_package_layout_invalid, including embedded_addon packaging path and standalone_service deploy/register path.

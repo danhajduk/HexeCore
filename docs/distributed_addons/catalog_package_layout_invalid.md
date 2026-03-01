@@ -26,3 +26,41 @@ Because install was requested through catalog embedded install flow, Core valida
 - Not a source refresh failure.
 
 It is a package-structure mismatch between requested install mode and artifact layout.
+
+## Fix Checklist
+
+Choose one profile and keep package layout + catalog metadata consistent.
+
+### Option A: Keep Embedded Addon Install (`embedded_addon`)
+
+Use this if you want to install from Core store as an embedded addon.
+
+1. In the addon artifact, provide:
+   - `manifest.json` at addon root.
+   - `backend/addon.py` entrypoint.
+2. Set catalog release `package_profile` to `embedded_addon`.
+3. Build and publish new artifact (`.zip`/`.tgz`) with embedded layout.
+4. Update catalog release fields to match new artifact:
+   - `artifact_url`
+   - signature (`release_sig`)
+   - checksum (`sha256`/`checksum`)
+5. Refresh source in Core, then retry install.
+
+### Option B: Keep Standalone Service (`standalone_service`)
+
+Use this if the addon is a separate service process with `app/main.py`.
+
+1. Keep service layout in addon artifact (`app/main.py` etc.).
+2. Set catalog release `package_profile` to `standalone_service`.
+3. Do not use embedded install path for that artifact.
+4. Deploy service externally (container/systemd/host process).
+5. Register service endpoint in Core:
+   - `POST /api/admin/addons/registry`
+   - include `addon_id` and reachable `base_url`.
+6. Validate service health/announce flow and proxy behavior.
+
+### Validation After Fix
+
+1. Confirm `/api/store/install` no longer returns `catalog_package_layout_invalid`.
+2. Confirm `/api/store/status/{addon_id}` has no new layout error in `last_install_error`.
+3. If standalone path was chosen, confirm addon appears in registry and responds through proxy/API.
