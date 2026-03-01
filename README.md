@@ -121,6 +121,9 @@ Store status response fields (Phase 2):
 - `installed_at`
 - `last_install_error` (or `null` after successful install)
 
+Store incident runbook:
+- `docs/addon-store/incident-runbook.md` covers `catalog_artifact_unavailable` and `catalog_sha256_mismatch` triage/recovery.
+
 Catalog query parameters:
 - `q` free-text search over id/name/description/categories
 - `category` category filter
