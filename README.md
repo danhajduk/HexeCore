@@ -28,6 +28,15 @@ SynthiaCore is a Core + Addons platform with a built-in scheduler, system metric
 - `POST /api/addons/registry/{addon_id}/configure` (admin auth required) forward config payload to addon `/api/addon/config`.
 - `POST /api/addons/registry/{addon_id}/verify` (admin auth required) probe addon `/api/addon/health` and update registry health fields.
 
+### Addon Install Session Endpoints
+- `POST /api/addons/install/start` (admin auth required) create install session in `pending_permissions`.
+- `POST /api/addons/install/{session_id}/permissions/approve` (admin auth required) move to `pending_deployment`.
+- `POST /api/addons/install/{session_id}/deployment/select` (admin auth required) persist `external|embedded` deployment choice.
+- `POST /api/addons/install/{session_id}/configure` (admin auth required) forward config to registered addon and mark session configured.
+- `POST /api/addons/install/{session_id}/verify` (admin auth required) run addon health check and mark session verified/error.
+- `GET /api/addons/install/{session_id}` read current session state.
+- MQTT announce events on `synthia/addons/{addon_id}/announce` auto-advance matching sessions from `pending_deployment` to `discovered`.
+
 ### Addon Store Schema Endpoint (Phase 1)
 - `GET /api/store/schema` returns JSON schemas for `AddonManifest`, `ReleaseManifest`, `CompatibilitySpec`, and `SignatureBlock`.
 - `ReleaseManifest.compatibility` is canonical for core-version/dependency/conflict constraints.

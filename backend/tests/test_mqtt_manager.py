@@ -29,6 +29,15 @@ class _FakeServiceCatalogStore:
         self.calls.append((service_name, payload))
 
 
+class _FakeInstallSessionsStore:
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def mark_discovered(self, addon_id: str) -> int:
+        self.calls.append(addon_id)
+        return 1
+
+
 class _Msg:
     def __init__(self, topic: str, payload: dict) -> None:
         self.topic = topic
@@ -51,10 +60,12 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
 
     async def test_dispatches_addon_announce_and_health(self) -> None:
         registry = _FakeRegistry()
+        sessions = _FakeInstallSessionsStore()
         manager = MqttManager(
             settings_store=_FakeSettingsStore(),
             registry=registry,
             service_catalog_store=_FakeServiceCatalogStore(),
+            install_sessions_store=sessions,
             enabled=True,
         )
         manager._loop = asyncio.get_running_loop()
@@ -68,6 +79,7 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(registry.calls[0][1], "mqtt")
         self.assertEqual(registry.calls[1][0], "health")
         self.assertEqual(registry.calls[1][1], "mqtt")
+        self.assertEqual(sessions.calls, ["mqtt"])
 
 
 if __name__ == "__main__":

@@ -13,10 +13,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from .core.logging import setup_logging
 from .core.health import router as health_router
 from .addons.registry import build_registry, register_addons
+from .addons.install_sessions import InstallSessionsStore
 from .addons.proxy import AddonProxy, build_proxy_router
 from .api.system import build_system_router
 from .api.admin_registry import build_admin_registry_router
 from .api.addons_registry import build_addons_registry_router
+from .api.addons_install import build_addons_install_router
 from .system.api_metrics import ApiMetricsCollector, ApiMetricsMiddleware
 from app.system.sampler import (
     stats_fast_sampler_loop,
@@ -223,6 +225,8 @@ def create_app() -> FastAPI:
     app.state.store_audit_store = store_audit_store
     app.state.store_sources_store = store_sources_store
     app.state.users_store = users_store
+    install_sessions_store = InstallSessionsStore()
+    app.state.install_sessions_store = install_sessions_store
 
     app.include_router(build_settings_router(settings_store, audit_store), prefix="/api/system", tags=["settings"])
     app.include_router(build_users_router(users_store, audit_store), prefix="/api/admin", tags=["admin-users"])
@@ -242,6 +246,7 @@ def create_app() -> FastAPI:
         settings_store=settings_store,
         registry=registry,
         service_catalog_store=service_catalog_store,
+        install_sessions_store=install_sessions_store,
         enabled=bool(getattr(cfg_boot, "mqtt_listener_enabled", True)),
     )
     app.state.mqtt_manager = mqtt_manager
@@ -253,6 +258,7 @@ def create_app() -> FastAPI:
     # System API using the registry
     app.include_router(build_system_router(registry), prefix="/api")
     app.include_router(build_addons_registry_router(registry), prefix="/api")
+    app.include_router(build_addons_install_router(registry, install_sessions_store), prefix="/api")
     app.include_router(build_admin_registry_router(registry), prefix="/api")
     app.include_router(build_mqtt_router(mqtt_manager), prefix="/api/system", tags=["mqtt"])
     app.include_router(build_auth_router(service_token_keys), prefix="/api/auth", tags=["auth"])

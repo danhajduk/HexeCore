@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.addons.registry import AddonRegistry
+from app.addons.install_sessions import InstallSessionsStore
 from app.system.security import redact_secrets
 from app.system.settings.store import SettingsStore
 from app.system.services.store import ServiceCatalogStore
@@ -44,11 +45,13 @@ class MqttManager:
         settings_store: SettingsStore,
         registry: AddonRegistry,
         service_catalog_store: ServiceCatalogStore,
+        install_sessions_store: InstallSessionsStore | None = None,
         enabled: bool = True,
     ) -> None:
         self._settings = settings_store
         self._registry = registry
         self._service_catalogs = service_catalog_store
+        self._install_sessions = install_sessions_store
         self._enabled = enabled
         self._loop: asyncio.AbstractEventLoop | None = None
         self._client: Any = None
@@ -236,6 +239,8 @@ class MqttManager:
             try:
                 if announce:
                     self._registry.update_from_mqtt_announce(addon_id, payload)
+                    if self._install_sessions is not None:
+                        self._install_sessions.mark_discovered(addon_id)
                 else:
                     self._registry.update_from_mqtt_health(addon_id, payload)
             except Exception:
