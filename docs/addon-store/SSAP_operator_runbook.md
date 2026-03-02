@@ -5,6 +5,7 @@ This runbook covers lifecycle operations for SSAP standalone services managed by
 `/api/store/install` now accepts standalone-oriented request contract fields (`install_mode`, `channel`, `desired_state`, `pinned_version`, runtime/config overrides) that are used by the direct standalone install path.
 When `channel` is provided, release selection stays within that channel (`stable`, `beta`, or `nightly`) instead of cross-channel fallback.
 Artifact staging for standalone installs is atomic (`*.tmp` then replace) and reuses an existing `addon.tgz` when its SHA-256 already matches the resolved release checksum.
+When install request uses `install_mode=standalone_service` and the release profile matches, Core writes `desired.json` directly and returns standalone path metadata instead of rejecting the install.
 
 ## Paths and Ownership
 

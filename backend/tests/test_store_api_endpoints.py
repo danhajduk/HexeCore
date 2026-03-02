@@ -1489,6 +1489,53 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertTrue(str(staged_path).endswith("services/hello_world/versions/1.0.0/addon.tgz"))
         self.assertEqual(staged_path.read_bytes(), artifact_bytes)
 
+    def test_catalog_install_standalone_service_mode_writes_desired_and_returns_paths(self) -> None:
+        pkg = Path(self.tmp.name) / "bundle-standalone-success.zip"
+        with zipfile.ZipFile(pkg, "w") as zf:
+            zf.writestr("hello_world/manifest.json", '{"id":"hello_world","name":"hello_world","version":"1.0.0"}')
+            zf.writestr("hello_world/app/main.py", "print('ok')\n")
+        artifact_bytes = pkg.read_bytes()
+        fake_catalog = self._build_catalog_client(
+            artifact_bytes=artifact_bytes,
+            release_sig=self._sign_artifact(artifact_bytes),
+            package_profile="standalone_service",
+            release_url="https://example.test/hello_world-1.0.0.tgz",
+        )
+        app = FastAPI()
+        app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
+        client = TestClient(app)
+        standalone_root = Path(self.tmp.name) / "SynthiaAddons"
+
+        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
+            "app.store.router.resolve_manifest_compatibility", return_value=None
+        ):
+            res = client.post(
+                "/api/store/install",
+                headers={"X-Admin-Token": "test-token"},
+                json={
+                    "source_id": "official",
+                    "addon_id": "hello_world",
+                    "install_mode": "standalone_service",
+                    "enable": True,
+                },
+            )
+        self.assertEqual(res.status_code, 200, res.text)
+        payload = res.json()
+        self.assertEqual(payload["mode"], "standalone_service")
+        self.assertEqual(payload["requested_install_mode"], "standalone_service")
+        self.assertEqual(payload["channel"], "stable")
+        self.assertEqual(payload["runtime_state"], "unknown")
+        self.assertTrue(payload["supervisor_expected"])
+        self.assertIn("service_dir", payload)
+        self.assertIn("staged_artifact_path", payload)
+        self.assertTrue(Path(payload["staged_artifact_path"]).exists())
+        desired_path = Path(payload["desired_path"])
+        self.assertTrue(desired_path.exists())
+        desired = json.loads(desired_path.read_text(encoding="utf-8"))
+        self.assertEqual(desired["mode"], "standalone_service")
+        self.assertEqual(desired["install_source"]["catalog_id"], "official")
+        self.assertEqual(desired["install_source"]["release"]["signature"]["type"], "ed25519")
+
     def test_catalog_install_rejects_catalog_manifest_profile_mismatch(self) -> None:
         pkg = Path(self.tmp.name) / "bundle-profile-mismatch.zip"
         with zipfile.ZipFile(pkg, "w") as zf:

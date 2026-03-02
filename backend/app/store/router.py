@@ -35,6 +35,7 @@ from .lifecycle import (
 from .models import ReleaseManifest
 from .resolver import ResolverError, resolve_manifest_compatibility
 from .signing import VerificationError, verify_detached_artifact_signature, verify_release_artifact
+from .standalone_desired import build_desired_state, write_desired_state_atomic
 from .standalone_paths import service_addon_dir, service_version_dir
 from .sources import StoreSource, StoreSourcesStore
 
@@ -1136,6 +1137,106 @@ def build_store_router(
                 core_version=_configured_core_version(),
                 installed_addons=installed_addons_with_versions(registry),
             )
+
+            if manifest.package_profile == "standalone_service" and requested_install_mode == "standalone_service":
+                staged_artifact_path = str(
+                    _stage_standalone_artifact(
+                        manifest.id,
+                        manifest.version,
+                        artifact_bytes,
+                        expected_sha256_candidates,
+                    )
+                )
+                service_dir = service_addon_dir(manifest.id, create=True)
+                desired_path = service_dir / "desired.json"
+                runtime_overrides = body.runtime_overrides if isinstance(body.runtime_overrides, dict) else {}
+                runtime_project_name = str(runtime_overrides.get("project_name") or f"synthia-addon-{manifest.id}").strip()
+                runtime_network = str(runtime_overrides.get("network") or "synthia_net").strip()
+                runtime_ports = runtime_overrides.get("ports")
+                runtime_ports_payload = [dict(item) for item in runtime_ports if isinstance(item, dict)] if isinstance(runtime_ports, list) else []
+                runtime_bind_localhost = bool(runtime_overrides.get("bind_localhost", True))
+                config_env_defaults: dict[str, str] = {
+                    "CORE_URL": os.getenv("SYNTHIA_CORE_URL", "http://127.0.0.1:8000"),
+                    "SYNTHIA_ADDON_ID": manifest.id,
+                    "SYNTHIA_SERVICE_TOKEN": "${SYNTHIA_SERVICE_TOKEN}",
+                }
+                mqtt_host = os.getenv("MQTT_HOST")
+                mqtt_port = os.getenv("MQTT_PORT")
+                if mqtt_host:
+                    config_env_defaults["MQTT_HOST"] = mqtt_host
+                if mqtt_port:
+                    config_env_defaults["MQTT_PORT"] = str(mqtt_port)
+                config_env_overrides = body.config_env_overrides if isinstance(body.config_env_overrides, dict) else {}
+                config_env = dict(config_env_defaults)
+                for key, value in config_env_overrides.items():
+                    config_env[str(key)] = str(value)
+                desired_payload = build_desired_state(
+                    addon_id=manifest.id,
+                    catalog_id=source_id,
+                    channel=requested_channel,
+                    pinned_version=body.pinned_version or manifest.version,
+                    artifact_url=source_release_url or "",
+                    sha256=expected_sha256 or "",
+                    publisher_key_id=debug_publisher_key_id or "",
+                    signature_value=release_signature_b64 or "",
+                    runtime_project_name=runtime_project_name or f"synthia-addon-{manifest.id}",
+                    runtime_network=runtime_network or "synthia_net",
+                    runtime_ports=runtime_ports_payload,
+                    runtime_bind_localhost=runtime_bind_localhost,
+                    config_env=config_env,
+                    desired_state=body.desired_state,
+                )
+                write_desired_state_atomic(desired_path, desired_payload)
+                runtime_payload = _read_standalone_runtime(manifest.id)
+                install_state = {
+                    "installed_version": manifest.version,
+                    "installed_from_source_id": source_id,
+                    "installed_resolved_base_url": debug_resolved_base_url,
+                    "installed_release_url": source_release_url,
+                    "installed_sha256": expected_sha256,
+                    "installed_at": _utcnow_iso(),
+                    "last_install_error": None,
+                }
+                _set_install_state(manifest.id, install_state)
+                await audit_store.record(
+                    action="install",
+                    addon_id=manifest.id,
+                    version=manifest.version,
+                    status="success",
+                    message="standalone_install_desired_written",
+                    actor=actor,
+                )
+                return {
+                    "ok": True,
+                    "addon_id": manifest.id,
+                    "mode": manifest.package_profile,
+                    "requested_install_mode": requested_install_mode,
+                    "channel": requested_channel,
+                    "desired_state": body.desired_state,
+                    "pinned_version": body.pinned_version or manifest.version,
+                    "version": manifest.version,
+                    "installed_path": None,
+                    "enabled": registry.is_enabled(manifest.id),
+                    "registry_loaded": manifest.id in registry.addons,
+                    "hot_loaded": False,
+                    "installed_from_source_id": source_id,
+                    "installed_resolved_base_url": debug_resolved_base_url,
+                    "installed_release_url": source_release_url,
+                    "installed_sha256": expected_sha256,
+                    "desired_path": str(desired_path),
+                    "runtime_path": runtime_payload.get("runtime_path"),
+                    "staged_artifact_path": staged_artifact_path,
+                    "runtime_state": runtime_payload.get("runtime_state"),
+                    "registry_state": _registry_state_for_addon(registry, manifest.id),
+                    "service_dir": str(service_dir),
+                    "supervisor_expected": True,
+                    "next_steps": [
+                        "Ensure synthia-supervisor is running and reconciling desired.json.",
+                        "Check runtime.json and service logs if runtime_state stays unknown.",
+                    ],
+                    "remediation_path": None,
+                    "standalone_runtime": runtime_payload.get("standalone_runtime"),
+                }
 
             if manifest.package_profile != "embedded_addon":
                 staged_artifact_path: str | None = None

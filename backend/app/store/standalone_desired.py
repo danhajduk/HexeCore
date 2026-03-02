@@ -36,6 +36,7 @@ class DesiredRelease(BaseModel):
 
 class DesiredInstallSource(BaseModel):
     type: str = "catalog"
+    catalog_id: str
     release: DesiredRelease
 
 
@@ -44,6 +45,7 @@ class DesiredRuntime(BaseModel):
     project_name: str
     network: str
     ports: list[dict[str, Any]] = Field(default_factory=list)
+    bind_localhost: bool = True
 
 
 class DesiredConfig(BaseModel):
@@ -72,6 +74,7 @@ def validate_desired_state(payload: dict[str, Any]) -> dict[str, Any]:
 def build_desired_state(
     *,
     addon_id: str,
+    catalog_id: str,
     channel: str,
     pinned_version: str | None,
     artifact_url: str,
@@ -81,6 +84,7 @@ def build_desired_state(
     runtime_project_name: str,
     runtime_network: str,
     runtime_ports: list[dict[str, Any]] | None = None,
+    runtime_bind_localhost: bool = True,
     config_env: dict[str, str] | None = None,
     desired_state: str = "running",
 ) -> dict[str, Any]:
@@ -93,6 +97,7 @@ def build_desired_state(
         "pinned_version": pinned_version,
         "install_source": {
             "type": "catalog",
+            "catalog_id": catalog_id,
             "release": {
                 "artifact_url": artifact_url,
                 "sha256": sha256,
@@ -108,6 +113,7 @@ def build_desired_state(
             "project_name": runtime_project_name,
             "network": runtime_network,
             "ports": list(runtime_ports or []),
+            "bind_localhost": bool(runtime_bind_localhost),
         },
         "config": {
             "env": dict(config_env or {}),

@@ -15,6 +15,7 @@ class TestStoreStandaloneDesired(unittest.TestCase):
     def test_build_desired_state_contains_required_ssap_fields(self) -> None:
         payload = build_desired_state(
             addon_id="mqtt",
+            catalog_id="official",
             channel="stable",
             pinned_version=None,
             artifact_url="https://example.test/mqtt-0.1.2.tgz",
@@ -31,6 +32,7 @@ class TestStoreStandaloneDesired(unittest.TestCase):
         self.assertEqual(payload["mode"], "standalone_service")
         self.assertEqual(payload["desired_state"], "running")
         self.assertEqual(payload["install_source"]["type"], "catalog")
+        self.assertEqual(payload["install_source"]["catalog_id"], "official")
         self.assertEqual(payload["install_source"]["release"]["signature"]["type"], "ed25519")
         self.assertEqual(payload["runtime"]["project_name"], "synthia-addon-mqtt")
         self.assertEqual(payload["runtime"]["network"], "synthia_net")
@@ -39,6 +41,7 @@ class TestStoreStandaloneDesired(unittest.TestCase):
     def test_write_desired_state_atomic_writes_json_file(self) -> None:
         payload = build_desired_state(
             addon_id="mqtt",
+            catalog_id="official",
             channel="stable",
             pinned_version="0.1.2",
             artifact_url="https://example.test/mqtt-0.1.2.tgz",
@@ -62,6 +65,7 @@ class TestStoreStandaloneDesired(unittest.TestCase):
     def test_validate_desired_state_rejects_invalid_values(self) -> None:
         payload = build_desired_state(
             addon_id="mqtt",
+            catalog_id="official",
             channel="stable",
             pinned_version="0.1.2",
             artifact_url="https://example.test/mqtt-0.1.2.tgz",
@@ -79,6 +83,7 @@ class TestStoreStandaloneDesired(unittest.TestCase):
     def test_validate_desired_state_rejects_non_lowercase_sha256(self) -> None:
         payload = build_desired_state(
             addon_id="mqtt",
+            catalog_id="official",
             channel="stable",
             pinned_version="0.1.2",
             artifact_url="https://example.test/mqtt-0.1.2.tgz",
