@@ -1623,6 +1623,74 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(res.status_code, 400, res.text)
         self.assertIn("ssap_desired_invalid", res.json()["detail"])
 
+    def test_catalog_install_standalone_service_mode_rejects_sha_mismatch_without_desired_write(self) -> None:
+        pkg = Path(self.tmp.name) / "bundle-standalone-sha-mismatch.zip"
+        with zipfile.ZipFile(pkg, "w") as zf:
+            zf.writestr("hello_world/manifest.json", '{"id":"hello_world","name":"hello_world","version":"1.0.0"}')
+            zf.writestr("hello_world/app/main.py", "print('ok')\n")
+        artifact_bytes = pkg.read_bytes()
+        fake_catalog = self._build_catalog_client(
+            artifact_bytes=artifact_bytes,
+            release_sig=self._sign_artifact(artifact_bytes),
+            package_profile="standalone_service",
+            release_url="https://example.test/hello_world-1.0.0.tgz",
+            release_sha256="0" * 64,
+        )
+        app = FastAPI()
+        app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
+        client = TestClient(app)
+        standalone_root = Path(self.tmp.name) / "SynthiaAddons"
+
+        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(standalone_root)}, clear=False):
+            res = client.post(
+                "/api/store/install",
+                headers={"X-Admin-Token": "test-token"},
+                json={
+                    "source_id": "official",
+                    "addon_id": "hello_world",
+                    "install_mode": "standalone_service",
+                    "enable": True,
+                },
+            )
+        self.assertEqual(res.status_code, 409, res.text)
+        detail = res.json()["detail"]
+        self.assertEqual(detail["error"], "catalog_sha256_mismatch")
+        self.assertFalse((standalone_root / "services" / "hello_world" / "desired.json").exists())
+
+    def test_catalog_install_standalone_service_mode_handles_artifact_404_without_desired_write(self) -> None:
+        pkg = Path(self.tmp.name) / "bundle-standalone-artifact-404.zip"
+        with zipfile.ZipFile(pkg, "w") as zf:
+            zf.writestr("hello_world/manifest.json", '{"id":"hello_world","name":"hello_world","version":"1.0.0"}')
+            zf.writestr("hello_world/app/main.py", "print('ok')\n")
+        artifact_bytes = pkg.read_bytes()
+        fake_catalog = self._build_catalog_client(
+            artifact_bytes=artifact_bytes,
+            release_sig=self._sign_artifact(artifact_bytes),
+            package_profile="standalone_service",
+            release_url="https://example.test/hello_world-1.0.0.tgz",
+            fail_all_download_404=True,
+        )
+        app = FastAPI()
+        app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
+        client = TestClient(app)
+        standalone_root = Path(self.tmp.name) / "SynthiaAddons"
+
+        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(standalone_root)}, clear=False):
+            res = client.post(
+                "/api/store/install",
+                headers={"X-Admin-Token": "test-token"},
+                json={
+                    "source_id": "official",
+                    "addon_id": "hello_world",
+                    "install_mode": "standalone_service",
+                    "enable": True,
+                },
+            )
+        self.assertEqual(res.status_code, 409, res.text)
+        detail = res.json()["detail"]
+        self.assertEqual(detail["error"], "catalog_artifact_unavailable")
+        self.assertFalse((standalone_root / "services" / "hello_world" / "desired.json").exists())
+
     def test_catalog_install_standalone_service_mode_rejects_host_network_override(self) -> None:
         pkg = Path(self.tmp.name) / "bundle-standalone-host-network.zip"
         with zipfile.ZipFile(pkg, "w") as zf:
