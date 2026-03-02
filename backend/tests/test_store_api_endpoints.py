@@ -1263,7 +1263,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
             )
         self.assertEqual(res.status_code, 200, res.text)
 
-    def test_catalog_install_service_layout_returns_profile_unsupported_guidance(self) -> None:
+    def test_catalog_install_service_layout_returns_profile_layout_mismatch_guidance(self) -> None:
         manifest_bytes = b'{"id":"hello_world","name":"hello_world","version":"1.0.0"}'
         app_main_bytes = b"from fastapi import FastAPI\napp = FastAPI()\n"
         pkg = Path(self.tmp.name) / "invalid-layout.tgz"
@@ -1292,31 +1292,34 @@ class TestStoreApiEndpoints(unittest.TestCase):
                 headers={"X-Admin-Token": "test-token"},
                 json={"source_id": "official", "addon_id": "hello_world", "enable": True},
             )
-        self.assertEqual(res.status_code, 400, res.text)
+        self.assertEqual(res.status_code, 409, res.text)
         detail = res.json()["detail"]
-        self.assertEqual(detail["error"], "catalog_package_profile_unsupported")
-        self.assertEqual(detail["package_profile"], "standalone_service")
-        self.assertEqual(detail["supported_profiles"], ["embedded_addon"])
+        self.assertEqual(detail["error"], "catalog_profile_layout_mismatch")
+        self.assertEqual(detail["reason"], "embedded_profile_with_service_layout")
+        self.assertEqual(detail["expected_package_profile"], "embedded_addon")
+        self.assertEqual(detail["detected_package_profile"], "standalone_service")
         self.assertEqual(detail["source_id"], "official")
         self.assertEqual(detail["resolved_base_url"], "https://raw.githubusercontent.test/catalog")
         self.assertEqual(detail["artifact_url"], "https://example.test/hello_world-1.0.0.tgz")
         self.assertEqual(detail["layout_hint"], "service_layout_app_main")
+        self.assertEqual(detail["remediation_path"], "embedded_repackage")
         self.assertEqual(detail["catalog_addon_id"], "hello_world")
         self.assertEqual(detail["catalog_release_version"], "1.0.0")
         self.assertEqual(detail["catalog_release_package_profile"], "embedded_addon")
-        self.assertIn("standalone service package", detail["hint"])
+        self.assertIn("metadata indicates embedded_addon", detail["hint"])
 
         with patch("app.store.router._addons_root", return_value=Path(self.tmp.name) / "addons"):
             status = client.get("/api/store/status/hello_world")
         self.assertEqual(status.status_code, 200, status.text)
         status_payload = status.json()
         self.assertIsNotNone(status_payload["last_install_error"])
-        self.assertEqual(status_payload["last_install_error"]["error"], "catalog_package_profile_unsupported")
+        self.assertEqual(status_payload["last_install_error"]["error"], "catalog_profile_layout_mismatch")
         self.assertEqual(status_payload["last_install_error"]["source_id"], "official")
         self.assertEqual(
             status_payload["last_install_error"]["artifact_url"],
             "https://example.test/hello_world-1.0.0.tgz",
         )
+        self.assertEqual(status_payload["last_install_error"]["remediation_path"], "embedded_repackage")
 
     def test_catalog_install_rejects_standalone_service_profile_with_guidance(self) -> None:
         pkg = Path(self.tmp.name) / "bundle-standalone.zip"
@@ -1346,6 +1349,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(detail["error"], "catalog_package_profile_unsupported")
         self.assertEqual(detail["package_profile"], "standalone_service")
         self.assertEqual(detail["supported_profiles"], ["embedded_addon"])
+        self.assertEqual(detail["remediation_path"], "standalone_deploy_register")
         self.assertEqual(detail["source_id"], "official")
         self.assertIn("deploy service package externally", detail["hint"])
 

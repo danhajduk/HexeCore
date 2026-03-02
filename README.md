@@ -105,7 +105,7 @@ Catalog cache behavior (Phase 2):
   - if artifact `404` persists after retry, install returns `409` with `catalog_artifact_unavailable` including source and artifact URL details,
   - checksum verification accepts `sha256:<hex>` style metadata and returns `409` `catalog_sha256_mismatch` with expected/actual digest details when verification fails,
   - detached signature failures now include source/artifact/publisher key/signature type context to speed `signature_invalid` triage,
-  - package layout failures return structured `catalog_package_layout_invalid` diagnostics for embedded-addon entrypoint issues, and service-layout (`app/main.py`) artifacts now return `catalog_package_profile_unsupported` with standalone-service guidance plus catalog release metadata (`catalog_addon_id`, `catalog_release_version`, `catalog_release_package_profile`),
+  - package/layout consistency failures return structured diagnostics: `catalog_package_layout_invalid` for generic embedded entrypoint issues, `catalog_profile_layout_mismatch` when catalog metadata says `embedded_addon` but artifact layout is service-style (`app/main.py`), and `catalog_package_profile_unsupported` with `remediation_path=standalone_deploy_register` when standalone packages are intentionally unsupported by embedded install flow,
   - compatibility checks use `SYNTHIA_CORE_VERSION` (default `0.1.0` if unset); set this in `scripts/synthia.env` to match deployed core semver,
   - when no compatible release exists, install returns `409` with `catalog_no_compatible_release` plus resolver reasons (for example core-version minimum mismatch),
   - derives missing `publisher_id` from `publisher_key_id` when catalog releases omit explicit publisher id,
@@ -120,7 +120,7 @@ Catalog cache behavior (Phase 2):
   - enforces detached signature type support (`rsa-sha256` only),
   - verifies SHA256 + detached `release_sig` over artifact bytes before atomic install,
   - records source metadata used by `GET /api/store/status/{addon_id}`,
-  - persists `last_install_error` debug context after catalog install failures (error code, source id, resolved base URL, artifact URL, expected/actual SHA256).
+  - persists `last_install_error` debug context after catalog install failures (error code, source id, resolved base URL, artifact URL, expected/actual SHA256, remediation_path when available).
 
 Store status response fields (Phase 2):
 - `installed_version`

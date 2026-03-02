@@ -758,6 +758,7 @@ def build_store_router(
             actual_sha256: str | None = None,
             publisher_key_id: str | None = None,
             signature_type: str | None = None,
+            remediation_path: str | None = None,
         ) -> None:
             if not catalog_install or not target_addon_id:
                 return
@@ -776,6 +777,7 @@ def build_store_router(
                 "actual_sha256": actual_sha256 or debug_actual_sha256,
                 "publisher_key_id": publisher_key_id or debug_publisher_key_id,
                 "signature_type": signature_type or debug_signature_type,
+                "remediation_path": remediation_path,
                 "occurred_at": _utcnow_iso(),
             }
             _update_install_state(target_addon_id, {"last_install_error": payload})
@@ -1050,6 +1052,7 @@ def build_store_router(
                     "error": "catalog_package_profile_unsupported" if catalog_install else "package_profile_unsupported",
                     "package_profile": manifest.package_profile,
                     "supported_profiles": ["embedded_addon"],
+                    "remediation_path": "standalone_deploy_register",
                     "hint": (
                         "standalone_service packages are not installable as embedded addons; "
                         "deploy service package externally and register via /api/admin/addons/registry"
@@ -1154,6 +1157,7 @@ def build_store_router(
             detail_artifact_url: str | None = None
             detail_expected_sha256: list[str] | None = None
             detail_actual_sha256: str | None = None
+            detail_remediation_path: str | None = None
             error_code: str | None = None
             detail_payload = exc.detail
             if isinstance(detail_payload, dict):
@@ -1161,6 +1165,7 @@ def build_store_router(
                 detail_source_id = str(detail_payload.get("source_id") or "").strip() or None
                 detail_artifact_url = str(detail_payload.get("artifact_url") or "").strip() or None
                 detail_actual_sha256 = str(detail_payload.get("actual_sha256") or "").strip() or None
+                detail_remediation_path = str(detail_payload.get("remediation_path") or "").strip() or None
                 raw_expected = detail_payload.get("expected_sha256")
                 if isinstance(raw_expected, list):
                     detail_expected_sha256 = [str(item).strip() for item in raw_expected if str(item).strip()]
@@ -1174,6 +1179,7 @@ def build_store_router(
                 artifact_url=detail_artifact_url,
                 expected_sha256=detail_expected_sha256,
                 actual_sha256=detail_actual_sha256,
+                remediation_path=detail_remediation_path,
             )
             await audit_store.record(
                 action="install",
@@ -1201,6 +1207,33 @@ def build_store_router(
                 if detail == "missing_backend_entrypoint:service_layout_app_main":
                     layout_hint = "service_layout_app_main"
                 if layout_hint == "service_layout_app_main":
+                    if debug_catalog_release_package_profile == "embedded_addon":
+                        mismatch_payload: dict[str, Any] = {
+                            "error": "catalog_profile_layout_mismatch",
+                            "reason": "embedded_profile_with_service_layout",
+                            "source_id": debug_source_id,
+                            "resolved_base_url": debug_resolved_base_url,
+                            "artifact_url": debug_artifact_url,
+                            "layout_hint": layout_hint,
+                            "expected_package_profile": "embedded_addon",
+                            "detected_package_profile": "standalone_service",
+                            "remediation_path": "embedded_repackage",
+                            "hint": (
+                                "catalog release metadata indicates embedded_addon but artifact layout matches "
+                                "standalone_service (app/main.py); publish an embedded artifact with "
+                                "backend/addon.py or change release profile to standalone_service"
+                            ),
+                        }
+                        if debug_catalog_addon_id:
+                            mismatch_payload["catalog_addon_id"] = debug_catalog_addon_id
+                        if debug_catalog_release_version:
+                            mismatch_payload["catalog_release_version"] = debug_catalog_release_version
+                        mismatch_payload["catalog_release_package_profile"] = "embedded_addon"
+                        _persist_last_install_error(
+                            error_code="catalog_profile_layout_mismatch",
+                            remediation_path="embedded_repackage",
+                        )
+                        raise HTTPException(status_code=409, detail=mismatch_payload)
                     unsupported_payload: dict[str, Any] = {
                         "error": "catalog_package_profile_unsupported",
                         "package_profile": "standalone_service",
@@ -1209,6 +1242,7 @@ def build_store_router(
                         "resolved_base_url": debug_resolved_base_url,
                         "artifact_url": debug_artifact_url,
                         "layout_hint": layout_hint,
+                        "remediation_path": "standalone_deploy_register",
                         "hint": (
                             "artifact appears to be a standalone service package (app/main.py); "
                             "set package_profile=standalone_service and deploy/register externally, "
@@ -1221,7 +1255,10 @@ def build_store_router(
                         unsupported_payload["catalog_release_version"] = debug_catalog_release_version
                     if debug_catalog_release_package_profile:
                         unsupported_payload["catalog_release_package_profile"] = debug_catalog_release_package_profile
-                    _persist_last_install_error(error_code="catalog_package_profile_unsupported")
+                    _persist_last_install_error(
+                        error_code="catalog_package_profile_unsupported",
+                        remediation_path="standalone_deploy_register",
+                    )
                     raise HTTPException(status_code=400, detail=unsupported_payload)
                 error_payload: dict[str, Any] = {
                     "error": "catalog_package_layout_invalid",
