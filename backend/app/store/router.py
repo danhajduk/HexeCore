@@ -161,15 +161,37 @@ def _hex_sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while True:
+            chunk = handle.read(1024 * 1024)
+            if not chunk:
+                break
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _configured_core_version() -> str:
     return os.getenv("SYNTHIA_CORE_VERSION", "0.1.0")
 
 
-def _stage_standalone_artifact(addon_id: str, version: str, package_path: Path) -> Path:
+def _stage_standalone_artifact(
+    addon_id: str,
+    version: str,
+    artifact_bytes: bytes,
+    expected_sha256_candidates: list[str],
+) -> Path:
     version_dir = service_version_dir(addon_id, version, create=True)
     staged_artifact_path = version_dir / "addon.tgz"
     staged_artifact_path.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(package_path, staged_artifact_path)
+    if staged_artifact_path.exists() and staged_artifact_path.is_file():
+        existing_sha = _file_sha256(staged_artifact_path)
+        if expected_sha256_candidates and any(hmac.compare_digest(existing_sha, item) for item in expected_sha256_candidates):
+            return staged_artifact_path
+    tmp_path = staged_artifact_path.with_suffix(staged_artifact_path.suffix + ".tmp")
+    tmp_path.write_bytes(artifact_bytes)
+    tmp_path.replace(staged_artifact_path)
     return staged_artifact_path
 
 
@@ -861,6 +883,7 @@ def build_store_router(
             source_id = "local"
             source_release_url: str | None = None
             expected_sha256: str | None = None
+            expected_sha256_candidates: list[str] = []
             package_path: Path
             manifest: ReleaseManifest
             public_key_pem: str
@@ -875,6 +898,9 @@ def build_store_router(
                 public_key_pem = str(body.public_key_pem)
                 artifact_bytes = package_path.read_bytes()
                 expected_sha256 = manifest.checksum
+                normalized_manifest_checksum = _normalize_sha256(manifest.checksum)
+                if normalized_manifest_checksum:
+                    expected_sha256_candidates = [normalized_manifest_checksum]
                 debug_package_profile = manifest.package_profile
                 debug_source_id = source_id
             else:
@@ -1114,7 +1140,14 @@ def build_store_router(
             if manifest.package_profile != "embedded_addon":
                 staged_artifact_path: str | None = None
                 if manifest.package_profile == "standalone_service":
-                    staged_artifact_path = str(_stage_standalone_artifact(manifest.id, manifest.version, package_path))
+                    staged_artifact_path = str(
+                        _stage_standalone_artifact(
+                            manifest.id,
+                            manifest.version,
+                            artifact_bytes,
+                            expected_sha256_candidates,
+                        )
+                    )
                 standalone_dir = service_addon_dir(manifest.id, create=False)
                 desired_path = standalone_dir / "desired.json"
                 runtime_payload = _read_standalone_runtime(manifest.id)

@@ -17,7 +17,13 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.store.router import AtomicResult, StoreAuditLogStore, _artifact_temp_filename, build_store_router
+from app.store.router import (
+    AtomicResult,
+    StoreAuditLogStore,
+    _artifact_temp_filename,
+    _stage_standalone_artifact,
+    build_store_router,
+)
 from app.store.signing import VerificationError
 from app.store.sources import StoreSource
 
@@ -388,6 +394,17 @@ class TestStoreApiEndpoints(unittest.TestCase):
     def test_artifact_temp_filename_infers_tgz_suffix(self) -> None:
         filename = _artifact_temp_filename("https://example.test/releases/download/v1.0.0/addon.tgz")
         self.assertEqual(filename, "artifact.tgz")
+
+    def test_stage_standalone_artifact_reuses_matching_existing_file(self) -> None:
+        root = Path(self.tmp.name) / "SynthiaAddons"
+        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(root)}, clear=False):
+            artifact_a = b"artifact-a"
+            artifact_b = b"artifact-b"
+            hash_a = hashlib.sha256(artifact_a).hexdigest()
+            staged = _stage_standalone_artifact("hello_world", "1.0.0", artifact_a, [hash_a])
+            staged_second = _stage_standalone_artifact("hello_world", "1.0.0", artifact_b, [hash_a])
+        self.assertEqual(staged, staged_second)
+        self.assertEqual(staged.read_bytes(), artifact_a)
 
     def test_install_rejects_unknown_install_mode(self) -> None:
         res = self.client.post(
