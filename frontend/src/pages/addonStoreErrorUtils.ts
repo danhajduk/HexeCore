@@ -60,3 +60,14 @@ export function installActionItems(detail: InstallErrorDetail | null): string[] 
   }
   return [];
 }
+
+export function installModeForPackageProfile(profile: string | null | undefined): "embedded_addon" | "standalone_service" {
+  const normalized = String(profile || "embedded_addon")
+    .trim()
+    .toLowerCase()
+    .replace(/[-\s]+/g, "_");
+  if (normalized === "standalone_service" || normalized === "standalone") {
+    return "standalone_service";
+  }
+  return "embedded_addon";
+}

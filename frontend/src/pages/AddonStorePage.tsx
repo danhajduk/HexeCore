@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import "./addon-store.css";
-import { installActionItems, parseInstallFailure, type InstallErrorDetail } from "./addonStoreErrorUtils";
+import {
+  installActionItems,
+  installModeForPackageProfile,
+  parseInstallFailure,
+  type InstallErrorDetail,
+} from "./addonStoreErrorUtils";
 
 type InstalledInfo = {
   version?: string;
@@ -233,7 +238,11 @@ export default function AddonStorePage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ source_id: "official", addon_id: item.addonId }),
+        body: JSON.stringify({
+          source_id: "official",
+          addon_id: item.addonId,
+          install_mode: installModeForPackageProfile(item.packageProfile),
+        }),
       });
       if (!res.ok) {
         const text = await res.text();
