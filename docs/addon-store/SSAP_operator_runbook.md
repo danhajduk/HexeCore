@@ -9,6 +9,7 @@ When install request uses `install_mode=standalone_service` and the release prof
 Core validates desired payloads before writing and returns `ssap_desired_invalid` if request overrides would produce invalid SSAP state.
 Guardrails are enforced at install-intent time: host networking and privileged overrides are rejected, and `SYNTHIA_SERVICE_TOKEN` is always included in desired config env for supervisor/env-file injection.
 Install responses now surface supervisor indicators from `runtime.json` (`runtime_state`, `active_version`, `last_action`) and return `supervisor_hint` when runtime state is still unknown.
+Troubleshooting response fields include absolute `desired_path`, `runtime_path`, `staged_artifact_path`, `service_dir`, and minimal `next_steps` guidance.
 
 ## Paths and Ownership
 

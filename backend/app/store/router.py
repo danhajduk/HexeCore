@@ -177,6 +177,12 @@ def _configured_core_version() -> str:
     return os.getenv("SYNTHIA_CORE_VERSION", "0.1.0")
 
 
+def _abs_path_str(path: Path | str | None) -> str | None:
+    if path is None:
+        return None
+    return str(Path(path).resolve())
+
+
 def _stage_standalone_artifact(
     addon_id: str,
     version: str,
@@ -1150,6 +1156,7 @@ def build_store_router(
                     "registry_state": _registry_state_for_addon(registry, manifest.id),
                 }
                 if manifest.package_profile == "standalone_service":
+                    service_dir = service_addon_dir(manifest.id, create=False)
                     staged_artifact_path = str(
                         _stage_standalone_artifact(
                             manifest.id,
@@ -1163,8 +1170,10 @@ def build_store_router(
                         {
                             "supported_profiles": ["standalone_service"],
                             "remediation_path": "standalone_service_install",
-                            "desired_path": str(standalone_dir / "desired.json"),
-                            "staged_artifact_path": staged_artifact_path,
+                            "desired_path": _abs_path_str(standalone_dir / "desired.json"),
+                            "runtime_path": _abs_path_str(runtime_payload.get("runtime_path")),
+                            "staged_artifact_path": _abs_path_str(staged_artifact_path),
+                            "service_dir": _abs_path_str(service_dir),
                             "hint": (
                                 "release profile is standalone_service; retry install with "
                                 "install_mode=standalone_service"
@@ -1302,14 +1311,14 @@ def build_store_router(
                     "installed_resolved_base_url": debug_resolved_base_url,
                     "installed_release_url": source_release_url,
                     "installed_sha256": expected_sha256,
-                    "desired_path": str(desired_path),
-                    "runtime_path": runtime_payload.get("runtime_path"),
-                    "staged_artifact_path": staged_artifact_path,
+                    "desired_path": _abs_path_str(desired_path),
+                    "runtime_path": _abs_path_str(runtime_payload.get("runtime_path")),
+                    "staged_artifact_path": _abs_path_str(staged_artifact_path),
                     "runtime_state": runtime_state,
                     "active_version": active_version,
                     "last_action": last_action,
                     "registry_state": _registry_state_for_addon(registry, manifest.id),
-                    "service_dir": str(service_dir),
+                    "service_dir": _abs_path_str(service_dir),
                     "supervisor_expected": True,
                     "supervisor_hint": supervisor_hint,
                     "next_steps": [
