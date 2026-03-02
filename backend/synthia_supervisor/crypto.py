@@ -23,16 +23,21 @@ def _sha256_hex_and_bytes(path: Path) -> Tuple[str, bytes]:
     return digest_hex, digest_bytes
 
 
+def _default_publishers_registry_path() -> Path:
+    install_root = Path(__file__).resolve().parents[2]
+    return install_root / "runtime" / "store" / "cache" / "official" / "publishers.json"
+
+
 def _load_publishers_registry() -> dict:
     """
     Loads publishers.json.
-    Default path: $SYNTHIA_CATALOG_PUBLISHERS or ./runtime/store/cache/official/publishers.json
+    Default path: $SYNTHIA_CATALOG_PUBLISHERS or <install_root>/runtime/store/cache/official/publishers.json
     """
     p = os.environ.get("SYNTHIA_CATALOG_PUBLISHERS")
     if p:
         path = Path(p).expanduser()
     else:
-        path = Path("./runtime/store/cache/official/publishers.json").expanduser().resolve()
+        path = _default_publishers_registry_path()
 
     if not path.exists():
         raise CryptoError(

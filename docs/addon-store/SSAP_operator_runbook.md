@@ -130,4 +130,4 @@ Generated compose/env defaults enforce:
 - Supervisor process logs:
   - `journalctl --user -u synthia-supervisor -n 200 --no-pager`
 - Supervisor signature verification publishers registry:
-  - `SYNTHIA_CATALOG_PUBLISHERS` now points to `./runtime/store/cache/official/publishers.json` by default/service env wiring.
+  - Default resolution is `<install_root>/runtime/store/cache/official/publishers.json` (and systemd sets `SYNTHIA_CATALOG_PUBLISHERS=@INSTALL_DIR@/runtime/store/cache/official/publishers.json`).
