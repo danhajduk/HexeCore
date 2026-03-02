@@ -161,3 +161,4 @@
 2026-03-01 - Added SSAP desired-state builder and atomic desired.json writer utilities with regression tests.
 2026-03-01 - Added SSAP desired-state schema validation with ssap_desired_invalid errors and regression coverage.
 2026-03-01 - Added standalone-service artifact staging to SSAP version path during catalog install handling with regression test coverage.
+2026-03-01 - Enforced supervisor verification-first order for standalone artifacts and added regression tests for verify/extract/compose/start sequencing.

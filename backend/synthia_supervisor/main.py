@@ -33,7 +33,7 @@ def reconcile_one(addon_dir: Path):
             if compose_file.exists():
                 compose_down(compose_file, desired.runtime.project_name)
             rt.state = "stopped"
-            write_json_atomic(runtime_path, rt.dict())
+            write_json_atomic(runtime_path, rt.model_dump())
             return
 
         version = desired.pinned_version or "latest"
@@ -48,11 +48,12 @@ def reconcile_one(addon_dir: Path):
         if not artifact_path.exists():
             raise RuntimeError("Artifact missing")
 
+        # Enforce SSAP verification order: verify -> extract -> compose files -> compose up
         verify_release_option_a(
             artifact_path,
-            desired.install_source["release"]["sha256"],
-            desired.install_source["release"]["signature"]["value"],
-            desired.install_source["release"]["publisher_key_id"],
+            desired.install_source.release.sha256,
+            desired.install_source.release.signature.value,
+            desired.install_source.release.publisher_key_id,
         )
         ensure_extracted(artifact_path, extracted_dir)
         ensure_compose_files(desired, extracted_dir, compose_file, env_file)
@@ -71,7 +72,7 @@ def reconcile_one(addon_dir: Path):
         rt.state = "error"
         rt.error = str(e)
 
-    write_json_atomic(runtime_path, rt.dict())
+    write_json_atomic(runtime_path, rt.model_dump())
 
 def main():
     addons_dir = Path(os.environ.get("SYNTHIA_ADDONS_DIR", "../SynthiaAddons")).resolve()
