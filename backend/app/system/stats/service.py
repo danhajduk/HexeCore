@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import os
+import shutil
 import socket
+import subprocess
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,10 +28,80 @@ from .models import (
     MemStats,
     SwapStats,
     DiskUsage,
+    ServiceUnitStatus,
     NetStats,
     NetIfaceCounters,
     NetIfaceRates,
 )
+
+_SERVICE_UNITS: Dict[str, str] = {
+    "backend": "synthia-backend.service",
+    "frontend": "synthia-frontend-dev.service",
+    "updater": "synthia-updater.service",
+    "supervisor": "synthia-supervisor.service",
+}
+
+
+def _query_service_unit_status(unit_name: str) -> ServiceUnitStatus:
+    try:
+        proc = subprocess.run(
+            [
+                "systemctl",
+                "--user",
+                "show",
+                unit_name,
+                "--property=LoadState",
+                "--property=ActiveState",
+                "--property=SubState",
+                "--property=UnitFileState",
+                "--value",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=1.5,
+            check=False,
+        )
+    except Exception as exc:
+        return ServiceUnitStatus(unit=unit_name, available=False, error=str(exc))
+
+    lines = [line.strip() for line in proc.stdout.splitlines()]
+    while len(lines) < 4:
+        lines.append("unknown")
+
+    load_state, active_state, sub_state, unit_file_state = lines[:4]
+    load_state = load_state or "unknown"
+    active_state = active_state or "unknown"
+    sub_state = sub_state or "unknown"
+    unit_file_state = unit_file_state or "unknown"
+
+    error: Optional[str] = None
+    if proc.returncode != 0:
+        stderr = (proc.stderr or "").strip()
+        error = stderr or f"systemctl_exit_{proc.returncode}"
+
+    return ServiceUnitStatus(
+        unit=unit_name,
+        load_state=load_state,
+        active_state=active_state,
+        sub_state=sub_state,
+        unit_file_state=unit_file_state,
+        running=active_state == "active",
+        available=load_state != "not-found",
+        error=error,
+    )
+
+
+def collect_service_statuses() -> Dict[str, ServiceUnitStatus]:
+    if shutil.which("systemctl") is None:
+        return {
+            name: ServiceUnitStatus(
+                unit=unit_name,
+                available=False,
+                error="systemctl_not_found",
+            )
+            for name, unit_name in _SERVICE_UNITS.items()
+        }
+    return {name: _query_service_unit_status(unit_name) for name, unit_name in _SERVICE_UNITS.items()}
 
 
 
@@ -96,6 +168,7 @@ def collect_system_stats(api_metrics: Optional[ApiMetricsCollector] = None) -> S
 
     # Network
     net = collect_net_stats()
+    services = collect_service_statuses()
 
     # API metrics (optional)
     api: dict = api_metrics.snapshot(window_s=60, top_n=10) if api_metrics else {}
@@ -124,6 +197,7 @@ def collect_system_stats(api_metrics: Optional[ApiMetricsCollector] = None) -> S
         mem=mem,
         swap=swap,
         disks=disks,
+        services=services,
         net=net,
         api=api,
         busy_rating=round(busy_rating, 2),

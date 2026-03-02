@@ -155,3 +155,5 @@
 2026-03-01 - Session complete: Task 69 bootstrap supervisor unit installation delivered.
 2026-03-01 - Updated service scripts to include synthia-supervisor install/restart handling with compatibility checks.
 2026-03-01 - Session complete: Task 70 supervisor service-management coverage delivered.
+2026-03-01 - Added system service status metrics for backend/frontend/updater/supervisor and surfaced them in Settings Metrics UI.
+2026-03-01 - Session complete: Task 71 service status metrics delivered.

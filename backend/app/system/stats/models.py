@@ -42,6 +42,17 @@ class DiskUsage(BaseModel):
     percent: float = Field(ge=0, le=100)
 
 
+class ServiceUnitStatus(BaseModel):
+    unit: str
+    load_state: str = "unknown"
+    active_state: str = "unknown"
+    sub_state: str = "unknown"
+    unit_file_state: str = "unknown"
+    running: bool = False
+    available: bool = True
+    error: Optional[str] = None
+
+
 class SystemStats(BaseModel):
     timestamp: float  # epoch seconds
     hostname: str
@@ -51,6 +62,7 @@ class SystemStats(BaseModel):
     mem: MemStats
     swap: SwapStats
     disks: Dict[str, DiskUsage]  # mountpoint -> usage
+    services: Dict[str, ServiceUnitStatus]
     net: NetStats
     api: dict  
     busy_rating: float

@@ -10,6 +10,19 @@ type SystemStats = {
   mem: { total: number; available: number; used: number; free: number; percent: number };
   swap: { total: number; used: number; free: number; percent: number };
   disks: Record<string, { total: number; used: number; free: number; percent: number }>;
+  services?: Record<
+    string,
+    {
+      unit: string;
+      load_state: string;
+      active_state: string;
+      sub_state: string;
+      unit_file_state: string;
+      running: boolean;
+      available: boolean;
+      error?: string | null;
+    }
+  >;
   net: {
     total: { bytes_sent: number; bytes_recv: number };
     total_rate?: { tx_Bps: number; rx_Bps: number } | null;
@@ -123,6 +136,7 @@ export default function SystemStatsWidget() {
   const load1 = data.load.load1;
   const rx = data.net.total_rate?.rx_Bps ?? 0;
   const tx = data.net.total_rate?.tx_Bps ?? 0;
+  const services = Object.entries(data.services ?? {});
 
   return (
     <div className="stats-panel">
@@ -196,6 +210,26 @@ export default function SystemStatsWidget() {
               <Top title="Top clients" items={data.api.top_clients} empty="No tracked clients yet." />
             </div>
           )}
+        </div>
+      </div>
+
+      <div className="stats-card">
+        <div className="stats-label">Services</div>
+        <div className="stats-list">
+          {services.map(([name, svc]) => (
+            <div key={name} className="stats-list-row">
+              <span className="stats-mono stats-list-key">{name}</span>
+              <span className="stats-sub">
+                {svc.running ? "running" : svc.active_state}
+                {" • "}
+                {svc.sub_state}
+                {" • "}
+                {svc.available ? "available" : "unavailable"}
+                {svc.error ? ` • ${svc.error}` : ""}
+              </span>
+            </div>
+          ))}
+          {services.length === 0 && <div className="stats-list-empty">No service status data.</div>}
         </div>
       </div>
 

@@ -279,6 +279,7 @@ Demonstrates core addon features:
 - Active planning source is `docs/ROADMAP.md`; legacy TODO docs are archived in `docs/archive/`.
 - Service reload helper: `bash scripts/reload-all.sh` (reloads user units, restarts backend/frontend and supervisor when installed, runs updater oneshot, prints status).
 - Bootstrap installs user unit templates for backend, frontend, updater, and supervisor into `~/.config/systemd/user/`.
+- Settings Metrics (`/settings/metrics`) now includes current backend/frontend/updater/supervisor user-unit status from `/api/system/stats/current`.
 - Local operator config should stay untracked:
   - copy `scripts/synthia.env.example` to `scripts/synthia.env` for machine-specific values.
   - keep per-user systemd overrides under `~/.config/synthia/*.env` (already outside this repo).
