@@ -19,6 +19,16 @@ def write_json_atomic(path: Path, data: Dict[str, Any]) -> None:
         json.dump(data, f, indent=2)
     tmp.replace(path)
 
+
+def activate_current_symlink(addon_dir: Path, version_dir: Path) -> None:
+    current = addon_dir / "current"
+    next_link = addon_dir / ".current.next"
+    if next_link.exists() or next_link.is_symlink():
+        next_link.unlink()
+    next_link.symlink_to(version_dir)
+    # Atomic replace: current now points to the newly-started version
+    next_link.replace(current)
+
 def reconcile_one(addon_dir: Path):
     desired_path = addon_dir / "desired.json"
     runtime_path = addon_dir / "runtime.json"
@@ -58,12 +68,8 @@ def reconcile_one(addon_dir: Path):
         ensure_extracted(artifact_path, extracted_dir)
         ensure_compose_files(desired, extracted_dir, compose_file, env_file)
 
-        current = addon_dir / "current"
-        if current.exists() or current.is_symlink():
-            current.unlink()
-        current.symlink_to(version_dir)
-
         compose_up(compose_file, desired.runtime.project_name)
+        activate_current_symlink(addon_dir, version_dir)
 
         rt.state = "running"
         rt.active_version = version

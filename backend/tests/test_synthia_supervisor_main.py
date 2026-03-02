@@ -48,6 +48,8 @@ class TestSynthiaSupervisorReconcile(unittest.TestCase):
                 reconcile_one(addon_dir)
 
             self.assertEqual(calls, ["verify", "extract", "compose_files", "compose_up"])
+            self.assertTrue((addon_dir / "current").is_symlink())
+            self.assertEqual((addon_dir / "current").resolve(), version_dir.resolve())
             runtime = json.loads((addon_dir / "runtime.json").read_text(encoding="utf-8"))
             self.assertEqual(runtime["state"], "running")
             self.assertEqual(runtime["active_version"], "0.1.2")
@@ -72,6 +74,30 @@ class TestSynthiaSupervisorReconcile(unittest.TestCase):
             runtime = json.loads((addon_dir / "runtime.json").read_text(encoding="utf-8"))
             self.assertEqual(runtime["state"], "error")
             self.assertIn("bad-signature", runtime.get("error", ""))
+
+    def test_reconcile_does_not_activate_new_current_when_compose_up_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            addon_dir = Path(tmp) / "services" / "mqtt"
+            old_version_dir = addon_dir / "versions" / "0.1.1"
+            new_version_dir = addon_dir / "versions" / "0.1.2"
+            old_version_dir.mkdir(parents=True, exist_ok=True)
+            new_version_dir.mkdir(parents=True, exist_ok=True)
+            (new_version_dir / "addon.tgz").write_bytes(b"artifact-bytes")
+            current = addon_dir / "current"
+            current.symlink_to(old_version_dir)
+            _write_desired(addon_dir)
+
+            with patch("synthia_supervisor.main.verify_release_option_a"), \
+                patch("synthia_supervisor.main.ensure_extracted"), \
+                patch("synthia_supervisor.main.ensure_compose_files"), \
+                patch("synthia_supervisor.main.compose_up", side_effect=RuntimeError("compose-failed")):
+                reconcile_one(addon_dir)
+
+            self.assertTrue(current.is_symlink())
+            self.assertEqual(current.resolve(), old_version_dir.resolve())
+            runtime = json.loads((addon_dir / "runtime.json").read_text(encoding="utf-8"))
+            self.assertEqual(runtime["state"], "error")
+            self.assertIn("compose-failed", runtime.get("error", ""))
 
 
 if __name__ == "__main__":
