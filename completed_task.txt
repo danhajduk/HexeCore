@@ -139,3 +139,4 @@
 2026-03-01 - Session complete: Task 63 delivered (catalog input metadata surfaced in service-layout unsupported response).
 2026-03-01 - Documented catalog_package_profile_unsupported mismatch explanation and linked it from distributed addons docs.
 2026-03-01 - Added operator and catalog-maintainer remediation guidance for catalog_package_profile_unsupported incidents.
+2026-03-01 - Broke profile-mismatch remediation into implementation-ready backend/catalog/UI follow-up tasks.

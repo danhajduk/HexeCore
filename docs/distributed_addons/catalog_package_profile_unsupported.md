@@ -53,3 +53,23 @@ Core blocks install to avoid deploying an artifact under the wrong execution mod
 4. Confirm install behavior on a clean Core instance:
    - embedded path succeeds through `/api/store/install`, or
    - standalone path is documented and validated through external deploy + registry flow.
+
+## Implementation-Ready Follow-Up Tasks
+
+### Backend
+
+1. Add a dedicated catalog consistency error when release metadata says `embedded_addon` but extracted artifact layout is service-like (`app/main.py`).
+2. Extend `/api/store/status/{addon_id}` `last_install_error` with a stable `remediation_path` field (`embedded_repackage` or `standalone_deploy_register`).
+3. Add API regression tests covering mismatch classification and status persistence.
+
+### Catalog
+
+1. Add release-publish validation to reject `package_profile=embedded_addon` when artifact inspection shows only service layout.
+2. Require pre-publish artifact layout check output in catalog PR/release checklist.
+3. Add a rollback note to pin prior known-good release when profile/layout mismatch is detected post-publish.
+
+### UI
+
+1. Render profile mismatch guidance as operator action cards in Addon Store install error surfaces.
+2. Display `catalog_release_package_profile` and `layout_hint` in an expandable diagnostic panel.
+3. Add frontend tests for mismatch error rendering and action text.
