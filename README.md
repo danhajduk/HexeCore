@@ -133,6 +133,7 @@ Store status response fields (Phase 2):
 
 Store incident runbook:
 - `docs/addon-store/incident-runbook.md` covers `catalog_artifact_unavailable` and `catalog_sha256_mismatch` triage/recovery.
+- `scripts/validate-catalog-package-profile.sh <package_profile> <artifact_path>` enforces release profile/layout alignment before catalog publication.
 
 Catalog query parameters:
 - `q` free-text search over id/name/description/categories

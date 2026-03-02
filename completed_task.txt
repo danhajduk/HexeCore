@@ -142,3 +142,4 @@
 2026-03-01 - Broke profile-mismatch remediation into implementation-ready backend/catalog/UI follow-up tasks.
 2026-03-01 - Session complete: Task 64 analysis/remediation documentation delivered; Task 65 follow-up implementation subtasks queued.
 2026-03-01 - Implemented backend profile/layout mismatch classification with remediation_path persistence and regression coverage updates.
+2026-03-01 - Added catalog release profile/layout validator script and publish checklist documentation.
