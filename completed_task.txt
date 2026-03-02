@@ -168,3 +168,5 @@
 2026-03-01 - Added SSAP metadata fields to store install/update responses and standalone unsupported guidance payloads with API regression assertions.
 2026-03-01 - Hardened supervisor compose/env defaults for security guardrails (non-privileged, dedicated network, localhost binds, env-file token injection) with tests.
 2026-03-01 - Expanded SSAP regression coverage for malformed runtime status, upgrade transition metadata, and install/update response field assertions.
+2026-03-01 - Added SSAP standalone operator runbook covering lifecycle, ownership, security defaults, and troubleshooting.
+2026-03-01 - Session complete: Task 72 standalone_service SSAP implementation delivered (72.1-72.12).
