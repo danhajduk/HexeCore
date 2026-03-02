@@ -173,3 +173,4 @@
 2026-03-01 - Added Addon Store standalone remediation docs action card and regression coverage.
 2026-03-01 - Session complete: Task 73 standalone remediation docs action card delivered.
 2026-03-01 - Added store install contract fields for standalone intent and install-mode validation scaffolding.
+2026-03-01 - Added channel-scoped catalog release resolution for store install path with regression coverage.

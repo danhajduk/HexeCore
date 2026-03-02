@@ -585,6 +585,7 @@ def _resolve_catalog_release(
     index_payload: Any,
     addon_id: str,
     version: str | None,
+    channel: str | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     addon_item: dict[str, Any] | None = None
     for item in _extract_catalog_items(index_payload):
@@ -611,20 +612,21 @@ def _resolve_catalog_release(
         return []
 
     release_items: list[dict[str, Any]] = []
+    requested_channel = str(channel or "stable").strip().lower() or "stable"
     channels = addon_item.get("channels")
     if isinstance(channels, dict):
-        preferred_order = ["stable", "beta", "nightly"]
-        remaining = [name for name in channels.keys() if str(name) not in preferred_order]
-        channel_names = preferred_order + sorted(str(name) for name in remaining)
+        if version and version.strip():
+            channel_names = [str(name) for name in channels.keys()]
+        else:
+            if requested_channel not in channels:
+                raise RuntimeError("catalog_channel_not_found")
+            channel_names = [requested_channel]
         for channel_name in channel_names:
             entries = _channel_release_entries(channels.get(channel_name))
-            channel_release_items: list[dict[str, Any]] = []
             for item in entries:
                 row = dict(item)
                 row.setdefault("channel", channel_name)
-                channel_release_items.append(row)
-            channel_release_items.sort(key=lambda r: _parse_semver_key(str(r.get("version", ""))), reverse=True)
-            release_items.extend(channel_release_items)
+                release_items.append(row)
 
     releases = addon_item.get("releases")
     if isinstance(releases, list) and not release_items:
@@ -639,8 +641,7 @@ def _resolve_catalog_release(
                 return addon_item, [rel]
         raise RuntimeError("catalog_release_version_not_found")
 
-    if not isinstance(channels, dict):
-        release_items.sort(key=lambda r: _parse_semver_key(str(r.get("version", ""))), reverse=True)
+    release_items.sort(key=lambda r: _parse_semver_key(str(r.get("version", ""))), reverse=True)
     return addon_item, release_items
 
 
@@ -897,6 +898,7 @@ def build_store_router(
                     index_payload=index_payload,
                     addon_id=body.addon_id.strip(),
                     version=body.version,
+                    channel=requested_channel,
                 )
                 core_version = _configured_core_version()
                 did_refresh_retry = False
@@ -1035,6 +1037,7 @@ def build_store_router(
                             index_payload=index_payload,
                             addon_id=body.addon_id.strip(),
                             version=body.version,
+                            channel=requested_channel,
                         )
                         did_refresh_retry = True
                 actual_sha256 = _hex_sha256(artifact_bytes)

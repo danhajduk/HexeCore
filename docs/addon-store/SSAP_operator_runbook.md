@@ -3,6 +3,7 @@
 This runbook covers lifecycle operations for SSAP standalone services managed by Core + Supervisor.
 
 `/api/store/install` now accepts standalone-oriented request contract fields (`install_mode`, `channel`, `desired_state`, `pinned_version`, runtime/config overrides) that are used by the direct standalone install path.
+When `channel` is provided, release selection stays within that channel (`stable`, `beta`, or `nightly`) instead of cross-channel fallback.
 
 ## Paths and Ownership
 

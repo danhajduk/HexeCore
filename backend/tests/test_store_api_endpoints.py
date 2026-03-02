@@ -840,7 +840,31 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(res.status_code, 200, res.text)
         self.assertEqual(res.json()["installed_release_url"], "https://example.test/stable-1.0.0.zip")
 
-    def test_catalog_install_falls_back_to_beta_when_stable_has_no_compatible_release(self) -> None:
+    def test_catalog_install_rejects_unknown_channel_for_channels_schema(self) -> None:
+        pkg = Path(self.tmp.name) / "bundle-channels-invalid-channel.zip"
+        with zipfile.ZipFile(pkg, "w") as zf:
+            zf.writestr("hello_world/manifest.json", '{"id":"hello_world","name":"hello_world","version":"1.0.0"}')
+            zf.writestr("hello_world/backend/addon.py", "addon = None\n")
+        artifact_bytes = pkg.read_bytes()
+        fake_catalog = self._build_catalog_client(
+            artifact_bytes=artifact_bytes,
+            release_sig=self._sign_artifact(artifact_bytes),
+            use_channels_schema=True,
+        )
+        app = FastAPI()
+        app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
+        client = TestClient(app)
+
+        with patch("app.store.router._atomic_install_or_update"):
+            res = client.post(
+                "/api/store/install",
+                headers={"X-Admin-Token": "test-token"},
+                json={"source_id": "official", "addon_id": "hello_world", "channel": "preview", "enable": True},
+            )
+        self.assertEqual(res.status_code, 400, res.text)
+        self.assertEqual(res.json()["detail"], "catalog_channel_not_found")
+
+    def test_catalog_install_uses_requested_beta_channel(self) -> None:
         pkg = Path(self.tmp.name) / "bundle-channels-fallback.zip"
         with zipfile.ZipFile(pkg, "w") as zf:
             zf.writestr("hello_world/manifest.json", '{"id":"hello_world","name":"hello_world","version":"1.0.0"}')
@@ -932,7 +956,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
             res = client.post(
                 "/api/store/install",
                 headers={"X-Admin-Token": "test-token"},
-                json={"source_id": "official", "addon_id": "hello_world", "enable": True},
+                json={"source_id": "official", "addon_id": "hello_world", "channel": "beta", "enable": True},
             )
         self.assertEqual(res.status_code, 200, res.text)
         self.assertEqual(res.json()["installed_release_url"], "https://example.test/beta-2.0.0.zip")
