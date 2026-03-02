@@ -20,6 +20,7 @@ type RawCatalogItem = {
   releases?: unknown;
   release_count?: unknown;
   channels?: unknown;
+  package_profile?: unknown;
 };
 
 type CatalogItem = {
@@ -34,6 +35,7 @@ type CatalogItem = {
   publisherId: string | null;
   publisherDisplayName: string | null;
   releaseCount: number;
+  packageProfile: string;
 };
 
 type CatalogStatus = {
@@ -73,6 +75,11 @@ function asStringArray(value: unknown): string[] {
 function asReleaseArray(value: unknown): Array<Record<string, unknown>> {
   if (!Array.isArray(value)) return [];
   return value.filter((entry): entry is Record<string, unknown> => typeof entry === "object" && entry !== null);
+}
+
+function asObject(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object") return null;
+  return value as Record<string, unknown>;
 }
 
 function asNonNegativeInt(value: unknown): number | null {
@@ -128,6 +135,13 @@ function normalizeCatalogItem(item: RawCatalogItem, index: number): CatalogItem 
     asString(latestRelease.version) ||
     asString(latestRelease.tag_name) ||
     "unknown";
+  const manifestPayload = asObject(latestRelease.manifest);
+  const packageProfileRaw =
+    asString(item.package_profile) ||
+    asString(latestRelease.package_profile) ||
+    asString(latestRelease.profile) ||
+    asString(manifestPayload?.package_profile);
+  const packageProfile = packageProfileRaw ? packageProfileRaw.replace(/[-\s]+/g, "_").toLowerCase() : "embedded_addon";
 
   return {
     id: addonId || fallbackId,
@@ -141,6 +155,7 @@ function normalizeCatalogItem(item: RawCatalogItem, index: number): CatalogItem 
     publisherId: asString(item.publisher_id),
     publisherDisplayName: asString(item.publisher_display_name),
     releaseCount: releaseCount ?? effectiveReleases.length,
+    packageProfile,
   };
 }
 
@@ -242,6 +257,7 @@ export default function AddonStorePage() {
         item.id,
         item.name,
         item.description,
+        item.packageProfile,
         item.publisherDisplayName || "",
         item.publisherId || "",
         ...(item.categories || []),
@@ -365,6 +381,7 @@ export default function AddonStorePage() {
                   <div className="store-meta">categories: {item.categories.join(", ")}</div>
                 )}
                 <div className="store-meta">current version: {item.version}</div>
+                <div className="store-meta">package profile: {item.packageProfile}</div>
                 <div className="store-meta">installed version: {info.version || "not installed"}</div>
                 <div className="store-meta">installed at: {formatTs(info.installed_at)}</div>
                 <div className="store-meta">published at: {formatTs(item.publishedAt)}</div>
