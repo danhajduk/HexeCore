@@ -35,6 +35,10 @@ Core blocks install to avoid deploying an artifact under the wrong execution mod
 
 ## Suggested Fixes
 
+### UI Retry Path
+
+If `remediation_path=standalone_service_install`, retry from Addon Store so request includes `install_mode=standalone_service`.
+
 ### Operator-Side (Immediate Triage)
 
 1. Capture `catalog_addon_id`, `catalog_release_version`, and `artifact_url` from the failure payload.

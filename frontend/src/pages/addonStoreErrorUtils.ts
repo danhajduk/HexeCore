@@ -3,6 +3,7 @@ export type InstallErrorDetail = {
   code?: string;
   hint?: string;
   remediation_path?: string;
+  requested_install_mode?: string;
   source_id?: string;
   artifact_url?: string;
   layout_hint?: string;
@@ -56,6 +57,13 @@ export function installActionItems(detail: InstallErrorDetail | null): string[] 
       "Deploy the service artifact externally (container/systemd/host process).",
       "Register the service via /api/admin/addons/registry and validate health/proxy.",
       "See docs/distributed_addons/catalog_package_profile_unsupported.md for triage and remediation details.",
+    ];
+  }
+  if (detail.remediation_path === "standalone_service_install") {
+    return [
+      "Retry install from Addon Store; request now sends install_mode=standalone_service automatically.",
+      "If retry still fails, refresh source and verify release package_profile is standalone_service.",
+      "See docs/distributed_addons/catalog_package_profile_unsupported.md for mode-selection diagnostics.",
     ];
   }
   return [];
