@@ -1,5 +1,5 @@
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 
 
@@ -22,6 +22,12 @@ class DesiredInstallSource(BaseModel):
 
 class DesiredRuntime(BaseModel):
     project_name: str
+    network: str = "synthia_net"
+    ports: list[dict] = Field(default_factory=list)
+
+
+class DesiredConfig(BaseModel):
+    env: dict[str, str] = Field(default_factory=dict)
 
 
 class DesiredState(BaseModel):
@@ -31,6 +37,7 @@ class DesiredState(BaseModel):
     pinned_version: Optional[str] = None
     install_source: DesiredInstallSource
     runtime: DesiredRuntime
+    config: DesiredConfig = Field(default_factory=DesiredConfig)
 
 class RuntimeState(BaseModel):
     ssap_version: str = "1.0"
