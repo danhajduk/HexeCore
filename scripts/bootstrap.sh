@@ -150,6 +150,10 @@ install_user_unit_from_template \
   "$UNIT_SRC_DIR/synthia-updater.service.in" \
   "$UNIT_DST_DIR/synthia-updater.service"
 
+install_user_unit_from_template \
+  "$UNIT_SRC_DIR/synthia-supervisor.service.in" \
+  "$UNIT_DST_DIR/synthia-supervisor.service"
+
 systemctl --user daemon-reload
 
 if command -v loginctl >/dev/null 2>&1; then
@@ -186,3 +190,4 @@ echo "[bootstrap] Done."
 echo "Backend:  http://$(hostname -I | awk '{print $1}'):9001/api/health"
 echo "Frontend: http://$(hostname -I | awk '{print $1}'):5173"
 echo "Updater unit installed: synthia-updater.service (trigger via: systemctl --user start synthia-updater.service)"
+echo "Supervisor unit installed: synthia-supervisor.service (trigger via: systemctl --user start synthia-supervisor.service)"

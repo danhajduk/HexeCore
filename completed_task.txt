@@ -151,3 +151,5 @@
 2026-03-01 - Added regression test coverage for addons[] package_profile passthrough in catalog cache normalization.
 2026-03-01 - Verified mqtt package_profile resolves to standalone_service via catalog cache client query on official source.
 2026-03-01 - Session complete: Task 68 addons package_profile normalization fix and verification delivered.
+2026-03-01 - Updated bootstrap to install synthia-supervisor.service user unit from template.
+2026-03-01 - Session complete: Task 69 bootstrap supervisor unit installation delivered.
