@@ -31,3 +31,25 @@ That combination can happen when:
 The artifact structure and catalog release profile are inconsistent with the embedded-addon install path.
 
 Core blocks install to avoid deploying an artifact under the wrong execution model.
+
+## Suggested Fixes
+
+### Operator-Side (Immediate Triage)
+
+1. Capture `catalog_addon_id`, `catalog_release_version`, and `artifact_url` from the failure payload.
+2. Inspect artifact layout before retrying:
+   - if it contains `app/main.py` and no `backend/addon.py`, treat it as `standalone_service`.
+3. Choose one path and avoid mixed retries:
+   - embedded path: wait for corrected embedded artifact + catalog metadata.
+   - standalone path: deploy service externally and register in Core.
+
+### Catalog-Maintainer (Permanent Remediation)
+
+1. Keep artifact layout and `package_profile` aligned in the release metadata:
+   - embedded addon artifact -> `package_profile=embedded_addon`
+   - service-layout artifact -> `package_profile=standalone_service`
+2. Rebuild and publish artifact if current package layout is incorrect.
+3. Update catalog release entry (`artifact_url`, profile, signature/checksum metadata) to match the published bytes.
+4. Confirm install behavior on a clean Core instance:
+   - embedded path succeeds through `/api/store/install`, or
+   - standalone path is documented and validated through external deploy + registry flow.
