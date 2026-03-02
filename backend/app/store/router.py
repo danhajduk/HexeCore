@@ -1138,6 +1138,61 @@ def build_store_router(
                 installed_addons=installed_addons_with_versions(registry),
             )
 
+            if requested_install_mode != manifest.package_profile:
+                runtime_payload = _read_standalone_runtime(manifest.id)
+                mismatch_payload: dict[str, Any] = {
+                    "error": "catalog_package_profile_unsupported" if catalog_install else "package_profile_unsupported",
+                    "mode": manifest.package_profile,
+                    "package_profile": manifest.package_profile,
+                    "requested_install_mode": requested_install_mode,
+                    "runtime_path": runtime_payload.get("runtime_path"),
+                    "runtime_state": runtime_payload.get("runtime_state"),
+                    "registry_state": _registry_state_for_addon(registry, manifest.id),
+                }
+                if manifest.package_profile == "standalone_service":
+                    staged_artifact_path = str(
+                        _stage_standalone_artifact(
+                            manifest.id,
+                            manifest.version,
+                            artifact_bytes,
+                            expected_sha256_candidates,
+                        )
+                    )
+                    standalone_dir = service_addon_dir(manifest.id, create=False)
+                    mismatch_payload.update(
+                        {
+                            "supported_profiles": ["standalone_service"],
+                            "remediation_path": "standalone_service_install",
+                            "desired_path": str(standalone_dir / "desired.json"),
+                            "staged_artifact_path": staged_artifact_path,
+                            "hint": (
+                                "release profile is standalone_service; retry install with "
+                                "install_mode=standalone_service"
+                            ),
+                        }
+                    )
+                elif manifest.package_profile == "embedded_addon":
+                    mismatch_payload.update(
+                        {
+                            "supported_profiles": ["embedded_addon"],
+                            "remediation_path": "embedded_addon_install",
+                            "hint": "release profile is embedded_addon; retry install with install_mode=embedded_addon",
+                        }
+                    )
+                else:
+                    mismatch_payload.update(
+                        {
+                            "supported_profiles": [manifest.package_profile],
+                            "remediation_path": "install_mode_select",
+                            "hint": "retry install with install_mode matching package_profile",
+                        }
+                    )
+                if catalog_install:
+                    mismatch_payload["source_id"] = debug_source_id
+                    mismatch_payload["resolved_base_url"] = debug_resolved_base_url
+                    mismatch_payload["artifact_url"] = debug_artifact_url
+                raise HTTPException(status_code=400, detail=mismatch_payload)
+
             if manifest.package_profile == "standalone_service" and requested_install_mode == "standalone_service":
                 staged_artifact_path = str(
                     _stage_standalone_artifact(

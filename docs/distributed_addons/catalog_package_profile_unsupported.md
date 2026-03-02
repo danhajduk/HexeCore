@@ -2,7 +2,7 @@
 
 This error means the store install flow detected a package profile that Core does not install as an embedded addon.
 
-For the current store pipeline, `POST /api/store/install` supports `embedded_addon` artifacts only.
+`POST /api/store/install` now requires `install_mode` to match the resolved release `package_profile`.
 
 ## Error Breakdown
 
@@ -10,7 +10,8 @@ Common fields in this failure:
 
 - `error=catalog_package_profile_unsupported`: Catalog install resolved an unsupported package profile.
 - `package_profile=standalone_service`: Manifest/layout indicates a standalone service artifact.
-- `supported_profiles=["embedded_addon"]`: Core installer accepts embedded-addon package layout only.
+- `requested_install_mode=<mode>`: Client-selected install mode did not match resolved release profile.
+- `supported_profiles=["standalone_service"]` or `["embedded_addon"]`: Install can proceed after selecting the matching mode.
 - `layout_hint=service_layout_app_main`: Installer found service-style layout (`app/main.py`).
 - `catalog_release_package_profile=embedded_addon`: Catalog release metadata used during resolution.
 
@@ -18,8 +19,8 @@ Common fields in this failure:
 
 In this incident class, operators often see both of these at once:
 
-1. Layout indicates a standalone service package.
-2. Catalog release metadata claims embedded addon.
+1. Request used a different `install_mode` than the release profile.
+2. Catalog metadata and manifest profile still determine the authoritative release mode.
 
 That combination can happen when:
 

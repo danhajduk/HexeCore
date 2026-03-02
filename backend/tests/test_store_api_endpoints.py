@@ -1475,10 +1475,11 @@ class TestStoreApiEndpoints(unittest.TestCase):
         detail = res.json()["detail"]
         self.assertEqual(detail["error"], "catalog_package_profile_unsupported")
         self.assertEqual(detail["package_profile"], "standalone_service")
-        self.assertEqual(detail["supported_profiles"], ["embedded_addon"])
-        self.assertEqual(detail["remediation_path"], "standalone_deploy_register")
+        self.assertEqual(detail["requested_install_mode"], "embedded_addon")
+        self.assertEqual(detail["supported_profiles"], ["standalone_service"])
+        self.assertEqual(detail["remediation_path"], "standalone_service_install")
         self.assertEqual(detail["source_id"], "official")
-        self.assertIn("deploy service package externally", detail["hint"])
+        self.assertIn("install_mode=standalone_service", detail["hint"])
         self.assertEqual(detail["mode"], "standalone_service")
         self.assertIn("desired_path", detail)
         self.assertIn("runtime_path", detail)
@@ -1603,6 +1604,34 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(res.status_code, 400, res.text)
         detail = res.json()["detail"]
         self.assertEqual(detail["error"], "standalone_runtime_network_unsupported")
+
+    def test_catalog_install_rejects_standalone_mode_when_release_is_embedded(self) -> None:
+        pkg = Path(self.tmp.name) / "bundle-embedded-release.zip"
+        with zipfile.ZipFile(pkg, "w") as zf:
+            zf.writestr("hello_world/manifest.json", '{"id":"hello_world","name":"hello_world","version":"1.0.0"}')
+            zf.writestr("hello_world/backend/addon.py", "addon = None\n")
+        artifact_bytes = pkg.read_bytes()
+        fake_catalog = self._build_catalog_client(
+            artifact_bytes=artifact_bytes,
+            release_sig=self._sign_artifact(artifact_bytes),
+            package_profile="embedded_addon",
+        )
+        app = FastAPI()
+        app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
+        client = TestClient(app)
+
+        res = client.post(
+            "/api/store/install",
+            headers={"X-Admin-Token": "test-token"},
+            json={"source_id": "official", "addon_id": "hello_world", "install_mode": "standalone_service", "enable": True},
+        )
+        self.assertEqual(res.status_code, 400, res.text)
+        detail = res.json()["detail"]
+        self.assertEqual(detail["error"], "catalog_package_profile_unsupported")
+        self.assertEqual(detail["package_profile"], "embedded_addon")
+        self.assertEqual(detail["requested_install_mode"], "standalone_service")
+        self.assertEqual(detail["remediation_path"], "embedded_addon_install")
+        self.assertIn("install_mode=embedded_addon", detail["hint"])
 
     def test_catalog_install_rejects_catalog_manifest_profile_mismatch(self) -> None:
         pkg = Path(self.tmp.name) / "bundle-profile-mismatch.zip"
