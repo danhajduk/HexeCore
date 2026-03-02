@@ -328,6 +328,17 @@ def _normalize_package_profile(value: Any) -> str:
     return aliases.get(normalized, normalized)
 
 
+def _normalize_install_mode(value: Any) -> str:
+    normalized = str(value or "embedded_addon").strip().lower().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "embedded": "embedded_addon",
+        "addon": "embedded_addon",
+        "standalone": "standalone_service",
+        "service": "standalone_service",
+    }
+    return aliases.get(normalized, normalized)
+
+
 def _release_package_profile(addon_item: dict[str, Any], release_item: dict[str, Any]) -> str:
     return _normalize_package_profile(
         release_item.get("package_profile")
@@ -768,12 +779,18 @@ def build_store_router(
     ):
         require_admin_token(x_admin_token, request)
         actor = body.actor or "admin_token"
+        requested_install_mode = _normalize_install_mode(body.install_mode)
+        if requested_install_mode not in {"embedded_addon", "standalone_service"}:
+            raise HTTPException(status_code=400, detail="install_mode_unsupported")
+        requested_channel = str(body.channel or "stable").strip().lower() or "stable"
         local_install = bool(body.package_path and body.manifest and body.public_key_pem)
         catalog_install = bool(body.addon_id)
         if local_install and catalog_install:
             raise HTTPException(status_code=400, detail="install_mode_conflict")
         if not local_install and not catalog_install:
             raise HTTPException(status_code=400, detail="install_mode_missing")
+        if local_install and requested_install_mode != "embedded_addon":
+            raise HTTPException(status_code=400, detail="local_install_mode_unsupported")
         temp_install_dir: Path | None = None
         target_addon_id = (
             body.addon_id.strip()
@@ -1153,6 +1170,10 @@ def build_store_router(
                 "ok": True,
                 "addon_id": manifest.id,
                 "mode": manifest.package_profile,
+                "requested_install_mode": requested_install_mode,
+                "channel": requested_channel,
+                "desired_state": body.desired_state,
+                "pinned_version": body.pinned_version,
                 "version": manifest.version,
                 "installed_path": str(result.addon_dir),
                 "enabled": registry.is_enabled(manifest.id),
@@ -1168,6 +1189,10 @@ def build_store_router(
                 "staged_artifact_path": None,
                 "runtime_state": None,
                 "registry_state": _registry_state_for_addon(registry, manifest.id),
+                "service_dir": None,
+                "supervisor_expected": False,
+                "next_steps": [],
+                "remediation_path": None,
             }
         except VerificationError as exc:
             _persist_last_install_error(

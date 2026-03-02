@@ -389,6 +389,33 @@ class TestStoreApiEndpoints(unittest.TestCase):
         filename = _artifact_temp_filename("https://example.test/releases/download/v1.0.0/addon.tgz")
         self.assertEqual(filename, "artifact.tgz")
 
+    def test_install_rejects_unknown_install_mode(self) -> None:
+        res = self.client.post(
+            "/api/store/install",
+            headers={"X-Admin-Token": "test-token"},
+            json={"addon_id": "hello_world", "source_id": "official", "install_mode": "not_real"},
+        )
+        self.assertEqual(res.status_code, 400, res.text)
+        self.assertEqual(res.json()["detail"], "install_mode_unsupported")
+
+    def test_local_install_rejects_standalone_install_mode(self) -> None:
+        pkg = Path(self.tmp.name) / "bundle-local.zip"
+        with zipfile.ZipFile(pkg, "w") as zf:
+            zf.writestr("hello_world/manifest.json", '{"id":"hello_world","name":"hello_world","version":"1.0.0"}')
+            zf.writestr("hello_world/backend/addon.py", "addon = None\n")
+        res = self.client.post(
+            "/api/store/install",
+            headers={"X-Admin-Token": "test-token"},
+            json={
+                "package_path": str(pkg),
+                "manifest": _manifest_payload("hello_world"),
+                "public_key_pem": self._public_key_pem,
+                "install_mode": "standalone_service",
+            },
+        )
+        self.assertEqual(res.status_code, 400, res.text)
+        self.assertEqual(res.json()["detail"], "local_install_mode_unsupported")
+
     def test_install_success_and_invalid_signature(self) -> None:
         pkg = Path(self.tmp.name) / "bundle.zip"
         pkg.write_bytes(b"bytes")

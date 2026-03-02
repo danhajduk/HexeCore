@@ -179,6 +179,12 @@ class StoreInstallRequest(BaseModel):
     source_id: str | None = None
     addon_id: str | None = None
     version: str | None = None
+    channel: str = "stable"
+    install_mode: str = "embedded_addon"
+    desired_state: str = "running"
+    pinned_version: str | None = None
+    runtime_overrides: dict[str, Any] | None = None
+    config_env_overrides: dict[str, str] | None = None
     enable: bool = True
     actor: str | None = None
 
