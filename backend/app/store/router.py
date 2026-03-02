@@ -1260,6 +1260,13 @@ def build_store_router(
                 )
                 write_desired_state_atomic(desired_path, desired_payload)
                 runtime_payload = _read_standalone_runtime(manifest.id)
+                standalone_runtime = runtime_payload.get("standalone_runtime")
+                active_version = standalone_runtime.get("active_version") if isinstance(standalone_runtime, dict) else None
+                last_action = standalone_runtime.get("last_action") if isinstance(standalone_runtime, dict) else None
+                runtime_state = runtime_payload.get("runtime_state")
+                supervisor_hint = None
+                if runtime_state == "unknown":
+                    supervisor_hint = "runtime.json not found yet; ensure synthia-supervisor is running"
                 install_state = {
                     "installed_version": manifest.version,
                     "installed_from_source_id": source_id,
@@ -1298,10 +1305,13 @@ def build_store_router(
                     "desired_path": str(desired_path),
                     "runtime_path": runtime_payload.get("runtime_path"),
                     "staged_artifact_path": staged_artifact_path,
-                    "runtime_state": runtime_payload.get("runtime_state"),
+                    "runtime_state": runtime_state,
+                    "active_version": active_version,
+                    "last_action": last_action,
                     "registry_state": _registry_state_for_addon(registry, manifest.id),
                     "service_dir": str(service_dir),
                     "supervisor_expected": True,
+                    "supervisor_hint": supervisor_hint,
                     "next_steps": [
                         "Ensure synthia-supervisor is running and reconciling desired.json.",
                         "Check runtime.json and service logs if runtime_state stays unknown.",
@@ -1313,7 +1323,7 @@ def build_store_router(
                         "service_token_env_key": "SYNTHIA_SERVICE_TOKEN",
                     },
                     "remediation_path": None,
-                    "standalone_runtime": runtime_payload.get("standalone_runtime"),
+                    "standalone_runtime": standalone_runtime,
                 }
 
             if manifest.package_profile != "embedded_addon":
