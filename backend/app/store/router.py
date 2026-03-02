@@ -201,6 +201,13 @@ def _read_standalone_runtime(addon_id: str) -> dict[str, Any]:
         return payload
 
 
+def _registry_state_for_addon(registry: AddonRegistry, addon_id: str) -> str:
+    addon = registry.addons.get(addon_id)
+    if addon is None:
+        return "unknown"
+    return str(getattr(addon, "health_status", None) or "registered")
+
+
 def _extract_catalog_items(index_payload: Any) -> list[dict[str, Any]]:
     if isinstance(index_payload, list):
         return [x for x in index_payload if isinstance(x, dict)]
@@ -1088,11 +1095,19 @@ def build_store_router(
                 staged_artifact_path: str | None = None
                 if manifest.package_profile == "standalone_service":
                     staged_artifact_path = str(_stage_standalone_artifact(manifest.id, manifest.version, package_path))
+                standalone_dir = service_addon_dir(manifest.id, create=False)
+                desired_path = standalone_dir / "desired.json"
+                runtime_payload = _read_standalone_runtime(manifest.id)
                 error_payload: dict[str, Any] = {
                     "error": "catalog_package_profile_unsupported" if catalog_install else "package_profile_unsupported",
+                    "mode": manifest.package_profile,
                     "package_profile": manifest.package_profile,
                     "supported_profiles": ["embedded_addon"],
                     "remediation_path": "standalone_deploy_register",
+                    "desired_path": str(desired_path),
+                    "runtime_path": runtime_payload.get("runtime_path"),
+                    "runtime_state": runtime_payload.get("runtime_state"),
+                    "registry_state": _registry_state_for_addon(registry, manifest.id),
                     "hint": (
                         "standalone_service packages are not installable as embedded addons; "
                         "deploy service package externally and register via /api/admin/addons/registry"
@@ -1137,6 +1152,7 @@ def build_store_router(
             return {
                 "ok": True,
                 "addon_id": manifest.id,
+                "mode": manifest.package_profile,
                 "version": manifest.version,
                 "installed_path": str(result.addon_dir),
                 "enabled": registry.is_enabled(manifest.id),
@@ -1147,6 +1163,11 @@ def build_store_router(
                 "installed_resolved_base_url": debug_resolved_base_url,
                 "installed_release_url": source_release_url,
                 "installed_sha256": expected_sha256,
+                "desired_path": None,
+                "runtime_path": None,
+                "staged_artifact_path": None,
+                "runtime_state": None,
+                "registry_state": _registry_state_for_addon(registry, manifest.id),
             }
         except VerificationError as exc:
             _persist_last_install_error(
@@ -1375,12 +1396,18 @@ def build_store_router(
             return {
                 "ok": True,
                 "addon_id": body.manifest.id,
+                "mode": body.manifest.package_profile,
                 "version": body.manifest.version,
                 "installed_path": str(result.addon_dir),
                 "enabled": registry.is_enabled(body.manifest.id),
                 "registry_loaded": body.manifest.id in registry.addons,
                 # TODO(phase3): report true hot-reload runtime status once dynamic module reload is supported.
                 "hot_loaded": False,
+                "desired_path": None,
+                "runtime_path": None,
+                "staged_artifact_path": None,
+                "runtime_state": None,
+                "registry_state": _registry_state_for_addon(registry, body.manifest.id),
             }
         except VerificationError as exc:
             await audit_store.record(

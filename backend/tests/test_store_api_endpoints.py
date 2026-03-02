@@ -414,6 +414,13 @@ class TestStoreApiEndpoints(unittest.TestCase):
                 },
             )
         self.assertEqual(ok_res.status_code, 200, ok_res.text)
+        ok_payload = ok_res.json()
+        self.assertEqual(ok_payload["mode"], "embedded_addon")
+        self.assertIn("desired_path", ok_payload)
+        self.assertIn("runtime_path", ok_payload)
+        self.assertIn("staged_artifact_path", ok_payload)
+        self.assertIn("runtime_state", ok_payload)
+        self.assertIn("registry_state", ok_payload)
 
         with patch(
             "app.store.router.verify_release_artifact",
@@ -475,6 +482,13 @@ class TestStoreApiEndpoints(unittest.TestCase):
             with patch("app.store.router._addons_root", return_value=Path(self.tmp.name) / "addons"):
                 res = self.client.get("/api/store/status/hello_world")
         self.assertEqual(res.status_code, 200, res.text)
+        payload = res.json()
+        self.assertEqual(payload["mode"], "embedded_addon")
+        self.assertIn("desired_path", payload)
+        self.assertIn("runtime_path", payload)
+        self.assertIn("staged_artifact_path", payload)
+        self.assertIn("runtime_state", payload)
+        self.assertIn("registry_state", payload)
         payload = res.json()
         self.assertEqual(payload["runtime_state"], "running")
         self.assertEqual(payload["standalone_runtime"]["active_version"], "1.0.0")
@@ -1384,6 +1398,11 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(detail["remediation_path"], "standalone_deploy_register")
         self.assertEqual(detail["source_id"], "official")
         self.assertIn("deploy service package externally", detail["hint"])
+        self.assertEqual(detail["mode"], "standalone_service")
+        self.assertIn("desired_path", detail)
+        self.assertIn("runtime_path", detail)
+        self.assertIn("runtime_state", detail)
+        self.assertIn("registry_state", detail)
         staged_path = Path(detail["staged_artifact_path"])
         self.assertTrue(staged_path.exists())
         self.assertTrue(str(staged_path).endswith("services/hello_world/versions/1.0.0/addon.tgz"))

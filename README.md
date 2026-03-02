@@ -287,6 +287,7 @@ Demonstrates core addon features:
 - Supervisor only switches `current` to the new version after successful `docker compose up`, using rename-based atomic symlink replacement.
 - On activation failure, supervisor runtime state includes rollback metadata (`previous_version`, `rollback_available`, `last_error`).
 - Store status API (`/api/store/status/{addon_id}`) now reads standalone runtime state from `services/<addon_id>/runtime.json` and exposes `runtime_state`, `standalone_runtime`, and `runtime_path`.
+- Store install/update responses now include SSAP metadata fields (`mode`, `desired_path`, `runtime_path`, `staged_artifact_path`, `runtime_state`, `registry_state`).
 - Local operator config should stay untracked:
   - copy `scripts/synthia.env.example` to `scripts/synthia.env` for machine-specific values.
   - set `SYNTHIA_ADDONS_DIR` to override standalone-service state root (default `<repo>/SynthiaAddons`).
