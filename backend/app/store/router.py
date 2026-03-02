@@ -744,6 +744,9 @@ def build_store_router(
         debug_publisher_key_id: str | None = None
         debug_signature_type: str | None = None
         debug_package_profile: str | None = None
+        debug_catalog_addon_id: str | None = None
+        debug_catalog_release_version: str | None = None
+        debug_catalog_release_package_profile: str | None = None
 
         def _persist_last_install_error(
             *,
@@ -873,6 +876,11 @@ def build_store_router(
                             )
                         raise HTTPException(status_code=409, detail="catalog_no_compatible_release")
                     debug_package_profile = manifest.package_profile
+                    debug_catalog_addon_id = str(
+                        addon_item.get("id") or addon_item.get("addon_id") or body.addon_id or ""
+                    ).strip() or None
+                    debug_catalog_release_version = str(release_item.get("version") or "").strip() or None
+                    debug_catalog_release_package_profile = _release_package_profile(addon_item, release_item)
                     catalog_package_profile = _release_package_profile(addon_item, release_item)
                     if manifest.package_profile != catalog_package_profile:
                         release_url = _release_artifact_url(release_item)
@@ -1207,6 +1215,12 @@ def build_store_router(
                             "or ship embedded_addon layout with backend/addon.py"
                         ),
                     }
+                    if debug_catalog_addon_id:
+                        unsupported_payload["catalog_addon_id"] = debug_catalog_addon_id
+                    if debug_catalog_release_version:
+                        unsupported_payload["catalog_release_version"] = debug_catalog_release_version
+                    if debug_catalog_release_package_profile:
+                        unsupported_payload["catalog_release_package_profile"] = debug_catalog_release_package_profile
                     _persist_last_install_error(error_code="catalog_package_profile_unsupported")
                     raise HTTPException(status_code=400, detail=unsupported_payload)
                 error_payload: dict[str, Any] = {

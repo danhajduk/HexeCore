@@ -1301,6 +1301,9 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(detail["resolved_base_url"], "https://raw.githubusercontent.test/catalog")
         self.assertEqual(detail["artifact_url"], "https://example.test/hello_world-1.0.0.tgz")
         self.assertEqual(detail["layout_hint"], "service_layout_app_main")
+        self.assertEqual(detail["catalog_addon_id"], "hello_world")
+        self.assertEqual(detail["catalog_release_version"], "1.0.0")
+        self.assertEqual(detail["catalog_release_package_profile"], "embedded_addon")
         self.assertIn("standalone service package", detail["hint"])
 
         with patch("app.store.router._addons_root", return_value=Path(self.tmp.name) / "addons"):
