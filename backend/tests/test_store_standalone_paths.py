@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from app.addons.discovery import repo_root
 from app.store.standalone_paths import (
     service_addon_dir,
     service_current_link,
@@ -15,11 +16,12 @@ from app.store.standalone_paths import (
 
 
 class TestStoreStandalonePaths(unittest.TestCase):
-    def test_default_synthia_addons_dir_under_repo_root(self) -> None:
+    def test_default_synthia_addons_dir_under_repo_parent(self) -> None:
         with patch.dict(os.environ, {}, clear=False):
             path = synthia_addons_dir()
         self.assertEqual(path.name, "SynthiaAddons")
         self.assertTrue(path.is_absolute())
+        self.assertEqual(path.parent, repo_root().parent)
 
     def test_relative_env_path_resolves_from_backend_dir(self) -> None:
         with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": "../CustomAddons"}, clear=False):

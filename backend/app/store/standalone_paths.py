@@ -31,7 +31,7 @@ def _validate_segment(name: str, value: str) -> str:
 def synthia_addons_dir() -> Path:
     raw = os.environ.get("SYNTHIA_ADDONS_DIR")
     if raw is None or not raw.strip():
-        return (repo_root() / DEFAULT_ADDONS_DIR_NAME).resolve()
+        return (repo_root().parent / DEFAULT_ADDONS_DIR_NAME).resolve()
     return _resolve_from_backend_dir(raw.strip())
 
 
