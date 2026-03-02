@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { installActionItems, parseInstallFailure } from "./addonStoreErrorUtils";
+import { installActionItems, installModeForPackageProfile, parseInstallFailure } from "./addonStoreErrorUtils";
 
 describe("parseInstallFailure", () => {
   it("extracts detail error code from JSON payload", () => {
@@ -36,5 +36,24 @@ describe("installActionItems", () => {
     expect(actions).toHaveLength(3);
     expect(actions[0]).toContain("externally");
     expect(actions[2]).toContain("catalog_package_profile_unsupported.md");
+  });
+
+  it("returns standalone install-mode remediation actions", () => {
+    const actions = installActionItems({ remediation_path: "standalone_service_install" });
+    expect(actions).toHaveLength(3);
+    expect(actions[0]).toContain("install_mode=standalone_service");
+  });
+});
+
+describe("installModeForPackageProfile", () => {
+  it("maps standalone profiles to standalone_service mode", () => {
+    expect(installModeForPackageProfile("standalone_service")).toBe("standalone_service");
+    expect(installModeForPackageProfile("standalone-service")).toBe("standalone_service");
+  });
+
+  it("defaults unknown or embedded profiles to embedded_addon mode", () => {
+    expect(installModeForPackageProfile("embedded_addon")).toBe("embedded_addon");
+    expect(installModeForPackageProfile("random_profile")).toBe("embedded_addon");
+    expect(installModeForPackageProfile(undefined)).toBe("embedded_addon");
   });
 });
