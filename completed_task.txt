@@ -137,3 +137,4 @@
 2026-03-01 - Session complete: Task 62 delivered (service-layout standalone profile guidance mapping).
 2026-03-01 - Added catalog input metadata fields to service-layout profile-unsupported errors for direct operator diagnosis.
 2026-03-01 - Session complete: Task 63 delivered (catalog input metadata surfaced in service-layout unsupported response).
+2026-03-01 - Documented catalog_package_profile_unsupported mismatch explanation and linked it from distributed addons docs.
