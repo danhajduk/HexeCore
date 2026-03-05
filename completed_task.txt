@@ -211,3 +211,4 @@
 2026-03-05 - Migrated initial global styling to theme tokens (style.css root colors + dark/light color-scheme) for Task 85.
 2026-03-05 - Session complete: Task 85 token-based style migration baseline implemented.
 2026-03-05 - Added settings theme selector UI with persisted dark/light switching (Task 86).
+2026-03-05 - Session complete: Task 86 settings theme selector implemented.
