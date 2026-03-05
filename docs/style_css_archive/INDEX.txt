@@ -1,0 +1,11 @@
+Archived versions of frontend/src/style.css
+Generated on 2026-03-05 13:32:25 PST
+
+99c2845518e8  20260305_132219  refactor(css): migrate styles to theme tokens
+7958703393ee  20260205_144003  move frontend inline styles to css files
+55779616f336  20260205_141341  add animated avatar glow
+8f4eb254206c  20260205_141158  avatar fix
+18d5b4388d03  20260205_141130  move sidebar styles to css
+07f4c282f32b  20260125_115628  Initial clean core + addon contract baseline
+
+Total versions: 6
