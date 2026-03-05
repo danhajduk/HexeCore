@@ -294,6 +294,7 @@ Demonstrates core addon features:
 - Regression tests now cover standalone runtime status read paths (missing/valid/malformed), verification-failure stop behavior, and upgrade/rollback metadata transitions.
 - Frontend global `style.css` root background/text now consume theme tokens to support runtime dark/light theme switching.
 - Settings page now includes a persisted theme selector (Dark/Light) backed by `localStorage` and `document.documentElement.dataset.theme`.
+- Legacy `frontend/src/style.css` globals were migrated into `frontend/src/theme/base.css`; theme CSS is now the single global styling source.
 - SSAP operator lifecycle and troubleshooting runbook: `docs/addon-store/SSAP_operator_runbook.md`.
 - Local operator config should stay untracked:
   - copy `scripts/synthia.env.example` to `scripts/synthia.env` for machine-specific values.

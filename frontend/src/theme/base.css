@@ -1,8 +1,24 @@
+:root {
+  color-scheme: dark;
+  font-family: var(--font-sans);
+  background: radial-gradient(
+    circle at 20% 0%,
+    hsl(var(--color-panel)) 0%,
+    hsl(var(--color-bg)) 55%,
+    hsl(var(--color-bg)) 100%
+  );
+  color: hsl(var(--color-text));
+}
+
 body {
   margin: 0;
   font-family: var(--font-sans);
   background: hsl(var(--color-bg));
   color: hsl(var(--color-text));
+}
+
+h1 {
+  font-size: 28px;
 }
 
 a {
