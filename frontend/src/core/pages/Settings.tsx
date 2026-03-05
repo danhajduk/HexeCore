@@ -4,6 +4,7 @@ import AdminReloadCard from "./settings/AdminReloadCard";
 import RegistryAdminCard from "./settings/RegistryAdminCard";
 import ControlPlaneCard from "./settings/ControlPlaneCard";
 import UserManagementCard from "./settings/UserManagementCard";
+import { getTheme, setTheme as applyTheme } from "../../theme/theme";
 
 type SettingsResponse = {
   ok: boolean;
@@ -14,6 +15,7 @@ type SettingsResponse = {
 export default function Settings() {
   const [appName, setAppName] = useState("Synthia Core");
   const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [theme, setTheme] = useState("dark");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -65,6 +67,7 @@ export default function Settings() {
 
   useEffect(() => {
     loadSettings();
+    setTheme(getTheme());
   }, []);
 
   return (
@@ -84,6 +87,21 @@ export default function Settings() {
               onChange={(e) => setAppName(e.target.value)}
               className="settings-input"
             />
+          </label>
+          <label className="settings-label">
+            <div className="settings-label-text">Theme</div>
+            <select
+              value={theme}
+              onChange={(e) => {
+                const nextTheme = e.target.value;
+                setTheme(nextTheme);
+                applyTheme(nextTheme);
+              }}
+              className="settings-select-input"
+            >
+              <option value="dark">Dark</option>
+              <option value="light">Light</option>
+            </select>
           </label>
           <label className="settings-toggle">
             <input
