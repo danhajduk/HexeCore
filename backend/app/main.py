@@ -253,7 +253,6 @@ def create_app() -> FastAPI:
     register_addons(app, registry)
     addon_proxy = AddonProxy(registry)
     app.state.addon_proxy = addon_proxy
-    app.include_router(build_proxy_router(addon_proxy))
 
     # System API using the registry
     app.include_router(build_system_router(registry), prefix="/api")
@@ -280,6 +279,7 @@ def create_app() -> FastAPI:
         prefix="/api/store",
         tags=["store"],
     )
+    app.include_router(build_proxy_router(addon_proxy))
 
     return app
 

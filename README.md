@@ -296,6 +296,7 @@ Demonstrates core addon features:
 - Settings page now includes a persisted theme selector (Dark/Light) backed by `localStorage` and `document.documentElement.dataset.theme`.
 - Legacy `frontend/src/style.css` globals were migrated into `frontend/src/theme/base.css`; theme CSS is now the single global styling source.
 - Addon theme consumption contract is documented in `docs/theme.md` (shared CSS path, import usage, and token rules).
+- Registry API route precedence is enforced so `/api/addons/registry/{id}/register` is handled by registry endpoints before addon proxy catch-all routing.
 - SSAP operator lifecycle and troubleshooting runbook: `docs/addon-store/SSAP_operator_runbook.md`.
 - Local operator config should stay untracked:
   - copy `scripts/synthia.env.example` to `scripts/synthia.env` for machine-specific values.
