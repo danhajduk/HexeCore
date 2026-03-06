@@ -24,6 +24,7 @@ class DesiredRuntime(BaseModel):
     project_name: str
     network: str = "synthia_net"
     ports: list[dict] = Field(default_factory=list)
+    bind_localhost: bool = True
 
 
 class DesiredConfig(BaseModel):

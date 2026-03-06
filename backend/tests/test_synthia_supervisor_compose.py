@@ -53,6 +53,38 @@ class TestSynthiaSupervisorCompose(unittest.TestCase):
             self.assertIn("CORE_URL=http://127.0.0.1:9001", env_text)
             self.assertIn("SYNTHIA_SERVICE_TOKEN=token-123", env_text)
 
+    def test_compose_uses_host_publish_when_bind_localhost_disabled(self) -> None:
+        desired = DesiredState.model_validate(
+            {
+                "ssap_version": "1.0",
+                "addon_id": "mqtt",
+                "desired_state": "running",
+                "install_source": {
+                    "type": "catalog",
+                    "release": {
+                        "artifact_url": "https://example.test/mqtt.tgz",
+                        "sha256": "a" * 64,
+                    },
+                },
+                "runtime": {
+                    "project_name": "synthia-addon-mqtt",
+                    "network": "synthia_net",
+                    "bind_localhost": False,
+                    "ports": [{"host": 18081, "container": 18081, "proto": "tcp"}],
+                },
+                "config": {"env": {}},
+            }
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            extracted = Path(tmp) / "extracted"
+            extracted.mkdir(parents=True, exist_ok=True)
+            compose_file = Path(tmp) / "docker-compose.yml"
+            env_file = Path(tmp) / "runtime.env"
+            ensure_compose_files(desired, extracted, compose_file, env_file)
+
+            compose_text = compose_file.read_text(encoding="utf-8")
+            self.assertIn("0.0.0.0:18081:18081/tcp", compose_text)
+
 
 if __name__ == "__main__":
     unittest.main()

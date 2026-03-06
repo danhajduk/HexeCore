@@ -39,6 +39,8 @@ def ensure_compose_files(desired, extracted_dir: Path, compose_file: Path, env_f
         log.info("compose_file_skip path=%s reason=already_exists", compose_file)
         return
     network_name = desired.runtime.network or "synthia_net"
+    bind_localhost = bool(getattr(desired.runtime, "bind_localhost", True))
+    host_bind = "127.0.0.1" if bind_localhost else "0.0.0.0"
     ports_yaml = ""
     for item in list(getattr(desired.runtime, "ports", []) or []):
         if not isinstance(item, dict):
@@ -48,7 +50,7 @@ def ensure_compose_files(desired, extracted_dir: Path, compose_file: Path, env_f
         if host is None or container is None:
             continue
         proto = str(item.get("proto") or "tcp").lower()
-        ports_yaml += f"      - \"127.0.0.1:{int(host)}:{int(container)}/{proto}\"\n"
+        ports_yaml += f"      - \"{host_bind}:{int(host)}:{int(container)}/{proto}\"\n"
     ports_section = f"    ports:\n{ports_yaml}" if ports_yaml else ""
     compose_file.write_text(f"""
 services:
@@ -68,4 +70,9 @@ networks:
   {network_name}:
     name: {network_name}
 """)
-    log.info("compose_file_written path=%s network=%s", compose_file, network_name)
+    log.info(
+        "compose_file_written path=%s network=%s host_bind=%s",
+        compose_file,
+        network_name,
+        host_bind,
+    )

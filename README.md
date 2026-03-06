@@ -278,7 +278,7 @@ Demonstrates core addon features:
 - On activation failure, supervisor runtime state includes rollback metadata (`previous_version`, `rollback_available`, `last_error`).
 - Store status API (`/api/store/status/{addon_id}`) now reads standalone runtime state from `services/<addon_id>/runtime.json` and exposes `runtime_state`, `standalone_runtime`, and `runtime_path`.
 - Store install/update responses now include SSAP metadata fields (`mode`, `desired_path`, `runtime_path`, `staged_artifact_path`, `runtime_state`, `registry_state`).
-- Supervisor-generated compose defaults now enforce guardrails: `privileged: false`, `no-new-privileges`, dedicated `synthia_net`, localhost-only port binds, and service token/env injection via env file.
+- Supervisor-generated compose defaults now enforce guardrails: `privileged: false`, `no-new-privileges`, dedicated `synthia_net`, and service token/env injection via env file; port publish bind defaults to localhost and can be widened with `runtime.bind_localhost=false`.
 - Regression tests now cover standalone runtime status read paths (missing/valid/malformed), verification-failure stop behavior, and upgrade/rollback metadata transitions.
 - Frontend global `style.css` root background/text now consume theme tokens to support runtime dark/light theme switching.
 - Settings page now includes a persisted theme selector (Dark/Light) backed by `localStorage` and `document.documentElement.dataset.theme`.
