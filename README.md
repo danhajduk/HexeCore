@@ -298,6 +298,7 @@ Demonstrates core addon features:
 - Addon theme consumption contract is documented in `docs/theme.md` (shared CSS path, import usage, and token rules).
 - Registry API route precedence is enforced so `/api/addons/registry/{id}/register` is handled by registry endpoints before addon proxy catch-all routing.
 - Unified addon integration and registration reference is documented in `docs/addons.md`.
+- Supervisor reconciliation now emits step-by-step logs (desired load, verify, extract, compose, start/stop); set `SYNTHIA_SUPERVISOR_LOG_LEVEL` (default `INFO`) for verbosity.
 - SSAP operator lifecycle and troubleshooting runbook: `docs/addon-store/SSAP_operator_runbook.md`.
 - Local operator config should stay untracked:
   - copy `scripts/synthia.env.example` to `scripts/synthia.env` for machine-specific values.
