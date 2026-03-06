@@ -13,6 +13,12 @@ SEMVER_RE = re.compile(
     r"(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
     r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$"
 )
+RELEASE_VERSION_SUFFIX_RE = re.compile(
+    r"^(0|[1-9]\d*)\."
+    r"(0|[1-9]\d*)\."
+    r"(0|[1-9]\d*)"
+    r"[A-Za-z][0-9A-Za-z]*$"
+)
 
 PermissionType = Literal[
     "filesystem.read",
@@ -38,6 +44,13 @@ def _validate_semver(value: str, field_name: str) -> str:
     if not SEMVER_RE.fullmatch(val):
         raise ValueError(f"{field_name} must be valid semver")
     return val
+
+
+def _validate_release_version(value: str) -> str:
+    val = value.strip()
+    if SEMVER_RE.fullmatch(val) or RELEASE_VERSION_SUFFIX_RE.fullmatch(val):
+        return val
+    raise ValueError("version must be valid semver or semver+suffix (example: 0.1.7d)")
 
 
 def _normalize_permissions(value: Any) -> Any:
@@ -154,10 +167,15 @@ class ReleaseManifest(BaseModel):
                 data["conflicts"] = compat.get("conflicts", [])
         return data
 
-    @field_validator("version", "core_min_version")
+    @field_validator("core_min_version")
     @classmethod
     def _validate_required_semver(cls, value: str, info) -> str:
         return _validate_semver(value, info.field_name)
+
+    @field_validator("version")
+    @classmethod
+    def _validate_release_version_field(cls, value: str) -> str:
+        return _validate_release_version(value)
 
     @field_validator("core_max_version")
     @classmethod

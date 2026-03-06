@@ -86,6 +86,41 @@ class TestReleaseManifestCompatibilityAdapter(unittest.TestCase):
             ["mqtt.publish", "mqtt.subscribe", "network.egress"],
         )
 
+    def test_release_manifest_accepts_semver_suffix_version(self) -> None:
+        manifest = ReleaseManifest(
+            id="addon_suffix",
+            name="Addon Suffix",
+            version="0.1.7d",
+            core_min_version="0.1.0",
+            core_max_version=None,
+            dependencies=[],
+            conflicts=[],
+            checksum="abc123",
+            publisher_id="pub-1",
+            permissions=["filesystem.read"],
+            compatibility={
+                "core_min_version": "0.1.0",
+                "core_max_version": None,
+                "dependencies": [],
+                "conflicts": [],
+            },
+        )
+        self.assertEqual(manifest.version, "0.1.7d")
+
+    def test_addon_manifest_version_still_requires_strict_semver(self) -> None:
+        with self.assertRaises(ValueError):
+            AddonManifest(
+                id="addon_bad",
+                name="Addon Bad",
+                version="0.1.7d",
+                core_min_version="0.1.0",
+                core_max_version=None,
+                dependencies=[],
+                conflicts=[],
+                publisher_id="pub-1",
+                permissions=["filesystem.read"],
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
