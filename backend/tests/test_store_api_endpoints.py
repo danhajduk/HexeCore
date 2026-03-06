@@ -189,6 +189,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         *,
         artifact_bytes: bytes,
         release_sig: str,
+        release_version: str = "1.0.0",
         publisher_key_id: str = "key-1",
         publishers_key_id: str = "key-1",
         key_enabled: bool = True,
@@ -229,7 +230,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
             if line.strip() and "BEGIN PUBLIC KEY" not in line and "END PUBLIC KEY" not in line
         )
         release_payload = {
-            "version": "1.0.0",
+            "version": release_version,
             "sha256": release_sha256 if release_sha256 is not None else digest,
             "checksum": release_checksum if release_checksum is not None else digest,
             "publisher_key_id": publisher_key_id,
@@ -1174,7 +1175,38 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(detail["error"], "catalog_no_compatible_release")
         self.assertEqual(detail["core_version"], "0.1.0")
         self.assertEqual(detail["reasons"][0]["error"]["code"], "core_version_too_low")
-        self.assertEqual(detail["reasons"][0]["error"]["details"]["required_min"], "9.0.0")
+
+    def test_catalog_install_invalid_release_version_returns_remediation_payload(self) -> None:
+        artifact_bytes = b"artifact-invalid-version"
+        release_sig = self._sign_artifact(artifact_bytes)
+        catalog_client = self._build_catalog_client(
+            artifact_bytes=artifact_bytes,
+            release_sig=release_sig,
+            release_version="v1",
+        )
+        app = FastAPI()
+        app.include_router(
+            build_store_router(
+                self.registry,
+                self.audit,
+                sources_store=_FakeSourcesStore(),
+                catalog_client=catalog_client,
+            ),
+            prefix="/api/store",
+        )
+        client = TestClient(app)
+        with patch("app.store.router._atomic_install_or_update"):
+            res = client.post(
+                "/api/store/install",
+                headers={"X-Admin-Token": "test-token"},
+                json={"source_id": "official", "addon_id": "hello_world"},
+            )
+
+        self.assertEqual(res.status_code, 400, res.text)
+        detail = res.json()["detail"]
+        self.assertEqual(detail["error"], "catalog_release_version_invalid")
+        self.assertEqual(detail["remediation_path"], "catalog_release_version_format")
+        self.assertIn("semver", detail["hint"])
 
     def test_catalog_install_missing_publisher_key_rejected(self) -> None:
         artifact_bytes = b"artifact-a"

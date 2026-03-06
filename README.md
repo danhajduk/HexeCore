@@ -101,6 +101,7 @@ Catalog cache behavior (Phase 2):
   - package/layout consistency failures return structured diagnostics: `catalog_package_layout_invalid` for generic embedded entrypoint issues, `catalog_profile_layout_mismatch` when catalog metadata says `embedded_addon` but artifact layout is service-style (`app/main.py`), and `catalog_package_profile_unsupported` with `remediation_path=standalone_deploy_register` when standalone packages are intentionally unsupported by embedded install flow,
   - compatibility checks use `SYNTHIA_CORE_VERSION` (default `0.1.0` if unset); set this in `scripts/synthia.env` to match deployed core semver,
   - when no compatible release exists, install returns `409` with `catalog_no_compatible_release` plus resolver reasons (for example core-version minimum mismatch),
+  - invalid catalog release versions now return `400` with `remediation_path=catalog_release_version_format` for direct UI/operator guidance,
   - derives missing `publisher_id` from `publisher_key_id` when catalog releases omit explicit publisher id,
   - accepts release artifact metadata in either top-level (`artifact_url`/`url`/`download_url`) or nested (`artifact.url`) forms,
   - supports both `.zip` and tar-based addon artifacts (including `.tgz`) for catalog installs,

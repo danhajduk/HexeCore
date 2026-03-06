@@ -93,6 +93,20 @@ export function parseInstallFailure(status: number, payloadText: string): Instal
       };
     }
   }
+  if (
+    payloadText.includes("version must be valid semver")
+    || payloadText.includes("catalog_release_version_invalid")
+  ) {
+    return {
+      message: `install_http_${status}: catalog_release_version_invalid`,
+      detail: {
+        error: "catalog_release_version_invalid",
+        code: "catalog_release_version_invalid",
+        remediation_path: "catalog_release_version_format",
+        hint: "Use a catalog release version formatted as semver (1.2.3) or semver+suffix (1.2.3d).",
+      },
+    };
+  }
   return {
     message: `install_http_${status}: ${payloadText}`,
     detail: null,
@@ -119,6 +133,12 @@ export function installActionItems(detail: InstallErrorDetail | null): string[] 
       "Retry install from Addon Store; request now sends install_mode=standalone_service automatically.",
       "If retry still fails, refresh source and verify release package_profile is standalone_service.",
       "See docs/distributed_addons/catalog_package_profile_unsupported.md for mode-selection diagnostics.",
+    ];
+  }
+  if (detail.remediation_path === "catalog_release_version_format") {
+    return [
+      "Update the catalog release version to semver (1.2.3) or semver+suffix (1.2.3d).",
+      "Refresh the source in Addon Store, then retry install.",
     ];
   }
   return [];

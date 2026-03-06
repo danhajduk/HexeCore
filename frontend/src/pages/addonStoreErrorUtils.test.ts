@@ -59,6 +59,14 @@ describe("parseInstallFailure", () => {
     expect(parsed.detail?.artifact_url).toBe("https://example.test/addon.tgz");
     expect(parsed.detail?.hint).toContain("release_sig must match");
   });
+
+  it("maps semver validation payloads to catalog version remediation detail", () => {
+    const payload =
+      '{"detail":"1 validation error for ReleaseManifest\\nversion\\n  Value error, version must be valid semver"}';
+    const parsed = parseInstallFailure(400, payload);
+    expect(parsed.message).toBe("install_http_400: catalog_release_version_invalid");
+    expect(parsed.detail?.remediation_path).toBe("catalog_release_version_format");
+  });
 });
 
 describe("installActionItems", () => {
@@ -79,6 +87,12 @@ describe("installActionItems", () => {
     const actions = installActionItems({ remediation_path: "standalone_service_install" });
     expect(actions).toHaveLength(3);
     expect(actions[0]).toContain("install_mode=standalone_service");
+  });
+
+  it("returns catalog release version remediation actions", () => {
+    const actions = installActionItems({ remediation_path: "catalog_release_version_format" });
+    expect(actions).toHaveLength(2);
+    expect(actions[0]).toContain("semver");
   });
 });
 

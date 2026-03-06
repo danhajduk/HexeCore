@@ -1515,6 +1515,27 @@ def build_store_router(
                 actor=actor,
             )
             detail = str(exc) or type(exc).__name__
+            if catalog_install and "version must be valid semver" in detail:
+                payload = {
+                    "error": "catalog_release_version_invalid",
+                    "source_id": debug_source_id,
+                    "resolved_base_url": debug_resolved_base_url,
+                    "artifact_url": debug_artifact_url,
+                    "catalog_addon_id": debug_catalog_addon_id,
+                    "catalog_release_version": debug_catalog_release_version,
+                    "remediation_path": "catalog_release_version_format",
+                    "hint": (
+                        "catalog release version must be semver or semver+suffix "
+                        "(for example 1.2.3 or 1.2.3d)"
+                    ),
+                }
+                _persist_last_install_error(
+                    error_code="catalog_release_version_invalid",
+                    source_id=debug_source_id,
+                    artifact_url=debug_artifact_url,
+                    remediation_path="catalog_release_version_format",
+                )
+                raise HTTPException(status_code=400, detail=payload)
             if detail == "addon_already_installed":
                 raise HTTPException(status_code=409, detail=detail)
             if catalog_install and detail.startswith("missing_backend_entrypoint"):
