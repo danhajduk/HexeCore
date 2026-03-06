@@ -6,14 +6,37 @@ from pathlib import Path
 log = logging.getLogger("synthia.supervisor")
 
 
+def _run_compose_command(args: list[str], action: str) -> None:
+    proc = subprocess.run(args, capture_output=True, text=True)
+    if proc.returncode == 0:
+        return
+    stderr = (proc.stderr or "").strip()
+    stdout = (proc.stdout or "").strip()
+    summary = stderr or stdout or f"exit_{proc.returncode}"
+    tail_line = summary.splitlines()[-1] if summary else f"exit_{proc.returncode}"
+    log.error(
+        "%s_failed rc=%s summary=%s",
+        action,
+        proc.returncode,
+        tail_line,
+    )
+    raise RuntimeError(f"{action}_failed: {tail_line}")
+
+
 def compose_up(compose_file: Path, project_name: str):
     log.info("compose_up project=%s file=%s", project_name, compose_file)
-    subprocess.run(["docker","compose","-f",str(compose_file),"-p",project_name,"up","-d"], check=True)
+    _run_compose_command(
+        ["docker", "compose", "-f", str(compose_file), "-p", project_name, "up", "-d"],
+        "compose_up",
+    )
 
 
 def compose_down(compose_file: Path, project_name: str):
     log.info("compose_down project=%s file=%s", project_name, compose_file)
-    subprocess.run(["docker","compose","-f",str(compose_file),"-p",project_name,"down"], check=True)
+    _run_compose_command(
+        ["docker", "compose", "-f", str(compose_file), "-p", project_name, "down"],
+        "compose_down",
+    )
 
 
 def ensure_extracted(artifact_path: Path, extracted_dir: Path):

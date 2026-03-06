@@ -229,3 +229,4 @@
 2026-03-05 - Task 95: allow semver+suffix catalog release versions (e.g., 0.1.7d) in ReleaseManifest validation
 2026-03-05 - Task 96: added catalog release version-format remediation path and UI guidance cards
 2026-03-05 - Task 97: supervisor compose now honors runtime.bind_localhost for host port publishing
+2026-03-05 - Task 98: added standalone supervisor diagnostics endpoint and compose failure summary logging

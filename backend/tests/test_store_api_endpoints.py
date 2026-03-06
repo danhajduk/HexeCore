@@ -545,6 +545,34 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertIsNone(payload["standalone_runtime"])
         self.assertIsNotNone(payload["runtime_error"])
 
+    def test_status_diagnostics_returns_last_error_summary(self) -> None:
+        runtime_path = Path(self.tmp.name) / "SynthiaAddons" / "services" / "hello_world" / "runtime.json"
+        runtime_path.parent.mkdir(parents=True, exist_ok=True)
+        runtime_path.write_text(
+            json.dumps(
+                {
+                    "ssap_version": "1.0",
+                    "addon_id": "hello_world",
+                    "active_version": None,
+                    "state": "error",
+                    "error": "compose_up_failed: failed to solve: missing Dockerfile",
+                    "last_error": "compose_up_failed: failed to solve: missing Dockerfile",
+                }
+            ),
+            encoding="utf-8",
+        )
+        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(Path(self.tmp.name) / "SynthiaAddons")}, clear=False):
+            res = self.client.get("/api/store/status/hello_world/diagnostics")
+
+        self.assertEqual(res.status_code, 200, res.text)
+        payload = res.json()
+        self.assertEqual(payload["runtime_state"], "error")
+        self.assertIn("missing Dockerfile", payload["last_error_summary"])
+        self.assertEqual(
+            payload["standalone_runtime"]["last_error"],
+            "compose_up_failed: failed to solve: missing Dockerfile",
+        )
+
     def test_update_success(self) -> None:
         pkg = Path(self.tmp.name) / "bundle.zip"
         pkg.write_bytes(b"bytes")

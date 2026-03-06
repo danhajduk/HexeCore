@@ -64,6 +64,7 @@ SynthiaCore is a Core + Addons platform with a built-in scheduler, system metric
 - `POST /api/store/update` (admin auth required)
 - `POST /api/store/uninstall` (admin auth required)
 - `GET /api/store/status/{addon_id}`
+- `GET /api/store/status/{addon_id}/diagnostics`
 - Store lifecycle audit events are persisted to SQLite table `store_audit_log` (`STORE_AUDIT_DB`, default `var/store_audit.db`).
 - Install/update responses expose `registry_loaded` (present in current registry snapshot) and `hot_loaded` (currently always `false` until runtime hot-reload support exists).
 - Internal lifecycle pipeline keeps parsed `installed_manifest` metadata for future validation/UI enrichments; it is not persisted as a separate DB row in Phase 1.
@@ -277,6 +278,7 @@ Demonstrates core addon features:
 - Supervisor only switches `current` to the new version after successful `docker compose up`, using rename-based atomic symlink replacement.
 - On activation failure, supervisor runtime state includes rollback metadata (`previous_version`, `rollback_available`, `last_error`).
 - Store status API (`/api/store/status/{addon_id}`) now reads standalone runtime state from `services/<addon_id>/runtime.json` and exposes `runtime_state`, `standalone_runtime`, and `runtime_path`.
+- Store diagnostics API (`/api/store/status/{addon_id}/diagnostics`) exposes latest standalone runtime error context and a concise `last_error_summary` for compose/build failure triage.
 - Store install/update responses now include SSAP metadata fields (`mode`, `desired_path`, `runtime_path`, `staged_artifact_path`, `runtime_state`, `registry_state`).
 - Supervisor-generated compose defaults now enforce guardrails: `privileged: false`, `no-new-privileges`, dedicated `synthia_net`, and service token/env injection via env file; port publish bind defaults to localhost and can be widened with `runtime.bind_localhost=false`.
 - Regression tests now cover standalone runtime status read paths (missing/valid/malformed), verification-failure stop behavior, and upgrade/rollback metadata transitions.

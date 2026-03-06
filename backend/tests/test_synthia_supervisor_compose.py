@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from synthia_supervisor.docker_compose import ensure_compose_files
+from synthia_supervisor.docker_compose import compose_up, ensure_compose_files
 from synthia_supervisor.models import DesiredState
 
 
@@ -84,6 +85,22 @@ class TestSynthiaSupervisorCompose(unittest.TestCase):
 
             compose_text = compose_file.read_text(encoding="utf-8")
             self.assertIn("0.0.0.0:18081:18081/tcp", compose_text)
+
+    def test_compose_up_reports_stderr_summary_on_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            compose_file = Path(tmp) / "docker-compose.yml"
+            compose_file.write_text("services: {}\n", encoding="utf-8")
+            failed = subprocess.CompletedProcess(
+                args=["docker", "compose"],
+                returncode=1,
+                stdout="",
+                stderr="failed to solve: missing Dockerfile",
+            )
+            with patch("synthia_supervisor.docker_compose.subprocess.run", return_value=failed):
+                with self.assertRaises(RuntimeError) as ctx:
+                    compose_up(compose_file, "synthia-addon-mqtt")
+            self.assertIn("compose_up_failed", str(ctx.exception))
+            self.assertIn("missing Dockerfile", str(ctx.exception))
 
 
 if __name__ == "__main__":

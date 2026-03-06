@@ -223,11 +223,25 @@ def _read_standalone_runtime(addon_id: str) -> dict[str, Any]:
             "active_version": raw.get("active_version"),
             "last_action": raw.get("last_action"),
             "health": raw.get("health"),
+            "error": raw.get("error"),
+            "last_error": raw.get("last_error"),
         }
         return payload
     except Exception as exc:
         payload["runtime_error"] = str(exc) or type(exc).__name__
         return payload
+
+
+def _runtime_error_summary(runtime_payload: dict[str, Any]) -> str | None:
+    runtime = runtime_payload.get("standalone_runtime")
+    if not isinstance(runtime, dict):
+        return None
+    last_error = str(runtime.get("last_error") or runtime.get("error") or "").strip()
+    if not last_error:
+        return None
+    if ":" in last_error:
+        return last_error.split(":", 1)[1].strip() or last_error
+    return last_error
 
 
 def _registry_state_for_addon(registry: AddonRegistry, addon_id: str) -> str:
@@ -1793,6 +1807,19 @@ def build_store_router(
             "runtime_state": runtime_payload.get("runtime_state"),
             "standalone_runtime": runtime_payload.get("standalone_runtime"),
             "runtime_error": runtime_payload.get("runtime_error"),
+        }
+
+    @router.get("/status/{addon_id}/diagnostics")
+    async def addon_store_status_diagnostics(addon_id: str):
+        runtime_payload = _read_standalone_runtime(addon_id)
+        return {
+            "ok": True,
+            "addon_id": addon_id,
+            "runtime_path": runtime_payload.get("runtime_path"),
+            "runtime_state": runtime_payload.get("runtime_state"),
+            "runtime_error": runtime_payload.get("runtime_error"),
+            "last_error_summary": _runtime_error_summary(runtime_payload),
+            "standalone_runtime": runtime_payload.get("standalone_runtime"),
         }
 
     @router.get("/admin/audit")
