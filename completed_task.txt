@@ -230,3 +230,5 @@
 2026-03-05 - Task 96: added catalog release version-format remediation path and UI guidance cards
 2026-03-05 - Task 97: supervisor compose now honors runtime.bind_localhost for host port publishing
 2026-03-05 - Task 98: added standalone supervisor diagnostics endpoint and compose failure summary logging
+2026-03-05 - Task 99: added standalone install smoke test across runtime status and health/UI proxy routes
+2026-03-05 - Session complete: finished tasks 96-99 (UI remediation, port publishing, diagnostics, smoke test)
