@@ -131,6 +131,11 @@
   background: rgba(255, 255, 255, 0.03);
 }
 
+.store-error-action-link {
+  color: #ffd3d3;
+  text-decoration: underline;
+}
+
 .store-diag {
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 10px;

@@ -16,6 +16,11 @@ export type InstallErrorParseResult = {
   detail: InstallErrorDetail | null;
 };
 
+export type InstallActionItem = {
+  text: string;
+  href?: string;
+};
+
 function parseJson(value: string): unknown | null {
   try {
     return JSON.parse(value);
@@ -113,32 +118,42 @@ export function parseInstallFailure(status: number, payloadText: string): Instal
   };
 }
 
-export function installActionItems(detail: InstallErrorDetail | null): string[] {
+export function installActionItems(detail: InstallErrorDetail | null): InstallActionItem[] {
   if (!detail) return [];
   if (detail.remediation_path === "embedded_repackage") {
     return [
-      "Rebuild and publish artifact with embedded layout (backend/addon.py).",
-      "Keep release package_profile=embedded_addon and refresh source before retry.",
+      { text: "Rebuild and publish artifact with embedded layout (backend/addon.py)." },
+      { text: "Keep release package_profile=embedded_addon and refresh source before retry." },
     ];
   }
   if (detail.remediation_path === "standalone_deploy_register") {
     return [
-      "Deploy the service artifact externally (container/systemd/host process).",
-      "Register the service via /api/admin/addons/registry and validate health/proxy.",
-      "See docs/distributed_addons/catalog_package_profile_unsupported.md for triage and remediation details.",
+      { text: "Deploy the service artifact externally (container/systemd/host process)." },
+      { text: "Register the service via /api/admin/addons/registry and validate health/proxy." },
+      {
+        text: "Open profile/layout remediation guide.",
+        href: "/docs/distributed_addons/catalog_package_profile_unsupported.md",
+      },
     ];
   }
   if (detail.remediation_path === "standalone_service_install") {
     return [
-      "Retry install from Addon Store; request now sends install_mode=standalone_service automatically.",
-      "If retry still fails, refresh source and verify release package_profile is standalone_service.",
-      "See docs/distributed_addons/catalog_package_profile_unsupported.md for mode-selection diagnostics.",
+      { text: "Retry install from Addon Store; request now sends install_mode=standalone_service automatically." },
+      { text: "If retry still fails, refresh source and verify release package_profile is standalone_service." },
+      {
+        text: "Open standalone mode-selection diagnostics.",
+        href: "/docs/distributed_addons/catalog_package_profile_unsupported.md",
+      },
     ];
   }
   if (detail.remediation_path === "catalog_release_version_format") {
     return [
-      "Update the catalog release version to semver (1.2.3) or semver+suffix (1.2.3d).",
-      "Refresh the source in Addon Store, then retry install.",
+      { text: "Update the catalog release version to semver (1.2.3) or semver+suffix (1.2.3d)." },
+      { text: "Refresh the source in Addon Store, then retry install." },
+      {
+        text: "Open release version format checklist.",
+        href: "/docs/distributed_addons/catalog_release_publish_checklist.md",
+      },
     ];
   }
   return [];

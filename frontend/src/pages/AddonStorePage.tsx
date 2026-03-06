@@ -319,8 +319,14 @@ export default function AddonStorePage() {
         <div className="store-error-actions">
           <div className="store-error-actions-title">Recommended actions</div>
           {installActions.map((action) => (
-            <div className="store-error-action-card" key={action}>
-              {action}
+            <div className="store-error-action-card" key={`${action.text}:${action.href || ""}`}>
+              {action.href ? (
+                <a className="store-error-action-link" href={action.href} target="_blank" rel="noreferrer">
+                  {action.text}
+                </a>
+              ) : (
+                action.text
+              )}
             </div>
           ))}
         </div>

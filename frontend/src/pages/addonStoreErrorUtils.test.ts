@@ -73,26 +73,27 @@ describe("installActionItems", () => {
   it("returns embedded remediation actions", () => {
     const actions = installActionItems({ remediation_path: "embedded_repackage" });
     expect(actions).toHaveLength(2);
-    expect(actions[0]).toContain("embedded layout");
+    expect(actions[0].text).toContain("embedded layout");
   });
 
   it("returns standalone remediation actions", () => {
     const actions = installActionItems({ remediation_path: "standalone_deploy_register" });
     expect(actions).toHaveLength(3);
-    expect(actions[0]).toContain("externally");
-    expect(actions[2]).toContain("catalog_package_profile_unsupported.md");
+    expect(actions[0].text).toContain("externally");
+    expect(actions[2].href).toContain("catalog_package_profile_unsupported.md");
   });
 
   it("returns standalone install-mode remediation actions", () => {
     const actions = installActionItems({ remediation_path: "standalone_service_install" });
     expect(actions).toHaveLength(3);
-    expect(actions[0]).toContain("install_mode=standalone_service");
+    expect(actions[0].text).toContain("install_mode=standalone_service");
   });
 
   it("returns catalog release version remediation actions", () => {
     const actions = installActionItems({ remediation_path: "catalog_release_version_format" });
-    expect(actions).toHaveLength(2);
-    expect(actions[0]).toContain("semver");
+    expect(actions).toHaveLength(3);
+    expect(actions[0].text).toContain("semver");
+    expect(actions[2].href).toContain("catalog_release_publish_checklist.md");
   });
 });
 
