@@ -79,6 +79,7 @@ Store sources endpoints:
 - `POST /api/store/sources` (admin auth required)
 - `DELETE /api/store/sources/{id}` (admin auth required)
 - `POST /api/store/sources/{id}/refresh` (admin auth required)
+- `GET /api/store/sources/{id}/validate` (admin auth required; validates cached catalog schema/release versions without install)
 
 Catalog cache behavior (Phase 2):
 - Official source uses `https://raw.githubusercontent.com/danhajduk/Synthia-Addon-Catalog/main`; legacy `/master` official configs are auto-migrated to `/main` at startup.

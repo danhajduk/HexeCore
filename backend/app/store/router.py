@@ -5,6 +5,7 @@ import hmac
 import json
 import logging
 import os
+import re
 import shutil
 import tempfile
 from datetime import datetime, timezone
@@ -40,6 +41,19 @@ from .standalone_paths import service_addon_dir, service_version_dir
 from .sources import StoreSource, StoreSourcesStore
 
 log = logging.getLogger("synthia.store")
+CATALOG_RELEASE_VERSION_RE = re.compile(
+    r"^(0|[1-9]\d*)\."
+    r"(0|[1-9]\d*)\."
+    r"(0|[1-9]\d*)"
+    r"(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
+    r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$"
+)
+CATALOG_RELEASE_VERSION_SUFFIX_RE = re.compile(
+    r"^(0|[1-9]\d*)\."
+    r"(0|[1-9]\d*)\."
+    r"(0|[1-9]\d*)"
+    r"[A-Za-z][0-9A-Za-z]*$"
+)
 
 # Backward-compatible wrappers kept for tests and gradual refactor migration.
 def _addons_root():
@@ -688,6 +702,87 @@ def _resolve_catalog_release(
     return addon_item, release_items
 
 
+def _catalog_release_entries(addon_item: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    entries: list[tuple[str, dict[str, Any]]] = []
+    releases = addon_item.get("releases")
+    if isinstance(releases, list):
+        for idx, rel in enumerate(releases):
+            if isinstance(rel, dict):
+                entries.append((f"releases[{idx}]", rel))
+    channels = addon_item.get("channels")
+    if isinstance(channels, dict):
+        for channel_name, raw_channel in channels.items():
+            rows: list[dict[str, Any]] = []
+            if isinstance(raw_channel, list):
+                rows = [item for item in raw_channel if isinstance(item, dict)]
+            elif isinstance(raw_channel, dict):
+                wrapped = raw_channel.get("releases")
+                if isinstance(wrapped, list):
+                    rows = [item for item in wrapped if isinstance(item, dict)]
+                elif "version" in raw_channel:
+                    rows = [raw_channel]
+            for idx, rel in enumerate(rows):
+                entries.append((f"channels.{channel_name}[{idx}]", rel))
+    return entries
+
+
+def _release_version_valid(version: str) -> bool:
+    return bool(
+        CATALOG_RELEASE_VERSION_RE.fullmatch(version)
+        or CATALOG_RELEASE_VERSION_SUFFIX_RE.fullmatch(version)
+    )
+
+
+def _validate_catalog_index_payload(index_payload: Any) -> dict[str, Any]:
+    addons = _extract_catalog_items(index_payload)
+    issues: list[dict[str, str]] = []
+    checked_releases = 0
+    for addon_idx, addon in enumerate(addons):
+        addon_id = str(addon.get("id") or addon.get("addon_id") or f"addon[{addon_idx}]").strip() or f"addon[{addon_idx}]"
+        releases = _catalog_release_entries(addon)
+        if not releases:
+            issues.append(
+                {
+                    "code": "catalog_releases_missing",
+                    "addon_id": addon_id,
+                    "path": "releases",
+                    "message": "addon entry has no releases/channels release entries",
+                }
+            )
+            continue
+        for path, rel in releases:
+            checked_releases += 1
+            version = str(rel.get("version") or "").strip()
+            if not version:
+                issues.append(
+                    {
+                        "code": "catalog_release_version_missing",
+                        "addon_id": addon_id,
+                        "path": path,
+                        "message": "release entry is missing version",
+                    }
+                )
+                continue
+            if not _release_version_valid(version):
+                issues.append(
+                    {
+                        "code": "catalog_release_version_invalid",
+                        "addon_id": addon_id,
+                        "path": path,
+                        "message": (
+                            f"invalid version '{version}' (expected semver or semver+suffix)"
+                        ),
+                    }
+                )
+    return {
+        "ok": True,
+        "valid": len(issues) == 0,
+        "checked_addons": len(addons),
+        "checked_releases": checked_releases,
+        "issues": issues,
+    }
+
+
 def build_store_router(
     registry: AddonRegistry,
     audit_store: StoreAuditLogStore,
@@ -814,6 +909,22 @@ def build_store_router(
             if msg == "source_not_found":
                 raise HTTPException(status_code=404, detail=msg)
             raise HTTPException(status_code=400, detail=msg)
+
+    @router.get("/sources/{source_id}/validate")
+    async def validate_store_source(source_id: str, request: Request, x_admin_token: str | None = Header(default=None)):
+        require_admin_token(x_admin_token, request)
+        if sources is None:
+            raise HTTPException(status_code=500, detail="sources_store_not_configured")
+        source_items = await sources.list_sources()
+        selected = cache_catalog.select_source(source_items, source_id)
+        if selected is None:
+            raise HTTPException(status_code=404, detail="source_not_found")
+        index_payload, _publishers_payload = cache_catalog.load_cached_documents(selected.id)
+        if index_payload is None:
+            raise HTTPException(status_code=400, detail="catalog_cache_missing")
+        result = _validate_catalog_index_payload(index_payload)
+        result["source_id"] = selected.id
+        return result
 
     @router.post("/install")
     async def install_addon(

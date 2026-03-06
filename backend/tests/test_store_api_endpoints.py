@@ -353,6 +353,45 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(payload["installed"]["hello_world"]["version"], "1.0.0")
         self.assertEqual(payload["installed"]["hello_world"]["installed_at"], "2026-02-28T15:00:00+00:00")
 
+    def test_validate_source_reports_invalid_release_versions(self) -> None:
+        artifact_bytes = b"artifact-invalid-version"
+        fake_catalog = self._build_catalog_client(
+            artifact_bytes=artifact_bytes,
+            release_sig=self._sign_artifact(artifact_bytes),
+            release_version="v1",
+        )
+        app = FastAPI()
+        app.include_router(
+            build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog),
+            prefix="/api/store",
+        )
+        client = TestClient(app)
+
+        res = client.get("/api/store/sources/official/validate", headers={"X-Admin-Token": "test-token"})
+        self.assertEqual(res.status_code, 200, res.text)
+        payload = res.json()
+        self.assertFalse(payload["valid"])
+        self.assertEqual(payload["source_id"], "official")
+        self.assertGreaterEqual(payload["checked_releases"], 1)
+        self.assertEqual(payload["issues"][0]["code"], "catalog_release_version_invalid")
+
+    def test_validate_source_returns_404_for_unknown_source(self) -> None:
+        artifact_bytes = b"artifact-valid-version"
+        fake_catalog = self._build_catalog_client(
+            artifact_bytes=artifact_bytes,
+            release_sig=self._sign_artifact(artifact_bytes),
+        )
+        app = FastAPI()
+        app.include_router(
+            build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog),
+            prefix="/api/store",
+        )
+        client = TestClient(app)
+
+        res = client.get("/api/store/sources/missing/validate", headers={"X-Admin-Token": "test-token"})
+        self.assertEqual(res.status_code, 404, res.text)
+        self.assertEqual(res.json()["detail"], "source_not_found")
+
     def test_catalog_endpoint_includes_publisher_display_name_from_publishers_cache(self) -> None:
         class _CatalogWithPublishers:
             def select_source(self, sources, source_id):
