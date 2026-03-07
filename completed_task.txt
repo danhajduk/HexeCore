@@ -251,3 +251,5 @@
 2026-03-07 - Session complete: Task 113 supervisor boundary/assumption update completed.
 2026-03-07 - Task 114: Compared supervisor.md vs standalone-addon.md and documented mismatches.
 2026-03-07 - Session complete: Task 114 mismatch comparison report completed.
+2026-03-07 - Task 115: Aligned standalone-addon spec with supervisor enforcement boundaries.
+2026-03-07 - Session complete: Task 115 standalone-addon boundary alignment completed.
