@@ -135,14 +135,17 @@ Not developed:
 ### Important questions
 
 - Does supervisor automatically upgrade when desired version changes?
-  - **Answer (code):** Yes, if target version artifact exists and reconcile succeeds.
+  - **Answer (code):** Yes, when the desired target version differs (typically through `desired.pinned_version`) and reconcile prerequisites succeed.
+  - **Clarification:** Supervisor does not resolve versions from catalog metadata; it uses the desired payload as written.
 
 - Is old container stopped first?
   - **Answer (code):** **No explicit pre-stop path** for upgrade. Running path performs `compose up -d` for target compose/project and switches `current` symlink after success.
+  - **Clarification:** Supervisor does **not** implement staged/canary upgrade orchestration.
 
 - Is rollback automatic or manual?
   - **Answer (code):** **Automatic rollback execution is not developed.**
   - Implemented today: rollback metadata only (`previous_version`, `rollback_available`, `last_error`).
+  - Rollback metadata is informational; supervisor does not automatically revert to a previous version on failure.
 
 ## 11) Failure Retry Model
 
@@ -184,16 +187,29 @@ Not developed:
 
 ## 14) Artifact Integrity Model
 
-Current reconcile path behavior:
-- Requires artifact file existence.
-- Logs verification skipped.
-- Does not call signature/checksum verification in reconcile loop.
+Current development policy:
+- Artifact checksum and signature enforcement are intentionally disabled during the active development phase.
+- Reconcile currently requires artifact file existence only.
+- Reconcile logs verification skipped and does not call signature/checksum verification.
 
 Status:
 - Runtime verification enforcement in reconcile: **Not developed (disabled in current path).**
-- Verification utility code exists in `crypto.py` but is not used by current reconcile flow.
+- Verification utility code exists in `crypto.py` but is intentionally not invoked by current reconcile flow unless project policy changes.
 
-## 15) Resource Limits (Missing)
+## 15) Out of Scope for Current Supervisor (Not Developed)
+
+The following capabilities are intentionally not implemented in the current supervisor:
+- Catalog checksum enforcement in reconcile path
+- Publisher signature verification in reconcile path
+- Automatic rollback execution
+- HTTP health probing of addon containers
+- Resource limits (CPU/memory quotas) in generated compose
+- Prometheus/OpenMetrics endpoint
+- Network policy enforcement
+- Multi-supervisor coordination
+- Distributed locking
+
+## 16) Resource Limits (Missing)
 
 Generated compose does not set:
 - CPU limits/reservations
@@ -204,7 +220,7 @@ Generated compose does not set:
 Status:
 - Resource governance policy in supervisor compose generation: **Not developed**.
 
-## 16) Network Isolation Model (Partial)
+## 17) Network Isolation Model (Partial)
 
 Implemented:
 - Explicit network name from desired runtime (`runtime.network`, default `synthia_net`).
@@ -224,7 +240,7 @@ Not developed:
 - Only supervisor restart?
   - **Answer (code):** Supervisor process is also restart-managed by systemd (`Restart=always`).
 
-## 17) Disk Growth / Cleanup (Important)
+## 18) Disk Growth / Cleanup (Important)
 
 Implemented behavior:
 - Version folders, extracted trees, runtime env files, and compose files persist.
@@ -233,7 +249,7 @@ Implemented behavior:
 Status:
 - Retention and garbage collection policy: **Not developed**.
 
-## 18) Security Boundary Model
+## 19) Security Boundary Model
 
 Implemented controls in generated compose:
 - `privileged: false`
@@ -246,7 +262,15 @@ Explicit boundary statement:
 Not developed:
 - Independent policy sandbox beyond compose defaults.
 
-## 19) Supervisor Failure Recovery
+## 20) Runtime Assumptions
+
+The current supervisor operates under these assumptions:
+- Docker daemon is available and trusted by the operator environment.
+- Artifacts staged by Core are trusted development inputs.
+- Core writes valid `desired.json` payloads.
+- Standalone addons are trusted workloads and are not sandboxed by supervisor.
+
+## 21) Supervisor Failure Recovery
 
 Implemented:
 - Reconcile exceptions are caught per addon.
@@ -257,7 +281,7 @@ Not developed:
 - Replayable reconcile journal.
 - Fine-grained backoff/circuit-breaker controls.
 
-## 20) Supervisor Upgrade Safety
+## 22) Supervisor Upgrade Safety
 
 Implemented behavior from process model:
 - Supervisor restart/upgrade does not explicitly stop running addon containers in code.
@@ -267,7 +291,7 @@ Implemented behavior from process model:
 Not developed:
 - Explicit supervisor upgrade transaction protocol.
 
-## 21) Configuration Schema (Desired State Example)
+## 23) Configuration Schema (Desired State Example)
 
 Core writes desired payload with strict validation in `standalone_desired.py`.
 
@@ -316,7 +340,7 @@ Example shape:
 Note:
 - Supervisor runtime model consumes fields required for reconciliation; some Core payload fields (for example `mode`, `channel`) are not used in current supervisor logic.
 
-## 22) Addon Contract (Container Expectations)
+## 24) Addon Contract (Container Expectations)
 
 Expected by current code path:
 - `versions/<version>/addon.tgz` exists.
@@ -328,7 +352,7 @@ Not developed in supervisor:
 - Explicit runtime endpoint contract enforcement.
 - Built-in addon liveness/readiness contract checks.
 
-## 23) Observability (Metrics)
+## 25) Observability (Metrics)
 
 Implemented:
 - Structured logging via `synthia.supervisor` logger.
@@ -339,13 +363,13 @@ Not developed:
 - Native Prometheus/OpenMetrics endpoint.
 - Reconcile latency/counter metrics endpoint.
 
-## 24) Supervisor API (Missing)
+## 26) Supervisor API (Missing)
 
 Status:
 - No direct HTTP API exposed by supervisor.
 - Control plane is file-based (`desired.json` input, `runtime.json` output) plus systemd process control.
 
-## 25) Architecture Diagram
+## 27) Architecture Diagram
 
 ```text
 +--------------------+                              +---------------------------+
@@ -379,7 +403,7 @@ Status:
                           +----------------------+
 ```
 
-## 26) Important Questions Checklist (Preserved)
+## 28) Important Questions Checklist (Preserved)
 
 1. Version Resolution Logic
 - Does Core translate `latest` into a real version before writing `desired.json`?
