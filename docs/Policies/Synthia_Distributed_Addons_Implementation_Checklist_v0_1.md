@@ -1,4 +1,6 @@
 # Synthia Distributed Addons — Implementation Checklist v0.1
+
+Last Updated: 2026-03-07 14:51 US/Pacific
 Date: 2026-02-28  
 Scope: General platform work to enable *any* addon to run locally or remotely, discoverable via MQTT, managed by Core (control plane), and able to consume shared services (AI/Gmail/etc.) with tokens + quota grants.
 

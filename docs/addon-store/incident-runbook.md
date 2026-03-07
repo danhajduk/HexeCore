@@ -1,5 +1,7 @@
 # Addon Store Incident Runbook
 
+Last Updated: 2026-03-07 14:51 US/Pacific
+
 This runbook covers store install incidents returning:
 - `catalog_artifact_unavailable`
 

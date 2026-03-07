@@ -1,5 +1,7 @@
 # Why `catalog_package_layout_invalid` Happens
 
+Last Updated: 2026-03-07 14:51 US/Pacific
+
 This error means Core tried to install a catalog artifact as an embedded addon package, but the package layout does not match embedded-addon requirements.
 
 ## Error Breakdown

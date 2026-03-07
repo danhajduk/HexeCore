@@ -1,5 +1,7 @@
 # API Documentation (Structure)
 
+Last Updated: 2026-03-07 14:51 US/Pacific
+
 ## Conventions
 
 - API is FastAPI-based and primarily mounted under `/api/*`

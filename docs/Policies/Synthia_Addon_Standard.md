@@ -1,5 +1,7 @@
 # Synthia Addon Standard (SAS) — Catalog / Manifest / Core Contract (v1.1)
 
+Last Updated: 2026-03-07 14:51 US/Pacific
+
 **Status:** Draft (intended to become the *single source of truth* for Synthia addon packaging + store distribution)  
 **Applies to repos:** `SynthiaCore`, `Synthia-Addon-Catalog`, any addon repo (e.g. `Synthia-MQTT`)  
 **Signature model:** **Option A** — signature over the artifact SHA-256 (see §6)

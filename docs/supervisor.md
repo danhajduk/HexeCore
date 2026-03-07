@@ -1,5 +1,7 @@
 # Synthia Supervisor Runtime Specification (Code-Verified)
 
+Last Updated: 2026-03-07 14:51 US/Pacific
+
 This document only describes behavior that is present in code today. Any missing capability is explicitly labeled **Not developed**.
 
 ## Documentation Contract

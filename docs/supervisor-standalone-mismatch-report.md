@@ -1,5 +1,7 @@
 # Task 114: Mismatch Report (`docs/supervisor.md` vs `docs/standalone-addon.md`)
 
+Last Updated: 2026-03-07 14:51 US/Pacific
+
 Comparison date: 2026-03-07
 
 Scope:

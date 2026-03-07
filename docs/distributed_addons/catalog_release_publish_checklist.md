@@ -1,5 +1,7 @@
 # Catalog Release Publish Checklist
 
+Last Updated: 2026-03-07 14:51 US/Pacific
+
 Use this checklist before merging/publishing a catalog release entry.
 
 ## 1) Package Profile/Layout Validation (Required)

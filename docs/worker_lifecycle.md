@@ -1,5 +1,7 @@
 # Worker Lifecycle & Job Execution Model
 
+Last Updated: 2026-03-07 14:51 US/Pacific
+
 This document outlines the standard worker flow when pulling jobs from the scheduler.
 
 ## Summary

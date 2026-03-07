@@ -1,5 +1,7 @@
 # Synthia Addon API & MQTT Communication Standard
 
+Last Updated: 2026-03-07 14:51 US/Pacific
+
 Version: 0.1\
 Date: 2026-02-28
 

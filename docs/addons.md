@@ -1,5 +1,7 @@
 # Addons Reference (Core + Addon Workspace)
 
+Last Updated: 2026-03-07 14:51 US/Pacific
+
 This document is the single handoff reference for building, registering, and operating addons with Synthia Core.
 
 ## 1) Addon Types

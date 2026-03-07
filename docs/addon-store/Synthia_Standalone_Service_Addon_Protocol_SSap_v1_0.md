@@ -1,5 +1,7 @@
 # Synthia Standalone Service Addon Protocol (SSAP) v1.0
 
+Last Updated: 2026-03-07 14:51 US/Pacific
+
 **Status:** Draft – Canonical Specification  
 **Applies to:** SynthiaCore, Synthia-Addon-Catalog, Standalone Service Addons  
 **Aligned With:**  

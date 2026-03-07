@@ -1,5 +1,7 @@
 # Backend Documentation
 
+Last Updated: 2026-03-07 14:51 US/Pacific
+
 ## Overview
 
 Backend is a FastAPI application assembled in `backend/app/main.py`.

@@ -1,5 +1,7 @@
 # Distributed Addons Policy Alignment Baseline
 
+Last Updated: 2026-03-07 14:51 US/Pacific
+
 This document maps the current implementation to the policy set in `docs/Policies/` and identifies the remaining structural alignment work.
 
 ## Policy References

@@ -1,5 +1,7 @@
 # Why `catalog_package_profile_unsupported` Happens
 
+Last Updated: 2026-03-07 14:51 US/Pacific
+
 This error means the store install flow detected a package profile that Core does not install as an embedded addon.
 
 `POST /api/store/install` now requires `install_mode` to match the resolved release `package_profile`.

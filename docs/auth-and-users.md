@@ -1,5 +1,7 @@
 # Authentication and Users Documentation
 
+Last Updated: 2026-03-07 14:51 US/Pacific
+
 ## Authentication Surfaces
 
 Admin/session authentication:
