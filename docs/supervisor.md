@@ -2,6 +2,14 @@
 
 This document only describes behavior that is present in code today. Any missing capability is explicitly labeled **Not developed**.
 
+## Documentation Contract
+
+This document describes the **actual behavior implemented in code**.
+
+If a capability, safeguard, validation rule, or runtime behavior is **not explicitly documented here as implemented**, it must be assumed to be **not developed / not guaranteed by the current supervisor implementation**.
+
+Sections labeled **Not developed** represent intentionally missing functionality or areas planned for future implementation.
+
 Code sources used:
 - `backend/synthia_supervisor/main.py`
 - `backend/synthia_supervisor/docker_compose.py`

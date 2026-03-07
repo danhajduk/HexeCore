@@ -245,3 +245,5 @@
 2026-03-07 - Session complete: Task 110 supervisor documentation expansion and relocation to docs complete.
 2026-03-07 - Task 111: Expanded supervisor doc with timing/discovery/retry/lifecycle/security semantics.
 2026-03-07 - Session complete: Task 111 supervisor runtime spec update completed.
+2026-03-07 - Task 112: Added explicit documentation contract section to docs/supervisor.md.
+2026-03-07 - Session complete: Task 112 documentation contract update completed.
