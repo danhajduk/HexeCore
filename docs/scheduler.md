@@ -1,172 +1,47 @@
-# Synthia Scheduler Design
+# Scheduler Documentation
 
-## Overview
-This document defines the **Scheduler system** for Synthia Core.  
-The scheduler is responsible for safely running *heavy* or *costly* work
-based on current system load, API pressure, and available capacity.
+## Purpose
 
-It uses:
-- Busy rating (0–10)
-- Capacity units
-- Leases + heartbeats
-- Priority-aware queues
+Scheduler coordinates background job leasing and execution orchestration between core and workers/addons.
 
-The goal is **predictable, safe execution** without starving the system.
+## Main Components
 
----
+- `app/system/scheduler/engine.py`: scheduling engine
+- `store.py`, `queue_store.py`: in-memory/live state
+- `history.py`: SQLite-backed history and decision logs
+- `queue_persist.py`: queue persistence database layer
+- `router.py`: API endpoints for job/lease/queue/history
 
-## Core Concepts
+## Job and Lease Model
 
-### Job
-A unit of work that *wants* to run.
+Implemented:
+- submit jobs with priority and optional idempotency/uniqueness behavior
+- workers request leases
+- heartbeat extends leases
+- complete/report/revoke endpoints update lease and history state
 
-**States**
-- `queued`
-- `leased`
-- `running`
-- `completed`
-- `failed`
-- `expired`
+## Queue/Trigger Model
 
-Jobs never execute directly — they must acquire a **lease**.
+- explicit queue endpoints under `/queue/*`
+- dispatchable jobs endpoint for worker polling
+- debug queue endpoint gated by config flag
 
----
+## Retry Behavior
 
-### Lease
-A temporary permission to consume capacity.
+- scheduler exposes mechanisms to report failures and lease outcomes
+- fine-grained retry policy strategy is partially implicit in engine logic and not fully documented as a standalone policy API
 
-**Properties**
-- `lease_id`
-- `job_id`
-- `capacity_units`
-- `expires_at`
-- `last_heartbeat`
+## Persistence
 
-Leases automatically expire if heartbeats stop.
+- scheduler history persisted to SQLite
+- queue persistence uses SQLite store file (`var/scheduler_queue.db` default)
 
----
+## Integrations
 
-### Capacity Model
-System capacity is represented as abstract units.
+- integrated into backend app state and router mount at `/api/system/scheduler`
+- history cleanup background loop runs daily
 
-Example:
-- Total capacity: `100`
-- Busy rating affects usable capacity:
-  - Busy 0 → 100%
-  - Busy 5 → 50%
-  - Busy 9 → 10%
+## Not Developed
 
-Capacity is **dynamic**, recalculated every minute.
-
----
-
-### Busy Rating
-A normalized score `0–10` derived from:
-- CPU load
-- Memory pressure
-- API latency
-- API inflight requests
-- Error rate
-
-Used as a *gate*, not a metric.
-
----
-
-## Scheduler Flow
-
-1. Job submitted → `queued`
-2. Scheduler evaluates:
-   - Busy rating
-   - Available capacity
-   - Job priority
-3. If allowed:
-   - Lease granted
-   - Job → `leased`
-4. Worker starts → `running`
-5. Worker heartbeats
-6. On completion → `completed`
-7. On timeout → `expired`
-
----
-
-## Queues
-
-### Priority Levels
-- `high`
-- `normal`
-- `low`
-- `background`
-
-High priority may preempt low-priority jobs.
-
----
-
-## Heartbeats
-
-Workers must heartbeat every `N` seconds.
-
-If heartbeat expires:
-- Lease revoked
-- Capacity released
-- Job marked `expired`
-
----
-
-## Failure Modes
-
-- Worker crash → lease expiry
-- Busy spike → new leases denied
-- Overcommit → queue backpressure
-
-Scheduler must **fail closed**, never open.
-
----
-
-## Initial Implementation Plan
-
-### Phase 1 – In-Memory Core
-- Job model
-- Lease model
-- Capacity calculator
-- Priority queue
-- No persistence
-
-### Phase 2 – API Layer
-- Submit job
-- Request lease
-- Heartbeat
-- Release lease
-
-### Phase 3 – Persistence
-- SQLite or Postgres
-- Job history
-- Metrics
-
-### Phase 4 – Intelligence
-- Smart scheduling
-- Time-of-day weighting
-- Predictive delays
-
----
-
-## Design Principles
-
-- Deterministic
-- Observable
-- Conservative
-- Recoverable
-- Extensible
-
----
-
-## Non-Goals (for now)
-
-- Distributed scheduling
-- Cross-node leases
-- External job runners
-
----
-
-## Final Notes
-This scheduler is the **governor** of Synthia.
-If this stays clean, everything else scales safely.
+- Distributed scheduler coordination across nodes
+- Fully declarative retry-policy management API

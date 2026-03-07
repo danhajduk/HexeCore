@@ -1,3 +1,11 @@
+# Archived Document
+
+Status: Outdated
+Replaced by: docs/scheduler.md
+
+This document is preserved for historical reference only.
+Do not treat it as the current implementation.
+
 # Lease Release Contract
 
 This document defines how workers complete a lease and release capacity.

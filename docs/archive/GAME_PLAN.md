@@ -1,3 +1,11 @@
+# Archived Document
+
+Status: Outdated
+Replaced by: docs/core.md, docs/backend.md, docs/scheduler.md
+
+This document is preserved for historical reference only.
+Do not treat it as the current implementation.
+
 # Docs TODO Game Plan
 
 1. [x] Define core models for stats and quiet assessment.

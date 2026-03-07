@@ -1,3 +1,11 @@
+# Archived Document
+
+Status: Outdated
+Replaced by: docs/core.md, docs/architecture-map.md
+
+This document is preserved for historical reference only.
+Do not treat it as the current implementation.
+
 # Synthia Core + Addon Architecture (Clean Spec)
 
 > Single-source-of-truth documentation intended for both humans and AI code generators.

@@ -1,3 +1,11 @@
+# Archived Document
+
+Status: Outdated
+Replaced by: docs/scheduler.md, docs/api.md
+
+This document is preserved for historical reference only.
+Do not treat it as the current implementation.
+
 # Scheduler Queue API — Endpoint & Schema Definitions
 
 This document translates **scheduler_queue_definitions.md** into concrete **HTTP API endpoints**

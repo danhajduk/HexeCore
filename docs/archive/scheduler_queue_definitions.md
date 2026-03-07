@@ -1,3 +1,11 @@
+# Archived Document
+
+Status: Outdated
+Replaced by: docs/scheduler.md
+
+This document is preserved for historical reference only.
+Do not treat it as the current implementation.
+
 # Scheduler Queue & Worker Flow — Definitions
 
 This document defines the **queue-based execution model** for Synthia addons,

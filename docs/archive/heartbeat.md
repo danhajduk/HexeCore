@@ -1,3 +1,11 @@
+# Archived Document
+
+Status: Outdated
+Replaced by: docs/scheduler.md
+
+This document is preserved for historical reference only.
+Do not treat it as the current implementation.
+
 # Lease Heartbeat Contract
 
 This document defines the heartbeat behavior for scheduler leases. Heartbeats keep a lease active and confirm that a worker is still running the job.

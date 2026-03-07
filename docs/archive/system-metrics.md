@@ -1,3 +1,11 @@
+# Archived Document
+
+Status: Outdated
+Replaced by: docs/backend.md, docs/deployment.md
+
+This document is preserved for historical reference only.
+Do not treat it as the current implementation.
+
 # System Metrics
 
 This document describes how Synthia Core collects, caches, and stores machine + API metrics, and how those metrics are intended to be consumed by the UI and scheduler.

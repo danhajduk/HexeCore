@@ -1,3 +1,11 @@
+# Archived Document
+
+Status: Outdated
+Replaced by: docs/scheduler.md
+
+This document is preserved for historical reference only.
+Do not treat it as the current implementation.
+
 # Lease Request Contract (Scheduler API)
 
 This document defines how workers request leases and receive jobs from the scheduler.

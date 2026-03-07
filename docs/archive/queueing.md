@@ -1,3 +1,11 @@
+# Archived Document
+
+Status: Outdated
+Replaced by: docs/scheduler.md
+
+This document is preserved for historical reference only.
+Do not treat it as the current implementation.
+
 # Queueing & Dispatch Logic (Future / Optional)
 
 This document specifies the **queue layer** that can be added on top of the current
