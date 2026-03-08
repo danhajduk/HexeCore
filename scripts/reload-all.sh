@@ -27,4 +27,4 @@ echo "[reload-all] Status"
 systemctl --user --no-pager --full status "${units[@]}" "${updater_unit}" || true
 
 echo "[reload-all] Done"
-pfkill chrome
+pkill chrome
