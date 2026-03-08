@@ -518,9 +518,9 @@ function StatusMini({
   tone?: "ok" | "warn" | "bad" | "neutral";
 }) {
   return (
-    <div className="home-mini">
+    <div className={`home-mini ${tone}`}>
       <div className="home-mini-title">{title}</div>
-      <div className={`home-mini-value ${tone}`}>{displayState(value)}</div>
+      <div className="home-mini-value">{displayState(value)}</div>
       {sub && <div className="home-mini-sub">{displayState(sub)}</div>}
     </div>
   );
