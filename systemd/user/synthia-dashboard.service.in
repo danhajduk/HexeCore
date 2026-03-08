@@ -10,7 +10,7 @@ Environment=DISPLAY=:0
 Environment=XAUTHORITY=%h/.Xauthority
 Environment=CHROME_BIN=/usr/bin/google-chrome-stable
 Environment=SYNTHIA_DASHBOARD_URL=http://10.0.0.100:8080/
-ExecStartPre=/usr/bin/bash -lc 'test -x "${CHROME_BIN}" || export CHROME_BIN="$(command -v chromium || command -v chromium-browser || command -v google-chrome-stable || command -v google-chrome)" ; test -n "${CHROME_BIN}"'
+ExecStartPre=/usr/bin/sleep 3
 ExecStart=/usr/bin/bash -lc '"${CHROME_BIN}" \
   --new-window \
   --kiosk "${SYNTHIA_DASHBOARD_URL}" \
