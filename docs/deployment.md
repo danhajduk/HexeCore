@@ -1,6 +1,6 @@
 # Deployment Documentation
 
-Last Updated: 2026-03-07 16:08 US/Pacific
+Last Updated: 2026-03-07 19:05 US/Pacific
 
 ## Environments
 
@@ -11,6 +11,7 @@ Development-oriented setup is present in repo scripts and user systemd templates
 User service templates:
 - `systemd/user/synthia-backend.service.in`
 - `systemd/user/synthia-frontend-dev.service.in`
+- `systemd/user/synthia-dashboard.service.in`
 - `systemd/user/synthia-supervisor.service.in`
 - `systemd/user/synthia-updater.service.in`
 
@@ -18,6 +19,7 @@ User service templates:
 
 - Backend: FastAPI process from Python venv
 - Frontend: dev service target for React/Vite workflow
+- Dashboard: browser app launcher unit for kiosk-style display
 - Supervisor: standalone addon reconcile worker (`python -m synthia_supervisor.main`)
 - Updater: systemd-managed updater service
 

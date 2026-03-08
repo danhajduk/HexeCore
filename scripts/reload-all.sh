@@ -7,6 +7,7 @@ units=(
 )
 updater_unit="synthia-updater.service"
 supervisor_unit="synthia-supervisor.service"
+dashboard_unit="synthia-dashboard.service"
 
 echo "[reload-all] Reloading user systemd units"
 systemctl --user daemon-reload
@@ -15,6 +16,12 @@ if systemctl --user cat "$supervisor_unit" >/dev/null 2>&1; then
   units+=("$supervisor_unit")
 else
   echo "[reload-all] Supervisor unit not installed; skipping $supervisor_unit"
+fi
+
+if systemctl --user cat "$dashboard_unit" >/dev/null 2>&1; then
+  units+=("$dashboard_unit")
+else
+  echo "[reload-all] Dashboard unit not installed; skipping $dashboard_unit"
 fi
 
 echo "[reload-all] Restarting: ${units[*]}"

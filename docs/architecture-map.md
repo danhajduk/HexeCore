@@ -1,6 +1,6 @@
 # Synthia Architecture Map
 
-Last Updated: 2026-03-07 17:14 US/Pacific
+Last Updated: 2026-03-07 19:05 US/Pacific
 
 ## Topology
 
@@ -40,6 +40,7 @@ Synthia Core
 - systemd unit templates:
   - `systemd/user/synthia-backend.service.in`
   - `systemd/user/synthia-frontend-dev.service.in`
+  - `systemd/user/synthia-dashboard.service.in`
   - `systemd/user/synthia-supervisor.service.in`
   - `systemd/user/synthia-updater.service.in`
 

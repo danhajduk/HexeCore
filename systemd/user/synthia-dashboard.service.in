@@ -1,0 +1,26 @@
+[Unit]
+Description=Synthia Dashboard Browser
+After=graphical-session.target synthia-backend.service synthia-frontend-dev.service
+Wants=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=%h/.Xauthority
+Environment=CHROME_BIN=/usr/bin/google-chrome-stable
+Environment=SYNTHIA_DASHBOARD_URL=http://127.0.0.1:8080
+ExecStartPre=/usr/bin/bash -lc 'test -x "${CHROME_BIN}" || export CHROME_BIN="$(command -v chromium || command -v chromium-browser || command -v google-chrome-stable || command -v google-chrome)" ; test -n "${CHROME_BIN}"'
+ExecStart=/usr/bin/bash -lc '"${CHROME_BIN}" \
+  --new-window \
+  --app="${SYNTHIA_DASHBOARD_URL}" \
+  --start-maximized \
+  --disable-session-crashed-bubble \
+  --disable-infobars \
+  --no-first-run \
+  --no-default-browser-check'
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
