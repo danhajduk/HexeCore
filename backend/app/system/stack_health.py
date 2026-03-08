@@ -135,6 +135,25 @@ def _sample_speed() -> dict[str, Any]:
         }
 
 
+def _speed_from_throughput_fallback(throughput: dict[str, Any]) -> dict[str, Any] | None:
+    if str(throughput.get("state") or "").strip().lower() != "ok":
+        return None
+    rx_bps = throughput.get("rx_Bps")
+    tx_bps = throughput.get("tx_Bps")
+    if not isinstance(rx_bps, (int, float)) or not isinstance(tx_bps, (int, float)):
+        return None
+    sampled_at = throughput.get("sampled_at") or _now_iso()
+    return {
+        "state": "ok",
+        "source": "passive_estimate",
+        "download_mbps": round(max(float(rx_bps), 0.0) * 8.0 / 1_000_000.0, 2),
+        "upload_mbps": round(max(float(tx_bps), 0.0) * 8.0 / 1_000_000.0, 2),
+        "latency_ms": None,
+        "sampled_at": sampled_at,
+        "age_s": 0,
+    }
+
+
 def _throughput_from_stats(stats: Any) -> dict[str, Any]:
     sampled_at = _now_iso()
     if stats is None:
@@ -356,8 +375,12 @@ def build_stack_health_router() -> APIRouter:
                 unhealthy_count = 0
 
         connectivity = await _sampler.connectivity()
-        speed = await _sampler.speed()
         throughput = _throughput_from_stats(stats)
+        speed = await _sampler.speed()
+        if str(speed.get("state") or "").strip().lower() != "ok":
+            passive_speed = _speed_from_throughput_fallback(throughput)
+            if passive_speed is not None:
+                speed = passive_speed
         network_metrics = _network_metrics_from_stats(stats)
 
         payload = {

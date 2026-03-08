@@ -201,6 +201,28 @@ class TestStackHealthSummaryApi(unittest.TestCase):
         self.assertEqual(payload["samples"]["internet_speed"]["upload_mbps"], 5.0)
         self.assertEqual(payload["samples"]["internet_speed"]["latency_ms"], 23.6)
 
+    @patch("app.system.stack_health.subprocess.run")
+    def test_stack_summary_falls_back_to_passive_speed_estimate(self, mock_run) -> None:
+        mock_run.return_value = CompletedProcess(args=["speedtest-cli"], returncode=1, stdout="", stderr="missing")
+
+        app = FastAPI()
+        app.include_router(build_stack_health_router(), prefix="/api/system")
+        app.state.scheduler_engine = _FakeScheduler()
+        app.state.mqtt_manager = _FakeMqtt()
+        app.state.addon_registry = _FakeRegistry()
+        app.state.latest_stats = _FakeStats(total_rate=_FakeRate(rx_Bps=1_250_000.0, tx_Bps=625_000.0))
+
+        client = TestClient(app)
+        res = client.get("/api/system/stack/summary")
+        self.assertEqual(res.status_code, 200, res.text)
+
+        payload = res.json()
+        self.assertEqual(payload["samples"]["internet_speed"]["state"], "ok")
+        self.assertEqual(payload["samples"]["internet_speed"]["source"], "passive_estimate")
+        self.assertEqual(payload["samples"]["internet_speed"]["download_mbps"], 10.0)
+        self.assertEqual(payload["samples"]["internet_speed"]["upload_mbps"], 5.0)
+        self.assertIsNone(payload["samples"]["internet_speed"]["latency_ms"])
+
     @patch("app.system.stack_health._tcp_reachable", return_value=True)
     def test_stack_summary_uses_mqtt_host_for_network_check_when_local_host_missing(self, mock_reachable) -> None:
         os.environ["SYNTHIA_INTERNET_CHECK_HOST"] = ""
