@@ -2,6 +2,15 @@
 
 SynthiaCore is a Core + Addons platform with a built-in scheduler, system metrics, and a frontend that auto-loads addons. This README reflects the current functionality in the repo.
 
+## Documentation Source of Truth
+- This `README.md` is a high-level overview.
+- For implementation-level behavior, use:
+  - `docs/api.md`
+  - `docs/backend.md`
+  - `docs/mqtt-contract.md`
+  - `docs/core.md` (index)
+- Policy/spec documents under `docs/Policies/` are design/reference material and may include planned behavior that is not implemented.
+
 ## Highlights
 - **Core runtime**: FastAPI backend + React frontend with addon discovery and dynamic routing.
 - **Scheduler**: Pull-based leases, capacity-aware, priority queues, idempotent jobs, unique job flag.
@@ -46,7 +55,8 @@ SynthiaCore is a Core + Addons platform with a built-in scheduler, system metric
 - `ReleaseManifest.version` accepts semver and semver-with-suffix tags (for example `0.1.7d`) for catalog release compatibility.
 
 ### Addon Store Signing (Phase 1)
-- `backend/app/store/signing.py` enforces pre-enable SHA256 checksum validation.
+- Store artifact checksum/signature verification is currently disabled in install flow.
+- `backend/app/store/signing.py` remains as compatibility/helper code and does not enforce install-time checks.
 
 ### Addon Store Resolver (Phase 1)
 - `backend/app/store/resolver.py` validates core-version compatibility, dependencies, and conflicts.
@@ -181,7 +191,10 @@ Simple key/value settings stored in SQLite, used by the Settings page.
 - `GET /api/policy/grants?service=<name>` polling fallback list for grants.
 - `POST /api/policy/grants` upserts a grant and publishes retained MQTT update on `synthia/policy/grants/{service}`.
 - `GET /api/policy/revocations` polling fallback list for revocations.
-- `POST /api/policy/revocations` upserts a revocation and publishes retained MQTT update on `synthia/policy/revocations/{id}`.
+- `POST /api/policy/revocations` upserts a revocation and publishes retained MQTT updates on:
+  - `synthia/policy/revocations/{consumer_addon_id}` when present
+  - `synthia/policy/revocations/{grant_id}` when present
+  - `synthia/policy/revocations/{id}` legacy compatibility topic
 
 Grant model:
 - `grant_id`, `consumer_addon_id`, `service`, `period_start`, `period_end`, `limits`, `status`
