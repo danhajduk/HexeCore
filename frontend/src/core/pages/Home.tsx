@@ -181,17 +181,16 @@ function networkErrorsValue(metrics: StackSummary["samples"]["network_metrics"] 
   return `err ${errIn}/${errOut} drop ${dropIn}/${dropOut}`;
 }
 
-function schedulerLoadValue(stack: StackSummary | null): string {
-  const queued = Math.max(0, Number(stack?.subsystems.scheduler.queued_jobs ?? 0));
-  const load = Math.min(10, queued);
-  return `${load}/10`;
+function schedulerLoadValue(stats: SystemStats | null): string {
+  const busy = Number(stats?.busy_rating ?? 0);
+  return `${Math.max(0, busy).toFixed(1)}/10`;
 }
 
-function schedulerLoadTone(stack: StackSummary | null): "ok" | "warn" | "bad" | "neutral" {
-  if (!stack) return "neutral";
-  const queued = Math.max(0, Number(stack.subsystems.scheduler.queued_jobs ?? 0));
-  if (queued >= 8) return "bad";
-  if (queued >= 4) return "warn";
+function schedulerLoadTone(stats: SystemStats | null): "ok" | "warn" | "bad" | "neutral" {
+  if (!stats) return "neutral";
+  const busy = Math.max(0, Number(stats.busy_rating ?? 0));
+  if (busy >= 8) return "bad";
+  if (busy >= 6) return "warn";
   return "ok";
 }
 
@@ -428,7 +427,7 @@ export default function Home() {
           value={stack?.connectivity.internet.state || "unknown"}
           tone={pillTone(stack?.connectivity.internet.state || "unknown")}
         />
-        <StatusMini title="Scheduler Load" value={schedulerLoadValue(stack)} tone={schedulerLoadTone(stack)} />
+        <StatusMini title="Scheduler Load" value={schedulerLoadValue(stats)} tone={schedulerLoadTone(stats)} />
       </section>
 
       {dataErr && <div className="home-data-err">Dashboard data load failed: {dataErr}</div>}

@@ -1,6 +1,6 @@
 # Frontend Documentation
 
-Last Updated: 2026-03-07 18:50 US/Pacific
+Last Updated: 2026-03-07 18:53 US/Pacific
 
 ## Stack
 
@@ -33,7 +33,7 @@ Last Updated: 2026-03-07 18:50 US/Pacific
   - operational dashboard for guest and admin
   - full-stack status widget driven by `GET /api/system/stack/summary`
   - subsystem pills: core, supervisor, mqtt, scheduler, workers, addons, network, internet
-  - compact status row with scheduler/network/internet visibility and scheduler load mini card (`x/10`)
+  - compact status row with scheduler/network/internet visibility and scheduler load mini card (`busy_rating/10`) matching Settings / Metrics stats-badge value
     - speed label reflects speed sample status and timestamp freshness (`speedtest_cli`/`speedtest_ookla` active sample or `passive_estimate` fallback)
     - status/mini metrics render humanized capitalization for state values
     - top status card border matches status tone colors (success/warn/danger) with 2px border width
