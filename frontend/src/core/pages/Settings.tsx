@@ -35,6 +35,28 @@ type MqttStatus = {
   last_message_at?: string | null;
 };
 
+type MqttSetupSummary = {
+  ok?: boolean;
+  setup?: {
+    requires_setup?: boolean;
+    setup_complete?: boolean;
+    setup_status?: string;
+    direct_mqtt_supported?: boolean;
+    setup_error?: string | null;
+  };
+  broker?: {
+    broker_mode?: string;
+    direct_mqtt_supported?: boolean;
+  };
+  health?: MqttStatus;
+  last_provisioning_errors?: Array<{
+    addon_id?: string;
+    status?: string;
+    last_error?: string | null;
+    updated_at?: string;
+  }>;
+};
+
 function displayState(value: unknown): string {
   const raw = String(value || "unknown").trim();
   if (!raw) return "Unknown";
@@ -62,6 +84,7 @@ export default function Settings() {
   const [busy, setBusy] = useState(false);
   const [stack, setStack] = useState<StackSummary | null>(null);
   const [mqtt, setMqtt] = useState<MqttStatus | null>(null);
+  const [mqttSetup, setMqttSetup] = useState<MqttSetupSummary | null>(null);
   const [mqttMode, setMqttMode] = useState<"local" | "external">("local");
   const [mqttHost, setMqttHost] = useState("");
   const [mqttPort, setMqttPort] = useState("1883");
@@ -142,18 +165,22 @@ export default function Settings() {
   async function loadOperationalSummary() {
     setOpsErr(null);
     try {
-      const [stackRes, mqttRes] = await Promise.all([
+      const [stackRes, mqttRes, mqttSetupRes] = await Promise.all([
         fetch("/api/system/stack/summary", { cache: "no-store" }),
         fetch("/api/system/mqtt/status", { cache: "no-store" }),
+        fetch("/api/system/mqtt/setup-summary", { cache: "no-store" }),
       ]);
       if (!stackRes.ok) throw new Error(`stack HTTP ${stackRes.status}`);
       if (!mqttRes.ok) throw new Error(`mqtt HTTP ${mqttRes.status}`);
+      if (!mqttSetupRes.ok) throw new Error(`mqtt_setup HTTP ${mqttSetupRes.status}`);
       setStack((await stackRes.json()) as StackSummary);
       setMqtt((await mqttRes.json()) as MqttStatus);
+      setMqttSetup((await mqttSetupRes.json()) as MqttSetupSummary);
     } catch (e: any) {
       setOpsErr(e?.message ?? String(e));
       setStack(null);
       setMqtt(null);
+      setMqttSetup(null);
     }
   }
 
@@ -343,6 +370,21 @@ export default function Settings() {
               <div className="settings-help">Last message {relative(mqtt?.last_message_at)}</div>
             </div>
             <div className="settings-kv-item">
+              <div className="settings-label-text">MQTT setup state</div>
+              <span className="settings-pill">{displayState(mqttSetup?.setup?.setup_status)}</span>
+              <div className="settings-help">
+                {mqttSetup?.setup?.requires_setup ? "Setup required" : "Setup optional"} •{" "}
+                {mqttSetup?.setup?.setup_complete ? "Setup complete" : "Setup incomplete"}
+              </div>
+            </div>
+            <div className="settings-kv-item">
+              <div className="settings-label-text">Broker capabilities</div>
+              <div>Mode {displayState(mqttSetup?.broker?.broker_mode || mqtt?.mode)}</div>
+              <div className="settings-help">
+                Direct MQTT support {mqttSetup?.broker?.direct_mqtt_supported ? "available" : "not available"}
+              </div>
+            </div>
+            <div className="settings-kv-item">
               <div className="settings-label-text">Network reachability</div>
               <span className="settings-pill">{displayState(stack?.connectivity?.network?.state)}</span>
             </div>
@@ -351,6 +393,16 @@ export default function Settings() {
               <span className="settings-pill">{displayState(stack?.connectivity?.internet?.state)}</span>
             </div>
           </div>
+          {!!mqttSetup?.last_provisioning_errors?.length && (
+            <div className="settings-help">
+              Last provisioning errors:{" "}
+              {mqttSetup.last_provisioning_errors
+                .slice(0, 3)
+                .map((item) => `${item.addon_id || "unknown"} (${item.status || "error"}): ${item.last_error || "unknown"}`)
+                .join(" | ")}
+            </div>
+          )}
+          {mqttSetup?.setup?.setup_error && <div className="settings-help">Setup error: {mqttSetup.setup.setup_error}</div>}
           {mqtt?.last_error && <div className="settings-help">Latest MQTT error: {mqtt.last_error}</div>}
           <div className="settings-connectivity-config">
             <div className="settings-card-title">MQTT Setup</div>

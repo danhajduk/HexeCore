@@ -1,6 +1,6 @@
 # Frontend Documentation
 
-Last Updated: 2026-03-07 19:49 US/Pacific
+Last Updated: 2026-03-07 21:45 US/Pacific
 
 ## Stack
 
@@ -60,6 +60,7 @@ Last Updated: 2026-03-07 19:49 US/Pacific
     - Platform (Core API endpoint + stack summary fields)
     - Connectivity (MQTT + network/internet reachability summaries)
       - includes editable MQTT setup controls (mode, host, port, credentials, TLS, keepalive, client id) with apply and apply+restart actions
+      - consumes `GET /api/system/mqtt/setup-summary` to show setup state, broker mode, direct MQTT support, health summary, and recent provisioning errors
     - Addon Registry (managed registry controls)
     - Security / Access (user management)
     - Developer Tools (collapsible runtime reload + diagnostics/resolver controls)
