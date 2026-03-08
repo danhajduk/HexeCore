@@ -1,6 +1,6 @@
 # Store and Catalog Documentation
 
-Last Updated: 2026-03-08 10:03 US/Pacific
+Last Updated: 2026-03-08 11:25 US/Pacific
 
 ## Scope
 
@@ -35,6 +35,47 @@ Implemented:
 - standalone uninstall path now performs desired-state stop intent, best-effort compose teardown, and standalone service directory removal
 - status/diagnostic endpoints read runtime state and summarize errors
 - diagnostics expose standalone retention policy and retained/prunable version lists
+
+## File Contracts (Store vs Supervisor)
+
+### `manifest.json` (addon-provided artifact file)
+
+Store expectations:
+- Local embedded install path validates extracted addon layout with:
+  - required `manifest.json`
+  - required `backend/addon.py`
+  - `manifest.id` must match target addon id
+- Catalog install path builds/validates `ReleaseManifest` from catalog release/manifest data.
+- `ReleaseManifest` supports optional `runtime_defaults`:
+  - `ports[]` (`host`, `container`, `proto`, optional `purpose`)
+  - `bind_localhost`
+
+Store ownership:
+- Store reads and validates manifest inputs.
+- Store does not write addon `manifest.json`.
+
+### `desired.json` (Core-owned runtime intent)
+
+Store expectations/behavior:
+- Written by Store for `install_mode=standalone_service`.
+- Validated against `DesiredStatePayload` schema before write.
+- Key required fields written:
+  - `ssap_version`, `addon_id`, `mode`, `desired_state`, `channel`
+  - `install_source` (`type`, `catalog_id`, `release`)
+  - `runtime` (`project_name`, `network`, `ports`, `bind_localhost`, optional `cpu`, `memory`)
+  - `config.env`
+
+Runtime precedence used by Store when writing `desired.json`:
+- `runtime_overrides` request fields win.
+- then manifest `runtime_defaults` (ports/bind_localhost).
+- then Store fallbacks (`ports=[]`, `bind_localhost=true`, default network/project name).
+
+### `runtime.json` (Supervisor-owned runtime state)
+
+Store expectations/behavior:
+- Store does not write runtime state.
+- Store reads runtime snapshots (via runtime aggregation service) for status/diagnostics.
+- During standalone uninstall, Store may read state for compose target selection but runtime file lifecycle remains supervisor-owned.
 
 ## Development Policy
 

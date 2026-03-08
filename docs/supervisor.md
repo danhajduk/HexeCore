@@ -1,6 +1,6 @@
 # Synthia Supervisor Runtime Specification (Code-Verified)
 
-Last Updated: 2026-03-07 17:31 US/Pacific
+Last Updated: 2026-03-08 11:25 US/Pacific
 
 This document only describes behavior that is present in code today. Any missing capability is explicitly labeled **Not developed**.
 
@@ -494,3 +494,47 @@ Status:
 12. Observability
 13. Supervisor API
 14. Architecture Diagram
+
+## 29) File Ownership and Expectations
+
+### `manifest.json`
+
+Supervisor ownership:
+- Supervisor does not parse or validate addon `manifest.json` fields directly.
+
+Supervisor expectation from addon artifact:
+- Docker build context must be valid for the addon Dockerfile.
+- If Dockerfile copies `manifest.json` (or other paths), those files must exist in extracted artifact.
+
+Store responsibility boundary:
+- Store/catalog pipeline validates `ReleaseManifest` schema before writing standalone desired intent.
+
+### `desired.json`
+
+Ownership:
+- Core Store writes `desired.json`.
+- Supervisor reads `desired.json` as reconcile input.
+
+Supervisor-required fields (from current `DesiredState` model usage):
+- top-level: `ssap_version`, `addon_id`, `desired_state`, `pinned_version` (optional), `install_source`, `runtime`, `config`
+- runtime fields consumed for reconcile behavior: `project_name`, `network`, `ports`, `bind_localhost`, `cpu`, `memory`
+- install source release field used by model: `artifact_url` (artifact file path is still sourced from staged local `addon.tgz`)
+
+Field usage boundary:
+- Supervisor ignores some Core-authored fields present in desired payload (for example `mode`, `channel`, `install_source.catalog_id`).
+
+### `runtime.json`
+
+Ownership:
+- Supervisor writes `runtime.json` (atomic replace).
+- Core reads `runtime.json` for status/diagnostics.
+
+Supervisor-written state fields:
+- `ssap_version`
+- `addon_id`
+- `active_version`
+- `state` (`running|stopped|error`)
+- `error`
+- `previous_version`
+- `rollback_available`
+- `last_error`
