@@ -174,3 +174,8 @@ Apply config via settings API and restart MQTT manager:
 - `force_rebuild=true` can be used in desired payload to force one rebuild/recreate cycle for the current `desired_revision`.
 - Current manifest runtime defaults used by Core for desired runtime are limited to `ports` and `bind_localhost`.
 - Multi-service compose topology declarations in manifest are not developed in current schema/runtime.
+
+## 14) Addon UI Styling
+
+- Core theme token system contract: [theme.md](./theme.md)
+- Addon author styling and isolation guide: [addon-ui-styling.md](./addon-ui-styling.md)

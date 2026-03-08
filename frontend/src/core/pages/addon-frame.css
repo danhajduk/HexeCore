@@ -1,6 +1,6 @@
 .addon-frame-page {
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 12px;
   height: calc(100vh - 64px);
 }
@@ -42,4 +42,32 @@
 
 .addon-frame-empty {
   padding: 16px;
+}
+
+.addon-frame-embed-wrap {
+  position: relative;
+  min-height: 0;
+}
+
+.addon-frame-status {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid hsl(var(--color-border));
+  border-radius: var(--radius-md);
+  background: hsl(var(--color-panel));
+}
+
+.addon-frame-status-error {
+  border-color: hsl(var(--color-warning));
+}
+
+.addon-frame-retry {
+  justify-self: start;
+  border-radius: var(--radius-sm);
+  border: 1px solid hsl(var(--color-border));
+  background: transparent;
+  color: hsl(var(--color-text));
+  padding: 6px 10px;
+  cursor: pointer;
 }

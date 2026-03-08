@@ -1,6 +1,6 @@
 # Frontend Documentation
 
-Last Updated: 2026-03-08 14:21 US/Pacific
+Last Updated: 2026-03-08 15:12 US/Pacific
 
 ## Stack
 
@@ -80,6 +80,10 @@ Last Updated: 2026-03-08 14:21 US/Pacific
 - dynamic route loading via `loadAddons.ts`
 - addon routes wrapped in same admin-guard logic as core protected routes
 - `/addons/:addonId` renders `AddonFrame` with an iframe that targets backend addon UI proxy (`/ui/addons/{addonId}`) via backend base URL, preventing self-embedding of the main frontend app in dev mode.
+- `AddonFrame` queries `/api/store/status/{addonId}` and consumes:
+  - `ui_embed_target` for iframe source path
+  - `ui_reachable` and `ui_reason` for loading/fallback state
+  - `runtime_state` to stop loading early when standalone runtime is in error state
 
 ## Styling and Theme
 
