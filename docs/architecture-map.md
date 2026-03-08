@@ -1,6 +1,6 @@
 # Synthia Architecture Map
 
-Last Updated: 2026-03-07 14:51 US/Pacific
+Last Updated: 2026-03-07 17:14 US/Pacific
 
 ## Topology
 
@@ -16,6 +16,8 @@ Synthia Core
 ├── Frontend (React + React Router)
 │   ├── Core pages: Home, Store, Addons, Settings
 │   ├── Admin session context + route gating
+│   ├── Home operational dashboard polling + status cards
+│   ├── Addons inventory/install wizard + admin uninstall flow
 │   └── Dynamic addon route loading
 ├── Supervisor Integration
 │   ├── Core writes desired.json + stages artifacts
