@@ -36,7 +36,7 @@ from app.system.scheduler.engine import SchedulerEngine
 from app.system.scheduler.history import SchedulerHistoryStore
 from app.system.settings.store import SettingsStore
 from app.system.settings.router import build_settings_router
-from app.system.mqtt import MqttIntegrationStateStore, MqttManager, build_mqtt_router
+from app.system.mqtt import MqttIntegrationStateStore, MqttManager, MqttRegistrationApprovalService, build_mqtt_router
 from app.system.events import PlatformEventService, build_events_router
 from app.system.services import ServiceCatalogStore, build_service_resolution_router
 from app.system.auth import ServiceTokenKeyStore, build_auth_router
@@ -266,6 +266,11 @@ def create_app() -> FastAPI:
         enabled=bool(getattr(cfg_boot, "mqtt_listener_enabled", True)),
     )
     app.state.mqtt_manager = mqtt_manager
+    mqtt_registration_approval = MqttRegistrationApprovalService(
+        registry=registry,
+        state_store=mqtt_integration_state_store,
+    )
+    app.state.mqtt_registration_approval = mqtt_registration_approval
     register_addons(app, registry)
     addon_proxy = AddonProxy(registry)
     app.state.addon_proxy = addon_proxy
@@ -273,10 +278,10 @@ def create_app() -> FastAPI:
     # System API using the registry
     runtime_service = StandaloneRuntimeService()
     app.state.standalone_runtime_service = runtime_service
-    app.include_router(build_system_router(registry, runtime_service), prefix="/api")
+    app.include_router(build_system_router(registry, runtime_service, mqtt_registration_approval), prefix="/api")
     app.include_router(build_addons_registry_router(registry), prefix="/api")
     app.include_router(build_addons_install_router(registry, install_sessions_store), prefix="/api")
-    app.include_router(build_admin_registry_router(registry), prefix="/api")
+    app.include_router(build_admin_registry_router(registry, mqtt_registration_approval), prefix="/api")
     app.include_router(
         build_mqtt_router(mqtt_manager, registry, mqtt_integration_state_store, service_token_keys),
         prefix="/api/system",
@@ -298,7 +303,14 @@ def create_app() -> FastAPI:
         catalog_public_keys_json=cfg_boot.store_catalog_public_keys_json,
     )
     app.include_router(
-        build_store_router(registry, store_audit_store, store_sources_store, catalog_cache_client, events=event_service),
+        build_store_router(
+            registry,
+            store_audit_store,
+            store_sources_store,
+            catalog_cache_client,
+            events=event_service,
+            mqtt_approval_service=mqtt_registration_approval,
+        ),
         prefix="/api/store",
         tags=["store"],
     )

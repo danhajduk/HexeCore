@@ -7,7 +7,7 @@ from ..addons.registry import AddonRegistry
 from .admin import require_admin_token
 
 
-def build_admin_registry_router(registry: AddonRegistry) -> APIRouter:
+def build_admin_registry_router(registry: AddonRegistry, mqtt_approval_service=None) -> APIRouter:
     router = APIRouter()
 
     @router.get("/admin/addons/registry")
@@ -26,11 +26,13 @@ def build_admin_registry_router(registry: AddonRegistry) -> APIRouter:
         return {"ok": True, "addon": saved.model_dump(mode="json")}
 
     @router.delete("/admin/addons/registry/{addon_id}")
-    def delete_registered_addon(addon_id: str, request: Request, x_admin_token: str | None = Header(default=None)):
+    async def delete_registered_addon(addon_id: str, request: Request, x_admin_token: str | None = Header(default=None)):
         require_admin_token(x_admin_token, request)
         deleted = registry.delete_registered(addon_id)
         if not deleted:
             raise HTTPException(status_code=404, detail="addon_not_found")
+        if mqtt_approval_service is not None:
+            await mqtt_approval_service.revoke_or_mark(addon_id, reason="addon_untrusted_or_removed")
         return {"ok": True, "id": addon_id}
 
     return router

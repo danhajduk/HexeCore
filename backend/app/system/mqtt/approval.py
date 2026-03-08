@@ -77,17 +77,25 @@ class MqttRegistrationApprovalService:
             approved_publish_topics=sorted({str(x).strip() for x in request.publish_topics if str(x).strip()}),
             approved_subscribe_topics=sorted({str(x).strip() for x in request.subscribe_topics if str(x).strip()}),
         )
-        await self._state_store.upsert_grant(
-            MqttAddonGrant(
-                addon_id=addon_id,
-                access_mode=approved.access_mode,
-                status="approved",
-                publish_topics=approved.approved_publish_topics,
-                subscribe_topics=approved.approved_subscribe_topics,
-                granted_ha_mode=request.capabilities.ha_discovery,
-                access_profile=approved.access_mode,
-            )
+        state_before = await self._state_store.get_state()
+        existing = state_before.active_grants.get(addon_id)
+        grant = MqttAddonGrant(
+            addon_id=addon_id,
+            access_mode=approved.access_mode,
+            status="approved",
+            publish_topics=approved.approved_publish_topics,
+            subscribe_topics=approved.approved_subscribe_topics,
+            granted_ha_mode=request.capabilities.ha_discovery,
+            access_profile=approved.access_mode,
+            provision_contract=(existing.provision_contract if existing else {}),
+            last_error=None,
+            revocation_pending=False,
+            last_provisioned_at=(existing.last_provisioned_at if existing else None),
+            last_revoked_at=(existing.last_revoked_at if existing else None),
         )
+        await self._state_store.upsert_grant(grant)
+        if existing is not None and self._grant_materially_changed(existing, grant) and existing.status in {"approved", "provisioned", "error"}:
+            await self.provision_grant(addon_id, reason="grant_scope_changed")
         return approved
 
     async def provision_grant(self, addon_id: str, reason: str = "api_request") -> dict[str, Any]:
@@ -170,6 +178,15 @@ class MqttRegistrationApprovalService:
             direct_mqtt_supported=state.direct_mqtt_supported,
         )
 
+    async def reconcile(self, addon_id: str) -> dict[str, Any]:
+        state = await self._state_store.get_state()
+        grant = state.active_grants.get(addon_id)
+        if grant is None:
+            return {"ok": True, "addon_id": addon_id, "status": "not_found"}
+        if grant.status in {"approved", "error"} and self._registry.is_enabled(addon_id):
+            return await self.provision_grant(addon_id, reason="reconcile")
+        return {"ok": True, "addon_id": addon_id, "status": grant.status}
+
     def _control_base_url(self) -> str | None:
         addon = self._registry.registered.get(self._control_addon_id)
         if addon is None:
@@ -198,3 +215,14 @@ class MqttRegistrationApprovalService:
             return True, details
         except Exception as exc:
             return False, {"error": type(exc).__name__, "url": url}
+
+    def _grant_materially_changed(self, old: MqttAddonGrant, new: MqttAddonGrant) -> bool:
+        if old.access_mode != new.access_mode:
+            return True
+        if sorted(old.publish_topics) != sorted(new.publish_topics):
+            return True
+        if sorted(old.subscribe_topics) != sorted(new.subscribe_topics):
+            return True
+        if old.granted_ha_mode != new.granted_ha_mode:
+            return True
+        return False

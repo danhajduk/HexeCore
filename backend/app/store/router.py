@@ -882,6 +882,7 @@ def build_store_router(
     catalog_client: CatalogCacheClient | None = None,
     runtime_service: StandaloneRuntimeService | None = None,
     events: PlatformEventService | None = None,
+    mqtt_approval_service=None,
 ) -> APIRouter:
     router = APIRouter()
     static_catalog = StaticCatalogStore.from_default_path()
@@ -1598,6 +1599,8 @@ def build_store_router(
 
             if body.enable:
                 registry.set_enabled(manifest.id, True)
+            if mqtt_approval_service is not None:
+                await mqtt_approval_service.reconcile(manifest.id)
 
             install_state = {
                 "installed_version": manifest.version,
@@ -1904,6 +1907,8 @@ def build_store_router(
 
             if body.enable:
                 registry.set_enabled(body.manifest.id, True)
+            if mqtt_approval_service is not None:
+                await mqtt_approval_service.reconcile(body.manifest.id)
 
             await audit_store.record(
                 action="update",
@@ -1992,6 +1997,8 @@ def build_store_router(
 
             atomic_uninstall(addon_id)
             registry.set_enabled(addon_id, False)
+            if mqtt_approval_service is not None:
+                await mqtt_approval_service.revoke_or_mark(addon_id, reason="addon_uninstalled")
             _clear_install_state(addon_id)
             await audit_store.record(
                 action="uninstall",

@@ -13,6 +13,7 @@ class SetAddonEnabledRequest(BaseModel):
 def build_system_router(
     registry: AddonRegistry,
     runtime_service: StandaloneRuntimeService | None = None,
+    mqtt_approval_service=None,
 ) -> APIRouter:
     router = APIRouter()
     runtime = runtime_service or StandaloneRuntimeService()
@@ -22,10 +23,15 @@ def build_system_router(
         return list_addons(registry)
 
     @router.post("/addons/{addon_id}/enable")
-    def set_addon_enabled(addon_id: str, body: SetAddonEnabledRequest):
+    async def set_addon_enabled(addon_id: str, body: SetAddonEnabledRequest):
         if not registry.has_addon(addon_id):
             raise HTTPException(status_code=404, detail="addon_not_found")
         registry.set_enabled(addon_id, body.enabled)
+        if mqtt_approval_service is not None:
+            if body.enabled:
+                await mqtt_approval_service.reconcile(addon_id)
+            else:
+                await mqtt_approval_service.revoke_or_mark(addon_id, reason="addon_disabled")
         return {"ok": True, "id": addon_id, "enabled": registry.is_enabled(addon_id)}
 
     @router.get("/addons/errors")
