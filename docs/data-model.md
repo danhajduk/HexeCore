@@ -1,6 +1,6 @@
 # Data Model Documentation
 
-Last Updated: 2026-03-07 14:51 US/Pacific
+Last Updated: 2026-03-07 16:03 US/Pacific
 
 ## Persistence Overview
 
@@ -26,6 +26,7 @@ Synthia uses mixed persistence:
 - Store install state (`var/store_install_state.json` default)
 - Store source metadata (`var/store_sources.json` default + runtime cache metadata)
 - Standalone desired/runtime state (`SYNTHIA_ADDONS_DIR/services/<addon_id>/desired.json` and `runtime.json`)
+  - desired runtime includes optional `runtime.cpu` and `runtime.memory` resource governance fields
 
 ## Ownership Boundaries
 

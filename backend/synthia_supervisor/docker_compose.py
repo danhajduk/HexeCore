@@ -75,6 +75,10 @@ def ensure_compose_files(desired, extracted_dir: Path, compose_file: Path, env_f
         proto = str(item.get("proto") or "tcp").lower()
         ports_yaml += f"      - \"{host_bind}:{int(host)}:{int(container)}/{proto}\"\n"
     ports_section = f"    ports:\n{ports_yaml}" if ports_yaml else ""
+    cpu_limit = getattr(desired.runtime, "cpu", None)
+    memory_limit = getattr(desired.runtime, "memory", None)
+    cpu_section = f"    cpus: {float(cpu_limit)}\n" if cpu_limit is not None else ""
+    memory_section = f"    mem_limit: {str(memory_limit).strip()}\n" if memory_limit else ""
     compose_file.write_text(f"""
 services:
   {desired.addon_id}:
@@ -87,7 +91,7 @@ services:
       - {env_file}
     networks:
       - {network_name}
-{ports_section}
+{cpu_section}{memory_section}{ports_section}
 
 networks:
   {network_name}:

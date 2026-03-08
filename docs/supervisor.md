@@ -1,6 +1,6 @@
 # Synthia Supervisor Runtime Specification (Code-Verified)
 
-Last Updated: 2026-03-07 15:42 US/Pacific
+Last Updated: 2026-03-07 16:03 US/Pacific
 
 This document only describes behavior that is present in code today. Any missing capability is explicitly labeled **Not developed**.
 
@@ -220,22 +220,25 @@ The following capabilities are intentionally not implemented in the current supe
 - Publisher signature verification in reconcile path
 - Automatic rollback execution
 - HTTP health probing of addon containers
-- Resource limits (CPU/memory quotas) in generated compose
 - Prometheus/OpenMetrics endpoint
 - Network policy enforcement
 - Multi-supervisor coordination
 - Distributed locking
 
-## 16) Resource Limits (Missing)
+## 16) Resource Limits
 
-Generated compose does not set:
-- CPU limits/reservations
-- memory limits/reservations
+Implemented in generated compose when specified in desired runtime:
+- `cpus` (from `desired.runtime.cpu`)
+- `mem_limit` (from `desired.runtime.memory`)
+
+Behavior:
+- Resource limits are optional; when fields are absent, compose omits these keys.
+- Existing addon versions continue to run without resource overrides.
+
+Not developed:
 - pids limits
 - IO limits
-
-Status:
-- Resource governance policy in supervisor compose generation: **Not developed**.
+- full policy validation/normalization for memory unit formats
 
 ## 17) Network Isolation Model (Partial)
 
@@ -339,6 +342,8 @@ Example shape:
     "orchestrator": "docker_compose",
     "project_name": "synthia-addon-mqtt",
     "network": "synthia_net",
+    "cpu": 1.0,
+    "memory": "512m",
     "ports": [
       {"host": 9002, "container": 9002, "proto": "tcp"}
     ],

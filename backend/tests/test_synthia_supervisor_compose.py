@@ -86,6 +86,39 @@ class TestSynthiaSupervisorCompose(unittest.TestCase):
             compose_text = compose_file.read_text(encoding="utf-8")
             self.assertIn("0.0.0.0:18081:18081/tcp", compose_text)
 
+    def test_compose_includes_cpu_and_memory_limits_when_specified(self) -> None:
+        desired = DesiredState.model_validate(
+            {
+                "ssap_version": "1.0",
+                "addon_id": "mqtt",
+                "desired_state": "running",
+                "install_source": {
+                    "type": "catalog",
+                    "release": {
+                        "artifact_url": "https://example.test/mqtt.tgz",
+                        "sha256": "a" * 64,
+                    },
+                },
+                "runtime": {
+                    "project_name": "synthia-addon-mqtt",
+                    "network": "synthia_net",
+                    "cpu": 1.25,
+                    "memory": "768m",
+                },
+                "config": {"env": {}},
+            }
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            extracted = Path(tmp) / "extracted"
+            extracted.mkdir(parents=True, exist_ok=True)
+            compose_file = Path(tmp) / "docker-compose.yml"
+            env_file = Path(tmp) / "runtime.env"
+            ensure_compose_files(desired, extracted, compose_file, env_file)
+
+            compose_text = compose_file.read_text(encoding="utf-8")
+            self.assertIn("cpus: 1.25", compose_text)
+            self.assertIn("mem_limit: 768m", compose_text)
+
     def test_compose_up_reports_stderr_summary_on_failure(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             compose_file = Path(tmp) / "docker-compose.yml"

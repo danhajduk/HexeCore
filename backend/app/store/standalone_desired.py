@@ -38,6 +38,8 @@ class DesiredRuntime(BaseModel):
     network: str = Field(..., min_length=1)
     ports: list[dict[str, Any]] = Field(default_factory=list)
     bind_localhost: bool = True
+    cpu: float | None = Field(default=None, gt=0)
+    memory: str | None = None
 
 
 class DesiredConfig(BaseModel):
@@ -77,6 +79,8 @@ def build_desired_state(
     runtime_network: str,
     runtime_ports: list[dict[str, Any]] | None = None,
     runtime_bind_localhost: bool = True,
+    runtime_cpu: float | None = None,
+    runtime_memory: str | None = None,
     config_env: dict[str, str] | None = None,
     desired_state: str = "running",
 ) -> dict[str, Any]:
@@ -106,6 +110,8 @@ def build_desired_state(
             "network": runtime_network,
             "ports": list(runtime_ports or []),
             "bind_localhost": bool(runtime_bind_localhost),
+            "cpu": runtime_cpu,
+            "memory": runtime_memory.strip() if isinstance(runtime_memory, str) else runtime_memory,
         },
         "config": {
             "env": dict(config_env or {}),

@@ -1,6 +1,6 @@
 # Store and Catalog Documentation
 
-Last Updated: 2026-03-07 14:51 US/Pacific
+Last Updated: 2026-03-07 16:03 US/Pacific
 
 ## Scope
 
@@ -30,6 +30,7 @@ Implemented:
 - compatibility checks
 - install/update/uninstall endpoint flows
 - standalone install mode writes `desired.json` and stages `addon.tgz`
+- standalone runtime overrides support optional `cpu` and `memory` values for desired runtime intent
 - status/diagnostic endpoints read runtime state and summarize errors
 
 ## Development Policy

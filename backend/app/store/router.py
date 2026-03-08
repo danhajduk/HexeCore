@@ -1346,6 +1346,34 @@ def build_store_router(
                 runtime_ports = runtime_overrides.get("ports")
                 runtime_ports_payload = [dict(item) for item in runtime_ports if isinstance(item, dict)] if isinstance(runtime_ports, list) else []
                 runtime_bind_localhost = bool(runtime_overrides.get("bind_localhost", True))
+                raw_runtime_cpu = runtime_overrides.get("cpu")
+                runtime_cpu: float | None = None
+                if raw_runtime_cpu is not None and str(raw_runtime_cpu).strip() != "":
+                    try:
+                        runtime_cpu = float(str(raw_runtime_cpu).strip())
+                    except Exception:
+                        raise HTTPException(
+                            status_code=400,
+                            detail={
+                                "error": "standalone_runtime_cpu_invalid",
+                                "cpu": raw_runtime_cpu,
+                                "hint": "runtime_overrides.cpu must be a positive number",
+                            },
+                        )
+                    if runtime_cpu <= 0:
+                        raise HTTPException(
+                            status_code=400,
+                            detail={
+                                "error": "standalone_runtime_cpu_invalid",
+                                "cpu": raw_runtime_cpu,
+                                "hint": "runtime_overrides.cpu must be a positive number",
+                            },
+                        )
+                raw_runtime_memory = runtime_overrides.get("memory")
+                runtime_memory = None
+                if raw_runtime_memory is not None:
+                    normalized_memory = str(raw_runtime_memory).strip()
+                    runtime_memory = normalized_memory or None
                 config_env_defaults: dict[str, str] = {
                     "CORE_URL": os.getenv("SYNTHIA_CORE_URL", "http://127.0.0.1:8000"),
                     "SYNTHIA_ADDON_ID": manifest.id,
@@ -1374,14 +1402,24 @@ def build_store_router(
                     runtime_network=runtime_network or "synthia_net",
                     runtime_ports=runtime_ports_payload,
                     runtime_bind_localhost=runtime_bind_localhost,
+                    runtime_cpu=runtime_cpu,
+                    runtime_memory=runtime_memory,
                     config_env=config_env,
                     desired_state=body.desired_state,
                 )
                 write_desired_state_atomic(desired_path, desired_payload)
                 runtime_payload = _read_standalone_runtime(manifest.id, standalone_runtime)
-                standalone_runtime = runtime_payload.get("standalone_runtime")
-                active_version = standalone_runtime.get("active_version") if isinstance(standalone_runtime, dict) else None
-                last_action = standalone_runtime.get("last_action") if isinstance(standalone_runtime, dict) else None
+                standalone_runtime_payload = runtime_payload.get("standalone_runtime")
+                active_version = (
+                    standalone_runtime_payload.get("active_version")
+                    if isinstance(standalone_runtime_payload, dict)
+                    else None
+                )
+                last_action = (
+                    standalone_runtime_payload.get("last_action")
+                    if isinstance(standalone_runtime_payload, dict)
+                    else None
+                )
                 runtime_state = runtime_payload.get("runtime_state")
                 supervisor_hint = None
                 if runtime_state == "unknown":
@@ -1439,10 +1477,12 @@ def build_store_router(
                         "bind_localhost": runtime_bind_localhost,
                         "privileged": False,
                         "network": runtime_network or "synthia_net",
+                        "cpu": runtime_cpu,
+                        "memory": runtime_memory,
                         "service_token_env_key": "SYNTHIA_SERVICE_TOKEN",
                     },
                     "remediation_path": None,
-                    "standalone_runtime": standalone_runtime,
+                    "standalone_runtime": standalone_runtime_payload,
                 }
 
             if manifest.package_profile != "embedded_addon":

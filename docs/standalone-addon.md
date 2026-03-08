@@ -1,6 +1,6 @@
 # Synthia Standalone Addon Specification
 
-Last Updated: 2026-03-07 15:54 US/Pacific
+Last Updated: 2026-03-07 16:03 US/Pacific
 
 Version: 0.1 (development phase)
 
@@ -287,15 +287,19 @@ Addons must be considered **trusted code**.
 
 # 11. Resource Limits
 
-Supervisor does not enforce:
+Supervisor-generated compose files now support optional resource limits:
 
-• CPU limits\
-• memory limits\
-• IO limits
+• `cpus` from `desired.runtime.cpu`\
+• `mem_limit` from `desired.runtime.memory`
 
-Containers inherit host resource limits.
+These limits are optional and only applied when provided in desired
+runtime intent.
 
-Status: Not developed
+Not developed:
+
+• IO limits\
+• pids limits\
+• advanced policy validation for resource-unit formats
 
 ------------------------------------------------------------------------
 
