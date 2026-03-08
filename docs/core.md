@@ -1,6 +1,6 @@
 # Synthia Core Documentation
 
-Last Updated: 2026-03-07 19:46 US/Pacific
+Last Updated: 2026-03-07 21:55 US/Pacific
 
 ## Documentation Contract
 
@@ -67,6 +67,7 @@ Core
 - [Addon System](./addon-system.md)
 - [Store and Catalog](./store.md)
 - [API Overview](./api.md)
+- [MQTT Integration Contract](./mqtt-contract.md)
 - [Data Model](./data-model.md)
 - [Deployment](./deployment.md)
 - [Supervisor](./supervisor.md)

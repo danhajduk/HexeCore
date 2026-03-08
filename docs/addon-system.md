@@ -1,6 +1,6 @@
 # Addon System Documentation
 
-Last Updated: 2026-03-07 21:48 US/Pacific
+Last Updated: 2026-03-07 21:55 US/Pacific
 
 ## Core Perspective
 
@@ -78,6 +78,7 @@ Implemented API-first behavior for MQTT integration:
 
 - [supervisor.md](./supervisor.md)
 - [standalone-addon.md](./standalone-addon.md)
+- [mqtt-contract.md](./mqtt-contract.md)
 
 ## Not Developed
 

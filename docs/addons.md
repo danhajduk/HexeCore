@@ -1,6 +1,6 @@
 # Addons Reference (Core + Addon Workspace)
 
-Last Updated: 2026-03-07 21:48 US/Pacific
+Last Updated: 2026-03-07 21:55 US/Pacific
 
 This document is the single handoff reference for building, registering, and operating addons with Synthia Core.
 
@@ -160,3 +160,7 @@ Apply config via settings API and restart MQTT manager:
   - Confirm addon implements `/api/addon/health` and service is reachable from Core.
 - TLS warning in registry entry:
   - Non-HTTPS remote `base_url` may set `tls_warning` by design.
+
+## 12) MQTT Contract Reference
+
+- Core MQTT platform contract: [mqtt-contract.md](./mqtt-contract.md)
