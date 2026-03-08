@@ -1,6 +1,6 @@
 # Frontend Documentation
 
-Last Updated: 2026-03-07 18:07 US/Pacific
+Last Updated: 2026-03-07 17:00 US/Pacific
 
 ## Stack
 
@@ -38,7 +38,10 @@ Last Updated: 2026-03-07 18:07 US/Pacific
   - System Metrics panel (CPU/memory/disk)
   - compact admin session strip (sign-in or sign-out state)
 - Store: catalog browsing, install actions, diagnostics and remediation UX
-- Addons: inventory and control-plane metadata/actions
+- Addons:
+  - inventory and control-plane metadata/actions
+  - admin-only uninstall action with explicit confirm/uninstall/success/failed states
+  - standalone uninstall attempts surface remediation guidance instead of silent failure
 - Settings: settings + jobs/metrics/statistics + admin controls
 
 ## API Communication

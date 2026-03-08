@@ -1,6 +1,6 @@
 # API Documentation (Structure)
 
-Last Updated: 2026-03-07 17:08 US/Pacific
+Last Updated: 2026-03-07 17:00 US/Pacific
 
 ## Conventions
 
@@ -26,6 +26,7 @@ Last Updated: 2026-03-07 17:08 US/Pacific
 
 - Admin-protected endpoints require admin session/token checks.
 - Service-oriented endpoints require service token scope checks.
+- `POST /api/store/uninstall` is admin-protected and used by the Addons page uninstall action.
 
 Implemented service registration auth:
 - `POST /api/services/register` requires service token audience `synthia-core`
@@ -42,6 +43,10 @@ Runtime health model (implemented in runtime payload):
 - `health_status`: service health state (`healthy|unhealthy|unknown`)
 - runtime aggregation may call addon endpoint `GET /api/addon/health` when probe is enabled and a published TCP port exists
 - runtime health probing is optional and disabled by default (`SYNTHIA_RUNTIME_HEALTH_PROBE_ENABLED`)
+
+Implemented uninstall behavior boundary:
+- `POST /api/store/uninstall` removes installed addon directory content managed by store lifecycle.
+- Standalone service runtime cleanup is not currently automated via this endpoint.
 
 ## Service Discovery API
 

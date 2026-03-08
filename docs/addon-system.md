@@ -1,6 +1,6 @@
 # Addon System Documentation
 
-Last Updated: 2026-03-07 17:08 US/Pacific
+Last Updated: 2026-03-07 17:00 US/Pacific
 
 ## Core Perspective
 
@@ -22,6 +22,9 @@ Addon system includes discovery, registry, proxying, install-session orchestrati
   - start -> permissions approve -> deployment select -> configure -> verify
 - store install flows for embedded/standalone package profiles
 - standalone flow writes desired runtime intent and stages artifacts for supervisor
+- uninstall from Addons UI currently calls `POST /api/store/uninstall` (admin session required)
+  - embedded addon directories are removed through store lifecycle uninstall
+  - standalone runtime cleanup is not yet automated by this endpoint; UI surfaces remediation guidance
 
 ## Manifest Handling
 

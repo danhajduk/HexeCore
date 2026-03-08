@@ -1,5 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiGet } from "../api/client";
+import { useAdminSession } from "../auth/AdminSessionContext";
+import {
+  canShowUninstallAction,
+  confirmingUninstallState,
+  idleUninstallState,
+  uninstallFailureState,
+  uninstallingState,
+  uninstallSuccessState,
+  type AddonRuntimeKind,
+  type UninstallViewState,
+} from "./addonsUninstall";
 import "./addons.css";
 
 type AddonInfo = {
@@ -64,6 +75,7 @@ async function readError(res: Response): Promise<string> {
 }
 
 export default function Addons() {
+  const { authenticated: isAdmin } = useAdminSession();
   const [addons, setAddons] = useState<AddonInfo[]>([]);
   const [registryAddons, setRegistryAddons] = useState<RegistryAddon[]>([]);
   const [err, setErr] = useState<string | null>(null);
@@ -82,6 +94,33 @@ export default function Addons() {
   const [runtimeItems, setRuntimeItems] = useState<StandaloneAddonRuntime[]>([]);
   const [runtimeErr, setRuntimeErr] = useState<string | null>(null);
   const [runtimeBusy, setRuntimeBusy] = useState(false);
+  const [uninstallStates, setUninstallStates] = useState<Record<string, UninstallViewState>>({});
+
+  function uninstallStateFor(addonId: string): UninstallViewState {
+    return uninstallStates[addonId] ?? idleUninstallState();
+  }
+
+  function setUninstallState(addonId: string, state: UninstallViewState) {
+    setUninstallStates((prev) => ({ ...prev, [addonId]: state }));
+  }
+
+  function runtimeKindFor(addonId: string): AddonRuntimeKind {
+    return runtimeItems.some((item) => item.addon_id === addonId) ? "standalone" : "embedded";
+  }
+
+  async function refreshInventory() {
+    const [addonsPayload, registryPayload] = await Promise.all([
+      apiGet<AddonInfo[]>("/api/addons"),
+      apiGet<RegistryAddon[]>("/api/addons/registry"),
+    ]);
+    setAddons(addonsPayload);
+    setRegistryAddons(registryPayload);
+    setSelectedAddonId((prev) => {
+      if (registryPayload.length === 0) return "";
+      if (registryPayload.some((item) => item.id === prev)) return prev;
+      return registryPayload[0].id;
+    });
+  }
 
   async function refreshRuntime() {
     setRuntimeBusy(true);
@@ -101,16 +140,7 @@ export default function Addons() {
   }
 
   useEffect(() => {
-    apiGet<AddonInfo[]>("/api/addons")
-      .then(setAddons)
-      .catch((e) => setErr(String(e)));
-    apiGet<RegistryAddon[]>("/api/addons/registry")
-      .then((items) => {
-        setRegistryAddons(items);
-        if (items.length > 0) {
-          setSelectedAddonId((prev) => prev || items[0].id);
-        }
-      })
+    refreshInventory()
       .catch((e) => setErr(String(e)));
     void refreshRuntime();
   }, []);
@@ -162,6 +192,30 @@ export default function Addons() {
       }
     } catch (e: any) {
       setWizardErr(e?.message ?? String(e));
+    }
+  }
+
+  async function uninstallAddon(addonId: string) {
+    setErr(null);
+    setUninstallState(addonId, uninstallingState());
+    const runtimeKind = runtimeKindFor(addonId);
+    try {
+      const res = await fetch("/api/store/uninstall", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ addon_id: addonId }),
+      });
+      if (!res.ok) {
+        const raw = await readError(res);
+        setUninstallState(addonId, uninstallFailureState(res.status, raw, runtimeKind));
+        return;
+      }
+      setUninstallState(addonId, uninstallSuccessState());
+      await refreshInventory();
+      await refreshRuntime();
+    } catch (e: any) {
+      setUninstallState(addonId, uninstallFailureState(0, e?.message ?? String(e), runtimeKind));
     }
   }
 
@@ -286,11 +340,14 @@ export default function Addons() {
           {addons.length === 0 ? (
             <div className="addons-empty">No backend addons loaded.</div>
           ) : (
-            addons.map((a) => (
-              <div
-                key={a.id}
-                className="addon-card"
-              >
+            addons.map((a) => {
+              const uninstallState = uninstallStateFor(a.id);
+              const disableCardActions = uninstallState.phase === "uninstalling";
+              return (
+                <div
+                  key={a.id}
+                  className="addon-card"
+                >
                 <div className="addon-card-header">
                   <div className="addon-name">{a.name}</div>
                   <div className="addon-status">
@@ -315,7 +372,7 @@ export default function Addons() {
                 <div className="addon-actions">
                   <button
                     onClick={() => setEnabled(a.id, !(a.enabled ?? true))}
-                    disabled={busy === a.id}
+                    disabled={busy === a.id || disableCardActions}
                     className="addon-btn"
                   >
                     {a.enabled === false ? "Enable" : "Disable"}
@@ -326,9 +383,52 @@ export default function Addons() {
                   >
                     Open
                   </a>
+                  {canShowUninstallAction(isAdmin) && uninstallState.phase !== "confirming" && (
+                    <button
+                      onClick={() => setUninstallState(a.id, confirmingUninstallState())}
+                      disabled={disableCardActions}
+                      className="addon-btn addon-btn-danger"
+                    >
+                      {uninstallState.phase === "uninstalling" ? "Uninstalling..." : "Uninstall"}
+                    </button>
+                  )}
+                  {canShowUninstallAction(isAdmin) && uninstallState.phase === "confirming" && (
+                    <>
+                      <button
+                        onClick={() => void uninstallAddon(a.id)}
+                        disabled={disableCardActions}
+                        className="addon-btn addon-btn-danger"
+                      >
+                        Confirm Uninstall
+                      </button>
+                      <button
+                        onClick={() => setUninstallState(a.id, idleUninstallState())}
+                        disabled={disableCardActions}
+                        className="addon-btn"
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  )}
                 </div>
-              </div>
-            ))
+                {uninstallState.phase === "confirming" && (
+                  <div className="addon-uninstall-note">Confirm uninstall of {a.id}?</div>
+                )}
+                {uninstallState.message && (
+                  <div className={uninstallState.phase === "failed" ? "addons-error" : "addon-uninstall-note"}>
+                    {uninstallState.message}
+                  </div>
+                )}
+                {uninstallState.remediation.length > 0 && (
+                  <ul className="addon-uninstall-remediation">
+                    {uninstallState.remediation.map((item) => (
+                      <li key={`${a.id}-${item}`}>{item}</li>
+                    ))}
+                  </ul>
+                )}
+                </div>
+              );
+            })
           )}
             <div className="addon-runtime-panel">
               <div className="addon-runtime-header">

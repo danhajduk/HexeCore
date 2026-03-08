@@ -87,6 +87,25 @@
   opacity: 0.6;
 }
 
+.addon-btn-danger {
+  border-color: rgba(235, 87, 87, 0.45);
+  background: rgba(235, 87, 87, 0.16);
+}
+
+.addon-uninstall-note {
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.addon-uninstall-remediation {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  opacity: 0.85;
+  display: grid;
+  gap: 4px;
+}
+
 .addon-installer-card {
   padding: 12px;
   border-radius: 14px;
