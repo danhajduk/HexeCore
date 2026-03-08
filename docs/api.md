@@ -1,6 +1,6 @@
 # API Documentation (Structure)
 
-Last Updated: 2026-03-07 21:45 US/Pacific
+Last Updated: 2026-03-07 22:10 US/Pacific
 
 ## Conventions
 
@@ -36,6 +36,12 @@ Implemented service registration auth:
 - Public/read endpoints remain accessible without admin privilege where designed.
 
 Implemented MQTT provisioning handshake APIs:
+- `GET /api/system/mqtt/status`
+  - returns MQTT connection/runtime status and subscription list
+- `POST /api/system/mqtt/test`
+  - publishes a test payload to MQTT for connectivity diagnostics
+- `POST /api/system/mqtt/restart`
+  - restarts MQTT client connection and returns updated status
 - `POST /api/system/mqtt/registrations/approve`
   - validates addon eligibility and topic scope contract
   - creates/updates approved grant state in Core persistence

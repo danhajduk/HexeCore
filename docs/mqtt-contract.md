@@ -1,6 +1,6 @@
 # MQTT Integration Contract
 
-Last Updated: 2026-03-07 21:55 US/Pacific
+Last Updated: 2026-03-07 22:10 US/Pacific
 
 ## Scope
 
@@ -49,6 +49,9 @@ Core publishes:
 ## Registration and Approval Model
 
 Implemented registration/approval APIs:
+- `GET /api/system/mqtt/status`
+- `POST /api/system/mqtt/test`
+- `POST /api/system/mqtt/restart`
 - `POST /api/system/mqtt/registrations/approve`
 - `POST /api/system/mqtt/registrations/{addon_id}/provision`
 - `POST /api/system/mqtt/registrations/{addon_id}/revoke`

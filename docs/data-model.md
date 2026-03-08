@@ -1,6 +1,6 @@
 # Data Model Documentation
 
-Last Updated: 2026-03-07 16:03 US/Pacific
+Last Updated: 2026-03-07 22:10 US/Pacific
 
 ## Persistence Overview
 
@@ -25,6 +25,8 @@ Synthia uses mixed persistence:
 - Policy grants/revocations (`var/policy_*.json`)
 - Store install state (`var/store_install_state.json` default)
 - Store source metadata (`var/store_sources.json` default + runtime cache metadata)
+- Service catalog metadata (`var/service_catalogs.json`)
+- MQTT integration state (`var/mqtt_integration_state.json`)
 - Standalone desired/runtime state (`SYNTHIA_ADDONS_DIR/services/<addon_id>/desired.json` and `runtime.json`)
   - desired runtime includes optional `runtime.cpu` and `runtime.memory` resource governance fields
 
