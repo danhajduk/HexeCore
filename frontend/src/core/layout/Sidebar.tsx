@@ -11,14 +11,24 @@ type AddonInfo = {
   show_sidebar?: boolean;
 };
 
-const coreItems = [
-  { label: "Home", path: "/" },
-  { label: "Store", path: "/store" },
-  { label: "Addons", path: "/addons" },
+type NavItem = {
+  label: string;
+  path: string;
+};
+
+type NavSection = {
+  title: string;
+  items: NavItem[];
+};
+
+const homeItems: NavItem[] = [{ label: "Home", path: "/" }];
+const addonItemsCore: NavItem[] = [{ label: "Addons", path: "/addons" }];
+const storeItems: NavItem[] = [{ label: "Store", path: "/store" }];
+const systemItems: NavItem[] = [
   { label: "Settings", path: "/settings" },
-  { label: "Settings / Jobs", path: "/settings/jobs" },
-  { label: "Settings / Metrics", path: "/settings/metrics" },
-  { label: "Settings / Statistics", path: "/settings/statistics" },
+  { label: "Jobs", path: "/settings/jobs" },
+  { label: "Metrics", path: "/settings/metrics" },
+  { label: "Statistics", path: "/settings/statistics" },
 ];
 
 export default function Sidebar({ isAdmin }: { isAdmin: boolean }) {
@@ -46,7 +56,7 @@ export default function Sidebar({ isAdmin }: { isAdmin: boolean }) {
   }, []);
 
   const backendMap = new Map(backendAddons.map((a) => [a.id, a]));
-  const addonItems = loadAddons()
+  const dynamicAddonItems = loadAddons()
     .filter((mod) => {
       if (!isAdmin) return false;
       const meta = backendMap.get(mod.meta.id);
@@ -57,7 +67,15 @@ export default function Sidebar({ isAdmin }: { isAdmin: boolean }) {
     })
     .map((mod) => mod.navItem);
 
-  const coreNavItems = isAdmin ? coreItems : [coreItems[0]];
+  const sections: NavSection[] = isAdmin
+    ? [
+        { title: "Home", items: homeItems },
+        { title: "Addons", items: addonItemsCore },
+        { title: "Store", items: storeItems },
+        { title: "System", items: systemItems },
+        { title: "Addon UIs", items: dynamicAddonItems },
+      ].filter((section) => section.items.length > 0)
+    : [{ title: "Home", items: homeItems }];
 
   return (
     <aside className="sidebar">
@@ -70,32 +88,27 @@ export default function Sidebar({ isAdmin }: { isAdmin: boolean }) {
       </div>
       <div className="sidebar-title">Navigation</div>
       <nav className="sidebar-nav">
-        {coreNavItems.map((it) => (
-          <NavLink
-            key={it.path}
-            to={it.path}
-            className={({ isActive }) =>
-              `sidebar-link${isActive ? " sidebar-link-active" : ""}`
-            }
-          >
-            {it.label}
-          </NavLink>
-        ))}
-        {isAdmin && addonItems.length > 0 && <div className="sidebar-divider" />}
-        {isAdmin && addonItems.map((it) => (
-          <NavLink
-            key={it.path}
-            to={it.path}
-            className={({ isActive }) =>
-              `sidebar-link${isActive ? " sidebar-link-active" : ""}`
-            }
-          >
-            {it.label}
-          </NavLink>
+        {sections.map((section) => (
+          <div key={section.title} className="sidebar-section">
+            <div className="sidebar-section-title">{section.title}</div>
+            <div className="sidebar-section-items">
+              {section.items.map((it) => (
+                <NavLink
+                  key={it.path}
+                  to={it.path}
+                  className={({ isActive }) =>
+                    `sidebar-link${isActive ? " sidebar-link-active" : ""}`
+                  }
+                >
+                  {it.label}
+                </NavLink>
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
       <div className="sidebar-footer">
-        {isAdmin ? "Admin routes unlocked." : "Guest mode: sign in for Store, Addons, and Settings."}
+        {isAdmin ? "Admin mode enabled." : "Guest mode: Home only. Sign in for Addons, Store, and System routes."}
       </div>
     </aside>
   );

@@ -14,12 +14,6 @@ type AddonSummary = {
   updated_at?: string | null;
 };
 
-type ServiceStatus = {
-  running: boolean;
-  active_state?: string;
-  available?: boolean;
-};
-
 type SystemStats = {
   timestamp: number;
   hostname: string;
@@ -27,7 +21,6 @@ type SystemStats = {
   cpu: { percent_total: number };
   mem: { percent: number };
   disks: Record<string, { percent: number }>;
-  services?: Record<string, ServiceStatus>;
   busy_rating: number;
 };
 
@@ -45,17 +38,34 @@ type EventItem = {
   payload?: Record<string, unknown>;
 };
 
-type SchedulerStatus = {
-  snapshot?: {
-    active_leases: number;
-    queue_depths: Record<string, number>;
+type StackSummary = {
+  status: {
+    overall: "ok" | "degraded" | "attention" | "unknown";
+    reasons: string[];
+    updated_at: string;
   };
-};
-
-type MqttStatus = {
-  ok?: boolean;
-  connected?: boolean;
-  enabled?: boolean;
+  subsystems: {
+    core: { state: string };
+    supervisor: { state: string };
+    mqtt: { state: string; last_message_at?: string | null };
+    scheduler: { state: string; active_leases: number; queued_jobs: number };
+    workers: { state: string; active_count: number };
+    addons: { state: string; installed_count: number; unhealthy_count: number };
+  };
+  connectivity: {
+    network: { state: string };
+    internet: { state: string };
+  };
+  samples: {
+    internet_speed: {
+      state: string;
+      download_mbps?: number | null;
+      upload_mbps?: number | null;
+      latency_ms?: number | null;
+      sampled_at?: string | null;
+      age_s?: number;
+    };
+  };
 };
 
 function fmtUptime(sec: number): string {
@@ -80,6 +90,35 @@ function relative(ts: string): string {
   return `${Math.floor(deltaS / 86400)}d ago`;
 }
 
+function summaryTone(overall: string): "ok" | "warn" | "danger" {
+  if (overall === "attention") return "danger";
+  if (overall === "degraded" || overall === "unknown") return "warn";
+  return "ok";
+}
+
+function summaryLabel(overall: string): string {
+  if (overall === "attention") return "ATTENTION";
+  if (overall === "degraded") return "DEGRADED";
+  if (overall === "unknown") return "UNKNOWN";
+  return "READY";
+}
+
+function pillTone(state: string): "ok" | "warn" | "bad" | "neutral" {
+  const x = String(state || "unknown").toLowerCase();
+  if (["healthy", "connected", "running", "active", "reachable", "ok", "idle"].includes(x)) return "ok";
+  if (["degraded", "unknown", "unavailable", "not_configured"].includes(x)) return "warn";
+  if (["unhealthy", "disconnected", "unreachable", "error", "failed", "down"].includes(x)) return "bad";
+  return "neutral";
+}
+
+function speedValue(speed: StackSummary["samples"]["internet_speed"] | undefined): string {
+  if (!speed) return "unknown";
+  if (speed.state !== "ok") return speed.state;
+  const down = typeof speed.download_mbps === "number" ? speed.download_mbps.toFixed(1) : "-";
+  const up = typeof speed.upload_mbps === "number" ? speed.upload_mbps.toFixed(1) : "-";
+  return `↓${down} ↑${up} Mbps`;
+}
+
 export default function Home() {
   const { authenticated, login, logout, ready } = useAdminSession();
   const [username, setUsername] = useState("admin");
@@ -90,20 +129,19 @@ export default function Home() {
   const [stats, setStats] = useState<SystemStats | null>(null);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [repoStatus, setRepoStatus] = useState<RepoStatus | null>(null);
-  const [scheduler, setScheduler] = useState<SchedulerStatus | null>(null);
-  const [mqtt, setMqtt] = useState<MqttStatus | null>(null);
+  const [stack, setStack] = useState<StackSummary | null>(null);
   const [dataErr, setDataErr] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [showReasons, setShowReasons] = useState(false);
 
   async function loadDashboardData() {
     try {
-      const [addonsRes, statsRes, eventsRes, repoRes, schedulerRes, mqttRes] = await Promise.all([
+      const [addonsRes, statsRes, eventsRes, repoRes, stackRes] = await Promise.all([
         fetch("/api/addons", { cache: "no-store" }),
         fetch("/api/system/stats/current", { cache: "no-store" }),
         fetch("/api/system/events?limit=8", { cache: "no-store" }),
         fetch("/api/system/repo/status", { cache: "no-store" }),
-        fetch("/api/system/scheduler/status", { cache: "no-store" }),
-        fetch("/api/system/mqtt/status", { cache: "no-store" }),
+        fetch("/api/system/stack/summary", { cache: "no-store" }),
       ]);
       if (addonsRes.ok) setAddons((await addonsRes.json()) as AddonSummary[]);
       if (statsRes.ok) setStats((await statsRes.json()) as SystemStats);
@@ -112,8 +150,7 @@ export default function Home() {
         setEvents(Array.isArray(payload.items) ? payload.items : []);
       }
       if (repoRes.ok) setRepoStatus((await repoRes.json()) as RepoStatus);
-      if (schedulerRes.ok) setScheduler((await schedulerRes.json()) as SchedulerStatus);
-      if (mqttRes.ok) setMqtt((await mqttRes.json()) as MqttStatus);
+      if (stackRes.ok) setStack((await stackRes.json()) as StackSummary);
       setDataErr(null);
       setLastUpdated(new Date().toLocaleTimeString());
     } catch (e: unknown) {
@@ -163,23 +200,23 @@ export default function Home() {
     [addons],
   );
 
-  const unhealthyAddons = useMemo(
-    () => installedAddons.filter((item) => String(item.health_status || "").toLowerCase() === "unhealthy").length,
-    [installedAddons],
-  );
-
-  const coreRunning = true;
-  const supervisorRunning = !!stats?.services?.supervisor?.running;
-  const mqttConnected = !!mqtt?.connected;
-  const activeWorkers = scheduler?.snapshot?.active_leases ?? 0;
-  const queueDepth = Object.values(scheduler?.snapshot?.queue_depths || {}).reduce((acc, x) => acc + x, 0);
-
-  const statusState = useMemo(() => {
-    if (!stats) return { label: "OFFLINE", detail: "System stats unavailable", tone: "danger" };
-    if (!supervisorRunning) return { label: "ATTENTION", detail: "Supervisor not running", tone: "danger" };
-    if (!mqttConnected || unhealthyAddons > 0) return { label: "DEGRADED", detail: "Some subsystems need attention", tone: "warn" };
-    return { label: "READY", detail: "Core services healthy", tone: "ok" };
-  }, [stats, supervisorRunning, mqttConnected, unhealthyAddons]);
+  const status = useMemo(() => {
+    if (!stack) {
+      return {
+        label: "UNKNOWN",
+        detail: "Stack summary unavailable",
+        tone: "warn" as const,
+        reasons: ["Stack summary unavailable"],
+      };
+    }
+    const reasons = Array.isArray(stack.status.reasons) ? stack.status.reasons : [];
+    return {
+      label: summaryLabel(stack.status.overall),
+      detail: reasons.length > 0 ? reasons[0] : "Core services healthy",
+      tone: summaryTone(stack.status.overall),
+      reasons,
+    };
+  }, [stack]);
 
   return (
     <div className="home-page">
@@ -187,7 +224,7 @@ export default function Home() {
         <div>
           <h1 className="home-title">Home Dashboard</h1>
           <p className="home-subtitle">
-            Operational overview for core services, addons, workers, and recent platform activity.
+            Operational overview for core services, addons, workers, connectivity, and recent platform activity.
           </p>
         </div>
         <div className="home-head-meta">
@@ -199,26 +236,65 @@ export default function Home() {
         </div>
       </section>
 
-      <section className={`home-status-card tone-${statusState.tone}`}>
+      <section className={`home-status-card tone-${status.tone}`}>
         <div>
-          <div className="home-status-label">{statusState.label}</div>
-          <div className="home-status-detail">{statusState.detail}</div>
+          <div className="home-status-label">{status.label}</div>
+          <div className="home-status-detail">{status.detail}</div>
+          {status.reasons.length > 1 && (
+            <button className="home-reason-btn" onClick={() => setShowReasons((prev) => !prev)}>
+              {showReasons ? "Hide details" : `Show details (${status.reasons.length})`}
+            </button>
+          )}
+          {showReasons && status.reasons.length > 0 && (
+            <ul className="home-reason-list">
+              {status.reasons.map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+          )}
         </div>
         <div className="home-subsystems">
-          <span className={`home-subsystem ${coreRunning ? "ok" : "bad"}`}>Core</span>
-          <span className={`home-subsystem ${supervisorRunning ? "ok" : "bad"}`}>Supervisor</span>
-          <span className={`home-subsystem ${mqttConnected ? "ok" : "warn"}`}>MQTT</span>
-          <span className={`home-subsystem ${activeWorkers > 0 ? "ok" : "neutral"}`}>Workers</span>
-          <span className={`home-subsystem ${unhealthyAddons === 0 ? "ok" : "warn"}`}>Addons</span>
+          <span className={`home-subsystem ${pillTone(stack?.subsystems.core.state || "unknown")}`}>Core</span>
+          <span className={`home-subsystem ${pillTone(stack?.subsystems.supervisor.state || "unknown")}`}>Supervisor</span>
+          <span className={`home-subsystem ${pillTone(stack?.subsystems.mqtt.state || "unknown")}`}>MQTT</span>
+          <span className={`home-subsystem ${pillTone(stack?.subsystems.scheduler.state || "unknown")}`}>Scheduler</span>
+          <span className={`home-subsystem ${pillTone(stack?.subsystems.workers.state || "unknown")}`}>Workers</span>
+          <span className={`home-subsystem ${pillTone(stack?.subsystems.addons.state || "unknown")}`}>Addons</span>
+          <span className={`home-subsystem ${pillTone(stack?.connectivity.network.state || "unknown")}`}>Network</span>
+          <span className={`home-subsystem ${pillTone(stack?.connectivity.internet.state || "unknown")}`}>Internet</span>
         </div>
       </section>
 
       <section className="home-status-row">
-        <StatusMini title="Core" value={coreRunning ? "online" : "offline"} />
-        <StatusMini title="Supervisor" value={supervisorRunning ? "running" : "down"} />
-        <StatusMini title="Addons" value={`${installedAddons.length}`} />
-        <StatusMini title="Workers" value={`${activeWorkers}`} sub={queueDepth > 0 ? `${queueDepth} queued` : "idle"} />
-        <StatusMini title="Busy" value={stats ? `${stats.busy_rating.toFixed(1)}/10` : "—"} />
+        <StatusMini title="Core" value={stack?.subsystems.core.state || "unknown"} />
+        <StatusMini title="Supervisor" value={stack?.subsystems.supervisor.state || "unknown"} />
+        <StatusMini
+          title="Scheduler"
+          value={stack?.subsystems.scheduler.state || "unknown"}
+          sub={stack ? `${stack.subsystems.scheduler.queued_jobs} queued` : undefined}
+        />
+        <StatusMini title="MQTT" value={stack?.subsystems.mqtt.state || "unknown"} />
+        <StatusMini
+          title="Workers"
+          value={String(stack?.subsystems.workers.active_count ?? 0)}
+          sub={stack?.subsystems.workers.state || "unknown"}
+        />
+        <StatusMini
+          title="Addons"
+          value={String(stack?.subsystems.addons.installed_count ?? installedAddons.length)}
+          sub={`${stack?.subsystems.addons.unhealthy_count ?? 0} unhealthy`}
+        />
+        <StatusMini title="Network" value={stack?.connectivity.network.state || "unknown"} />
+        <StatusMini title="Internet" value={stack?.connectivity.internet.state || "unknown"} />
+        <StatusMini
+          title="Speed"
+          value={speedValue(stack?.samples.internet_speed)}
+          sub={
+            stack?.samples.internet_speed?.sampled_at
+              ? `sample ${relative(stack.samples.internet_speed.sampled_at)}`
+              : undefined
+          }
+        />
       </section>
 
       <section className="home-session-strip">
@@ -316,6 +392,9 @@ export default function Home() {
                     : 0,
                 )}
               />
+              <MetricRow label="Network" value={stack?.connectivity.network.state || "unknown"} />
+              <MetricRow label="Internet" value={stack?.connectivity.internet.state || "unknown"} />
+              <MetricRow label="Speed" value={speedValue(stack?.samples.internet_speed)} />
             </div>
           )}
         </article>

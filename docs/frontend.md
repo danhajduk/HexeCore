@@ -1,6 +1,6 @@
 # Frontend Documentation
 
-Last Updated: 2026-03-07 17:14 US/Pacific
+Last Updated: 2026-03-07 17:31 US/Pacific
 
 ## Stack
 
@@ -31,11 +31,13 @@ Last Updated: 2026-03-07 17:14 US/Pacific
 
 - Home:
   - operational dashboard for guest and admin
-  - Synthia status widget + subsystem pills
-  - compact status row (core/supervisor/addons/workers/busy)
+  - full-stack status widget driven by `GET /api/system/stack/summary`
+  - subsystem pills: core, supervisor, mqtt, scheduler, workers, addons, network, internet
+  - compact status row with scheduler/network/internet/speed visibility
+  - degraded/attention reason details (expand/collapse)
   - Installed Addons panel
   - Recent Activity panel (platform events feed)
-  - System Metrics panel (CPU/memory/disk)
+  - System Metrics panel (CPU/memory/disk + network/internet/speed status)
   - compact admin session strip (sign-in or sign-out state)
   - data refresh interval: 10s polling for dashboard cards
 - Store: catalog browsing, install actions, diagnostics and remediation UX
@@ -45,6 +47,9 @@ Last Updated: 2026-03-07 17:14 US/Pacific
   - standalone uninstall attempts surface remediation guidance instead of silent failure
   - successful uninstall triggers inventory + runtime refresh; sidebar addon links reconcile on next sidebar poll
 - Settings: settings + jobs/metrics/statistics + admin controls
+- Sidebar:
+  - categorized admin navigation (`Home`, `Addons`, `Store`, `System`, `Addon UIs`)
+  - guest navigation limited to `Home` with minimal guest footer messaging
 
 ## API Communication
 

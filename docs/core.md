@@ -1,6 +1,6 @@
 # Synthia Core Documentation
 
-Last Updated: 2026-03-07 18:07 US/Pacific
+Last Updated: 2026-03-07 17:31 US/Pacific
 
 ## Documentation Contract
 
@@ -29,6 +29,7 @@ Core owns:
 - Desired state generation for standalone services
 - Canonical standalone runtime aggregation (`desired.json` + `runtime.json` + Docker metadata)
 - UI routing, settings, metrics, and store pages
+- Home dashboard full-stack status aggregation (health, connectivity, sampled speed snapshot semantics)
 
 Core does not own:
 - Direct container runtime execution for standalone services

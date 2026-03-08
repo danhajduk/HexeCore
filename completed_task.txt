@@ -270,3 +270,4 @@
 2026-03-07 - Added admin-only Addons page uninstall flow with confirmation states, standalone remediation messaging, inventory/runtime refresh, and frontend regression tests (Task 127).
 2026-03-07 - Completed Task 127.1 audit of Home/dashboard and sidebar data coverage; identified existing health signals and backend gaps for network/internet/speed.
 2026-03-07 - Completed Task 127.2 by defining compact full-stack Home health model contract, missing-data semantics, mapping, and derived-state rules.
+2026-03-07 - Completed Task 127 full stack dashboard expansion: backend stack-summary endpoint (connectivity/speed cache), Home status model/pills/reasons, categorized sidebar, docs, and verification.

@@ -103,7 +103,7 @@
 
 .home-status-row {
   display: grid;
-  grid-template-columns: repeat(5, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 10px;
 }
 
@@ -304,4 +304,24 @@
   .home-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.home-reason-btn {
+  margin-top: 8px;
+  border: 1px solid hsl(var(--color-border));
+  background: transparent;
+  color: hsl(var(--color-text));
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.home-reason-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: hsl(var(--color-text-muted));
 }
