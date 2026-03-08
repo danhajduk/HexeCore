@@ -17,6 +17,8 @@ const TOKEN_NAMES = [
 ];
 
 const STYLE_ID = "synthia-core-theme-inject";
+const STYLE_MARKER_ATTR = "data-synthia-core-theme";
+const ROOT_MARKER_ATTR = "data-synthia-core-theme-injected";
 
 const COMPONENT_RULES = `
 body{font-family:var(--font-sans);background:hsl(var(--color-bg));color:hsl(var(--color-text));}
@@ -48,7 +50,9 @@ export function injectCoreCssIntoIframe(iframe: HTMLIFrameElement): boolean {
       styleEl.id = STYLE_ID;
       (childDoc.head || childDoc.documentElement).appendChild(styleEl);
     }
+    styleEl.setAttribute(STYLE_MARKER_ATTR, "true");
     styleEl.textContent = COMPONENT_RULES;
+    childRoot.setAttribute(ROOT_MARKER_ATTR, "true");
     return true;
   } catch {
     return false;

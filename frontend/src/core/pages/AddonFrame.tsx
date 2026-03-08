@@ -114,8 +114,10 @@ export default function AddonFrame() {
             src={src}
             className="addon-frame-iframe"
             onLoad={() => {
+              let injected = false;
               if (iframeRef.current) {
-                injectCoreCssIntoIframe(iframeRef.current);
+                injected = injectCoreCssIntoIframe(iframeRef.current);
+                iframeRef.current.setAttribute("data-core-theme-injected", injected ? "true" : "false");
               }
               setIframeLoaded(true);
             }}

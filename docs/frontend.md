@@ -1,6 +1,6 @@
 # Frontend Documentation
 
-Last Updated: 2026-03-08 15:33 US/Pacific
+Last Updated: 2026-03-08 15:38 US/Pacific
 
 ## Stack
 
@@ -86,6 +86,10 @@ Last Updated: 2026-03-08 15:33 US/Pacific
   - `ui_reachable` and `ui_reason` for loading/fallback state
   - `runtime_state` to stop loading early when standalone runtime is in error state
 - when iframe is same-origin accessible (proxy path), `AddonFrame` injects Core theme tokens and base component classes into iframe document on load
+  - verification markers:
+    - iframe element attribute: `data-core-theme-injected=true|false`
+    - iframe document root attribute: `data-synthia-core-theme-injected=true`
+    - iframe document style element: `#synthia-core-theme-inject[data-synthia-core-theme=true]`
 
 ## Styling and Theme
 
