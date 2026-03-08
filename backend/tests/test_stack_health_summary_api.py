@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import os
 import unittest
+from unittest.mock import patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from subprocess import CompletedProcess
 
+from app.system import stack_health
 from app.system.stack_health import build_stack_health_router
 
 
@@ -67,13 +70,11 @@ class TestStackHealthSummaryApi(unittest.TestCase):
     def setUp(self) -> None:
         self.old_local = os.environ.get("SYNTHIA_LOCAL_NETWORK_CHECK_HOST")
         self.old_internet = os.environ.get("SYNTHIA_INTERNET_CHECK_HOST")
-        self.old_download = os.environ.get("SYNTHIA_SPEEDTEST_DOWNLOAD_URL")
-        self.old_upload = os.environ.get("SYNTHIA_SPEEDTEST_UPLOAD_URL")
 
         os.environ["SYNTHIA_LOCAL_NETWORK_CHECK_HOST"] = ""
         os.environ["SYNTHIA_INTERNET_CHECK_HOST"] = ""
-        os.environ["SYNTHIA_SPEEDTEST_DOWNLOAD_URL"] = ""
-        os.environ["SYNTHIA_SPEEDTEST_UPLOAD_URL"] = ""
+        stack_health._sampler._speed_cache = None
+        stack_health._sampler._connectivity_cache = None
 
     def tearDown(self) -> None:
         if self.old_local is None:
@@ -86,17 +87,13 @@ class TestStackHealthSummaryApi(unittest.TestCase):
         else:
             os.environ["SYNTHIA_INTERNET_CHECK_HOST"] = self.old_internet
 
-        if self.old_download is None:
-            os.environ.pop("SYNTHIA_SPEEDTEST_DOWNLOAD_URL", None)
-        else:
-            os.environ["SYNTHIA_SPEEDTEST_DOWNLOAD_URL"] = self.old_download
+        stack_health._sampler._speed_cache = None
+        stack_health._sampler._connectivity_cache = None
 
-        if self.old_upload is None:
-            os.environ.pop("SYNTHIA_SPEEDTEST_UPLOAD_URL", None)
-        else:
-            os.environ["SYNTHIA_SPEEDTEST_UPLOAD_URL"] = self.old_upload
-
-    def test_stack_summary_returns_dashboard_contract(self) -> None:
+    @patch("app.system.stack_health.subprocess.run")
+    def test_stack_summary_returns_dashboard_contract(self, mock_run) -> None:
+        # Speed test may be unavailable; contract still returns stable summary payload.
+        mock_run.return_value = CompletedProcess(args=["speedtest-cli"], returncode=1, stdout="", stderr="missing")
         app = FastAPI()
         app.include_router(build_stack_health_router(), prefix="/api/system")
         app.state.scheduler_engine = _FakeScheduler()
@@ -122,10 +119,17 @@ class TestStackHealthSummaryApi(unittest.TestCase):
 
         self.assertEqual(payload["connectivity"]["network"]["state"], "not_configured")
         self.assertEqual(payload["connectivity"]["internet"]["state"], "not_configured")
-        self.assertEqual(payload["samples"]["internet_speed"]["state"], "not_configured")
+        self.assertEqual(payload["samples"]["internet_speed"]["state"], "unavailable")
         self.assertEqual(payload["samples"]["network_throughput"]["state"], "warming_up")
 
-    def test_stack_summary_derives_passive_speed_when_active_probe_not_configured(self) -> None:
+    @patch("app.system.stack_health.subprocess.run")
+    def test_stack_summary_reports_speedtest_cli_result(self, mock_run) -> None:
+        mock_run.return_value = CompletedProcess(
+            args=["speedtest-cli"],
+            returncode=0,
+            stdout='{"download": 12500000, "upload": 5000000, "ping": 23.6}',
+            stderr="",
+        )
         app = FastAPI()
         app.include_router(build_stack_health_router(), prefix="/api/system")
         app.state.scheduler_engine = _FakeScheduler()
@@ -143,9 +147,10 @@ class TestStackHealthSummaryApi(unittest.TestCase):
         self.assertEqual(payload["samples"]["network_throughput"]["tx_Bps"], 625000.0)
 
         self.assertEqual(payload["samples"]["internet_speed"]["state"], "ok")
-        self.assertEqual(payload["samples"]["internet_speed"]["source"], "passive_estimate")
-        self.assertEqual(payload["samples"]["internet_speed"]["download_mbps"], 10.0)
+        self.assertEqual(payload["samples"]["internet_speed"]["source"], "speedtest_cli")
+        self.assertEqual(payload["samples"]["internet_speed"]["download_mbps"], 12.5)
         self.assertEqual(payload["samples"]["internet_speed"]["upload_mbps"], 5.0)
+        self.assertEqual(payload["samples"]["internet_speed"]["latency_ms"], 23.6)
 
 
 if __name__ == "__main__":

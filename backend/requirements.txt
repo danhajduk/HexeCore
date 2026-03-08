@@ -5,3 +5,4 @@ psutil>=5.9.0
 httpx
 cryptography>=42.0
 pytest>=8.0
+speedtest-cli>=2.1.3

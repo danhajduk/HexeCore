@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import socket
+import subprocess
 import time
 import urllib.request
 from datetime import datetime, timezone
@@ -30,7 +32,7 @@ class _CachedSampler:
 
     async def speed(self) -> dict[str, Any]:
         now = time.time()
-        ttl = float(os.getenv("SYNTHIA_SPEEDTEST_SAMPLE_SECONDS", "900") or 900)
+        ttl = float(os.getenv("SYNTHIA_SPEEDTEST_SAMPLE_SECONDS", "1800") or 1800)
         async with self._lock:
             if self._speed_cache and (now - float(self._speed_cache.get("ts", 0))) <= ttl:
                 cached = dict(self._speed_cache["payload"])
@@ -112,32 +114,32 @@ def _upload_speed_mbps(url: str, timeout_s: float, upload_bytes: int) -> float |
 
 
 def _sample_speed() -> dict[str, Any]:
-    download_url = str(os.getenv("SYNTHIA_SPEEDTEST_DOWNLOAD_URL", "")).strip()
-    upload_url = str(os.getenv("SYNTHIA_SPEEDTEST_UPLOAD_URL", "")).strip()
     sampled_at = _now_iso()
-
-    if not download_url or not upload_url:
-        return {
-            "state": "not_configured",
-            "download_mbps": None,
-            "upload_mbps": None,
-            "latency_ms": None,
-            "sampled_at": sampled_at,
-            "age_s": 0,
-        }
-
-    timeout_s = float(str(os.getenv("SYNTHIA_SPEEDTEST_TIMEOUT_S", "3")).strip() or "3")
-    max_download_bytes = int(str(os.getenv("SYNTHIA_SPEEDTEST_DOWNLOAD_BYTES", "250000")).strip() or "250000")
-    upload_bytes = int(str(os.getenv("SYNTHIA_SPEEDTEST_UPLOAD_BYTES", "80000")).strip() or "80000")
+    timeout_s = float(str(os.getenv("SYNTHIA_SPEEDTEST_TIMEOUT_S", "45")).strip() or "45")
+    cli_bin = str(os.getenv("SYNTHIA_SPEEDTEST_CLI_BIN", "speedtest-cli")).strip() or "speedtest-cli"
 
     try:
-        download_mbps, latency_ms = _download_speed_mbps(download_url, timeout_s, max_download_bytes)
-        upload_mbps = _upload_speed_mbps(upload_url, timeout_s, upload_bytes)
+        completed = subprocess.run(
+            [cli_bin, "--json", "--secure"],
+            capture_output=True,
+            text=True,
+            timeout=max(timeout_s, 1.0),
+            check=False,
+        )
+        if completed.returncode != 0:
+            raise RuntimeError(completed.stderr.strip() or "speedtest_cli_failed")
+
+        payload = json.loads((completed.stdout or "").strip() or "{}")
+        download_bps = float(payload.get("download") or 0.0)
+        upload_bps = float(payload.get("upload") or 0.0)
+        latency_ms_raw = payload.get("ping")
+        latency_ms = round(float(latency_ms_raw), 1) if latency_ms_raw is not None else None
+
         return {
             "state": "ok",
-            "source": "active_probe",
-            "download_mbps": download_mbps,
-            "upload_mbps": upload_mbps,
+            "source": "speedtest_cli",
+            "download_mbps": round(max(download_bps, 0.0) / 1_000_000.0, 2),
+            "upload_mbps": round(max(upload_bps, 0.0) / 1_000_000.0, 2),
             "latency_ms": latency_ms,
             "sampled_at": sampled_at,
             "age_s": 0,
@@ -145,7 +147,7 @@ def _sample_speed() -> dict[str, Any]:
     except Exception:
         return {
             "state": "unavailable",
-            "source": "active_probe",
+            "source": "speedtest_cli",
             "download_mbps": None,
             "upload_mbps": None,
             "latency_ms": None,
