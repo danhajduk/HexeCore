@@ -1,6 +1,6 @@
 # Backend Documentation
 
-Last Updated: 2026-03-07 15:54 US/Pacific
+Last Updated: 2026-03-07 16:24 US/Pacific
 
 ## Overview
 
@@ -41,6 +41,7 @@ It mounts core routers, addon routers, and store/scheduler/auth subsystems.
   - usage ingest and stats
 - `/api/services`:
   - service resolution
+  - service registration (`POST /register`) with service-token scope enforcement
 - `/api/store`:
   - schema, catalog, sources, install/update/uninstall, status, diagnostics, audit
 
@@ -71,6 +72,9 @@ Backend uses mixed persistence:
   - engine metrics provider uses sampled system metrics and API metrics
 - Auth/user integration:
   - admin session + seeded admin user + service token key store
+- Service registry integration:
+  - `/api/services/register` writes service entries with fields `service_type`, `addon_id`, `endpoint`, `health`, `capabilities`
+  - registration binds token subject to `addon_id` and stores addon-registry metadata association with each service entry
 
 ## Not Developed
 

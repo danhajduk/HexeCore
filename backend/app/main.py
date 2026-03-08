@@ -267,7 +267,7 @@ def create_app() -> FastAPI:
     app.include_router(build_policy_router(policy_store, mqtt_manager, audit_store), prefix="/api/policy", tags=["policy"])
     app.include_router(build_telemetry_router(telemetry_store, service_token_keys), prefix="/api/telemetry", tags=["telemetry"])
     app.include_router(
-        build_service_resolution_router(registry, service_catalog_store),
+        build_service_resolution_router(registry, service_catalog_store, service_token_keys),
         prefix="/api/services",
         tags=["services"],
     )

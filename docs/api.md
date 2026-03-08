@@ -1,6 +1,6 @@
 # API Documentation (Structure)
 
-Last Updated: 2026-03-07 15:54 US/Pacific
+Last Updated: 2026-03-07 16:24 US/Pacific
 
 ## Conventions
 
@@ -18,13 +18,18 @@ Last Updated: 2026-03-07 15:54 US/Pacific
 - `/api/auth/*` (service token operations)
 - `/api/policy/*` (grants/revocations)
 - `/api/telemetry/*` (usage ingestion and stats)
-- `/api/services/*` (service resolver)
+- `/api/services/*` (service resolver + service registration)
 - `/api/store/*` (schema/catalog/sources/install/update/uninstall/status/diagnostics/audit)
 
 ## Auth Requirements (High Level)
 
 - Admin-protected endpoints require admin session/token checks.
 - Service-oriented endpoints require service token scope checks.
+
+Implemented service registration auth:
+- `POST /api/services/register` requires service token audience `synthia-core`
+- required scope: `services.register`
+- token subject (`sub`) must match `addon_id` in request
 - Public/read endpoints remain accessible without admin privilege where designed.
 
 Implemented admin-protected runtime endpoints:
@@ -36,6 +41,20 @@ Runtime health model (implemented in runtime payload):
 - `health_status`: service health state (`healthy|unhealthy|unknown`)
 - runtime aggregation may call addon endpoint `GET /api/addon/health` when probe is enabled and a published TCP port exists
 - runtime health probing is optional and disabled by default (`SYNTHIA_RUNTIME_HEALTH_PROBE_ENABLED`)
+
+## Service Discovery API
+
+Implemented:
+- `GET /api/services/resolve?capability={capability}`
+  - resolution order: local loaded addon registry -> registered remote addon registry -> service catalog store
+- `POST /api/services/register`
+  - body fields:
+    - `service_type`
+    - `addon_id`
+    - `endpoint`
+    - `health`
+    - `capabilities[]`
+  - persisted metadata includes addon registry association (`name`, `version`, `enabled`, local/remote flags)
 
 ## Error Format
 

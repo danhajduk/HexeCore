@@ -1,16 +1,70 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 
 from app.addons.registry import AddonRegistry
+from app.system.auth import ServiceTokenClaims, ServiceTokenKeyStore, require_service_token
 from .store import ServiceCatalogStore
+
+
+class ServiceRegisterRequest(BaseModel):
+    service_type: str = Field(..., min_length=1)
+    addon_id: str = Field(..., min_length=1)
+    endpoint: str = Field(..., min_length=1)
+    health: str = Field(default="unknown", min_length=1)
+    capabilities: list[str] = Field(default_factory=list)
 
 
 def build_service_resolution_router(
     registry: AddonRegistry,
     catalog_store: ServiceCatalogStore,
+    key_store: ServiceTokenKeyStore,
 ) -> APIRouter:
     router = APIRouter()
+    require_register_scope = require_service_token(
+        key_store=key_store,
+        audience="synthia-core",
+        scopes=["services.register"],
+    )
+
+    @router.post("/register")
+    async def register_service(
+        body: ServiceRegisterRequest,
+        claims: ServiceTokenClaims = Depends(require_register_scope),
+    ):
+        addon_id = body.addon_id.strip()
+        service_type = body.service_type.strip()
+        endpoint = body.endpoint.strip()
+        health = body.health.strip().lower() or "unknown"
+        capabilities = sorted({str(item).strip() for item in body.capabilities if str(item).strip()})
+        if claims.sub != addon_id:
+            raise HTTPException(status_code=403, detail="service_registration_subject_mismatch")
+        if not registry.has_addon(addon_id):
+            raise HTTPException(status_code=404, detail="service_registration_addon_not_found")
+
+        local_addon = registry.addons.get(addon_id)
+        remote_addon = registry.registered.get(addon_id)
+        addon_name = local_addon.meta.name if local_addon else (remote_addon.name if remote_addon else addon_id)
+        addon_version = local_addon.meta.version if local_addon else (remote_addon.version if remote_addon else "unknown")
+        enabled = registry.is_enabled(addon_id)
+
+        saved = await catalog_store.upsert_service(
+            service_type=service_type,
+            addon_id=addon_id,
+            endpoint=endpoint,
+            health=health,
+            capabilities=capabilities,
+            addon_registry={
+                "addon_id": addon_id,
+                "name": addon_name,
+                "version": addon_version,
+                "enabled": enabled,
+                "registered_remote": remote_addon is not None,
+                "loaded_local": local_addon is not None,
+            },
+        )
+        return {"ok": True, "service": saved}
 
     @router.get("/resolve")
     async def resolve_service(capability: str = Query(..., min_length=1)):

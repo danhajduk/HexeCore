@@ -1,6 +1,6 @@
 # Addon System Documentation
 
-Last Updated: 2026-03-07 15:54 US/Pacific
+Last Updated: 2026-03-07 16:24 US/Pacific
 
 ## Core Perspective
 
@@ -11,6 +11,10 @@ Addon system includes discovery, registry, proxying, install-session orchestrati
 - discovery scans addon backend entrypoints in workspace addons directories
 - registry stores loaded addons + registered remote addons
 - registry endpoints exist for register/configure/verify flows
+- service discovery supports service-provider registration through `POST /api/services/register`
+  - registration fields: `service_type`, `addon_id`, `endpoint`, `health`, `capabilities`
+  - service tokens are required (`aud=synthia-core`, scope `services.register`)
+  - token subject must match `addon_id` and service entries are associated with addon registry metadata
 
 ## Lifecycle (Core-Owned)
 

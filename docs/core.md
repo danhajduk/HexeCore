@@ -1,6 +1,6 @@
 # Synthia Core Documentation
 
-Last Updated: 2026-03-07 15:42 US/Pacific
+Last Updated: 2026-03-07 16:24 US/Pacific
 
 ## Documentation Contract
 
@@ -24,6 +24,7 @@ Core owns:
 - API surface and admin/session flows
 - Scheduler state and lifecycle APIs
 - Addon registry, install sessions, store/catalog flows
+- Service discovery APIs (`/api/services/resolve`, `/api/services/register`) and service-token gated registration policy
 - Desired state generation for standalone services
 - Canonical standalone runtime aggregation (`desired.json` + `runtime.json` + Docker metadata)
 - UI routing, settings, metrics, and store pages

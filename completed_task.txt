@@ -263,3 +263,4 @@
 2026-03-07 - Task 120: implemented optional addon health probing and health/liveness model integration in runtime aggregation and docs.
 2026-03-07 - Task 121: added optional standalone runtime cpu/memory governance in desired intent, install flow, compose generation, tests, and docs.
 2026-03-07 - Task 122: implemented standalone version retention cleanup policy and retention diagnostics with tests/docs.
+2026-03-07 - Implemented authenticated service registration API (/api/services/register) with addon metadata association and service discovery docs/tests updates.

@@ -25,6 +25,33 @@ class ServiceCatalogStore:
         async with self._lock:
             await asyncio.to_thread(self._upsert_sync, service_name, payload)
 
+    async def upsert_service(
+        self,
+        *,
+        service_type: str,
+        addon_id: str,
+        endpoint: str,
+        health: str,
+        capabilities: list[str],
+        addon_registry: dict[str, Any],
+    ) -> dict[str, Any]:
+        service_key = f"{addon_id}:{service_type}"
+        payload = {
+            "service_type": service_type,
+            "addon_id": addon_id,
+            "service": service_type,
+            "endpoint": endpoint,
+            "base_url": endpoint,
+            "health": health,
+            "health_status": health,
+            "capabilities": capabilities,
+            "auth_mode": "service_token",
+            "addon_registry": addon_registry,
+        }
+        await self.upsert_catalog(service_key, payload)
+        catalogs = await self.all_catalogs()
+        return catalogs.get(service_key, payload)
+
     async def resolve(self, capability: str) -> dict[str, Any] | None:
         capability = capability.strip()
         if not capability:
