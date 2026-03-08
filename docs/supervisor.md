@@ -1,6 +1,6 @@
 # Synthia Supervisor Runtime Specification (Code-Verified)
 
-Last Updated: 2026-03-08 12:20 US/Pacific
+Last Updated: 2026-03-08 12:49 US/Pacific
 
 This document only describes behavior that is present in code today. Any missing capability is explicitly labeled **Not developed**.
 
@@ -546,6 +546,7 @@ Field usage boundary:
 Ownership:
 - Supervisor writes `runtime.json` (atomic replace).
 - Core reads `runtime.json` for status/diagnostics.
+- Machine-readable reference schema: `docs/runtime.schema.json`.
 
 Supervisor-written state fields:
 - `ssap_version`

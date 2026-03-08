@@ -1,6 +1,6 @@
 # Store and Catalog Documentation
 
-Last Updated: 2026-03-08 12:20 US/Pacific
+Last Updated: 2026-03-08 12:52 US/Pacific
 
 ## Scope
 
@@ -48,6 +48,7 @@ Store expectations:
   - required `manifest.json`
   - required `backend/addon.py`
   - `manifest.id` must match target addon id
+- Machine-readable artifact manifest schema reference: `docs/addon-manifest.schema.json`.
 - Catalog install path builds/validates `ReleaseManifest` from catalog release/manifest data.
 - `ReleaseManifest` supports optional `runtime_defaults`:
   - `ports[]` (`host`, `container`, `proto`, optional `purpose`)
@@ -62,6 +63,7 @@ Store ownership:
 Store expectations/behavior:
 - Written by Store for `install_mode=standalone_service`.
 - Validated against `DesiredStatePayload` schema before write.
+- Machine-readable reference schema: `docs/desired.schema.json`.
 - Key required fields written:
   - `ssap_version`, `addon_id`, `mode`, `desired_state`, `desired_revision`, `force_rebuild`, `channel`
   - `install_source` (`type`, `catalog_id`, `release`)

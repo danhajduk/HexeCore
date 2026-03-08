@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://synthia.local/schemas/desired.schema.json",
+  "title": "Synthia Standalone Desired State",
+  "description": "Core-authored desired.json contract for standalone addon services.",
+  "type": "object",
+  "required": [
+    "ssap_version",
+    "addon_id",
+    "mode",
+    "desired_state",
+    "desired_revision",
+    "force_rebuild",
+    "channel",
+    "install_source",
+    "runtime",
+    "config"
+  ],
+  "properties": {
+    "ssap_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "addon_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "mode": {
+      "type": "string",
+      "const": "standalone_service"
+    },
+    "desired_state": {
+      "type": "string",
+      "enum": [
+        "running",
+        "stopped"
+      ]
+    },
+    "desired_revision": {
+      "type": "string",
+      "minLength": 1
+    },
+    "force_rebuild": {
+      "type": "boolean",
+      "default": false
+    },
+    "channel": {
+      "type": "string",
+      "enum": [
+        "stable",
+        "beta",
+        "nightly"
+      ]
+    },
+    "pinned_version": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "install_source": {
+      "type": "object",
+      "required": [
+        "type",
+        "catalog_id",
+        "release"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "default": "catalog"
+        },
+        "catalog_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "release": {
+          "type": "object",
+          "required": [
+            "artifact_url"
+          ],
+          "properties": {
+            "artifact_url": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "type": "string",
+              "default": ""
+            },
+            "publisher_key_id": {
+              "type": "string",
+              "default": ""
+            },
+            "signature": {
+              "type": "object",
+              "required": [
+                "type",
+                "value"
+              ],
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "default": "none"
+                },
+                "value": {
+                  "type": "string",
+                  "default": ""
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "required": [
+        "orchestrator",
+        "project_name",
+        "network",
+        "ports",
+        "bind_localhost"
+      ],
+      "properties": {
+        "orchestrator": {
+          "type": "string",
+          "default": "docker_compose"
+        },
+        "project_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "network": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ports": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "host": {
+                "type": "integer"
+              },
+              "container": {
+                "type": "integer"
+              },
+              "proto": {
+                "type": "string",
+                "enum": [
+                  "tcp",
+                  "udp"
+                ]
+              }
+            }
+          },
+          "default": []
+        },
+        "bind_localhost": {
+          "type": "boolean",
+          "default": true
+        },
+        "cpu": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "memory": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "config": {
+      "type": "object",
+      "required": [
+        "env"
+      ],
+      "properties": {
+        "env": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {}
+        }
+      }
+    }
+  }
+}
