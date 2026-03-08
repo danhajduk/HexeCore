@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 from app.addons.registry import AddonRegistry
 from app.system.auth import ServiceTokenClaims, ServiceTokenKeyStore, require_service_token
+from app.system.events import PlatformEventService
 from .store import ServiceCatalogStore
 
 
@@ -20,6 +21,7 @@ def build_service_resolution_router(
     registry: AddonRegistry,
     catalog_store: ServiceCatalogStore,
     key_store: ServiceTokenKeyStore,
+    events: PlatformEventService | None = None,
 ) -> APIRouter:
     router = APIRouter()
     require_register_scope = require_service_token(
@@ -64,6 +66,18 @@ def build_service_resolution_router(
                 "loaded_local": local_addon is not None,
             },
         )
+        if events is not None:
+            await events.emit(
+                event_type="service_registered",
+                source="services.api",
+                payload={
+                    "service_type": service_type,
+                    "addon_id": addon_id,
+                    "endpoint": endpoint,
+                    "health": health,
+                    "capabilities": capabilities,
+                },
+            )
         return {"ok": True, "service": saved}
 
     @router.get("/resolve")

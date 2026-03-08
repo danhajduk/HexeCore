@@ -1,6 +1,6 @@
 # Addon System Documentation
 
-Last Updated: 2026-03-07 16:24 US/Pacific
+Last Updated: 2026-03-07 17:08 US/Pacific
 
 ## Core Perspective
 
@@ -53,6 +53,17 @@ Optional probing behavior:
 ## UI Integration
 
 - frontend includes addon inventory pages and dynamic addon route loading
+
+## Platform Events Integration
+
+Implemented lifecycle events emitted by core integrations:
+- `service_registered` from `/api/services/register`
+- `addon_installed` / `addon_updated` from store install/update success paths
+- `addon_started` / `addon_failed` from MQTT announce/health transitions
+
+Not developed:
+- Guaranteed exactly-once delivery for addon lifecycle events
+- Persistent historical lifecycle timeline beyond process memory
 
 ## Related Documents
 

@@ -15,6 +15,7 @@ from fastapi import APIRouter, Header, HTTPException, Query, Request
 
 from app.addons.registry import AddonRegistry
 from app.api.admin import require_admin_token
+from app.system.events import PlatformEventService
 from app.system.runtime import StandaloneRuntimeService
 from .audit import StoreAuditLogStore
 from .catalog import CatalogCacheClient, CatalogQuery, StaticCatalogStore
@@ -880,6 +881,7 @@ def build_store_router(
     sources_store: StoreSourcesStore | None = None,
     catalog_client: CatalogCacheClient | None = None,
     runtime_service: StandaloneRuntimeService | None = None,
+    events: PlatformEventService | None = None,
 ) -> APIRouter:
     router = APIRouter()
     static_catalog = StaticCatalogStore.from_default_path()
@@ -1497,6 +1499,18 @@ def build_store_router(
                     message="standalone_install_desired_written",
                     actor=actor,
                 )
+                if events is not None:
+                    await events.emit(
+                        event_type="addon_installed",
+                        source="store.api",
+                        payload={
+                            "addon_id": manifest.id,
+                            "version": manifest.version,
+                            "mode": manifest.package_profile,
+                            "install_mode": requested_install_mode,
+                            "runtime_state": runtime_state,
+                        },
+                    )
                 return {
                     "ok": True,
                     "addon_id": manifest.id,
@@ -1604,6 +1618,17 @@ def build_store_router(
                 message="install_completed",
                 actor=actor,
             )
+            if events is not None:
+                await events.emit(
+                    event_type="addon_installed",
+                    source="store.api",
+                    payload={
+                        "addon_id": manifest.id,
+                        "version": manifest.version,
+                        "mode": manifest.package_profile,
+                        "install_mode": requested_install_mode,
+                    },
+                )
             return {
                 "ok": True,
                 "addon_id": manifest.id,
@@ -1888,6 +1913,16 @@ def build_store_router(
                 message="update_completed",
                 actor=actor,
             )
+            if events is not None:
+                await events.emit(
+                    event_type="addon_updated",
+                    source="store.api",
+                    payload={
+                        "addon_id": body.manifest.id,
+                        "version": body.manifest.version,
+                        "mode": body.manifest.package_profile,
+                    },
+                )
             return {
                 "ok": True,
                 "addon_id": body.manifest.id,

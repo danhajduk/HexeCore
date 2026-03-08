@@ -10,6 +10,7 @@ from typing import Any
 
 from app.addons.registry import AddonRegistry
 from app.addons.install_sessions import InstallSessionsStore
+from app.system.events import PlatformEventService
 from app.system.security import redact_secrets
 from app.system.settings.store import SettingsStore
 from app.system.services.store import ServiceCatalogStore
@@ -46,12 +47,14 @@ class MqttManager:
         registry: AddonRegistry,
         service_catalog_store: ServiceCatalogStore,
         install_sessions_store: InstallSessionsStore | None = None,
+        events: PlatformEventService | None = None,
         enabled: bool = True,
     ) -> None:
         self._settings = settings_store
         self._registry = registry
         self._service_catalogs = service_catalog_store
         self._install_sessions = install_sessions_store
+        self._events = events
         self._enabled = enabled
         self._loop: asyncio.AbstractEventLoop | None = None
         self._client: Any = None
@@ -261,12 +264,41 @@ class MqttManager:
 
         async def _run() -> None:
             try:
+                prior = self._registry.registered.get(addon_id)
+                prior_health = str(prior.health_status).lower() if prior is not None else "unknown"
                 if announce:
-                    self._registry.update_from_mqtt_announce(addon_id, payload)
+                    addon = self._registry.update_from_mqtt_announce(addon_id, payload)
                     if self._install_sessions is not None:
                         self._install_sessions.mark_discovered(addon_id)
+                    if self._events is not None:
+                        await self._events.emit(
+                            event_type="addon_started",
+                            source="mqtt.announce",
+                            payload={
+                                "addon_id": addon_id,
+                                "health_status": addon.health_status,
+                                "version": addon.version,
+                                "base_url": addon.base_url,
+                            },
+                        )
                 else:
-                    self._registry.update_from_mqtt_health(addon_id, payload)
+                    addon = self._registry.update_from_mqtt_health(addon_id, payload)
+                    current_health = str(addon.health_status).lower()
+                    failed_states = {"failed", "error", "unhealthy", "down"}
+                    started_states = {"ok", "healthy", "running", "up"}
+                    if self._events is not None and current_health != prior_health:
+                        if current_health in failed_states:
+                            await self._events.emit(
+                                event_type="addon_failed",
+                                source="mqtt.health",
+                                payload={"addon_id": addon_id, "health_status": addon.health_status},
+                            )
+                        elif current_health in started_states:
+                            await self._events.emit(
+                                event_type="addon_started",
+                                source="mqtt.health",
+                                payload={"addon_id": addon_id, "health_status": addon.health_status},
+                            )
             except Exception:
                 log.exception("Failed to apply MQTT addon update")
 

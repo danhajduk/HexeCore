@@ -8,6 +8,8 @@ from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from app.system.events import PlatformEventService
+
 from .engine import SchedulerEngine
 from .queue_store import QueueStore
 from .queue_persist import QueuePersistStore
@@ -26,7 +28,11 @@ from .models import (
     JobState,
 )
 
-def build_scheduler_router(engine: SchedulerEngine, debug_enabled: bool = False) -> APIRouter:
+def build_scheduler_router(
+    engine: SchedulerEngine,
+    debug_enabled: bool = False,
+    events: PlatformEventService | None = None,
+) -> APIRouter:
     router = APIRouter()
     expire_task: asyncio.Task | None = None
     dispatch_task: asyncio.Task | None = None
@@ -150,6 +156,16 @@ def build_scheduler_router(engine: SchedulerEngine, debug_enabled: bool = False)
     async def complete(lease_id: str, req: CompleteLeaseRequest) -> CompleteLeaseResponse:
         try:
             await engine.complete(lease_id=lease_id, worker_id=req.worker_id, status=req.status)
+            if events is not None:
+                await events.emit(
+                    event_type="job_completed",
+                    source="scheduler.leases",
+                    payload={
+                        "lease_id": lease_id,
+                        "worker_id": req.worker_id,
+                        "status": req.status,
+                    },
+                )
             return CompleteLeaseResponse(ok=True)
         except PermissionError:
             raise HTTPException(status_code=403, detail="worker_mismatch")
@@ -471,6 +487,18 @@ def build_scheduler_router(engine: SchedulerEngine, debug_enabled: bool = False)
             queue_store.record_event(job.job_id, prev, job.state, "complete")
             await _persist_job(job)
             await _persist_event(job.job_id, prev, job.state, "complete")
+            if events is not None:
+                await events.emit(
+                    event_type="job_completed",
+                    source="scheduler.queue",
+                    payload={
+                        "job_id": job.job_id,
+                        "addon_id": job.addon_id,
+                        "job_type": job.job_type,
+                        "status": req.status,
+                        "final_state": job.state,
+                    },
+                )
             return CompleteJobIntentResponse(ok=True)
 
     return router

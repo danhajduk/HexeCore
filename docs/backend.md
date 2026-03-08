@@ -1,6 +1,6 @@
 # Backend Documentation
 
-Last Updated: 2026-03-07 16:24 US/Pacific
+Last Updated: 2026-03-07 17:08 US/Pacific
 
 ## Overview
 
@@ -27,6 +27,7 @@ It mounts core routers, addon routers, and store/scheduler/auth subsystems.
   - stats/current
   - settings
   - mqtt controls
+  - platform events (`/system/events`)
   - repo status
   - standalone runtime aggregation (`/system/addons/runtime*`, admin-protected)
   - optional service health probing (`GET /api/addon/health`) through runtime aggregation
@@ -54,6 +55,7 @@ Started in backend startup event:
 - scheduler history cleanup loop
 - addon health poll loop
 - MQTT manager start (config controlled)
+- platform event emission to in-memory queue + logs (+ MQTT topic publish when available)
 
 ## Persistence and State
 
@@ -82,3 +84,4 @@ Backend uses mixed persistence:
 - Strong distributed coordination primitives for scheduler/supervisor
 - Health probing is optional and disabled by default (`SYNTHIA_RUNTIME_HEALTH_PROBE_ENABLED=false` by default)
 - Probing requires a reachable published TCP port; addons without probe endpoint report health as `unknown`
+- durable event store and replay API for platform events

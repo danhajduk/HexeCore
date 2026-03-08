@@ -1,6 +1,6 @@
 # Synthia Core Documentation
 
-Last Updated: 2026-03-07 16:24 US/Pacific
+Last Updated: 2026-03-07 17:08 US/Pacific
 
 ## Documentation Contract
 
@@ -25,6 +25,7 @@ Core owns:
 - Scheduler state and lifecycle APIs
 - Addon registry, install sessions, store/catalog flows
 - Service discovery APIs (`/api/services/resolve`, `/api/services/register`) and service-token gated registration policy
+- Platform event foundation (`/api/system/events`) with lifecycle event emission hooks
 - Desired state generation for standalone services
 - Canonical standalone runtime aggregation (`desired.json` + `runtime.json` + Docker metadata)
 - UI routing, settings, metrics, and store pages
@@ -33,6 +34,7 @@ Core does not own:
 - Direct container runtime execution for standalone services
 - Docker daemon lifecycle
 - Supervisor internals beyond writing desired/runtime intent files and reading status
+- Durable cross-process event streaming infrastructure (current event queue is in-memory in backend process)
 
 ## System Relationship Map
 

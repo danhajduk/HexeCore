@@ -37,6 +37,7 @@ from app.system.scheduler.history import SchedulerHistoryStore
 from app.system.settings.store import SettingsStore
 from app.system.settings.router import build_settings_router
 from app.system.mqtt import MqttManager, build_mqtt_router
+from app.system.events import PlatformEventService, build_events_router
 from app.system.services import ServiceCatalogStore, build_service_resolution_router
 from app.system.auth import ServiceTokenKeyStore, build_auth_router
 from app.system.policy import PolicyStore, build_policy_router
@@ -233,9 +234,13 @@ def create_app() -> FastAPI:
     app.include_router(build_users_router(users_store, audit_store), prefix="/api/admin", tags=["admin-users"])
     app.include_router(repo_status_router, prefix="/api/system", tags=["repo"])
 
+    event_service = PlatformEventService()
+    app.state.platform_events = event_service
+
     scheduler_router = build_scheduler_router(
         engine,
         debug_enabled=bool(getattr(cfg_boot, "scheduler_debug_enabled", False)),
+        events=event_service,
     )
     app.include_router(scheduler_router, prefix="/api/system/scheduler", tags=["scheduler"])
 
@@ -248,6 +253,7 @@ def create_app() -> FastAPI:
         registry=registry,
         service_catalog_store=service_catalog_store,
         install_sessions_store=install_sessions_store,
+        events=event_service,
         enabled=bool(getattr(cfg_boot, "mqtt_listener_enabled", True)),
     )
     app.state.mqtt_manager = mqtt_manager
@@ -263,11 +269,12 @@ def create_app() -> FastAPI:
     app.include_router(build_addons_install_router(registry, install_sessions_store), prefix="/api")
     app.include_router(build_admin_registry_router(registry), prefix="/api")
     app.include_router(build_mqtt_router(mqtt_manager), prefix="/api/system", tags=["mqtt"])
+    app.include_router(build_events_router(event_service), prefix="/api/system", tags=["events"])
     app.include_router(build_auth_router(service_token_keys), prefix="/api/auth", tags=["auth"])
     app.include_router(build_policy_router(policy_store, mqtt_manager, audit_store), prefix="/api/policy", tags=["policy"])
     app.include_router(build_telemetry_router(telemetry_store, service_token_keys), prefix="/api/telemetry", tags=["telemetry"])
     app.include_router(
-        build_service_resolution_router(registry, service_catalog_store, service_token_keys),
+        build_service_resolution_router(registry, service_catalog_store, service_token_keys, event_service),
         prefix="/api/services",
         tags=["services"],
     )
@@ -278,7 +285,7 @@ def create_app() -> FastAPI:
         catalog_public_keys_json=cfg_boot.store_catalog_public_keys_json,
     )
     app.include_router(
-        build_store_router(registry, store_audit_store, store_sources_store, catalog_cache_client),
+        build_store_router(registry, store_audit_store, store_sources_store, catalog_cache_client, events=event_service),
         prefix="/api/store",
         tags=["store"],
     )

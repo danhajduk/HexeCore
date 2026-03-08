@@ -1,6 +1,6 @@
 # API Documentation (Structure)
 
-Last Updated: 2026-03-07 16:24 US/Pacific
+Last Updated: 2026-03-07 17:08 US/Pacific
 
 ## Conventions
 
@@ -14,6 +14,7 @@ Last Updated: 2026-03-07 16:24 US/Pacific
 - `/api/addons*` (core addon listing, enablement, registry, install sessions, proxy aliases)
 - `/api/admin/*` (session + reload + users/admin registry)
 - `/api/system/*` (stats/settings/mqtt/repo/runtime)
+- `/api/system/events` (recent platform events)
 - `/api/system/scheduler/*` (jobs/leases/history/queue/debug)
 - `/api/auth/*` (service token operations)
 - `/api/policy/*` (grants/revocations)
@@ -55,6 +56,25 @@ Implemented:
     - `health`
     - `capabilities[]`
   - persisted metadata includes addon registry association (`name`, `version`, `enabled`, local/remote flags)
+
+## Platform Events API
+
+Implemented:
+- `GET /api/system/events`
+  - returns recent in-memory platform events
+  - supports filters: `event_type`, `source`, `limit`
+- Current emitted event types:
+  - `addon_installed`
+  - `addon_started`
+  - `addon_failed`
+  - `addon_updated`
+  - `job_completed`
+  - `service_registered`
+
+Not developed:
+- durable event persistence across backend restarts
+- subscription/streaming API (SSE/WebSocket)
+- event delivery retries and dead-letter queue semantics
 
 ## Error Format
 
