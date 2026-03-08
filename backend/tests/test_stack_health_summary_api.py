@@ -95,6 +95,8 @@ class TestStackHealthSummaryApi(unittest.TestCase):
         self.old_local = os.environ.get("SYNTHIA_LOCAL_NETWORK_CHECK_HOST")
         self.old_internet = os.environ.get("SYNTHIA_INTERNET_CHECK_HOST")
         self.old_mqtt_host = os.environ.get("MQTT_HOST")
+        self.old_backend_host = os.environ.get("SYNTHIA_BACKEND_HOST")
+        self.old_backend_port = os.environ.get("SYNTHIA_BACKEND_PORT")
         self.old_speedtest_cli_bin = os.environ.get("SYNTHIA_SPEEDTEST_CLI_BIN")
 
         os.environ["SYNTHIA_LOCAL_NETWORK_CHECK_HOST"] = ""
@@ -118,6 +120,16 @@ class TestStackHealthSummaryApi(unittest.TestCase):
             os.environ.pop("MQTT_HOST", None)
         else:
             os.environ["MQTT_HOST"] = self.old_mqtt_host
+
+        if self.old_backend_host is None:
+            os.environ.pop("SYNTHIA_BACKEND_HOST", None)
+        else:
+            os.environ["SYNTHIA_BACKEND_HOST"] = self.old_backend_host
+
+        if self.old_backend_port is None:
+            os.environ.pop("SYNTHIA_BACKEND_PORT", None)
+        else:
+            os.environ["SYNTHIA_BACKEND_PORT"] = self.old_backend_port
 
         if self.old_speedtest_cli_bin is None:
             os.environ.pop("SYNTHIA_SPEEDTEST_CLI_BIN", None)
@@ -305,6 +317,32 @@ class TestStackHealthSummaryApi(unittest.TestCase):
         self.assertEqual(payload["connectivity"]["internet"]["state"], "not_configured")
         self.assertEqual(mock_reachable.call_count, 1)
         self.assertEqual(mock_reachable.call_args.args[0], "10.0.0.100")
+
+    @patch("app.system.stack_health._tcp_reachable", return_value=True)
+    def test_stack_summary_uses_backend_host_for_network_check_when_local_and_mqtt_missing(self, mock_reachable) -> None:
+        os.environ["SYNTHIA_INTERNET_CHECK_HOST"] = ""
+        os.environ["SYNTHIA_LOCAL_NETWORK_CHECK_HOST"] = ""
+        os.environ["MQTT_HOST"] = ""
+        os.environ["SYNTHIA_BACKEND_HOST"] = "10.0.0.100"
+        os.environ["SYNTHIA_BACKEND_PORT"] = "9001"
+
+        app = FastAPI()
+        app.include_router(build_stack_health_router(), prefix="/api/system")
+        app.state.scheduler_engine = _FakeScheduler()
+        app.state.mqtt_manager = _FakeMqtt()
+        app.state.addon_registry = _FakeRegistry()
+        app.state.latest_stats = _FakeStats()
+
+        client = TestClient(app)
+        res = client.get("/api/system/stack/summary")
+        self.assertEqual(res.status_code, 200, res.text)
+
+        payload = res.json()
+        self.assertEqual(payload["connectivity"]["network"]["state"], "reachable")
+        self.assertEqual(payload["connectivity"]["internet"]["state"], "not_configured")
+        self.assertEqual(mock_reachable.call_count, 1)
+        self.assertEqual(mock_reachable.call_args.args[0], "10.0.0.100")
+        self.assertEqual(mock_reachable.call_args.args[1], 9001)
 
 
 if __name__ == "__main__":

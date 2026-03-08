@@ -278,3 +278,4 @@
 2026-03-07 - Added passive internet speed fallback from throughput when speedtest sample is unavailable
 2026-03-07 - Added multi-runner active speedtest support (cli/module/ookla) with schema parsing fallbacks
 2026-03-07 - Enforced backend-scheduled speed sampling and cached-only speed reads in stack summary
+2026-03-07 - Added local network health fallback to SYNTHIA_BACKEND_HOST/SYNTHIA_BACKEND_PORT

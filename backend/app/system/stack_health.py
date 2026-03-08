@@ -101,6 +101,10 @@ def _sample_connectivity() -> dict[str, Any]:
         # network health host is not configured.
         local_host = str(os.getenv("MQTT_HOST", "")).strip()
     local_port = int(str(os.getenv("SYNTHIA_LOCAL_NETWORK_CHECK_PORT", "53")).strip() or "53")
+    if not local_host:
+        # Backend service env commonly includes SYNTHIA_BACKEND_HOST/PORT.
+        local_host = str(os.getenv("SYNTHIA_BACKEND_HOST", "")).strip()
+        local_port = int(str(os.getenv("SYNTHIA_BACKEND_PORT", "9001")).strip() or "9001")
     internet_host = str(os.getenv("SYNTHIA_INTERNET_CHECK_HOST", "1.1.1.1")).strip()
     internet_port = int(str(os.getenv("SYNTHIA_INTERNET_CHECK_PORT", "53")).strip() or "53")
 
