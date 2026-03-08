@@ -59,6 +59,11 @@ From `frontend/src/theme/components.css`:
   - `.home-mini`
   - `.home-mini.warn`
   - `.home-mini.bad`
+  - `.home-head`
+  - `.home-status-card`
+  - `.home-status-card.tone-ok`
+  - `.home-status-card.tone-warn`
+  - `.home-status-card.tone-danger`
   - `.home-panel`
   - `.home-panel-head`
   - `.home-panel h2`

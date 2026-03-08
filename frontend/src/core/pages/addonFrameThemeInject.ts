@@ -30,6 +30,11 @@ a{color:hsl(var(--color-primary));text-decoration:none;}
 .home-mini{border:2px solid hsl(var(--color-border));border-radius:var(--radius-md);background:hsl(var(--color-panel));padding:10px;}
 .home-mini.warn{border-color:hsl(var(--color-warning));}
 .home-mini.bad{border-color:hsl(var(--color-danger));}
+.home-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;}
+.home-status-card{border:2px solid hsl(var(--color-border));border-radius:var(--radius-md);background:hsl(var(--color-panel));padding:14px;display:flex;justify-content:space-between;gap:14px;align-items:center;}
+.home-status-card.tone-ok{border-color:hsl(var(--color-success));}
+.home-status-card.tone-warn{border-color:hsl(var(--color-warning));}
+.home-status-card.tone-danger{border-color:hsl(var(--color-danger));}
 .home-panel{border:1px solid hsl(var(--color-border));border-radius:var(--radius-md);background:hsl(var(--color-panel));padding:12px;min-height:250px;}
 .home-panel h2{margin:0;font-size:16px;}
 .home-panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
