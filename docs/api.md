@@ -1,6 +1,6 @@
 # API Documentation (Structure)
 
-Last Updated: 2026-03-07 22:10 US/Pacific
+Last Updated: 2026-03-08 15:12 US/Pacific
 
 ## Conventions
 
@@ -96,6 +96,13 @@ Implemented uninstall behavior boundary:
   - writes `desired_state=stopped` to standalone desired intent when available
   - performs best-effort `docker compose down --remove-orphans` using standalone project metadata
   - removes standalone service files under `SYNTHIA_ADDONS_DIR/services/{addon_id}`
+
+Implemented standalone UI status fields in Store status/install/update payloads:
+
+- `ui_reachable`: backend-computed readiness for standalone addon UI
+- `ui_redirect_target`: frontend route target (`/addons/{addon_id}`) when reachable
+- `ui_embed_target`: backend proxy path used by iframe embed (`/ui/addons/{addon_id}`)
+- `ui_reason`: backend readiness reason (`ready`, `runtime_unavailable`, `runtime_not_running`, `no_published_ports`, `health_unhealthy`)
 
 ## Service Discovery API
 

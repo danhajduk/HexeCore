@@ -1,6 +1,6 @@
 # Store and Catalog Documentation
 
-Last Updated: 2026-03-08 13:08 US/Pacific
+Last Updated: 2026-03-08 15:12 US/Pacific
 
 ## Scope
 
@@ -35,7 +35,7 @@ Implemented:
 - standalone runtime overrides support optional `cpu` and `memory` values for desired runtime intent
 - standalone uninstall path now performs desired-state stop intent, best-effort compose teardown, and standalone service directory removal
 - status/diagnostic endpoints read runtime state and summarize errors
-- standalone install/status payloads expose UI reachability hints (`ui_reachable`, `ui_redirect_target`, `ui_reason`)
+- standalone install/status payloads expose UI embed contract fields (`ui_reachable`, `ui_redirect_target`, `ui_embed_target`, `ui_reason`)
 - frontend install success flow may auto-redirect to addon UI route (`/addons/{addon_id}`) when `ui_reachable=true`; otherwise it stays in store with fallback guidance
 - diagnostics expose standalone retention policy and retained/prunable version lists
 
@@ -90,6 +90,27 @@ Store expectations/behavior:
 - Store does not write runtime state.
 - Store reads runtime snapshots (via runtime aggregation service) for status/diagnostics.
 - During standalone uninstall, Store may read state for compose target selection but runtime file lifecycle remains supervisor-owned.
+
+## Standalone UI Embed Contract
+
+Implemented contract between Store API and frontend `AddonFrame` route:
+
+- `ui_reachable`:
+  - `true` only when standalone runtime state is `running`, health is not unhealthy, and published ports are present.
+- `ui_redirect_target`:
+  - set to `/addons/{addon_id}` when `ui_reachable=true`; otherwise `null`.
+- `ui_embed_target`:
+  - backend proxy path for iframe embedding, currently `/ui/addons/{addon_id}`.
+- `ui_reason`:
+  - readiness/fallback reason (`ready`, `runtime_unavailable`, `runtime_not_running`, `no_published_ports`, `health_unhealthy`).
+
+Frontend behavior:
+
+- install flow uses `ui_reachable` + `ui_redirect_target` for post-install navigation
+- `AddonFrame` probes `/api/store/status/{addon_id}` and:
+  - shows loading while readiness is pending
+  - renders iframe using `ui_embed_target` once reachable
+  - renders fallback message when runtime enters error state or readiness times out
 
 ## Development Policy
 

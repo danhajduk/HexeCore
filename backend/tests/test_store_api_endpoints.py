@@ -688,6 +688,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(payload["standalone_runtime"]["health"]["status"], "healthy")
         self.assertFalse(payload["ui_reachable"])
         self.assertIsNone(payload["ui_redirect_target"])
+        self.assertEqual(payload["ui_embed_target"], "/ui/addons/hello_world")
 
     def test_status_handles_malformed_standalone_runtime_json(self) -> None:
         runtime_path = Path(self.tmp.name) / "SynthiaAddons" / "services" / "hello_world" / "runtime.json"
@@ -703,6 +704,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertIsNotNone(payload["runtime_error"])
         self.assertFalse(payload["ui_reachable"])
         self.assertIsNone(payload["ui_redirect_target"])
+        self.assertEqual(payload["ui_embed_target"], "/ui/addons/hello_world")
 
     def test_status_marks_ui_reachable_when_running_with_published_ports(self) -> None:
         runtime_path = Path(self.tmp.name) / "SynthiaAddons" / "services" / "hello_world" / "runtime.json"
@@ -727,6 +729,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         payload = res.json()
         self.assertTrue(payload["ui_reachable"])
         self.assertEqual(payload["ui_redirect_target"], "/addons/hello_world")
+        self.assertEqual(payload["ui_embed_target"], "/ui/addons/hello_world")
 
     def test_status_diagnostics_returns_last_error_summary(self) -> None:
         runtime_path = Path(self.tmp.name) / "SynthiaAddons" / "services" / "hello_world" / "runtime.json"
@@ -1803,6 +1806,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertIn("runtime.json not found", payload["supervisor_hint"])
         self.assertFalse(payload["ui_reachable"])
         self.assertIsNone(payload["ui_redirect_target"])
+        self.assertEqual(payload["ui_embed_target"], "/ui/addons/hello_world")
         self.assertIn("service_dir", payload)
         self.assertIn("staged_artifact_path", payload)
         self.assertTrue(Path(payload["desired_path"]).is_absolute())

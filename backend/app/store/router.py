@@ -506,11 +506,13 @@ def _runtime_error_summary(runtime_payload: dict[str, Any]) -> str | None:
 
 def _standalone_ui_redirect_info(addon_id: str, runtime_payload: dict[str, Any]) -> dict[str, Any]:
     runtime_state = str(runtime_payload.get("runtime_state") or "unknown").strip() or "unknown"
+    ui_embed_target = f"/ui/addons/{addon_id}"
     runtime = runtime_payload.get("standalone_runtime")
     if not isinstance(runtime, dict):
         return {
             "ui_reachable": False,
             "ui_redirect_target": None,
+            "ui_embed_target": ui_embed_target,
             "ui_reason": "runtime_unavailable",
         }
     published_ports = runtime.get("published_ports")
@@ -530,6 +532,7 @@ def _standalone_ui_redirect_info(addon_id: str, runtime_payload: dict[str, Any])
     return {
         "ui_reachable": reachable,
         "ui_redirect_target": f"/addons/{addon_id}" if reachable else None,
+        "ui_embed_target": ui_embed_target,
         "ui_reason": reason,
     }
 
@@ -1809,6 +1812,7 @@ def build_store_router(
                     "supervisor_hint": supervisor_hint,
                     "ui_reachable": ui_redirect["ui_reachable"],
                     "ui_redirect_target": ui_redirect["ui_redirect_target"],
+                    "ui_embed_target": ui_redirect["ui_embed_target"],
                     "ui_reason": ui_redirect["ui_reason"],
                     "next_steps": [
                         "Ensure synthia-supervisor is running and reconciling desired.json.",
@@ -2419,6 +2423,7 @@ def build_store_router(
             "standalone_runtime": runtime_payload.get("standalone_runtime"),
             "ui_reachable": ui_redirect["ui_reachable"],
             "ui_redirect_target": ui_redirect["ui_redirect_target"],
+            "ui_embed_target": ui_redirect["ui_embed_target"],
             "ui_reason": ui_redirect["ui_reason"],
             "desired_state": desired_state,
             "pinned_version": pinned_version,
@@ -2537,6 +2542,7 @@ def build_store_router(
             "runtime_error": runtime_payload.get("runtime_error"),
             "ui_reachable": ui_redirect["ui_reachable"],
             "ui_redirect_target": ui_redirect["ui_redirect_target"],
+            "ui_embed_target": ui_redirect["ui_embed_target"],
             "ui_reason": ui_redirect["ui_reason"],
         }
 
