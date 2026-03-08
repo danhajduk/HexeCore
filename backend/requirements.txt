@@ -4,3 +4,4 @@ pydantic>=2.6
 psutil>=5.9.0
 httpx
 cryptography>=42.0
+pytest>=8.0
