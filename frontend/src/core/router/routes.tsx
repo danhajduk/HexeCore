@@ -3,6 +3,7 @@ import type { RouteObject } from "react-router-dom";
 import { Navigate } from "react-router-dom";
 import Home from "../pages/Home";
 import Addons from "../pages/Addons";
+import AddonFrame from "../pages/AddonFrame";
 import Settings from "../pages/Settings";
 import SettingsJobs from "../pages/SettingsJobs";
 import SettingsMetrics from "../pages/SettingsMetrics";
@@ -23,6 +24,7 @@ export function buildRoutes(isAdmin: boolean, ready: boolean): RouteObject[] {
     { path: "/", element: <Home /> },
     { path: "/store", element: protectedRoute(<AddonStorePage />) },
     { path: "/addons", element: protectedRoute(<Addons />) },
+    { path: "/addons/:addonId", element: protectedRoute(<AddonFrame />) },
     { path: "/settings", element: protectedRoute(<Settings />) },
     { path: "/settings/jobs", element: protectedRoute(<SettingsJobs />) },
     { path: "/settings/metrics", element: protectedRoute(<SettingsMetrics />) },

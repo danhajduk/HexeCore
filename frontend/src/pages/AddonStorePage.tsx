@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./addon-store.css";
 import {
   installActionItems,
@@ -6,6 +7,7 @@ import {
   parseInstallFailure,
   type InstallErrorDetail,
 } from "./addonStoreErrorUtils";
+import { resolveUiRedirectTarget, standaloneUiFallbackMessage } from "./addonStoreRedirect";
 
 type InstalledInfo = {
   version?: string;
@@ -62,6 +64,19 @@ type StoreStatusSummary = {
   tracked_addons?: number;
   addons_with_errors?: number;
   top_errors?: Array<{ code: string; count: number }>;
+};
+
+type InstallSuccessPayload = {
+  mode?: string;
+  addon_id?: string;
+  ui_reachable?: boolean;
+  ui_redirect_target?: string | null;
+};
+
+type StoreStatusPayload = {
+  runtime_state?: string;
+  ui_reachable?: boolean;
+  ui_redirect_target?: string | null;
 };
 
 function formatTs(value?: string | null): string {
@@ -171,6 +186,7 @@ function normalizeCatalogItem(item: RawCatalogItem, index: number): CatalogItem 
 }
 
 export default function AddonStorePage() {
+  const navigate = useNavigate();
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [installed, setInstalled] = useState<Record<string, InstalledInfo>>({});
   const [catalogStatus, setCatalogStatus] = useState<CatalogStatus>({});
@@ -218,6 +234,26 @@ export default function AddonStorePage() {
     loadCatalog();
     loadStatusSummary();
   }, []);
+
+  async function waitForStandaloneUi(addonId: string, initial: InstallSuccessPayload): Promise<string | null> {
+    const initialTarget = resolveUiRedirectTarget(initial, addonId);
+    if (initialTarget) return initialTarget;
+    const deadline = Date.now() + 20_000;
+    while (Date.now() < deadline) {
+      await new Promise((resolve) => window.setTimeout(resolve, 1500));
+      try {
+        const res = await fetch(`/api/store/status/${encodeURIComponent(addonId)}`, { credentials: "include" });
+        if (!res.ok) continue;
+        const status = (await res.json()) as StoreStatusPayload;
+        const target = resolveUiRedirectTarget(status, addonId);
+        if (target) return target;
+        if ((status.runtime_state || "").toLowerCase() === "error") return null;
+      } catch {
+        // Best-effort polling; keep waiting until timeout.
+      }
+    }
+    return null;
+  }
 
   async function refreshCatalog() {
     setRefreshing(true);
@@ -269,7 +305,16 @@ export default function AddonStorePage() {
         setInstallErrorDetail(parsed.detail);
         throw new Error(parsed.message);
       }
+      const payload = (await res.json()) as InstallSuccessPayload;
       await loadCatalog();
+      if ((payload.mode || "").toLowerCase() === "standalone_service" && item.addonId) {
+        const target = await waitForStandaloneUi(item.addonId, payload);
+        if (target) {
+          navigate(target);
+        } else {
+          setErr(standaloneUiFallbackMessage(item.addonId));
+        }
+      }
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
