@@ -4,6 +4,7 @@ import { addonUiFallbackReason, resolveAddonUiEmbedState } from "./addonFrameCon
 describe("addonFrameContract", () => {
   it("prefers backend-provided ui_embed_target", () => {
     const resolved = resolveAddonUiEmbedState("mqtt", {
+      loaded: true,
       ui_reachable: true,
       ui_embed_target: "/ui/addons/mqtt",
       ui_reason: "ready",
@@ -17,6 +18,21 @@ describe("addonFrameContract", () => {
     const resolved = resolveAddonUiEmbedState("mqtt", { ui_reachable: false, ui_reason: "no_published_ports" });
     expect(resolved.frameSrc.endsWith("/ui/addons/mqtt")).toBe(true);
     expect(resolved.reachable).toBe(false);
+  });
+
+  it("uses direct published host port while addon is not loaded", () => {
+    const resolved = resolveAddonUiEmbedState("mqtt", {
+      loaded: false,
+      runtime_state: "running",
+      ui_reachable: true,
+      ui_reason: "ready",
+      ui_embed_target: "/ui/addons/mqtt",
+      standalone_runtime: {
+        published_ports: ["0.0.0.0:18080->8080/tcp"],
+      },
+    });
+    expect(resolved.frameSrc.endsWith(":18080")).toBe(true);
+    expect(resolved.frameSrc.includes("/ui/addons/mqtt")).toBe(false);
   });
 
   it("maps fallback reasons to readable text", () => {

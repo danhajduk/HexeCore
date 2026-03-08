@@ -103,7 +103,7 @@ export default function AddonFrame() {
           {!iframeLoaded && (
             <div className="addon-frame-status">
               <strong>Opening addon UI...</strong>
-              <span>Proxy target: {src}</span>
+              <span>Frame target: {src}</span>
             </div>
           )}
           <iframe

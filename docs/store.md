@@ -1,6 +1,6 @@
 # Store and Catalog Documentation
 
-Last Updated: 2026-03-08 15:12 US/Pacific
+Last Updated: 2026-03-08 15:30 US/Pacific
 
 ## Scope
 
@@ -109,7 +109,8 @@ Frontend behavior:
 - install flow uses `ui_reachable` + `ui_redirect_target` for post-install navigation
 - `AddonFrame` probes `/api/store/status/{addon_id}` and:
   - shows loading while readiness is pending
-  - renders iframe using `ui_embed_target` once reachable
+  - renders iframe using `ui_embed_target` once reachable and addon is loaded in Core
+  - falls back to direct `standalone_runtime.published_ports` host-port URL when runtime is running but addon is not loaded in Core yet
   - renders fallback message when runtime enters error state or readiness times out
 
 ## Development Policy

@@ -1,10 +1,14 @@
 import { addonUiFrameSrc } from "./addonFrameUrl";
 
 export type AddonUiStatusPayload = {
+  loaded?: boolean | null;
   runtime_state?: string | null;
   ui_reachable?: boolean | null;
   ui_reason?: string | null;
   ui_embed_target?: string | null;
+  standalone_runtime?: {
+    published_ports?: unknown;
+  } | null;
 };
 
 type AddonUiEmbedState = {
@@ -22,9 +26,17 @@ export function resolveAddonUiEmbedState(
     return { frameSrc: fallbackSrc, reachable: false, reason: "status_unavailable" };
   }
 
+  const runtimeState = String(payload.runtime_state || "").trim().toLowerCase();
   const rawTarget = typeof payload.ui_embed_target === "string" ? payload.ui_embed_target.trim() : "";
+  const publishedPortsRaw = payload.standalone_runtime?.published_ports;
+  const publishedPorts = Array.isArray(publishedPortsRaw)
+    ? publishedPortsRaw.map((item) => String(item || "").trim())
+    : [];
+  const directUrl = directUiUrlFromPublishedPorts(publishedPorts);
   let frameSrc = fallbackSrc;
-  if (rawTarget) {
+  if (payload.loaded !== true && runtimeState === "running" && directUrl) {
+    frameSrc = directUrl;
+  } else if (rawTarget) {
     try {
       frameSrc = new URL(rawTarget, fallbackSrc).toString();
     } catch {
@@ -58,4 +70,25 @@ export function addonUiFallbackReason(reason: string): string {
     default:
       return "Addon UI is not reachable yet.";
   }
+}
+
+function directUiUrlFromPublishedPorts(publishedPorts: string[]): string | null {
+  const published = publishedPorts.find((entry) => entry.includes("->"));
+  if (!published) return null;
+  const left = published.split("->", 1)[0].trim();
+  const idx = left.lastIndexOf(":");
+  if (idx <= 0 || idx >= left.length - 1) return null;
+
+  const rawHost = left.slice(0, idx).trim();
+  const port = left.slice(idx + 1).trim();
+  if (!/^\d+$/.test(port)) return null;
+
+  const browserHost = typeof window !== "undefined" ? window.location.hostname : "127.0.0.1";
+  const browserProtocol =
+    typeof window !== "undefined" && window.location.protocol === "https:" ? "https:" : "http:";
+  const host =
+    !rawHost || rawHost === "0.0.0.0" || rawHost === "::" || rawHost === "[::]" || rawHost === "127.0.0.1"
+      ? browserHost
+      : rawHost;
+  return `${browserProtocol}//${host}:${port}`;
 }
