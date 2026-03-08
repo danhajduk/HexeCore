@@ -1,6 +1,6 @@
 # Backend Documentation
 
-Last Updated: 2026-03-07 18:05 US/Pacific
+Last Updated: 2026-03-07 18:11 US/Pacific
 
 ## Overview
 
@@ -33,7 +33,7 @@ It mounts core routers, addon routers, and store/scheduler/auth subsystems.
     - local-network connectivity probe uses `SYNTHIA_LOCAL_NETWORK_CHECK_HOST`, falling back to `MQTT_HOST` when unset
     - provides `samples.network_throughput` from `latest_stats.net.total_rate` when available
     - provides `samples.network_metrics` from `latest_stats.net.total` counters (`bytes`, `packets`, `errors`, `drops`)
-    - provides `samples.internet_speed` from `speedtest-cli --json --secure` with cached result (30m default via `SYNTHIA_SPEEDTEST_SAMPLE_SECONDS`); falls back to `source=passive_estimate` from live RX/TX throughput when speedtest sampling fails
+    - provides `samples.internet_speed` from active speed-test runners (`SYNTHIA_SPEEDTEST_CLI_BIN`, python module fallback, and Ookla JSON mode) with cached result (30m default via `SYNTHIA_SPEEDTEST_SAMPLE_SECONDS`); falls back to `source=passive_estimate` from live RX/TX throughput when speedtest sampling fails
   - standalone runtime aggregation (`/system/addons/runtime*`, admin-protected)
   - optional service health probing (`GET /api/addon/health`) through runtime aggregation
 - `/api/system/scheduler`:

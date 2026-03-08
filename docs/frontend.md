@@ -1,6 +1,6 @@
 # Frontend Documentation
 
-Last Updated: 2026-03-07 18:05 US/Pacific
+Last Updated: 2026-03-07 18:11 US/Pacific
 
 ## Stack
 
@@ -34,7 +34,7 @@ Last Updated: 2026-03-07 18:05 US/Pacific
   - full-stack status widget driven by `GET /api/system/stack/summary`
   - subsystem pills: core, supervisor, mqtt, scheduler, workers, addons, network, internet
   - compact status row with scheduler/network/internet/speed visibility
-    - speed label reflects speed sample status and timestamp freshness (`speedtest_cli` active sample or `passive_estimate` fallback)
+    - speed label reflects speed sample status and timestamp freshness (`speedtest_cli`/`speedtest_ookla` active sample or `passive_estimate` fallback)
   - degraded/attention reason details (expand/collapse)
   - Installed Addons panel
   - Recent Activity panel (platform events feed)

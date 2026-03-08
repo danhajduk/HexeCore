@@ -276,3 +276,4 @@
 2026-03-07 - Task 128.2: added network metrics counters to stack summary and Home dashboard.
 2026-03-07 - Fixed stack summary network probe fallback to use MQTT_HOST when local host env is unset
 2026-03-07 - Added passive internet speed fallback from throughput when speedtest sample is unavailable
+2026-03-07 - Added multi-runner active speedtest support (cli/module/ookla) with schema parsing fallbacks

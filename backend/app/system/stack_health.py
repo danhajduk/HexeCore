@@ -3,8 +3,11 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import shlex
+import shutil
 import socket
 import subprocess
+import sys
 import time
 from datetime import datetime, timezone
 from typing import Any
@@ -96,43 +99,107 @@ def _sample_speed() -> dict[str, Any]:
     sampled_at = _now_iso()
     timeout_s = float(str(os.getenv("SYNTHIA_SPEEDTEST_TIMEOUT_S", "45")).strip() or "45")
     cli_bin = str(os.getenv("SYNTHIA_SPEEDTEST_CLI_BIN", "speedtest-cli")).strip() or "speedtest-cli"
+    commands: list[tuple[list[str], str]] = []
+    seen: set[tuple[str, ...]] = set()
 
+    def _add_command(cmd: list[str], source: str) -> None:
+        key = tuple(str(x) for x in cmd)
+        if not cmd or key in seen:
+            return
+        seen.add(key)
+        commands.append((cmd, source))
+
+    cli_parts = shlex.split(cli_bin)
+    if cli_parts:
+        if len(cli_parts) == 1:
+            cmd_name = os.path.basename(cli_parts[0]).lower()
+            if cmd_name == "speedtest":
+                _add_command([cli_parts[0], "--accept-license", "--accept-gdpr", "--format=json"], "speedtest_ookla")
+            else:
+                _add_command([cli_parts[0], "--json", "--secure"], "speedtest_cli")
+        else:
+            cmd_name = os.path.basename(cli_parts[0]).lower()
+            source = "speedtest_ookla" if cmd_name == "speedtest" else "speedtest_cli"
+            _add_command(cli_parts, source)
+
+    _add_command([sys.executable, "-m", "speedtest", "--json", "--secure"], "speedtest_cli")
+    if shutil.which("speedtest"):
+        _add_command(["speedtest", "--accept-license", "--accept-gdpr", "--format=json"], "speedtest_ookla")
+    if shutil.which("speedtest-cli"):
+        _add_command(["speedtest-cli", "--json", "--secure"], "speedtest_cli")
+
+    for cmd, source in commands:
+        try:
+            completed = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=max(timeout_s, 1.0),
+                check=False,
+            )
+            if completed.returncode != 0:
+                continue
+            payload = json.loads((completed.stdout or "").strip() or "{}")
+            parsed = _parse_speed_payload(payload)
+            if parsed is None:
+                continue
+            return {
+                "state": "ok",
+                "source": source,
+                "download_mbps": parsed["download_mbps"],
+                "upload_mbps": parsed["upload_mbps"],
+                "latency_ms": parsed["latency_ms"],
+                "sampled_at": sampled_at,
+                "age_s": 0,
+            }
+        except Exception:
+            continue
+
+    return {
+        "state": "unavailable",
+        "source": "speedtest_cli",
+        "download_mbps": None,
+        "upload_mbps": None,
+        "latency_ms": None,
+        "sampled_at": sampled_at,
+        "age_s": 0,
+    }
+
+
+def _parse_speed_payload(payload: dict[str, Any]) -> dict[str, float | None] | None:
+    # speedtest-cli schema (download/upload in bits per second)
+    if "download" in payload or "upload" in payload:
+        try:
+            download_bps = float(payload.get("download") or 0.0)
+            upload_bps = float(payload.get("upload") or 0.0)
+            latency_raw = payload.get("ping")
+            latency_ms = round(float(latency_raw), 1) if latency_raw is not None else None
+            return {
+                "download_mbps": round(max(download_bps, 0.0) / 1_000_000.0, 2),
+                "upload_mbps": round(max(upload_bps, 0.0) / 1_000_000.0, 2),
+                "latency_ms": latency_ms,
+            }
+        except Exception:
+            return None
+
+    # Ookla schema (download/upload bandwidth in bytes per second)
     try:
-        completed = subprocess.run(
-            [cli_bin, "--json", "--secure"],
-            capture_output=True,
-            text=True,
-            timeout=max(timeout_s, 1.0),
-            check=False,
-        )
-        if completed.returncode != 0:
-            raise RuntimeError(completed.stderr.strip() or "speedtest_cli_failed")
-
-        payload = json.loads((completed.stdout or "").strip() or "{}")
-        download_bps = float(payload.get("download") or 0.0)
-        upload_bps = float(payload.get("upload") or 0.0)
-        latency_ms_raw = payload.get("ping")
-        latency_ms = round(float(latency_ms_raw), 1) if latency_ms_raw is not None else None
-
-        return {
-            "state": "ok",
-            "source": "speedtest_cli",
-            "download_mbps": round(max(download_bps, 0.0) / 1_000_000.0, 2),
-            "upload_mbps": round(max(upload_bps, 0.0) / 1_000_000.0, 2),
-            "latency_ms": latency_ms,
-            "sampled_at": sampled_at,
-            "age_s": 0,
-        }
+        download = payload.get("download")
+        upload = payload.get("upload")
+        if isinstance(download, dict) and isinstance(upload, dict):
+            down_bw = float(download.get("bandwidth") or 0.0)
+            up_bw = float(upload.get("bandwidth") or 0.0)
+            ping = payload.get("ping")
+            latency_raw = ping.get("latency") if isinstance(ping, dict) else None
+            latency_ms = round(float(latency_raw), 1) if latency_raw is not None else None
+            return {
+                "download_mbps": round(max(down_bw, 0.0) * 8.0 / 1_000_000.0, 2),
+                "upload_mbps": round(max(up_bw, 0.0) * 8.0 / 1_000_000.0, 2),
+                "latency_ms": latency_ms,
+            }
     except Exception:
-        return {
-            "state": "unavailable",
-            "source": "speedtest_cli",
-            "download_mbps": None,
-            "upload_mbps": None,
-            "latency_ms": None,
-            "sampled_at": sampled_at,
-            "age_s": 0,
-        }
+        return None
+    return None
 
 
 def _speed_from_throughput_fallback(throughput: dict[str, Any]) -> dict[str, Any] | None:
