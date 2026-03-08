@@ -1,6 +1,6 @@
 # Synthia Standalone Addon Specification
 
-Last Updated: 2026-03-08 12:07 US/Pacific
+Last Updated: 2026-03-08 12:20 US/Pacific
 
 Version: 0.1 (development phase)
 
@@ -235,6 +235,9 @@ What triggers rebuild/recompose today:
   extract/build/reconcile path.
 - Core also writes `desired_revision`; if unchanged for same running
   version, supervisor no-ops.
+- Set `force_rebuild=true` with a new `desired_revision` when an
+  operator explicitly wants rebuild/recreate semantics even without
+  compose-input changes.
 - For same-version updates, compose-impacting desired changes
   (`network`, `bind_localhost`, `ports`, `cpu`, `memory`) trigger
   compose regeneration/reconcile.

@@ -153,6 +153,22 @@ class TestSynthiaSupervisorCompose(unittest.TestCase):
             self.assertIn("compose_up_failed", str(ctx.exception))
             self.assertIn("missing Dockerfile", str(ctx.exception))
 
+    def test_compose_up_uses_build_and_force_recreate_when_force_rebuild_enabled(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            compose_file = Path(tmp) / "docker-compose.yml"
+            compose_file.write_text("services: {}\n", encoding="utf-8")
+            ok = subprocess.CompletedProcess(
+                args=["docker", "compose"],
+                returncode=0,
+                stdout="ok",
+                stderr="",
+            )
+            with patch("synthia_supervisor.docker_compose.subprocess.run", return_value=ok) as run_mock:
+                compose_up(compose_file, "synthia-addon-mqtt", force_rebuild=True)
+            args = run_mock.call_args.args[0]
+            self.assertIn("--build", args)
+            self.assertIn("--force-recreate", args)
+
 
 if __name__ == "__main__":
     unittest.main()

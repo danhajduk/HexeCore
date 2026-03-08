@@ -23,10 +23,13 @@ def _run_compose_command(args: list[str], action: str) -> None:
     raise RuntimeError(f"{action}_failed: {tail_line}")
 
 
-def compose_up(compose_file: Path, project_name: str):
+def compose_up(compose_file: Path, project_name: str, *, force_rebuild: bool = False):
     log.info("compose_up project=%s file=%s", project_name, compose_file)
+    cmd = ["docker", "compose", "-f", str(compose_file), "-p", project_name, "up", "-d"]
+    if force_rebuild:
+        cmd.extend(["--build", "--force-recreate"])
     _run_compose_command(
-        ["docker", "compose", "-f", str(compose_file), "-p", project_name, "up", "-d"],
+        cmd,
         "compose_up",
     )
 

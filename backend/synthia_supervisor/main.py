@@ -245,12 +245,21 @@ def reconcile_one(addon_dir: Path) -> ReconcileResult | None:
                 compose_down(compose_file, desired.runtime.project_name)
             rt.state = "stopped"
             rt.last_applied_desired_revision = desired.desired_revision
+            if desired.force_rebuild and desired.desired_revision:
+                rt.last_force_rebuild_revision = desired.desired_revision
             write_json_atomic(runtime_path, rt.model_dump())
             log.info("reconcile_done addon_id=%s state=stopped", desired.addon_id)
             return _build_reconcile_result(desired=desired, runtime=rt, prior_runtime=prior_runtime)
 
         version = desired.pinned_version or "latest"
         desired_revision = str(desired.desired_revision or "").strip() or None
+        force_rebuild = bool(getattr(desired, "force_rebuild", False))
+        force_rebuild_already_applied = bool(
+            force_rebuild
+            and desired_revision is not None
+            and prior_runtime is not None
+            and prior_runtime.last_force_rebuild_revision == desired_revision
+        )
         compose_digest = _compose_input_digest(desired)
         if (
             prior_runtime is not None
@@ -258,9 +267,25 @@ def reconcile_one(addon_dir: Path) -> ReconcileResult | None:
             and prior_runtime.active_version == version
             and desired_revision is not None
             and prior_runtime.last_applied_desired_revision == desired_revision
+            and not force_rebuild
         ):
             log.info(
                 "reconcile_noop addon_id=%s version=%s desired_revision=%s",
+                desired.addon_id,
+                version,
+                desired_revision,
+            )
+            return _build_reconcile_result(desired=desired, runtime=prior_runtime, prior_runtime=prior_runtime)
+        if (
+            prior_runtime is not None
+            and prior_runtime.state == "running"
+            and prior_runtime.active_version == version
+            and desired_revision is not None
+            and prior_runtime.last_applied_desired_revision == desired_revision
+            and force_rebuild_already_applied
+        ):
+            log.info(
+                "reconcile_noop addon_id=%s version=%s desired_revision=%s reason=force_rebuild_already_applied",
                 desired.addon_id,
                 version,
                 desired_revision,
@@ -280,7 +305,14 @@ def reconcile_one(addon_dir: Path) -> ReconcileResult | None:
 
         log.info("verify_skipped addon_id=%s reason=signature_checks_disabled", desired.addon_id)
         ensure_extracted(artifact_path, extracted_dir)
-        if (
+        if compose_file.exists() and force_rebuild and not force_rebuild_already_applied:
+            compose_file.unlink()
+            log.info(
+                "compose_file_regen addon_id=%s version=%s reason=force_rebuild",
+                desired.addon_id,
+                version,
+            )
+        elif (
             compose_file.exists()
             and prior_runtime is not None
             and prior_runtime.active_version == version
@@ -297,7 +329,7 @@ def reconcile_one(addon_dir: Path) -> ReconcileResult | None:
             )
         ensure_compose_files(desired, extracted_dir, compose_file, env_file)
 
-        compose_up(compose_file, desired.runtime.project_name)
+        compose_up(compose_file, desired.runtime.project_name, force_rebuild=(force_rebuild and not force_rebuild_already_applied))
         activate_current_symlink(addon_dir, version_dir)
 
         rt.state = "running"
@@ -307,6 +339,8 @@ def reconcile_one(addon_dir: Path) -> ReconcileResult | None:
         rt.last_error = None
         rt.last_applied_desired_revision = desired_revision
         rt.last_applied_compose_digest = compose_digest
+        if force_rebuild and desired_revision:
+            rt.last_force_rebuild_revision = desired_revision
         log.info(
             "reconcile_done addon_id=%s state=running active_version=%s rollback_available=%s",
             desired.addon_id,

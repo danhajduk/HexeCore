@@ -686,6 +686,8 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(payload["runtime_state"], "running")
         self.assertEqual(payload["standalone_runtime"]["active_version"], "1.0.0")
         self.assertEqual(payload["standalone_runtime"]["health"]["status"], "healthy")
+        self.assertFalse(payload["ui_reachable"])
+        self.assertIsNone(payload["ui_redirect_target"])
 
     def test_status_handles_malformed_standalone_runtime_json(self) -> None:
         runtime_path = Path(self.tmp.name) / "SynthiaAddons" / "services" / "hello_world" / "runtime.json"
@@ -699,6 +701,32 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(payload["runtime_state"], "unknown")
         self.assertIsNone(payload["standalone_runtime"])
         self.assertIsNotNone(payload["runtime_error"])
+        self.assertFalse(payload["ui_reachable"])
+        self.assertIsNone(payload["ui_redirect_target"])
+
+    def test_status_marks_ui_reachable_when_running_with_published_ports(self) -> None:
+        runtime_path = Path(self.tmp.name) / "SynthiaAddons" / "services" / "hello_world" / "runtime.json"
+        runtime_path.parent.mkdir(parents=True, exist_ok=True)
+        runtime_path.write_text(
+            json.dumps(
+                {
+                    "ssap_version": "1.0",
+                    "addon_id": "hello_world",
+                    "active_version": "1.0.0",
+                    "state": "running",
+                    "published_ports": ["127.0.0.1:18080->8080/tcp"],
+                    "health": {"status": "healthy"},
+                }
+            ),
+            encoding="utf-8",
+        )
+        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(Path(self.tmp.name) / "SynthiaAddons")}, clear=False):
+            with patch("app.store.router._addons_root", return_value=Path(self.tmp.name) / "addons"):
+                res = self.client.get("/api/store/status/hello_world")
+        self.assertEqual(res.status_code, 200, res.text)
+        payload = res.json()
+        self.assertTrue(payload["ui_reachable"])
+        self.assertEqual(payload["ui_redirect_target"], "/addons/hello_world")
 
     def test_status_diagnostics_returns_last_error_summary(self) -> None:
         runtime_path = Path(self.tmp.name) / "SynthiaAddons" / "services" / "hello_world" / "runtime.json"
@@ -1773,6 +1801,8 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertIsNone(payload["last_action"])
         self.assertTrue(payload["supervisor_expected"])
         self.assertIn("runtime.json not found", payload["supervisor_hint"])
+        self.assertFalse(payload["ui_reachable"])
+        self.assertIsNone(payload["ui_redirect_target"])
         self.assertIn("service_dir", payload)
         self.assertIn("staged_artifact_path", payload)
         self.assertTrue(Path(payload["desired_path"]).is_absolute())
@@ -1793,6 +1823,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(desired["runtime"]["project_name"], "synthia-addon-hello_world")
         self.assertEqual(desired["runtime"]["cpu"], 1.5)
         self.assertEqual(desired["runtime"]["memory"], "512m")
+        self.assertFalse(desired["force_rebuild"])
         self.assertEqual(desired["config"]["env"]["SYNTHIA_SERVICE_TOKEN"], "${SYNTHIA_SERVICE_TOKEN}")
 
     def test_catalog_install_standalone_service_mode_uses_manifest_runtime_default_ports(self) -> None:
@@ -2010,6 +2041,65 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(payload["active_version"], "0.9.0")
         self.assertEqual(payload["last_action"], "reconcile_applied")
         self.assertIsNone(payload["supervisor_hint"])
+
+    def test_standalone_update_rewrites_desired_and_sets_force_rebuild(self) -> None:
+        standalone_root = Path(self.tmp.name) / "SynthiaAddons"
+        addon_dir = standalone_root / "services" / "hello_world"
+        addon_dir.mkdir(parents=True, exist_ok=True)
+        desired_path = addon_dir / "desired.json"
+        desired_path.write_text(
+            json.dumps(
+                {
+                    "ssap_version": "1.0",
+                    "addon_id": "hello_world",
+                    "mode": "standalone_service",
+                    "desired_state": "running",
+                    "desired_revision": "rev-old",
+                    "channel": "stable",
+                    "force_rebuild": False,
+                    "pinned_version": "1.0.0",
+                    "install_source": {
+                        "type": "catalog",
+                        "catalog_id": "official",
+                        "release": {
+                            "artifact_url": "https://example.test/hello_world-1.0.0.tgz",
+                            "sha256": "",
+                            "publisher_key_id": "",
+                            "signature": {"type": "none", "value": ""},
+                        },
+                    },
+                    "runtime": {
+                        "orchestrator": "docker_compose",
+                        "project_name": "synthia-addon-hello_world",
+                        "network": "synthia_net",
+                        "ports": [],
+                        "bind_localhost": True,
+                    },
+                    "config": {"env": {"CORE_URL": "http://127.0.0.1:8000"}},
+                }
+            ),
+            encoding="utf-8",
+        )
+        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(standalone_root)}, clear=False):
+            res = self.client.post(
+                "/api/store/standalone/update",
+                headers={"X-Admin-Token": "test-token"},
+                json={
+                    "addon_id": "hello_world",
+                    "force_rebuild": True,
+                    "runtime_overrides": {"ports": [{"host": 18080, "container": 8080, "proto": "tcp"}]},
+                    "config_env_overrides": {"EXTRA_FLAG": "1"},
+                },
+            )
+        self.assertEqual(res.status_code, 200, res.text)
+        payload = res.json()
+        self.assertTrue(payload["force_rebuild"])
+        self.assertIsNotNone(payload["desired_revision"])
+        desired = json.loads(desired_path.read_text(encoding="utf-8"))
+        self.assertTrue(desired["force_rebuild"])
+        self.assertNotEqual(desired["desired_revision"], "rev-old")
+        self.assertEqual(desired["runtime"]["ports"], [{"host": 18080, "container": 8080, "proto": "tcp"}])
+        self.assertEqual(desired["config"]["env"]["EXTRA_FLAG"], "1")
 
     def test_catalog_install_standalone_service_mode_rejects_invalid_desired_state(self) -> None:
         pkg = Path(self.tmp.name) / "bundle-standalone-invalid-desired.zip"

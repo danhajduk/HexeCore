@@ -34,6 +34,7 @@ class TestStoreStandaloneDesired(unittest.TestCase):
         self.assertEqual(payload["mode"], "standalone_service")
         self.assertEqual(payload["desired_state"], "running")
         self.assertTrue(str(payload["desired_revision"]).strip())
+        self.assertFalse(payload["force_rebuild"])
         self.assertEqual(payload["install_source"]["type"], "catalog")
         self.assertEqual(payload["install_source"]["catalog_id"], "official")
         self.assertEqual(payload["install_source"]["release"]["signature"]["type"], "none")
@@ -65,6 +66,7 @@ class TestStoreStandaloneDesired(unittest.TestCase):
             self.assertEqual(loaded["addon_id"], "mqtt")
             self.assertEqual(loaded["pinned_version"], "0.1.2")
             self.assertTrue(str(loaded["desired_revision"]).strip())
+            self.assertFalse(loaded["force_rebuild"])
             self.assertEqual(loaded["install_source"]["release"]["sha256"], "b" * 64)
             self.assertFalse(desired_path.with_suffix(".json.tmp").exists())
 

@@ -1,6 +1,6 @@
 # Synthia Supervisor Runtime Specification (Code-Verified)
 
-Last Updated: 2026-03-08 12:07 US/Pacific
+Last Updated: 2026-03-08 12:20 US/Pacific
 
 This document only describes behavior that is present in code today. Any missing capability is explicitly labeled **Not developed**.
 
@@ -148,6 +148,7 @@ Important rebuild boundary:
 - Core writes `desired_revision`; supervisor persists the last applied marker in `runtime.json`.
 - When `desired_revision` is unchanged and runtime is already `running` on the same version, supervisor no-ops (skips extract/compose/up).
 - Compose-affecting desired fields are digested by supervisor; if digest changes on same version, supervisor regenerates compose before `compose up`.
+- `force_rebuild=true` in desired payload forces one rebuild/recreate cycle for that `desired_revision` (then no-op resumes for unchanged revision).
 
 ## 8) Container Build Model
 
@@ -373,6 +374,7 @@ Example shape:
   "mode": "standalone_service",
   "desired_state": "running",
   "desired_revision": "1741464210123456789",
+  "force_rebuild": false,
   "channel": "stable",
   "pinned_version": "0.1.2",
   "install_source": {
@@ -532,7 +534,7 @@ Ownership:
 - Supervisor reads `desired.json` as reconcile input.
 
 Supervisor-required fields (from current `DesiredState` model usage):
-- top-level: `ssap_version`, `addon_id`, `desired_state`, `desired_revision`, `pinned_version` (optional), `install_source`, `runtime`, `config`
+- top-level: `ssap_version`, `addon_id`, `desired_state`, `desired_revision`, `force_rebuild`, `pinned_version` (optional), `install_source`, `runtime`, `config`
 - runtime fields consumed for reconcile behavior: `project_name`, `network`, `ports`, `bind_localhost`, `cpu`, `memory`
 - install source release field used by model: `artifact_url` (artifact file path is still sourced from staged local `addon.tgz`)
 
@@ -556,3 +558,4 @@ Supervisor-written state fields:
 - `last_error`
 - `last_applied_desired_revision`
 - `last_applied_compose_digest`
+- `last_force_rebuild_revision`

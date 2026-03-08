@@ -10,12 +10,19 @@ from unittest.mock import patch
 from synthia_supervisor.main import reconcile_one, run_post_reconcile_hooks
 
 
-def _write_desired(addon_dir: Path, version: str = "0.1.2", revision: str = "rev-1", ports: list[dict] | None = None) -> None:
+def _write_desired(
+    addon_dir: Path,
+    version: str = "0.1.2",
+    revision: str = "rev-1",
+    ports: list[dict] | None = None,
+    force_rebuild: bool = False,
+) -> None:
     desired = {
         "ssap_version": "1.0",
         "addon_id": "mqtt",
         "desired_state": "running",
         "desired_revision": revision,
+        "force_rebuild": force_rebuild,
         "pinned_version": version,
         "install_source": {
             "type": "catalog",
@@ -224,6 +231,43 @@ class TestSynthiaSupervisorReconcile(unittest.TestCase):
             runtime = json.loads(runtime_path.read_text(encoding="utf-8"))
             self.assertEqual(runtime["last_applied_desired_revision"], "rev-2")
             self.assertNotEqual(runtime["last_applied_compose_digest"], "old-digest")
+
+    def test_reconcile_force_rebuild_triggers_once_per_desired_revision(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            addon_dir = Path(tmp) / "services" / "mqtt"
+            version_dir = addon_dir / "versions" / "0.1.2"
+            extracted_dir = version_dir / "extracted"
+            extracted_dir.mkdir(parents=True, exist_ok=True)
+            (version_dir / "addon.tgz").write_bytes(b"artifact-bytes")
+            compose_file = version_dir / "docker-compose.yml"
+            compose_file.write_text("services:\n  mqtt:\n    image: old\n", encoding="utf-8")
+            runtime_path = addon_dir / "runtime.json"
+            runtime_path.write_text(
+                json.dumps(
+                    {
+                        "ssap_version": "1.0",
+                        "addon_id": "mqtt",
+                        "active_version": "0.1.2",
+                        "state": "running",
+                        "last_applied_desired_revision": "rev-1",
+                        "last_applied_compose_digest": "old-digest",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            _write_desired(addon_dir, revision="rev-2", force_rebuild=True)
+            with patch("synthia_supervisor.main.ensure_extracted"), patch("synthia_supervisor.main.compose_up") as up_mock:
+                result = reconcile_one(addon_dir)
+            self.assertIsNotNone(result)
+            self.assertTrue(up_mock.called)
+            self.assertTrue(up_mock.call_args.kwargs.get("force_rebuild"))
+            runtime = json.loads(runtime_path.read_text(encoding="utf-8"))
+            self.assertEqual(runtime["last_force_rebuild_revision"], "rev-2")
+
+            with patch("synthia_supervisor.main.ensure_extracted"), patch("synthia_supervisor.main.compose_up") as up_mock2:
+                result2 = reconcile_one(addon_dir)
+            self.assertIsNotNone(result2)
+            up_mock2.assert_not_called()
 
     def test_reconcile_prunes_old_versions_after_success(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -182,6 +182,7 @@ class StoreInstallRequest(BaseModel):
     channel: str = "stable"
     install_mode: str = "embedded_addon"
     desired_state: str = "running"
+    force_rebuild: bool = False
     pinned_version: str | None = None
     runtime_overrides: dict[str, Any] | None = None
     config_env_overrides: dict[str, str] | None = None
@@ -194,6 +195,18 @@ class StoreUpdateRequest(BaseModel):
     manifest: ReleaseManifest
     public_key_pem: str = Field(..., min_length=1)
     enable: bool = True
+    actor: str | None = None
+
+
+class StoreStandaloneUpdateRequest(BaseModel):
+    addon_id: str = Field(..., min_length=1)
+    source_id: str | None = None
+    channel: str | None = None
+    desired_state: str | None = None
+    force_rebuild: bool = False
+    pinned_version: str | None = None
+    runtime_overrides: dict[str, Any] | None = None
+    config_env_overrides: dict[str, str] | None = None
     actor: str | None = None
 
 

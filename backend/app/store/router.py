@@ -25,6 +25,7 @@ from .extract import extract_package, find_addon_dir
 from .lifecycle import (
     AtomicResult,
     StoreInstallRequest,
+    StoreStandaloneUpdateRequest,
     StoreUpdateRequest,
     StoreUninstallRequest,
     addons_root,
@@ -410,6 +411,36 @@ def _runtime_error_summary(runtime_payload: dict[str, Any]) -> str | None:
     if ":" in last_error:
         return last_error.split(":", 1)[1].strip() or last_error
     return last_error
+
+
+def _standalone_ui_redirect_info(addon_id: str, runtime_payload: dict[str, Any]) -> dict[str, Any]:
+    runtime_state = str(runtime_payload.get("runtime_state") or "unknown").strip() or "unknown"
+    runtime = runtime_payload.get("standalone_runtime")
+    if not isinstance(runtime, dict):
+        return {
+            "ui_reachable": False,
+            "ui_redirect_target": None,
+            "ui_reason": "runtime_unavailable",
+        }
+    published_ports = runtime.get("published_ports")
+    ports = [str(item).strip() for item in published_ports] if isinstance(published_ports, list) else []
+    ports = [item for item in ports if item]
+    health = runtime.get("health")
+    health_status = ""
+    if isinstance(health, dict):
+        health_status = str(health.get("status") or "").strip().lower()
+    unhealthy = health_status in {"unhealthy", "error", "failing", "fail"}
+    reachable = runtime_state == "running" and bool(ports) and not unhealthy
+    reason = "ready" if reachable else (
+        "runtime_not_running"
+        if runtime_state != "running"
+        else ("health_unhealthy" if unhealthy else "no_published_ports")
+    )
+    return {
+        "ui_reachable": reachable,
+        "ui_redirect_target": f"/addons/{addon_id}" if reachable else None,
+        "ui_reason": reason,
+    }
 
 
 def _standalone_retention_diagnostics(addon_id: str, runtime_payload: dict[str, Any]) -> dict[str, Any]:
@@ -1593,9 +1624,11 @@ def build_store_router(
                     runtime_memory=runtime_memory,
                     config_env=config_env,
                     desired_state=body.desired_state,
+                    force_rebuild=body.force_rebuild,
                 )
                 write_desired_state_atomic(desired_path, desired_payload)
                 runtime_payload = _read_standalone_runtime(manifest.id, standalone_runtime)
+                ui_redirect = _standalone_ui_redirect_info(manifest.id, runtime_payload)
                 standalone_runtime_payload = runtime_payload.get("standalone_runtime")
                 active_version = (
                     standalone_runtime_payload.get("active_version")
@@ -1648,6 +1681,8 @@ def build_store_router(
                     "requested_install_mode": requested_install_mode,
                     "channel": requested_channel,
                     "desired_state": body.desired_state,
+                    "force_rebuild": bool(body.force_rebuild),
+                    "desired_revision": desired_payload.get("desired_revision"),
                     "pinned_version": body.pinned_version or manifest.version,
                     "version": manifest.version,
                     "installed_path": None,
@@ -1668,6 +1703,9 @@ def build_store_router(
                     "service_dir": _abs_path_str(service_dir),
                     "supervisor_expected": True,
                     "supervisor_hint": supervisor_hint,
+                    "ui_reachable": ui_redirect["ui_reachable"],
+                    "ui_redirect_target": ui_redirect["ui_redirect_target"],
+                    "ui_reason": ui_redirect["ui_reason"],
                     "next_steps": [
                         "Ensure synthia-supervisor is running and reconciling desired.json.",
                         "Check runtime.json and service logs if runtime_state stays unknown.",
@@ -2105,6 +2143,172 @@ def build_store_router(
             detail = str(exc) or type(exc).__name__
             raise HTTPException(status_code=400, detail=detail)
 
+    @router.post("/standalone/update")
+    async def update_standalone_desired(
+        body: StoreStandaloneUpdateRequest,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        addon_id = body.addon_id.strip()
+        actor = body.actor or "admin_token"
+        service_dir = service_addon_dir(addon_id, create=False)
+        desired_path = service_dir / "desired.json"
+        if not service_dir.exists() or not desired_path.exists():
+            raise HTTPException(status_code=404, detail="standalone_service_not_installed")
+
+        current_desired = _load_json_file(desired_path)
+        if not isinstance(current_desired, dict):
+            raise HTTPException(status_code=400, detail="desired_missing_or_invalid")
+
+        install_source = current_desired.get("install_source")
+        install_source = install_source if isinstance(install_source, dict) else {}
+        release = install_source.get("release")
+        release = release if isinstance(release, dict) else {}
+        runtime_current = current_desired.get("runtime")
+        runtime_current = runtime_current if isinstance(runtime_current, dict) else {}
+        config_current = current_desired.get("config")
+        config_current = config_current if isinstance(config_current, dict) else {}
+        config_env_current = config_current.get("env")
+        config_env_current = config_env_current if isinstance(config_env_current, dict) else {}
+        runtime_overrides = body.runtime_overrides if isinstance(body.runtime_overrides, dict) else {}
+
+        runtime_project_name = _compose_safe_project_name(
+            runtime_overrides.get("project_name") or runtime_current.get("project_name") or f"synthia-addon-{addon_id}",
+            addon_id,
+        )
+        runtime_network = str(runtime_overrides.get("network") or runtime_current.get("network") or "synthia_net").strip()
+        if runtime_network.lower() in {"host", "host_network"}:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "standalone_runtime_network_unsupported",
+                    "network": runtime_network,
+                    "hint": "host networking is not allowed for standalone_service runtime intent",
+                },
+            )
+        if bool(runtime_overrides.get("privileged", False)):
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "standalone_runtime_privileged_unsupported",
+                    "hint": "privileged runtime override is not allowed for standalone_service runtime intent",
+                },
+            )
+
+        runtime_ports = runtime_overrides.get("ports")
+        if isinstance(runtime_ports, list):
+            runtime_ports_payload = [dict(item) for item in runtime_ports if isinstance(item, dict)]
+        elif isinstance(runtime_current.get("ports"), list):
+            runtime_ports_payload = [dict(item) for item in runtime_current.get("ports") if isinstance(item, dict)]
+        else:
+            runtime_ports_payload = []
+
+        if "bind_localhost" in runtime_overrides:
+            runtime_bind_localhost = bool(runtime_overrides.get("bind_localhost", True))
+        else:
+            runtime_bind_localhost = bool(runtime_current.get("bind_localhost", True))
+
+        raw_runtime_cpu = runtime_overrides.get("cpu", runtime_current.get("cpu"))
+        runtime_cpu: float | None = None
+        if raw_runtime_cpu is not None and str(raw_runtime_cpu).strip() != "":
+            try:
+                runtime_cpu = float(str(raw_runtime_cpu).strip())
+            except Exception:
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "error": "standalone_runtime_cpu_invalid",
+                        "cpu": raw_runtime_cpu,
+                        "hint": "runtime_overrides.cpu must be a positive number",
+                    },
+                )
+            if runtime_cpu <= 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "error": "standalone_runtime_cpu_invalid",
+                        "cpu": raw_runtime_cpu,
+                        "hint": "runtime_overrides.cpu must be a positive number",
+                    },
+                )
+        raw_runtime_memory = runtime_overrides.get("memory", runtime_current.get("memory"))
+        runtime_memory = None
+        if raw_runtime_memory is not None:
+            normalized_memory = str(raw_runtime_memory).strip()
+            runtime_memory = normalized_memory or None
+
+        config_env = {str(key): str(value) for key, value in config_env_current.items()}
+        config_env_overrides = body.config_env_overrides if isinstance(body.config_env_overrides, dict) else {}
+        for key, value in config_env_overrides.items():
+            config_env[str(key)] = str(value)
+
+        install_state = _get_install_state(addon_id) or {}
+        catalog_id = (
+            (body.source_id.strip() if isinstance(body.source_id, str) and body.source_id.strip() else None)
+            or str(install_source.get("catalog_id") or "").strip()
+            or str(install_state.get("installed_from_source_id") or "").strip()
+            or "official"
+        )
+        channel = (str(body.channel or current_desired.get("channel") or "stable").strip().lower() or "stable")
+        desired_state = str(body.desired_state or current_desired.get("desired_state") or "running").strip().lower() or "running"
+        pinned_version = (
+            str(body.pinned_version).strip()
+            if isinstance(body.pinned_version, str) and body.pinned_version.strip()
+            else (
+                str(current_desired.get("pinned_version")).strip()
+                if current_desired.get("pinned_version") is not None
+                else None
+            )
+        )
+
+        desired_payload = build_desired_state(
+            addon_id=addon_id,
+            catalog_id=catalog_id,
+            channel=channel,
+            pinned_version=pinned_version,
+            artifact_url=str(release.get("artifact_url") or "").strip(),
+            sha256=str(release.get("sha256") or "").strip(),
+            publisher_key_id=str(release.get("publisher_key_id") or "").strip(),
+            signature_value=str((release.get("signature") or {}).get("value") if isinstance(release.get("signature"), dict) else ""),
+            runtime_project_name=runtime_project_name,
+            runtime_network=runtime_network or "synthia_net",
+            runtime_ports=runtime_ports_payload,
+            runtime_bind_localhost=runtime_bind_localhost,
+            runtime_cpu=runtime_cpu,
+            runtime_memory=runtime_memory,
+            config_env=config_env,
+            desired_state=desired_state,
+            force_rebuild=bool(body.force_rebuild),
+        )
+        write_desired_state_atomic(desired_path, desired_payload)
+        runtime_payload = _read_standalone_runtime(addon_id, standalone_runtime)
+        ui_redirect = _standalone_ui_redirect_info(addon_id, runtime_payload)
+
+        await audit_store.record(
+            action="standalone_update",
+            addon_id=addon_id,
+            version=pinned_version,
+            status="success",
+            message="standalone_desired_updated",
+            actor=actor,
+        )
+        return {
+            "ok": True,
+            "addon_id": addon_id,
+            "desired_path": _abs_path_str(desired_path),
+            "runtime_path": _abs_path_str(runtime_payload.get("runtime_path")),
+            "runtime_state": runtime_payload.get("runtime_state"),
+            "standalone_runtime": runtime_payload.get("standalone_runtime"),
+            "ui_reachable": ui_redirect["ui_reachable"],
+            "ui_redirect_target": ui_redirect["ui_redirect_target"],
+            "ui_reason": ui_redirect["ui_reason"],
+            "desired_state": desired_state,
+            "pinned_version": pinned_version,
+            "force_rebuild": bool(body.force_rebuild),
+            "desired_revision": desired_payload.get("desired_revision"),
+        }
+
     @router.post("/uninstall")
     async def uninstall_addon(
         body: StoreUninstallRequest,
@@ -2193,6 +2397,7 @@ def build_store_router(
         if not isinstance(last_install_error, dict):
             last_install_error = None
         runtime_payload = _read_standalone_runtime(addon_id, standalone_runtime)
+        ui_redirect = _standalone_ui_redirect_info(addon_id, runtime_payload)
 
         return {
             "ok": True,
@@ -2212,6 +2417,9 @@ def build_store_router(
             "runtime_state": runtime_payload.get("runtime_state"),
             "standalone_runtime": runtime_payload.get("standalone_runtime"),
             "runtime_error": runtime_payload.get("runtime_error"),
+            "ui_reachable": ui_redirect["ui_reachable"],
+            "ui_redirect_target": ui_redirect["ui_redirect_target"],
+            "ui_reason": ui_redirect["ui_reason"],
         }
 
     @router.get("/status/{addon_id}/diagnostics")

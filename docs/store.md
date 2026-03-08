@@ -1,6 +1,6 @@
 # Store and Catalog Documentation
 
-Last Updated: 2026-03-08 12:07 US/Pacific
+Last Updated: 2026-03-08 12:20 US/Pacific
 
 ## Scope
 
@@ -30,10 +30,13 @@ Implemented:
 - compatibility checks
 - install/update/uninstall endpoint flows
 - standalone install mode writes `desired.json` and stages `addon.tgz`
+- standalone desired update endpoint (`POST /api/store/standalone/update`) rewrites `desired.json` in place for installed standalone services
 - standalone release manifests may define `runtime_defaults` (`ports`, `bind_localhost`); Core resolves runtime defaults from extracted artifact `manifest.json` first and falls back to catalog/normalized manifest metadata when unavailable
 - standalone runtime overrides support optional `cpu` and `memory` values for desired runtime intent
 - standalone uninstall path now performs desired-state stop intent, best-effort compose teardown, and standalone service directory removal
 - status/diagnostic endpoints read runtime state and summarize errors
+- standalone install/status payloads expose UI reachability hints (`ui_reachable`, `ui_redirect_target`, `ui_reason`)
+- frontend install success flow may auto-redirect to addon UI route (`/addons/{addon_id}`) when `ui_reachable=true`; otherwise it stays in store with fallback guidance
 - diagnostics expose standalone retention policy and retained/prunable version lists
 
 ## File Contracts (Store vs Supervisor)
@@ -60,7 +63,7 @@ Store expectations/behavior:
 - Written by Store for `install_mode=standalone_service`.
 - Validated against `DesiredStatePayload` schema before write.
 - Key required fields written:
-  - `ssap_version`, `addon_id`, `mode`, `desired_state`, `desired_revision`, `channel`
+  - `ssap_version`, `addon_id`, `mode`, `desired_state`, `desired_revision`, `force_rebuild`, `channel`
   - `install_source` (`type`, `catalog_id`, `release`)
   - `runtime` (`project_name`, `network`, `ports`, `bind_localhost`, optional `cpu`, `memory`)
   - `config.env`
