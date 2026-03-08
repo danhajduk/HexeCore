@@ -1,6 +1,6 @@
 # Synthia Core Documentation
 
-Last Updated: 2026-03-07 17:08 US/Pacific
+Last Updated: 2026-03-07 18:07 US/Pacific
 
 ## Documentation Contract
 
@@ -47,7 +47,7 @@ Core
 │   ├── Addon Registry + Install Sessions
 │   └── Policy / Telemetry / MQTT
 ├── Frontend (React)
-│   ├── Home / Store / Addons / Settings
+│   ├── Home dashboard / Store / Addons / Settings
 │   └── Admin session-gated routes
 └── Addon Runtime Integration
     ├── Core writes desired.json and stages addon.tgz

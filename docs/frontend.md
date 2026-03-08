@@ -1,6 +1,6 @@
 # Frontend Documentation
 
-Last Updated: 2026-03-07 14:51 US/Pacific
+Last Updated: 2026-03-07 18:07 US/Pacific
 
 ## Stack
 
@@ -29,7 +29,14 @@ Last Updated: 2026-03-07 14:51 US/Pacific
 
 ## Core UI Areas
 
-- Home: admin sign-in/sign-out
+- Home:
+  - operational dashboard for guest and admin
+  - Synthia status widget + subsystem pills
+  - compact status row (core/supervisor/addons/workers/busy)
+  - Installed Addons panel
+  - Recent Activity panel (platform events feed)
+  - System Metrics panel (CPU/memory/disk)
+  - compact admin session strip (sign-in or sign-out state)
 - Store: catalog browsing, install actions, diagnostics and remediation UX
 - Addons: inventory and control-plane metadata/actions
 - Settings: settings + jobs/metrics/statistics + admin controls

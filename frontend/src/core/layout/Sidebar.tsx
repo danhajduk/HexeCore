@@ -95,7 +95,7 @@ export default function Sidebar({ isAdmin }: { isAdmin: boolean }) {
         ))}
       </nav>
       <div className="sidebar-footer">
-        {isAdmin ? "Addon links appear after sync." : "Guest mode: only Home is available."}
+        {isAdmin ? "Admin routes unlocked." : "Guest mode: sign in for Store, Addons, and Settings."}
       </div>
     </aside>
   );
