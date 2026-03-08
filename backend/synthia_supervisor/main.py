@@ -3,7 +3,7 @@ from __future__ import annotations
 import json, os, time, logging, shutil
 from pathlib import Path
 from typing import Dict, Any
-from .models import DesiredState, RuntimeState
+from .models import DesiredState, RuntimeState, ReconcileResult
 from .docker_compose import compose_up, compose_down, ensure_extracted, ensure_compose_files
 
 DEFAULT_INTERVAL_S = 5
@@ -114,14 +114,104 @@ def _cleanup_old_versions(addon_dir: Path, *, active_version: str | None, previo
         "pruned_versions": sorted(pruned),
     }
 
-def reconcile_one(addon_dir: Path):
+def _safe_load_runtime_state(runtime_path: Path) -> RuntimeState | None:
+    if not runtime_path.exists():
+        return None
+    try:
+        raw = load_json(runtime_path)
+        return RuntimeState(**raw)
+    except Exception:
+        return None
+
+
+def _build_reconcile_result(
+    *,
+    desired: DesiredState,
+    runtime: RuntimeState,
+    prior_runtime: RuntimeState | None,
+) -> ReconcileResult:
+    prior_state = prior_runtime.state if prior_runtime is not None else "unknown"
+    state_transition = f"{prior_state}->{runtime.state}"
+    changed = (
+        prior_runtime is None
+        or prior_runtime.state != runtime.state
+        or prior_runtime.active_version != runtime.active_version
+        or prior_runtime.previous_version != runtime.previous_version
+    )
+    return ReconcileResult(
+        addon_id=runtime.addon_id,
+        desired_state=desired.desired_state,
+        final_state=runtime.state,
+        active_version=runtime.active_version,
+        previous_version=runtime.previous_version,
+        changed=changed,
+        state_transition=state_transition,
+        error=runtime.error or runtime.last_error,
+        compose_project_name=desired.runtime.project_name,
+    )
+
+
+def _emit_lifecycle_event(result: ReconcileResult) -> dict[str, Any] | None:
+    if result.final_state == "error":
+        payload = {
+            "event_type": "addon_failed",
+            "addon_id": result.addon_id,
+            "desired_state": result.desired_state,
+            "final_state": result.final_state,
+            "state_transition": result.state_transition,
+            "active_version": result.active_version,
+            "previous_version": result.previous_version,
+            "compose_project_name": result.compose_project_name,
+            "error": result.error,
+            "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }
+        log.info("post_reconcile_event addon_id=%s event=%s payload=%s", result.addon_id, payload["event_type"], payload)
+        return payload
+    if not result.changed:
+        return None
+    if result.final_state == "running" and result.active_version:
+        event_type = "addon_updated" if result.previous_version and result.previous_version != result.active_version else "addon_started"
+        payload = {
+            "event_type": event_type,
+            "addon_id": result.addon_id,
+            "desired_state": result.desired_state,
+            "final_state": result.final_state,
+            "state_transition": result.state_transition,
+            "active_version": result.active_version,
+            "previous_version": result.previous_version,
+            "compose_project_name": result.compose_project_name,
+            "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }
+        log.info("post_reconcile_event addon_id=%s event=%s payload=%s", result.addon_id, payload["event_type"], payload)
+        return payload
+    return None
+
+
+def run_post_reconcile_hooks(addon_dir: Path, result: ReconcileResult) -> dict[str, Any]:
+    hooks = {
+        "cleanup": None,
+        "lifecycle_event": None,
+    }
+    if result.final_state == "running" and not result.error:
+        cleanup_result = _cleanup_old_versions(
+            addon_dir,
+            active_version=result.active_version,
+            previous_version=result.previous_version,
+        )
+        hooks["cleanup"] = cleanup_result
+    hooks["lifecycle_event"] = _emit_lifecycle_event(result)
+    return hooks
+
+
+def reconcile_one(addon_dir: Path) -> ReconcileResult | None:
     desired_path = addon_dir / "desired.json"
     runtime_path = addon_dir / "runtime.json"
     if not desired_path.exists():
         log.debug("reconcile_skip addon_dir=%s reason=missing_desired", addon_dir)
-        return
+        return None
     log.info("reconcile_start addon_dir=%s", addon_dir)
     desired = DesiredState(**load_json(desired_path))
+    prior_runtime = _safe_load_runtime_state(runtime_path)
     rt = RuntimeState.new(desired.addon_id)
     previous_version = resolve_current_version(addon_dir)
     log.info(
@@ -141,7 +231,7 @@ def reconcile_one(addon_dir: Path):
             rt.state = "stopped"
             write_json_atomic(runtime_path, rt.model_dump())
             log.info("reconcile_done addon_id=%s state=stopped", desired.addon_id)
-            return
+            return _build_reconcile_result(desired=desired, runtime=rt, prior_runtime=prior_runtime)
 
         version = desired.pinned_version or "latest"
         version_dir = addon_dir / "versions" / version
@@ -168,18 +258,11 @@ def reconcile_one(addon_dir: Path):
         rt.previous_version = previous_version
         rt.rollback_available = bool(previous_version and previous_version != version)
         rt.last_error = None
-        cleanup_result = _cleanup_old_versions(
-            addon_dir,
-            active_version=rt.active_version,
-            previous_version=rt.previous_version,
-        )
         log.info(
-            "reconcile_done addon_id=%s state=running active_version=%s rollback_available=%s retained_versions=%s pruned_versions=%s",
+            "reconcile_done addon_id=%s state=running active_version=%s rollback_available=%s",
             desired.addon_id,
             rt.active_version,
             rt.rollback_available,
-            cleanup_result.get("retained_versions"),
-            cleanup_result.get("pruned_versions"),
         )
 
     except Exception as e:
@@ -192,6 +275,7 @@ def reconcile_one(addon_dir: Path):
         log.exception("reconcile_error addon_id=%s error=%s", rt.addon_id, message)
 
     write_json_atomic(runtime_path, rt.model_dump())
+    return _build_reconcile_result(desired=desired, runtime=rt, prior_runtime=prior_runtime)
 
 def main():
     configure_logging()
@@ -204,7 +288,18 @@ def main():
     while True:
         for addon_dir in services_dir.iterdir():
             if addon_dir.is_dir():
-                reconcile_one(addon_dir)
+                result = reconcile_one(addon_dir)
+                if result is None:
+                    continue
+                hook_result = run_post_reconcile_hooks(addon_dir, result)
+                cleanup = hook_result.get("cleanup")
+                if isinstance(cleanup, dict):
+                    log.info(
+                        "post_reconcile_cleanup addon_id=%s retained_versions=%s pruned_versions=%s",
+                        result.addon_id,
+                        cleanup.get("retained_versions"),
+                        cleanup.get("pruned_versions"),
+                    )
         time.sleep(interval)
 
 if __name__ == "__main__":

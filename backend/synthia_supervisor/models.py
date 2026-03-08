@@ -55,3 +55,15 @@ class RuntimeState(BaseModel):
     @classmethod
     def new(cls, addon_id: str):
         return cls(addon_id=addon_id, state="installing")
+
+
+class ReconcileResult(BaseModel):
+    addon_id: str
+    desired_state: str
+    final_state: str
+    active_version: Optional[str] = None
+    previous_version: Optional[str] = None
+    changed: bool = False
+    state_transition: str = "unknown->unknown"
+    error: Optional[str] = None
+    compose_project_name: Optional[str] = None

@@ -265,3 +265,4 @@
 2026-03-07 - Task 122: implemented standalone version retention cleanup policy and retention diagnostics with tests/docs.
 2026-03-07 - Implemented authenticated service registration API (/api/services/register) with addon metadata association and service discovery docs/tests updates.
 2026-03-07 - Added platform event foundation with in-memory queue, log+MQTT emission, /api/system/events visibility, and lifecycle hooks for addon/service/scheduler events.
+2026-03-07 - Refactored supervisor reconcile to return ReconcileResult and added post-reconcile hooks for retention cleanup and lifecycle event emission.

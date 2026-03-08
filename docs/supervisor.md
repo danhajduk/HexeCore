@@ -1,6 +1,6 @@
 # Synthia Supervisor Runtime Specification (Code-Verified)
 
-Last Updated: 2026-03-07 16:08 US/Pacific
+Last Updated: 2026-03-07 17:31 US/Pacific
 
 This document only describes behavior that is present in code today. Any missing capability is explicitly labeled **Not developed**.
 
@@ -36,6 +36,34 @@ Implemented:
 Worst-case reaction delay (code-derived):
 - `poll interval + time spent reconciling earlier addon directories in that loop iteration`.
 - There is no parallel reconcile worker pool.
+
+## 1.1) Reconcile Result and Post-Reconcile Hooks
+
+Implemented:
+- `reconcile_one(addon_dir)` returns a structured `ReconcileResult` (or `None` when `desired.json` is missing).
+- `ReconcileResult` fields:
+  - `addon_id`
+  - `desired_state`
+  - `final_state`
+  - `active_version`
+  - `previous_version`
+  - `changed`
+  - `state_transition`
+  - `error`
+  - `compose_project_name`
+- Supervisor loop now executes:
+  - `result = reconcile_one(addon_dir)`
+  - `run_post_reconcile_hooks(addon_dir, result)` when result exists
+
+Implemented initial post-reconcile hooks:
+- Artifact retention cleanup hook:
+  - runs only for successful `final_state=running` results
+  - keeps active + previous + newest versions per retention policy
+- Lifecycle event emission hook:
+  - emits/logs `addon_started`, `addon_updated`, `addon_failed` payloads based on result transition/outcome
+
+Boundary:
+- `runtime.json` write semantics remain unchanged (atomic write per reconcile attempt where `desired.json` exists).
 
 ## 2) Addon Directory Discovery
 

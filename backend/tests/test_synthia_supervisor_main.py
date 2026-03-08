@@ -7,7 +7,7 @@ from pathlib import Path
 import os
 from unittest.mock import patch
 
-from synthia_supervisor.main import reconcile_one
+from synthia_supervisor.main import reconcile_one, run_post_reconcile_hooks
 
 
 def _write_desired(addon_dir: Path, version: str = "0.1.2") -> None:
@@ -33,6 +33,13 @@ def _write_desired(addon_dir: Path, version: str = "0.1.2") -> None:
 
 
 class TestSynthiaSupervisorReconcile(unittest.TestCase):
+    def test_reconcile_returns_none_when_desired_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            addon_dir = Path(tmp) / "services" / "mqtt"
+            addon_dir.mkdir(parents=True, exist_ok=True)
+            result = reconcile_one(addon_dir)
+            self.assertIsNone(result)
+
     def test_reconcile_order_extract_then_compose_then_up(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             addon_dir = Path(tmp) / "services" / "mqtt"
@@ -45,7 +52,10 @@ class TestSynthiaSupervisorReconcile(unittest.TestCase):
             with patch("synthia_supervisor.main.ensure_extracted", side_effect=lambda *a, **k: calls.append("extract")), \
                 patch("synthia_supervisor.main.ensure_compose_files", side_effect=lambda *a, **k: calls.append("compose_files")), \
                 patch("synthia_supervisor.main.compose_up", side_effect=lambda *a, **k: calls.append("compose_up")):
-                reconcile_one(addon_dir)
+                result = reconcile_one(addon_dir)
+            self.assertIsNotNone(result)
+            hooks = run_post_reconcile_hooks(addon_dir, result)  # type: ignore[arg-type]
+            self.assertIsInstance(hooks.get("cleanup"), dict)
 
             self.assertEqual(calls, ["extract", "compose_files", "compose_up"])
             self.assertTrue((addon_dir / "current").is_symlink())
@@ -55,6 +65,8 @@ class TestSynthiaSupervisorReconcile(unittest.TestCase):
             self.assertEqual(runtime["active_version"], "0.1.2")
             self.assertFalse(runtime["rollback_available"])
             self.assertIsNone(runtime["last_error"])
+            self.assertEqual(result.final_state, "running")  # type: ignore[union-attr]
+            self.assertEqual(result.desired_state, "running")  # type: ignore[union-attr]
 
     def test_reconcile_stops_when_extract_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -67,7 +79,10 @@ class TestSynthiaSupervisorReconcile(unittest.TestCase):
             with patch("synthia_supervisor.main.ensure_extracted", side_effect=RuntimeError("extract-failed")) as extract_mock, \
                 patch("synthia_supervisor.main.ensure_compose_files") as compose_files_mock, \
                 patch("synthia_supervisor.main.compose_up") as compose_up_mock:
-                reconcile_one(addon_dir)
+                result = reconcile_one(addon_dir)
+            self.assertIsNotNone(result)
+            hooks = run_post_reconcile_hooks(addon_dir, result)  # type: ignore[arg-type]
+            self.assertIsNone(hooks.get("cleanup"))
 
             extract_mock.assert_called_once()
             compose_files_mock.assert_not_called()
@@ -94,7 +109,10 @@ class TestSynthiaSupervisorReconcile(unittest.TestCase):
             with patch("synthia_supervisor.main.ensure_extracted"), \
                 patch("synthia_supervisor.main.ensure_compose_files"), \
                 patch("synthia_supervisor.main.compose_up", side_effect=RuntimeError("compose-failed")):
-                reconcile_one(addon_dir)
+                result = reconcile_one(addon_dir)
+            self.assertIsNotNone(result)
+            hooks = run_post_reconcile_hooks(addon_dir, result)  # type: ignore[arg-type]
+            self.assertIsNone(hooks.get("cleanup"))
 
             self.assertTrue(current.is_symlink())
             self.assertEqual(current.resolve(), old_version_dir.resolve())
@@ -119,7 +137,10 @@ class TestSynthiaSupervisorReconcile(unittest.TestCase):
             with patch("synthia_supervisor.main.ensure_extracted"), \
                 patch("synthia_supervisor.main.ensure_compose_files"), \
                 patch("synthia_supervisor.main.compose_up"):
-                reconcile_one(addon_dir)
+                result = reconcile_one(addon_dir)
+            self.assertIsNotNone(result)
+            hooks = run_post_reconcile_hooks(addon_dir, result)  # type: ignore[arg-type]
+            self.assertIsInstance(hooks.get("cleanup"), dict)
 
             current = addon_dir / "current"
             self.assertTrue(current.is_symlink())
@@ -149,7 +170,9 @@ class TestSynthiaSupervisorReconcile(unittest.TestCase):
                 patch("synthia_supervisor.main.ensure_extracted"), \
                 patch("synthia_supervisor.main.ensure_compose_files"), \
                 patch("synthia_supervisor.main.compose_up"):
-                reconcile_one(addon_dir)
+                result = reconcile_one(addon_dir)
+            self.assertIsNotNone(result)
+            run_post_reconcile_hooks(addon_dir, result)  # type: ignore[arg-type]
 
             remaining = sorted(
                 p.name for p in (addon_dir / "versions").iterdir() if p.is_dir()
@@ -169,7 +192,9 @@ class TestSynthiaSupervisorReconcile(unittest.TestCase):
                 patch("synthia_supervisor.main.ensure_extracted"), \
                 patch("synthia_supervisor.main.ensure_compose_files"), \
                 patch("synthia_supervisor.main.compose_up", side_effect=RuntimeError("compose-failed")):
-                reconcile_one(addon_dir)
+                result = reconcile_one(addon_dir)
+            self.assertIsNotNone(result)
+            run_post_reconcile_hooks(addon_dir, result)  # type: ignore[arg-type]
 
             remaining = sorted(
                 p.name for p in (addon_dir / "versions").iterdir() if p.is_dir()
