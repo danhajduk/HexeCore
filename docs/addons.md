@@ -1,6 +1,6 @@
 # Addons Reference (Core + Addon Workspace)
 
-Last Updated: 2026-03-07 21:55 US/Pacific
+Last Updated: 2026-03-08 11:57 US/Pacific
 
 This document is the single handoff reference for building, registering, and operating addons with Synthia Core.
 
@@ -164,3 +164,11 @@ Apply config via settings API and restart MQTT manager:
 ## 12) MQTT Contract Reference
 
 - Core MQTT platform contract: [mqtt-contract.md](./mqtt-contract.md)
+
+## 13) Standalone Desired/Rebuild Contract
+
+- Addons do not push updates directly to supervisor; Core writes `desired.json`.
+- Supervisor has no direct notify API and discovers desired changes on polling reconcile.
+- For compose/runtime topology changes, publish a new addon version so Core can update `pinned_version`.
+- Current manifest runtime defaults used by Core for desired runtime are limited to `ports` and `bind_localhost`.
+- Multi-service compose topology declarations in manifest are not developed in current schema/runtime.

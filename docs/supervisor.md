@@ -1,6 +1,6 @@
 # Synthia Supervisor Runtime Specification (Code-Verified)
 
-Last Updated: 2026-03-08 11:25 US/Pacific
+Last Updated: 2026-03-08 11:57 US/Pacific
 
 This document only describes behavior that is present in code today. Any missing capability is explicitly labeled **Not developed**.
 
@@ -134,6 +134,19 @@ Implication:
 
 Not developed:
 - Compose template versioning/validation against expected schema.
+
+## 7.1) Desired Update Notification and Rebuild Trigger
+
+Implemented:
+- Supervisor has no direct notify endpoint/event bus for desired updates.
+- Supervisor detects desired changes by reading `desired.json` during polling reconcile.
+- Core Store writes desired updates via atomic replace; supervisor consumes the latest file snapshot on the next poll.
+
+Important rebuild boundary:
+- `runtime.env` is rewritten each running reconcile, so desired env changes are applied.
+- Compose-affecting desired fields (`runtime.ports`, `runtime.bind_localhost`, `runtime.network`, `runtime.cpu`, `runtime.memory`) only affect generated templates when `versions/<version>/docker-compose.yml` does not already exist.
+- If a compose file already exists for the pinned version, desired-only updates do not regenerate compose.
+- To force compose regeneration in current implementation, Core must reconcile to a new `pinned_version` directory where compose is not present yet.
 
 ## 8) Container Build Model
 

@@ -1,6 +1,6 @@
 # Store and Catalog Documentation
 
-Last Updated: 2026-03-08 11:25 US/Pacific
+Last Updated: 2026-03-08 11:57 US/Pacific
 
 ## Scope
 
@@ -70,6 +70,12 @@ Runtime precedence used by Store when writing `desired.json`:
 - then extracted addon `manifest.json` `runtime_defaults` (ports/bind_localhost).
 - then catalog/normalized `ReleaseManifest.runtime_defaults`.
 - then Store fallbacks (`ports=[]`, `bind_localhost=true`, default network/project name).
+
+Desired-state handoff behavior:
+- Store writes `desired.json` by atomic replace (`write_desired_state_atomic`).
+- There is no direct Store -> Supervisor notify API.
+- Supervisor picks up desired changes on its next poll cycle.
+- Rebuilds that require a new compose file must use a new `pinned_version` directory; updating `desired.json` only is not enough when `versions/<version>/docker-compose.yml` already exists.
 
 ### `runtime.json` (Supervisor-owned runtime state)
 

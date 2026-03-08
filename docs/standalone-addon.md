@@ -1,6 +1,6 @@
 # Synthia Standalone Addon Specification
 
-Last Updated: 2026-03-08 09:18 US/Pacific
+Last Updated: 2026-03-08 11:57 US/Pacific
 
 Version: 0.1 (development phase)
 
@@ -218,6 +218,37 @@ explicitly provided, Core defaults `runtime.project_name` to:
 If a project name is explicitly provided in runtime overrides, Core
 normalizes it to a Docker Compose-safe value (lowercase; only
 alphanumeric, `_`, `-`; must start with alphanumeric).
+
+------------------------------------------------------------------------
+
+# 6.2 Desired Update and Rebuild Contract
+
+Current implementation (code-verified):
+
+- Addons do not notify supervisor directly.
+- Core Store writes `desired.json` (atomic replace).
+- Supervisor picks up that change on the next polling reconcile cycle.
+
+What triggers rebuild/recompose today:
+
+- Changing `pinned_version` to a new version directory triggers a new
+  extract/build/reconcile path.
+- Updating only `desired.json` for an already-generated version does not
+  regenerate `versions/<version>/docker-compose.yml`.
+
+Addon author guidance:
+
+- Put exposed ports in addon `manifest.json` `runtime_defaults.ports`
+  (and optional `runtime_defaults.bind_localhost`) so Core can write
+  desired runtime intent correctly.
+- For runtime topology changes that require a different compose file,
+  publish a new addon version and let Core set that as `pinned_version`.
+
+Not developed:
+
+- Direct addon-originated supervisor notify/rebuild API.
+- Manifest schema support for addon-defined multi-service docker compose
+  topology (for example adding a broker sidecar service).
 
 ------------------------------------------------------------------------
 
