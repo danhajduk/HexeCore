@@ -1,6 +1,6 @@
 # Frontend Documentation
 
-Last Updated: 2026-03-07 18:36 US/Pacific
+Last Updated: 2026-03-07 18:40 US/Pacific
 
 ## Stack
 
@@ -45,7 +45,7 @@ Last Updated: 2026-03-07 18:36 US/Pacific
   - Recent Activity panel (platform events feed)
   - System Metrics panel (CPU/memory/disk + network/internet/speed status + throughput sample + network I/O/error counters)
     - CPU/Memory/Disk render as fill bars with percentage labels
-  - shell header keeps only the main title text (legacy subtitle removed)
+  - shell header removed from layout; page content starts at top of main pane
   - compact admin session strip (sign-in or sign-out state)
   - data refresh interval: 10s polling for dashboard cards (`/api/system/stack/summary` reads backend cached speed values only and does not trigger new speedtest runs)
 - Store: catalog browsing, install actions, diagnostics and remediation UX

@@ -282,3 +282,4 @@
 2026-03-07 - Completed Home UI polish: status capitalization, 24h updated time, login position, metric bars, and pill border status styling
 2026-03-07 - Updated Home status card to 2px tone-colored border matching subsystem status styling
 2026-03-07 - Applied tone-matched 2px border styling to Home mini status value badges
+2026-03-07 - Removed shell header from layout so pages render directly at top of main pane
