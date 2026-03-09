@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -83,6 +84,33 @@ def _cleanup_store_workdirs(backup_retention: int, staging_ttl_minutes: int):
 
 def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _parse_iso_datetime(value: Any) -> datetime | None:
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    try:
+        parsed = datetime.fromisoformat(raw)
+    except Exception:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _catalog_auto_refresh_due(source: StoreSource, metadata: dict[str, Any]) -> bool:
+    now = datetime.now(timezone.utc)
+    refresh_every_s = max(10, int(getattr(source, "refresh_seconds", 300) or 300))
+    last_success = _parse_iso_datetime(metadata.get("last_success_at"))
+    last_requested = _parse_iso_datetime(getattr(source, "last_refresh_requested_at", None))
+
+    if last_requested is not None and (last_success is None or last_requested > last_success):
+        return True
+    if last_success is None:
+        return True
+    age_s = (now - last_success).total_seconds()
+    return age_s >= refresh_every_s
 
 
 def _store_install_state_path() -> Path:
@@ -1208,6 +1236,16 @@ def build_store_router(
                     },
                 }
             else:
+                load_source_metadata = getattr(cache_catalog, "load_source_metadata", None)
+                refresh_source = getattr(cache_catalog, "refresh_source", None)
+                metadata = load_source_metadata(selected.id) if callable(load_source_metadata) else {}
+                if not isinstance(metadata, dict):
+                    metadata = {}
+                if callable(refresh_source) and _catalog_auto_refresh_due(selected, metadata):
+                    try:
+                        await asyncio.to_thread(refresh_source, selected)
+                    except Exception:
+                        pass
                 payload = cache_catalog.query_cached(selected.id, req)
                 load_cached_docs = getattr(cache_catalog, "load_cached_documents", None)
                 if callable(load_cached_docs):

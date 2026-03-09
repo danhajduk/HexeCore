@@ -71,6 +71,14 @@ class _FakeSourcesStore:
         ]
 
 
+class _SingleSourceStore:
+    def __init__(self, source: StoreSource) -> None:
+        self._source = source
+
+    async def list_sources(self):
+        return [self._source]
+
+
 class _FakeCatalogClient:
     def __init__(
         self,
@@ -132,6 +140,42 @@ class _FakeCatalogClient:
         if self._fail_first_download_404 and self._download_calls == 1:
             raise RuntimeError("catalog_http_error:404")
         return self._artifact_bytes
+
+
+class _CatalogAutoRefreshClient:
+    def __init__(self, *, metadata: dict[str, object]) -> None:
+        self.metadata = metadata
+        self.refresh_calls = 0
+
+    def select_source(self, sources, source_id):
+        for src in sources:
+            if src.id == (source_id or "official"):
+                return src
+        return None
+
+    def load_source_metadata(self, source_id: str) -> dict:
+        return dict(self.metadata)
+
+    def refresh_source(self, source):
+        self.refresh_calls += 1
+        return {"ok": True, "source_id": source.id, "catalog_status": {"status": "ok"}}
+
+    def query_cached(self, source_id, req):
+        return {
+            "ok": True,
+            "items": [],
+            "page": req.page,
+            "page_size": req.page_size,
+            "total": 0,
+            "has_next": False,
+            "sort": req.sort,
+            "filters": {"q": req.q, "category": req.category, "featured": req.featured},
+            "categories": [],
+            "catalog_status": {"status": "ok", "source_id": source_id},
+        }
+
+    def load_cached_documents(self, source_id):
+        return ({"addons": []}, {"publishers": []})
 
 
 def _manifest_payload(addon_id: str = "hello_world") -> dict:
@@ -366,6 +410,49 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertIn("installed", payload)
         self.assertEqual(payload["installed"]["hello_world"]["version"], "1.0.0")
         self.assertEqual(payload["installed"]["hello_world"]["installed_at"], "2026-02-28T15:00:00+00:00")
+
+    def test_catalog_endpoint_auto_refreshes_when_cache_is_stale(self) -> None:
+        stale_metadata = {"last_success_at": "2000-01-01T00:00:00+00:00"}
+        catalog = _CatalogAutoRefreshClient(metadata=stale_metadata)
+        source = StoreSource(
+            id="official",
+            type="github_raw",
+            base_url="https://raw.githubusercontent.test/catalog",
+            enabled=True,
+            refresh_seconds=300,
+            last_refresh_requested_at=None,
+        )
+        app = FastAPI()
+        app.include_router(
+            build_store_router(self.registry, self.audit, _SingleSourceStore(source), catalog),
+            prefix="/api/store",
+        )
+        client = TestClient(app)
+
+        res = client.get("/api/store/catalog?source_id=official")
+        self.assertEqual(res.status_code, 200, res.text)
+        self.assertEqual(catalog.refresh_calls, 1)
+
+    def test_catalog_endpoint_auto_refreshes_when_manual_refresh_requested_after_success(self) -> None:
+        catalog = _CatalogAutoRefreshClient(metadata={"last_success_at": "2026-03-08T00:00:00+00:00"})
+        source = StoreSource(
+            id="official",
+            type="github_raw",
+            base_url="https://raw.githubusercontent.test/catalog",
+            enabled=True,
+            refresh_seconds=3600,
+            last_refresh_requested_at="2026-03-08T00:10:00+00:00",
+        )
+        app = FastAPI()
+        app.include_router(
+            build_store_router(self.registry, self.audit, _SingleSourceStore(source), catalog),
+            prefix="/api/store",
+        )
+        client = TestClient(app)
+
+        res = client.get("/api/store/catalog?source_id=official")
+        self.assertEqual(res.status_code, 200, res.text)
+        self.assertEqual(catalog.refresh_calls, 1)
 
     def test_validate_source_reports_invalid_release_versions(self) -> None:
         artifact_bytes = b"artifact-invalid-version"
