@@ -1,6 +1,6 @@
 # Synthia MQTT Topic Tree (Canonical)
 
-Last Updated: 2026-03-09 06:57 US/Pacific
+Last Updated: 2026-03-09 06:59 US/Pacific
 
 ## Contract
 
@@ -24,6 +24,93 @@ Control-plane rule:
 | `synthia/services/...` | Core Services | Partially Implemented | `synthia/services/+/catalog` subscription implemented |
 | `synthia/addons/<addon_id>/...` | Addon Principal + Core policy | Implemented (announce/health + scoped publish rules) | Addon publish must stay in addon namespace unless explicitly approved reserved access |
 | `synthia/nodes/<node_id>/...` | Synthia Node Principal | Not developed | Reserved planned family for Phase 1+ |
+
+## Family Contracts
+
+### Core Operational Family (`synthia/core/...`)
+
+Implemented:
+- `synthia/core/mqtt/info` retained Core visibility topic.
+
+Planned/Not developed:
+- `synthia/core/status/...`
+- `synthia/core/health/...`
+- `synthia/core/events/...`
+
+Boundary:
+- deterministic Core control actions remain HTTP APIs.
+
+### Addon Family (`synthia/addons/<addon_id>/...`)
+
+Implemented:
+- `synthia/addons/<addon_id>/announce`
+- `synthia/addons/<addon_id>/health`
+
+Approved subtree direction:
+- `synthia/addons/<addon_id>/events/...`
+- `synthia/addons/<addon_id>/status/...`
+- `synthia/addons/<addon_id>/telemetry/...`
+
+Policy boundary:
+- addon publish must remain under addon namespace unless Core explicitly grants reserved access.
+
+### Node Family (`synthia/nodes/<node_id>/...`)
+
+Phase 1 planned (Not developed):
+- status
+- events
+- telemetry
+- health
+
+Boundary:
+- reserved for Core-approved Synthia node principals only.
+
+### Services Family (`synthia/services/...`)
+
+Implemented:
+- `synthia/services/+/catalog` subscription family.
+
+Planned/Not developed:
+- `synthia/services/<service>/health`
+- `synthia/services/<service>/status`
+
+Boundary:
+- informational/async visibility topics only.
+
+### Policy Family (`synthia/policy/...`)
+
+Implemented:
+- `synthia/policy/grants/{service}`
+- `synthia/policy/revocations/{consumer_addon_id}`
+- `synthia/policy/revocations/{grant_id}`
+- `synthia/policy/revocations/{id}` (legacy compatibility)
+
+Defaults:
+- retained `true`
+- QoS `1`
+
+Boundary:
+- policy topics distribute visibility/state artifacts; approval/revoke control remains API-driven.
+
+### Telemetry Family (`synthia/telemetry/...`)
+
+Reserved platform family in Phase 1.
+
+Boundary:
+- platform-level telemetry topics belong here.
+- addon-local telemetry should use addon-scoped subtree (`synthia/addons/<id>/telemetry/...`).
+
+### System / Supervisor / Scheduler Families
+
+Reserved ownership:
+- `synthia/system/...`
+- `synthia/supervisor/...`
+- `synthia/scheduler/...`
+
+Boundary:
+- reserved for platform-owned semantics.
+- avoid mixed-purpose catch-all trees.
+- treat unimplemented subtrees as reserved, not open.
 
 ## Implemented Lifecycle/Platform Topics
 
@@ -59,6 +146,28 @@ Contract:
 - Synthia principals (`synthia_addon`, `synthia_node`) may access reserved topics only with explicit Core approval.
 - Generic users cannot access reserved families by default.
 - Anonymous clients are limited to bootstrap-only subscribe.
+
+## Topic Ownership Matrix
+
+| Family | Owner | Allowed Publishers | Allowed Subscribers | Retained Default | QoS Default | Implementation |
+|---|---|---|---|---|---|---|
+| `synthia/bootstrap/...` | Core | Core | Anonymous, Synthia principals, generic users | `true` for `synthia/bootstrap/core` | `1` | Implemented (`core` topic) |
+| `synthia/core/...` | Core | Core | Core + platform observers | `true` for `synthia/core/mqtt/info` | `1` | Partially Implemented |
+| `synthia/system/...` | Core Platform | Core platform services | Core platform services | topic-specific | topic-specific | Reserved |
+| `synthia/supervisor/...` | Core Platform | Core/supervisor services | Core/supervisor services | topic-specific | topic-specific | Reserved |
+| `synthia/scheduler/...` | Core Platform | Core/scheduler services | Core/scheduler services | topic-specific | topic-specific | Reserved |
+| `synthia/policy/...` | Core Policy | Core policy publisher | Policy consumers, Core | `true` | `1` | Implemented |
+| `synthia/telemetry/...` | Core Platform | Core platform telemetry producers | Core/platform consumers | topic-specific | topic-specific | Reserved |
+| `synthia/services/...` | Core Services | Service publishers (catalog implemented) | Core service catalog consumer | producer-defined | `1` (Core subscription) | Partially Implemented |
+| `synthia/addons/<addon_id>/...` | Addon + Core policy | Matching addon principal (and Core when required) | Core + authorized clients | producer-defined | `1` (announce/health subscriptions) | Implemented/Scoped |
+| `synthia/nodes/<node_id>/...` | Node + Core policy | Core-approved node principal | Core + authorized clients | topic-specific | topic-specific | Not developed |
+
+Principal-role summary for Phase 1:
+- Core: platform publisher/subscriber as defined above.
+- Synthia addon principals: allowed in addon scope and explicitly approved reserved access.
+- Synthia node principals: planned under node family; reserved policy applies.
+- Generic users: denied reserved families by default.
+- Anonymous clients: subscribe-only to `synthia/bootstrap/core`; no publish/wildcards.
 
 ## Not Developed
 

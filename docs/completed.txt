@@ -268,3 +268,11 @@
 204. Task 224: Create canonical Synthia MQTT topic-tree spec in golden docs. - Completed on 03/09/2026 06:57
 205. Task 225: Define top-level Synthia reserved topic families. - Completed on 03/09/2026 06:57
 206. Task 226: Define bootstrap/discovery topic family for embedded MQTT. - Completed on 03/09/2026 06:57
+207. Task 227: Define Core operational topic family. - Completed on 03/09/2026 06:59
+208. Task 228: Define addon topic contract under `synthia/addons/<addon_id>/...`. - Completed on 03/09/2026 06:59
+209. Task 229: Define node topic contract under `synthia/nodes/<node_id>/...`. - Completed on 03/09/2026 06:59
+210. Task 230: Define services/integration visibility topic family. - Completed on 03/09/2026 06:59
+211. Task 231: Define policy topic family contract. - Completed on 03/09/2026 06:59
+212. Task 232: Define telemetry topic family contract. - Completed on 03/09/2026 06:59
+213. Task 233: Define system/supervisor/scheduler topic family boundaries. - Completed on 03/09/2026 06:59
+214. Task 234: Add topic ownership matrix to docs. - Completed on 03/09/2026 06:59
