@@ -12,6 +12,7 @@ Target-direction references for embedded platform-managed MQTT:
 - [MQTT Embedded Addon/Platform Contract](./mqtt-embedded-contract.md)
 - [MQTT Bootstrap Contract](./mqtt-bootstrap-contract.md)
 - [MQTT Authority Persistence Model](./mqtt-authority-persistence.md)
+- [MQTT Broker Runtime Boundary](./mqtt-runtime-boundary.md)
 
 ## Control-Plane vs Event-Plane
 
@@ -81,6 +82,11 @@ Behavior:
 Setup summary compatibility:
 - Preferred error aggregation key: `last_authority_errors`
 - Compatibility alias preserved: `last_provisioning_errors`
+
+Embedded authority foundations:
+- ACL compiler module: `backend/app/system/mqtt/acl_compiler.py`
+- Broker config renderer: `backend/app/system/mqtt/config_renderer.py`
+- Runtime boundary interface: `backend/app/system/mqtt/runtime_boundary.py`
 
 ## JSON Envelope Requirement
 

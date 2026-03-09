@@ -1,4 +1,6 @@
+from .acl_compiler import MqttAclCompiler
 from .approval import MqttRegistrationApprovalService
+from .config_renderer import MqttBrokerConfigRenderer, MqttBrokerRenderInput, MqttBrokerRenderOutput, MqttListenerSpec
 from .integration_models import (
     MqttAddonGrant,
     MqttBootstrapAnnouncement,
@@ -13,10 +15,19 @@ from .integration_models import (
 )
 from .integration_state import MqttIntegrationStateStore
 from .manager import MqttManager
+from .runtime_boundary import BrokerRuntimeBoundary, BrokerRuntimeStatus, InMemoryBrokerRuntimeBoundary
 from .router import build_mqtt_router
 
 __all__ = [
     "MqttManager",
+    "MqttAclCompiler",
+    "MqttBrokerConfigRenderer",
+    "MqttBrokerRenderInput",
+    "MqttBrokerRenderOutput",
+    "MqttListenerSpec",
+    "BrokerRuntimeBoundary",
+    "BrokerRuntimeStatus",
+    "InMemoryBrokerRuntimeBoundary",
     "build_mqtt_router",
     "MqttRegistrationApprovalService",
     "MqttIntegrationStateStore",

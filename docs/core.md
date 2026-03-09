@@ -73,6 +73,7 @@ Core
 - [MQTT Embedded Addon/Platform Contract](./mqtt-embedded-contract.md)
 - [MQTT Bootstrap Contract](./mqtt-bootstrap-contract.md)
 - [MQTT Authority Persistence Model](./mqtt-authority-persistence.md)
+- [MQTT Broker Runtime Boundary](./mqtt-runtime-boundary.md)
 - [Data Model](./data-model.md)
 - [Deployment](./deployment.md)
 - [Supervisor](./supervisor.md)
