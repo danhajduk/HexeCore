@@ -2,13 +2,19 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 from .acl_compiler import MqttAclCompiler
 from .apply_pipeline import MqttApplyPipeline
 from .authority_audit import MqttAuthorityAuditStore
 from .config_renderer import MqttBrokerConfigRenderer, MqttBrokerRenderInput, MqttListenerSpec
+from .credential_store import MqttCredentialStore
 from .integration_models import MqttBootstrapAnnouncement, MqttSetupStateUpdate
 from .integration_state import MqttIntegrationStateStore
+
+
+def _utcnow_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 @dataclass(frozen=True)
@@ -29,6 +35,7 @@ class EmbeddedMqttStartupReconciler:
         config_renderer: MqttBrokerConfigRenderer,
         apply_pipeline: MqttApplyPipeline,
         audit_store: MqttAuthorityAuditStore,
+        credential_store: MqttCredentialStore,
         mqtt_manager,
     ) -> None:
         self._state_store = state_store
@@ -36,9 +43,18 @@ class EmbeddedMqttStartupReconciler:
         self._renderer = config_renderer
         self._pipeline = apply_pipeline
         self._audit = audit_store
+        self._credential_store = credential_store
         self._mqtt = mqtt_manager
+        self._bootstrap_attempts = 0
+        self._bootstrap_successes = 0
+        self._bootstrap_last_attempt_at: str | None = None
+        self._bootstrap_last_success_at: str | None = None
+        self._bootstrap_last_error: str | None = None
 
     async def reconcile_startup(self) -> StartupReconcileResult:
+        return await self.reconcile_authority(reason="startup")
+
+    async def reconcile_authority(self, *, reason: str) -> StartupReconcileResult:
         state = await self._state_store.get_state()
         try:
             acl = self._acl_compiler.compile(state)
@@ -51,13 +67,13 @@ class EmbeddedMqttStartupReconciler:
                     log_dir=os.path.join(os.getcwd(), "var", "mqtt_runtime", "logs"),
                     listeners=[
                         MqttListenerSpec(name="main", enabled=True, port=1883),
-                        MqttListenerSpec(name="bootstrap", enabled=True, port=1884),
+                        MqttListenerSpec(name="bootstrap", enabled=True, port=1884, allow_anonymous=True),
                     ],
                 )
             )
             artifacts = dict(rendered.files)
             artifacts["acl_compiled.conf"] = acl.acl_text
-            artifacts["passwords.conf"] = "# managed by synthia core\n"
+            artifacts["passwords.conf"] = self._credential_store.render_password_file(state)
             apply_result = await self._pipeline.apply(artifacts)
             authority_ready = bool(apply_result.ok and apply_result.runtime.healthy)
             next_setup = MqttSetupStateUpdate(
@@ -72,12 +88,13 @@ class EmbeddedMqttStartupReconciler:
             )
             await self._state_store.update_setup_state(next_setup)
             if authority_ready:
-                await self._publish_bootstrap()
+                await self.ensure_bootstrap_published()
             await self._audit.append_event(
                 event_type="mqtt_startup_reconcile",
                 status=("ok" if authority_ready else "degraded"),
                 message=None if authority_ready else (apply_result.error or "reconcile_failed"),
                 payload={
+                    "reason": reason,
                     "runtime_state": apply_result.runtime.state,
                     "runtime_healthy": apply_result.runtime.healthy,
                 },
@@ -94,11 +111,28 @@ class EmbeddedMqttStartupReconciler:
                 event_type="mqtt_startup_reconcile",
                 status="error",
                 message=type(exc).__name__,
-                payload={"detail": str(exc)},
+                payload={"detail": str(exc), "reason": reason},
             )
             return StartupReconcileResult(False, "error", "degraded", "unknown", error=type(exc).__name__)
 
-    async def _publish_bootstrap(self) -> None:
+    async def ensure_bootstrap_published(self, *, force: bool = False) -> bool:
+        if self._bootstrap_successes > 0 and not force:
+            return True
+        return await self._publish_bootstrap()
+
+    def bootstrap_status(self) -> dict[str, object]:
+        return {
+            "attempts": self._bootstrap_attempts,
+            "successes": self._bootstrap_successes,
+            "last_attempt_at": self._bootstrap_last_attempt_at,
+            "last_success_at": self._bootstrap_last_success_at,
+            "last_error": self._bootstrap_last_error,
+            "published": self._bootstrap_successes > 0,
+        }
+
+    async def _publish_bootstrap(self) -> bool:
+        self._bootstrap_attempts += 1
+        self._bootstrap_last_attempt_at = _utcnow_iso()
         core_id = "synthia-core"
         core_name = "Synthia Core"
         api_base = "http://127.0.0.1:9001/api"
@@ -112,5 +146,16 @@ class EmbeddedMqttStartupReconciler:
             },
             onboarding_mode="api",
         ).model_dump(mode="json")
-        await self._mqtt.publish("synthia/bootstrap/core", payload, retain=True, qos=1)
-        await self._mqtt.publish("synthia/core/mqtt/info", self._mqtt._core_info_payload(), retain=True, qos=1)
+        bootstrap_publish = await self._mqtt.publish("synthia/bootstrap/core", payload, retain=True, qos=1)
+        info_publish = await self._mqtt.publish("synthia/core/mqtt/info", self._mqtt._core_info_payload(), retain=True, qos=1)
+        if bootstrap_publish.get("ok") and info_publish.get("ok"):
+            self._bootstrap_successes += 1
+            self._bootstrap_last_success_at = _utcnow_iso()
+            self._bootstrap_last_error = None
+            return True
+        self._bootstrap_last_error = str(
+            bootstrap_publish.get("error")
+            or info_publish.get("error")
+            or "publish_failed"
+        )
+        return False

@@ -1,6 +1,6 @@
 # MQTT Apply and Rollback Pipeline (Phase 1 Foundation)
 
-Last Updated: 2026-03-09 06:37 US/Pacific
+Last Updated: 2026-03-09 09:01 US/Pacific
 
 ## Core Pipeline
 
@@ -13,6 +13,7 @@ Behavior:
 - preserve backup of live artifacts
 - apply runtime reload/restart through runtime boundary
 - rollback to backup when runtime remains unhealthy after apply
+- triggered on startup reconcile and on authority state changes (grant/principal update hook path)
 
 ## Audit Integration
 

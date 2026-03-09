@@ -80,6 +80,9 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(status["enabled"])
         self.assertFalse(status["connected"])
         self.assertEqual(status["last_error"], "mqtt_disabled")
+        self.assertEqual(status["connection_count"], 0)
+        self.assertEqual(status["auth_failures"], 0)
+        self.assertEqual(status["reconnect_spikes"], 0)
 
     async def test_dispatches_addon_announce_and_health(self) -> None:
         registry = _FakeRegistry()
@@ -164,6 +167,7 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
 
         self.assertFalse(manager._connected)
         self.assertEqual(manager._last_error, "connect_rc:5")
+        self.assertEqual(manager._auth_failures, 1)
         self.assertEqual(client.subscribed, [])
         self.assertEqual(client.published, [])
 

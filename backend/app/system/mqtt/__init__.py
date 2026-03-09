@@ -3,6 +3,7 @@ from .approval import MqttRegistrationApprovalService
 from .apply_pipeline import ApplyPipelineResult, MqttApplyPipeline
 from .authority_audit import MqttAuthorityAuditStore
 from .config_renderer import MqttBrokerConfigRenderer, MqttBrokerRenderInput, MqttBrokerRenderOutput, MqttListenerSpec
+from .credential_store import MqttCredentialStore
 from .integration_models import (
     MqttAddonGrant,
     MqttBootstrapAnnouncement,
@@ -47,6 +48,7 @@ __all__ = [
     "MqttAuthorityAuditStore",
     "MqttObservabilityStore",
     "MqttBrokerConfigRenderer",
+    "MqttCredentialStore",
     "MqttBrokerRenderInput",
     "MqttBrokerRenderOutput",
     "MqttListenerSpec",

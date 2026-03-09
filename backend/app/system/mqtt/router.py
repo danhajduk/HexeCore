@@ -48,9 +48,11 @@ def build_mqtt_router(
     registry,
     state_store: MqttIntegrationStateStore,
     key_store: ServiceTokenKeyStore,
+    approval_service: MqttRegistrationApprovalService | None = None,
+    runtime_reconciler=None,
 ) -> APIRouter:
     router = APIRouter()
-    approval = MqttRegistrationApprovalService(registry=registry, state_store=state_store)
+    approval = approval_service or MqttRegistrationApprovalService(registry=registry, state_store=state_store)
 
     @router.get("/mqtt/status")
     async def mqtt_status():
@@ -68,7 +70,10 @@ def build_mqtt_router(
 
     @router.post("/mqtt/reload")
     async def mqtt_reload():
-        await manager.restart()
+        if runtime_reconciler is not None:
+            await runtime_reconciler.reconcile_authority(reason="api_reload")
+        else:
+            await manager.restart()
         return await manager.status()
 
     @router.post("/mqtt/registrations/approve")

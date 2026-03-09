@@ -52,6 +52,9 @@ class MqttObservabilityStore:
     async def list_events(self, limit: int = 100) -> list[dict[str, Any]]:
         return await self._run(self._list_events_sync, limit)
 
+    async def count_events(self, *, event_type: str | None = None) -> int:
+        return await self._run(self._count_events_sync, event_type)
+
     async def _run(self, fn, *args):
         async with self._lock:
             return await asyncio.to_thread(fn, *args)
@@ -98,3 +101,13 @@ class MqttObservabilityStore:
             }
             for row in rows
         ]
+
+    def _count_events_sync(self, event_type: str | None) -> int:
+        if event_type:
+            row = self._conn.execute(
+                "SELECT COUNT(1) AS c FROM mqtt_observability_events WHERE event_type = ?",
+                (str(event_type),),
+            ).fetchone()
+        else:
+            row = self._conn.execute("SELECT COUNT(1) AS c FROM mqtt_observability_events").fetchone()
+        return int(row["c"]) if row is not None else 0

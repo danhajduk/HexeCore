@@ -22,6 +22,8 @@ class TestMqttObservabilityStore(unittest.TestCase):
             rows = asyncio.run(store.list_events(limit=10))
             self.assertEqual(len(rows), 1)
             self.assertEqual(rows[0]["event_type"], "denied_topic_attempt")
+            denied_count = asyncio.run(store.count_events(event_type="denied_topic_attempt"))
+            self.assertEqual(denied_count, 1)
 
 
 if __name__ == "__main__":

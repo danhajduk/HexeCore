@@ -1,6 +1,6 @@
 # MQTT Integration Contract
 
-Last Updated: 2026-03-09 06:57 US/Pacific
+Last Updated: 2026-03-09 09:01 US/Pacific
 
 ## Scope
 
@@ -89,6 +89,7 @@ Setup summary compatibility:
 
 Embedded authority foundations:
 - ACL compiler module: `backend/app/system/mqtt/acl_compiler.py`
+- credential store module: `backend/app/system/mqtt/credential_store.py`
 - Broker config renderer: `backend/app/system/mqtt/config_renderer.py`
 - Runtime boundary interface: `backend/app/system/mqtt/runtime_boundary.py`
 - Startup reconcile service: `backend/app/system/mqtt/startup_reconcile.py`
@@ -99,7 +100,8 @@ Embedded authority foundations:
 Embedded API semantics:
 - `/mqtt/registrations/{addon_id}/provision` applies Core authority state (no remote addon provisioning HTTP dependency).
 - `/mqtt/registrations/{addon_id}/revoke` revokes Core authority state.
-- `/mqtt/reload` is available as embedded runtime reload alias.
+- grant/principal authority changes trigger config re-render and runtime reconcile through Core runtime hook.
+- `/mqtt/reload` triggers embedded authority reconcile/reload (fallback restart behavior when runtime reconciler is not wired).
 - `/mqtt/health` returns effective degraded/healthy summary.
 
 ## JSON Envelope Requirement

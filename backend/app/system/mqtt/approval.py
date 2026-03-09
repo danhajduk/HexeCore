@@ -21,10 +21,18 @@ def _utcnow_iso() -> str:
 
 
 class MqttRegistrationApprovalService:
-    def __init__(self, *, registry, state_store: MqttIntegrationStateStore, observability_store=None) -> None:
+    def __init__(
+        self,
+        *,
+        registry,
+        state_store: MqttIntegrationStateStore,
+        observability_store=None,
+        runtime_reconcile_hook=None,
+    ) -> None:
         self._registry = registry
         self._state_store = state_store
         self._observability = observability_store
+        self._runtime_reconcile_hook = runtime_reconcile_hook
 
     async def approve(self, request: MqttRegistrationRequest, *, requested_by_subject: str | None = None) -> MqttRegistrationApprovalResult:
         addon_id = request.addon_id.strip()
@@ -95,6 +103,7 @@ class MqttRegistrationApprovalService:
         )
         await self._state_store.upsert_grant(grant)
         await self._state_store.upsert_principal(self._principal_from_grant(grant))
+        await self._reconcile_runtime_if_needed(reason=f"approve:{addon_id}")
         if existing is not None and self._grant_materially_changed(existing, grant) and existing.status in {"approved", "provisioned", "error"}:
             await self.provision_grant(addon_id, reason="grant_scope_changed")
         return approved
@@ -138,6 +147,7 @@ class MqttRegistrationApprovalService:
         principal.status = "active"
         principal.last_activated_at = _utcnow_iso()
         await self._state_store.upsert_principal(principal)
+        await self._reconcile_runtime_if_needed(reason=f"provision:{addon_id}")
         details = {
             "mode": "embedded_core_authority",
             "reason": reason,
@@ -161,6 +171,7 @@ class MqttRegistrationApprovalService:
         principal.status = "revoked"
         principal.last_revoked_at = _utcnow_iso()
         await self._state_store.upsert_principal(principal)
+        await self._reconcile_runtime_if_needed(reason=f"revoke:{addon_id}")
         details = {
             "mode": "embedded_core_authority",
             "reason": reason,
@@ -228,6 +239,7 @@ class MqttRegistrationApprovalService:
                 )
                 await self._state_store.upsert_grant(bootstrap)
                 await self._state_store.upsert_principal(self._principal_from_grant(bootstrap))
+                await self._reconcile_runtime_if_needed(reason=f"reconcile_bootstrap:{addon_id}")
                 return await self.provision_grant(addon_id, reason="onboarding_reconcile")
             return {"ok": True, "addon_id": addon_id, "status": "not_found"}
         if grant.status in {"approved", "error"} and self._registry.is_enabled(addon_id):
@@ -274,3 +286,15 @@ class MqttRegistrationApprovalService:
             )
         except Exception:
             return
+
+    async def _reconcile_runtime_if_needed(self, *, reason: str) -> None:
+        if self._runtime_reconcile_hook is None:
+            return
+        try:
+            await self._runtime_reconcile_hook(reason=reason)
+        except Exception:
+            await self._record_observability(
+                event_type="broker_readiness_issue",
+                severity="warn",
+                metadata={"reason": reason, "error": "runtime_reconcile_failed"},
+            )

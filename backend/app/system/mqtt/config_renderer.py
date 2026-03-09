@@ -9,6 +9,7 @@ class MqttListenerSpec:
     enabled: bool
     port: int
     bind_address: str = "0.0.0.0"
+    allow_anonymous: bool = False
 
 
 @dataclass(frozen=True)
@@ -57,7 +58,7 @@ class MqttBrokerConfigRenderer:
         for listener in listeners:
             lines.append(f"# listener: {listener.name}")
             lines.append(f"listener {int(listener.port)} {listener.bind_address}")
-            lines.append("allow_anonymous false")
+            lines.append(f"allow_anonymous {'true' if listener.allow_anonymous else 'false'}")
         return "\n".join(lines) + "\n"
 
     @staticmethod

@@ -15,7 +15,7 @@ class TestMqttConfigRenderer(unittest.TestCase):
                 log_dir="/tmp/logs",
                 listeners=[
                     MqttListenerSpec(name="main", enabled=True, port=1883),
-                    MqttListenerSpec(name="bootstrap", enabled=True, port=1884),
+                    MqttListenerSpec(name="bootstrap", enabled=True, port=1884, allow_anonymous=True),
                 ],
             )
         )
@@ -24,6 +24,7 @@ class TestMqttConfigRenderer(unittest.TestCase):
         self.assertIn("password_file /tmp/passwords.conf", output.files["auth.conf"])
         self.assertIn("listener 1883 0.0.0.0", output.files["listeners.conf"])
         self.assertIn("listener 1884 0.0.0.0", output.files["listeners.conf"])
+        self.assertIn("allow_anonymous true", output.files["listeners.conf"])
 
 
 if __name__ == "__main__":

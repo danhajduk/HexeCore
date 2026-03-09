@@ -65,6 +65,10 @@ class MqttManager:
         self._last_error: str | None = None
         self._last_message_at: str | None = None
         self._message_count = 0
+        self._connection_count = 0
+        self._auth_failures = 0
+        self._reconnect_spikes = 0
+        self._last_connected_monotonic: float | None = None
 
     async def start(self) -> None:
         if not self._enabled:
@@ -116,6 +120,9 @@ class MqttManager:
             "last_error": self._last_error,
             "last_message_at": self._last_message_at,
             "message_count": self._message_count,
+            "connection_count": self._connection_count,
+            "auth_failures": self._auth_failures,
+            "reconnect_spikes": self._reconnect_spikes,
         }
 
     async def publish_test(self, topic: str | None = None, payload: dict | None = None) -> dict[str, Any]:
@@ -226,12 +233,19 @@ class MqttManager:
         self._connected = rc == 0
         if not self._connected:
             self._last_error = f"connect_rc:{rc}"
+            if rc in {4, 5, 134, 135}:
+                self._auth_failures += 1
             self._record_observability_event(
                 event_type="connection_failed",
                 severity="warn",
                 metadata={"reason_code": rc},
             )
             return
+        now = time.monotonic()
+        if self._last_connected_monotonic is not None and (now - self._last_connected_monotonic) < 60.0:
+            self._reconnect_spikes += 1
+        self._last_connected_monotonic = now
+        self._connection_count += 1
         for topic, qos in MQTT_SUBSCRIPTIONS:
             client.subscribe(topic, qos=qos)
         self._publish_core_info_retained(client)

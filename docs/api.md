@@ -1,6 +1,6 @@
 # API Documentation (Structure)
 
-Last Updated: 2026-03-09 07:03 US/Pacific
+Last Updated: 2026-03-09 09:01 US/Pacific
 
 ## Conventions
 
@@ -43,7 +43,8 @@ Implemented MQTT authority APIs:
 - `POST /api/system/mqtt/restart`
   - restarts MQTT client connection and returns updated status
 - `POST /api/system/mqtt/reload`
-  - embedded runtime reload alias (currently mapped to restart behavior)
+  - triggers embedded authority reconcile/config reload pipeline
+  - fallback behavior is MQTT client restart when runtime reconciler is unavailable
 - `POST /api/system/mqtt/registrations/approve`
   - validates addon eligibility and topic scope contract
   - creates/updates approved grant state in Core persistence

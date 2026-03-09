@@ -284,3 +284,7 @@
 220. Task 240: Implement broker runtime provider (Mosquitto Phase 1). - Completed on 03/09/2026 08:26
 221. Task 241: Implement broker process supervision. - Completed on 03/09/2026 08:26
 222. Task 242: Wire ACL compiler output into runtime config. - Completed on 03/09/2026 08:26
+223. Task 243: Wire credential store into broker authentication. - Completed on 03/09/2026 09:01
+224. Task 244: Implement bootstrap topic publish on runtime start. - Completed on 03/09/2026 09:01
+225. Task 245: Implement broker config reload pipeline. - Completed on 03/09/2026 09:01
+226. Task 246: Implement broker health telemetry. - Completed on 03/09/2026 09:01

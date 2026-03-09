@@ -1,6 +1,6 @@
 # MQTT Observability Foundation (Phase 1)
 
-Last Updated: 2026-03-09 06:37 US/Pacific
+Last Updated: 2026-03-09 09:01 US/Pacific
 
 ## Store
 
@@ -19,6 +19,9 @@ Phase 1 foundation captures:
   - `denied_topic_attempt`
 - broker/setup readiness issues
   - `broker_readiness_issue`
+- runtime health telemetry snapshots from supervision loop
+  - `broker_health_telemetry`
+  - metadata includes `connection_count`, `auth_failures`, `reconnect_spikes`, and observed `denied_topic_attempts`
 
 ## Intended Use
 

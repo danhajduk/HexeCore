@@ -43,6 +43,7 @@ from app.system.mqtt import (
     MqttAclCompiler,
     MqttAuthorityAuditStore,
     MqttBrokerConfigRenderer,
+    MqttCredentialStore,
     MqttIntegrationStateStore,
     MqttManager,
     MqttObservabilityStore,
@@ -169,6 +170,9 @@ def create_app() -> FastAPI:
                     runtime = getattr(app.state, "mqtt_runtime_boundary", None)
                     state_store = getattr(app.state, "mqtt_integration_state_store", None)
                     audit = getattr(app.state, "mqtt_authority_audit", None)
+                    mqtt_manager = getattr(app.state, "mqtt_manager", None)
+                    mqtt_obsv = getattr(app.state, "mqtt_observability_store", None)
+                    startup_reconciler = getattr(app.state, "mqtt_startup_reconciler", None)
                     if runtime is not None and state_store is not None:
                         status = await runtime.health_check()
                         if not status.healthy:
@@ -207,6 +211,23 @@ def create_app() -> FastAPI:
                                     authority_ready=True,
                                 )
                             )
+                        if status.healthy and startup_reconciler is not None:
+                            await startup_reconciler.ensure_bootstrap_published()
+                    if mqtt_manager is not None and mqtt_obsv is not None:
+                        manager_status = await mqtt_manager.status()
+                        denied_count = await mqtt_obsv.count_events(event_type="denied_topic_attempt")
+                        await mqtt_obsv.append_event(
+                            event_type="broker_health_telemetry",
+                            source="mqtt_runtime_supervisor",
+                            severity="info",
+                            metadata={
+                                "connected": bool(manager_status.get("connected")),
+                                "connection_count": int(manager_status.get("connection_count") or 0),
+                                "auth_failures": int(manager_status.get("auth_failures") or 0),
+                                "reconnect_spikes": int(manager_status.get("reconnect_spikes") or 0),
+                                "denied_topic_attempts": int(denied_count),
+                            },
+                        )
                 except Exception:
                     log.exception("MQTT runtime supervision loop failed")
                 await asyncio.sleep(30.0)
@@ -378,13 +399,10 @@ def create_app() -> FastAPI:
         enabled=bool(getattr(cfg_boot, "mqtt_listener_enabled", True)),
     )
     app.state.mqtt_manager = mqtt_manager
-    mqtt_registration_approval = MqttRegistrationApprovalService(
-        registry=registry,
-        state_store=mqtt_integration_state_store,
-        observability_store=mqtt_observability_store,
-    )
-    app.state.mqtt_registration_approval = mqtt_registration_approval
     mqtt_live_dir = os.path.join(os.getcwd(), "var", "mqtt_runtime", "live")
+    mqtt_credential_store = MqttCredentialStore(
+        os.getenv("MQTT_CREDENTIAL_STORE_PATH", os.path.join(os.getcwd(), "var", "mqtt_credentials.json"))
+    )
     runtime_provider = str(os.getenv("SYNTHIA_MQTT_RUNTIME_PROVIDER", "mosquitto")).strip().lower()
     if runtime_provider in {"memory", "inmemory"}:
         mqtt_runtime_boundary = InMemoryBrokerRuntimeBoundary(provider="embedded_mosquitto")
@@ -403,9 +421,18 @@ def create_app() -> FastAPI:
         config_renderer=mqtt_config_renderer,
         apply_pipeline=mqtt_apply_pipeline,
         audit_store=mqtt_authority_audit,
+        credential_store=mqtt_credential_store,
         mqtt_manager=mqtt_manager,
     )
+    mqtt_registration_approval = MqttRegistrationApprovalService(
+        registry=registry,
+        state_store=mqtt_integration_state_store,
+        observability_store=mqtt_observability_store,
+        runtime_reconcile_hook=mqtt_startup_reconciler.reconcile_authority,
+    )
+    app.state.mqtt_registration_approval = mqtt_registration_approval
     app.state.mqtt_runtime_boundary = mqtt_runtime_boundary
+    app.state.mqtt_credential_store = mqtt_credential_store
     app.state.mqtt_acl_compiler = mqtt_acl_compiler
     app.state.mqtt_config_renderer = mqtt_config_renderer
     app.state.mqtt_apply_pipeline = mqtt_apply_pipeline
@@ -422,7 +449,14 @@ def create_app() -> FastAPI:
     app.include_router(build_addons_install_router(registry, install_sessions_store), prefix="/api")
     app.include_router(build_admin_registry_router(registry, mqtt_registration_approval), prefix="/api")
     app.include_router(
-        build_mqtt_router(mqtt_manager, registry, mqtt_integration_state_store, service_token_keys),
+        build_mqtt_router(
+            mqtt_manager,
+            registry,
+            mqtt_integration_state_store,
+            service_token_keys,
+            approval_service=mqtt_registration_approval,
+            runtime_reconciler=mqtt_startup_reconciler,
+        ),
         prefix="/api/system",
         tags=["mqtt"],
     )

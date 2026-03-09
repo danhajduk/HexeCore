@@ -1,6 +1,6 @@
 # MQTT Startup Reconciliation (Embedded)
 
-Last Updated: 2026-03-09 08:26 US/Pacific
+Last Updated: 2026-03-09 09:01 US/Pacific
 
 ## Implementation
 
@@ -17,10 +17,12 @@ On startup the reconciler:
 1. loads Core MQTT authority state
 2. compiles ACL artifacts
 3. renders broker config artifacts
-4. applies staged artifacts through apply pipeline
-5. checks runtime readiness through runtime boundary
-6. updates setup state (`ready` or `degraded`)
-7. publishes retained bootstrap/core info topics when healthy
+4. renders broker credentials (`passwords.conf`) from Core MQTT principals
+5. applies staged artifacts through apply pipeline
+6. checks runtime readiness through runtime boundary
+7. updates setup state (`ready` or `degraded`)
+8. publishes retained bootstrap/core info topics when healthy
+9. retries bootstrap publish from supervision loop until at least one publish succeeds
 
 ## Degraded Handling
 
