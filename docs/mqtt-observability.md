@@ -1,6 +1,6 @@
-# MQTT Observability Foundation (Phase 1)
+# MQTT Observability Foundation
 
-Last Updated: 2026-03-09 09:01 US/Pacific
+Last Updated: 2026-03-09 09:08 US/Pacific
 
 ## Store
 
@@ -27,3 +27,7 @@ Phase 1 foundation captures:
 
 This provides the metadata baseline for future noisy-client detection and policy automation.
 Automated enforcement is not implemented in Phase 1.
+
+Phase 2 implemented usage:
+- noisy-client evaluator reads runtime counters + denied-topic attempts and updates principal noisy states
+- manual noisy-client actions are exposed via admin API and logged in authority audit

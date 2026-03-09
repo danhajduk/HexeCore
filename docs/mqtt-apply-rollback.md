@@ -1,6 +1,6 @@
-# MQTT Apply and Rollback Pipeline (Phase 1 Foundation)
+# MQTT Apply and Rollback Pipeline
 
-Last Updated: 2026-03-09 09:01 US/Pacific
+Last Updated: 2026-03-09 09:08 US/Pacific
 
 ## Core Pipeline
 
@@ -24,3 +24,15 @@ Events include:
 - apply success
 - validation failure
 - rollback on runtime failure
+
+## Operator Correlation (Phase 2)
+
+Pipeline outcomes are surfaced in setup summary:
+- `reconciliation.last_reconcile_status`
+- `reconciliation.last_reconcile_error`
+- `reconciliation.last_runtime_state`
+
+Degraded/recovery triage should correlate:
+- `/api/system/mqtt/setup-summary`
+- `/api/system/mqtt/audit`
+- `/api/system/mqtt/observability`

@@ -300,3 +300,4 @@
 236. Task 256: Add MQTT infrastructure admin UI foundation. - Completed on 03/09/2026 09:04
 237. Task 257: Add degraded-state and recovery UX in Core UI. - Completed on 03/09/2026 09:04
 238. Task 258: Add end-to-end Phase 2 tests. - Completed on 03/09/2026 09:04
+239. Task 259: Update golden docs and runbook for Phase 2 operational model. - Completed on 03/09/2026 09:08

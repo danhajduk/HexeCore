@@ -1,6 +1,6 @@
 # MQTT Integration Contract
 
-Last Updated: 2026-03-09 09:04 US/Pacific
+Last Updated: 2026-03-09 09:08 US/Pacific
 
 ## Scope
 
@@ -15,6 +15,7 @@ Target-direction references for embedded platform-managed MQTT:
 - [MQTT Broker Runtime Boundary](./mqtt-runtime-boundary.md)
 - [MQTT Startup Reconciliation](./mqtt-startup-reconciliation.md)
 - [MQTT Apply and Rollback Pipeline](./mqtt-apply-rollback.md)
+- [MQTT Embedded Phase 2 Runbook](./mqtt-phase2-runbook.md)
 - [MQTT Topic Families Gap Note](./mqtt-topic-gap-note.md)
 - [Synthia MQTT Topic Tree (Canonical)](./mqtt-topic-tree.md)
 
@@ -126,6 +127,43 @@ Embedded API semantics:
 - generic users are lifecycle-managed under Core authority state and denied from reserved Synthia families by default.
 - noisy client state model is tracked in principal state (`normal|watch|noisy|blocked`) with manual admin actions for watch/quarantine/block/revoke-credentials/clear; automated enforcement is not enabled.
 - Core UI Settings page includes an admin-only embedded MQTT infrastructure card with views for overview/status, principals, generic users, effective access inspection, runtime health, and audit/observability logs.
+
+## Phase 2 Operational Model (Implemented)
+
+Effective access:
+- computed via `backend/app/system/mqtt/effective_access.py`
+- exposed through:
+  - `GET /api/system/mqtt/debug/effective-access/{principal_id}`
+  - `GET /api/system/mqtt/generic-users/{principal_id}/effective-access`
+- blocked noisy state forces deny-all effective access for that principal
+
+Lifecycle actions:
+- principal lifecycle actions:
+  - `activate|revoke|expire|probation|promote`
+- generic user lifecycle actions:
+  - create/update, grant update, revoke, rotate credentials
+- all lifecycle/noisy actions trigger runtime reconcile through the runtime hook when available
+
+Noisy-client states/actions:
+- state model: `normal|watch|noisy|blocked`
+- manual actions:
+  - `mark_watch/watch`
+  - `mark_noisy/noisy`
+  - `quarantine`
+  - `block`
+  - `clear/clear_noisy`
+  - `revoke_credentials/rotate_credentials`
+- evaluator updates noisy state from runtime/observability inputs but does not auto-block
+
+Degraded/recovery operator surface:
+- API:
+  - `/api/system/mqtt/setup-summary`
+  - `/api/system/mqtt/health`
+  - `/api/system/mqtt/audit`
+  - `/api/system/mqtt/observability`
+- Core UI:
+  - Settings Connectivity card surfaces degraded state, runtime error, last reconcile result, and bootstrap publish status
+  - Settings MQTT admin card surfaces principal/effective-access/runtime/audit views
 
 ## JSON Envelope Requirement
 

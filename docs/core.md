@@ -1,6 +1,6 @@
 # Synthia Core Documentation
 
-Last Updated: 2026-03-09 06:57 US/Pacific
+Last Updated: 2026-03-09 09:08 US/Pacific
 
 ## Documentation Contract
 
@@ -80,6 +80,7 @@ Core
 - [MQTT Topic Families Gap Note](./mqtt-topic-gap-note.md)
 - [Synthia MQTT Topic Tree (Canonical)](./mqtt-topic-tree.md)
 - [MQTT Embedded Phase 1 Runbook](./mqtt-phase1-runbook.md)
+- [MQTT Embedded Phase 2 Runbook](./mqtt-phase2-runbook.md)
 - [Data Model](./data-model.md)
 - [Deployment](./deployment.md)
 - [Supervisor](./supervisor.md)
