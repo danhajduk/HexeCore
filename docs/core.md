@@ -1,6 +1,6 @@
 # Synthia Core Documentation
 
-Last Updated: 2026-03-09 06:37 US/Pacific
+Last Updated: 2026-03-09 06:57 US/Pacific
 
 ## Documentation Contract
 
@@ -77,6 +77,8 @@ Core
 - [MQTT Startup Reconciliation](./mqtt-startup-reconciliation.md)
 - [MQTT Apply and Rollback Pipeline](./mqtt-apply-rollback.md)
 - [MQTT Observability Foundation](./mqtt-observability.md)
+- [MQTT Topic Families Gap Note](./mqtt-topic-gap-note.md)
+- [Synthia MQTT Topic Tree (Canonical)](./mqtt-topic-tree.md)
 - [MQTT Embedded Phase 1 Runbook](./mqtt-phase1-runbook.md)
 - [Data Model](./data-model.md)
 - [Deployment](./deployment.md)
