@@ -294,3 +294,6 @@
 230. Task 250: Refactor ACL compiler into effective-access model + broker renderer. - Completed on 03/09/2026 08:50
 231. Task 251: Implement principal lifecycle admin actions. - Completed on 03/09/2026 08:50
 232. Task 252: Implement generic user lifecycle admin actions. - Completed on 03/09/2026 08:50
+233. Task 253: Add effective-access inspection endpoint. - Completed on 03/09/2026 08:55
+234. Task 254: Implement noisy-client detection foundation. - Completed on 03/09/2026 08:55
+235. Task 255: Implement manual noisy-client response actions. - Completed on 03/09/2026 08:55

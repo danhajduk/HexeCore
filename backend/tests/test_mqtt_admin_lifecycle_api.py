@@ -195,6 +195,63 @@ class TestMqttAdminLifecycleApi(unittest.TestCase):
         self.assertTrue(payload["generic_non_reserved_only"])
         self.assertIn("synthia/core/#", payload["reserved_prefix_denies"])
 
+        inspect_debug = self.client.get(
+            "/api/system/mqtt/debug/effective-access/user:guest2",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(inspect_debug.status_code, 200, inspect_debug.text)
+        self.assertEqual(inspect_debug.json()["principal_id"], "user:guest2")
+
+    def test_noisy_client_manual_actions(self) -> None:
+        created = asyncio.run(
+            self.approval.create_or_update_generic_user(
+                principal_id="user:guest3",
+                logical_identity="guest3",
+                username="guest3",
+                publish_topics=["devices/guest3/state"],
+                subscribe_topics=["devices/guest3/cmd"],
+            )
+        )
+        self.assertTrue(created["ok"])
+
+        watch = self.client.post(
+            "/api/system/mqtt/noisy-clients/user:guest3/actions/mark_watch",
+            headers={"X-Admin-Token": "test-token"},
+            json={"reason": "manual_watch"},
+        )
+        self.assertEqual(watch.status_code, 200, watch.text)
+        self.assertEqual(watch.json()["principal"]["noisy_state"], "watch")
+
+        quarantine = self.client.post(
+            "/api/system/mqtt/noisy-clients/user:guest3/actions/quarantine",
+            headers={"X-Admin-Token": "test-token"},
+            json={"reason": "manual_quarantine"},
+        )
+        self.assertEqual(quarantine.status_code, 200, quarantine.text)
+        self.assertEqual(quarantine.json()["principal"]["noisy_state"], "blocked")
+        self.assertEqual(quarantine.json()["principal"]["status"], "probation")
+
+        effective = self.client.get(
+            "/api/system/mqtt/debug/effective-access/user:guest3",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(effective.status_code, 200, effective.text)
+        self.assertEqual(effective.json()["effective_access"]["publish_scopes"], [])
+        self.assertEqual(effective.json()["effective_access"]["subscribe_scopes"], [])
+
+        listed = self.client.get("/api/system/mqtt/noisy-clients", headers={"X-Admin-Token": "test-token"})
+        self.assertEqual(listed.status_code, 200, listed.text)
+        ids = [item["principal_id"] for item in listed.json()["items"]]
+        self.assertIn("user:guest3", ids)
+
+        clear = self.client.post(
+            "/api/system/mqtt/noisy-clients/user:guest3/actions/clear",
+            headers={"X-Admin-Token": "test-token"},
+            json={"reason": "manual_clear"},
+        )
+        self.assertEqual(clear.status_code, 200, clear.text)
+        self.assertEqual(clear.json()["principal"]["noisy_state"], "normal")
+
 
 if __name__ == "__main__":
     unittest.main()

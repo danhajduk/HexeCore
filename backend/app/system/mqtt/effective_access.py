@@ -64,6 +64,17 @@ class MqttEffectiveAccessCompiler:
     def _from_principal(self, principal: MqttPrincipal, state: MqttIntegrationState) -> MqttEffectiveAccessEntry | None:
         if principal.status in {"revoked", "expired"}:
             return None
+        if principal.noisy_state == "blocked":
+            return MqttEffectiveAccessEntry(
+                principal_id=principal.principal_id,
+                principal_type=principal.principal_type,
+                status=principal.status,
+                publish_scopes=[],
+                subscribe_scopes=[],
+                reserved_prefix_denies=["#"],
+                anonymous_bootstrap_only=False,
+                generic_non_reserved_only=(principal.principal_type == "generic_user"),
+            )
         publish_topics: list[str] = []
         subscribe_topics: list[str] = []
         reserved_denies: list[str] = []

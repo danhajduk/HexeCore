@@ -31,12 +31,14 @@ class MqttRegistrationApprovalService:
         observability_store=None,
         runtime_reconcile_hook=None,
         audit_store=None,
+        credential_rotate_hook=None,
     ) -> None:
         self._registry = registry
         self._state_store = state_store
         self._observability = observability_store
         self._runtime_reconcile_hook = runtime_reconcile_hook
         self._audit = audit_store
+        self._credential_rotate_hook = credential_rotate_hook
 
     async def approve(self, request: MqttRegistrationRequest, *, requested_by_subject: str | None = None) -> MqttRegistrationApprovalResult:
         addon_id = request.addon_id.strip()
@@ -360,6 +362,70 @@ class MqttRegistrationApprovalService:
             payload={"principal_id": principal_id},
         )
         return {"ok": True, "principal": principal.model_dump(mode="json")}
+
+    async def list_noisy_clients(self) -> list[dict[str, Any]]:
+        principals = await self.list_principals()
+        out: list[dict[str, Any]] = []
+        for item in principals:
+            noisy_state = str(item.get("noisy_state") or "normal")
+            if noisy_state != "normal":
+                out.append(item)
+        return out
+
+    async def apply_noisy_client_action(self, principal_id: str, action: str, reason: str | None = None) -> dict[str, Any]:
+        state = await self._state_store.get_state()
+        principal = state.principals.get(principal_id)
+        if principal is None:
+            return {"ok": False, "error": "principal_not_found", "principal_id": principal_id}
+        act = str(action).strip().lower()
+        next_principal = principal.model_copy(deep=True)
+        if act in {"mark_watch", "watch"}:
+            next_principal.noisy_state = "watch"
+        elif act in {"mark_noisy", "noisy"}:
+            next_principal.noisy_state = "noisy"
+        elif act in {"quarantine", "block"}:
+            next_principal.noisy_state = "blocked"
+            if act == "quarantine":
+                next_principal.status = "probation"
+                next_principal.probation_reason = reason or "quarantined_by_admin"
+            else:
+                next_principal.status = "revoked"
+                next_principal.last_revoked_at = _utcnow_iso()
+        elif act in {"clear", "clear_noisy"}:
+            next_principal.noisy_state = "normal"
+            next_principal.noisy_inputs = {}
+            if next_principal.status == "probation":
+                next_principal.status = "active"
+                next_principal.probation_reason = None
+        elif act in {"revoke_credentials", "rotate_credentials"}:
+            rotated = False
+            if callable(self._credential_rotate_hook):
+                try:
+                    rotated = bool(self._credential_rotate_hook(principal_id))
+                except Exception:
+                    rotated = False
+            next_principal.noisy_updated_at = _utcnow_iso()
+            await self._state_store.upsert_principal(next_principal)
+            await self._reconcile_runtime_if_needed(reason=f"noisy_action:{act}:{principal_id}")
+            await self._append_audit(
+                event_type="mqtt_noisy_client_action",
+                status="ok",
+                message=act,
+                payload={"principal_id": principal_id, "reason": reason, "rotated": rotated},
+            )
+            return {"ok": True, "principal": next_principal.model_dump(mode="json"), "rotated": rotated}
+        else:
+            return {"ok": False, "error": "noisy_action_invalid", "principal_id": principal_id}
+        next_principal.noisy_updated_at = _utcnow_iso()
+        await self._state_store.upsert_principal(next_principal)
+        await self._reconcile_runtime_if_needed(reason=f"noisy_action:{act}:{principal_id}")
+        await self._append_audit(
+            event_type="mqtt_noisy_client_action",
+            status="ok",
+            message=act,
+            payload={"principal_id": principal_id, "reason": reason},
+        )
+        return {"ok": True, "principal": next_principal.model_dump(mode="json")}
 
     def _grant_materially_changed(self, old: MqttAddonGrant, new: MqttAddonGrant) -> bool:
         if old.access_mode != new.access_mode:

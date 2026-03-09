@@ -52,8 +52,13 @@ class MqttObservabilityStore:
     async def list_events(self, limit: int = 100) -> list[dict[str, Any]]:
         return await self._run(self._list_events_sync, limit)
 
-    async def count_events(self, *, event_type: str | None = None) -> int:
-        return await self._run(self._count_events_sync, event_type)
+    async def count_events(
+        self,
+        *,
+        event_type: str | None = None,
+        metadata_contains: dict[str, str] | None = None,
+    ) -> int:
+        return await self._run(self._count_events_sync, event_type, metadata_contains or {})
 
     async def _run(self, fn, *args):
         async with self._lock:
@@ -102,12 +107,18 @@ class MqttObservabilityStore:
             for row in rows
         ]
 
-    def _count_events_sync(self, event_type: str | None) -> int:
+    def _count_events_sync(self, event_type: str | None, metadata_contains: dict[str, str]) -> int:
+        where_parts: list[str] = []
+        params: list[str] = []
         if event_type:
-            row = self._conn.execute(
-                "SELECT COUNT(1) AS c FROM mqtt_observability_events WHERE event_type = ?",
-                (str(event_type),),
-            ).fetchone()
-        else:
-            row = self._conn.execute("SELECT COUNT(1) AS c FROM mqtt_observability_events").fetchone()
+            where_parts.append("event_type = ?")
+            params.append(str(event_type))
+        for key, value in sorted(metadata_contains.items()):
+            needle = f'"{str(key)}":"{str(value)}"'
+            where_parts.append("metadata_json LIKE ?")
+            params.append(f"%{needle}%")
+        query = "SELECT COUNT(1) AS c FROM mqtt_observability_events"
+        if where_parts:
+            query += " WHERE " + " AND ".join(where_parts)
+        row = self._conn.execute(query, tuple(params)).fetchone()
         return int(row["c"]) if row is not None else 0

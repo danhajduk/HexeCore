@@ -1,6 +1,6 @@
 # MQTT Integration Contract
 
-Last Updated: 2026-03-09 08:50 US/Pacific
+Last Updated: 2026-03-09 09:06 US/Pacific
 
 ## Scope
 
@@ -78,6 +78,7 @@ Implemented registration/approval APIs:
 - `GET /api/system/mqtt/debug/acl` (admin-only)
 - `GET /api/system/mqtt/debug/config` (admin-only)
 - `GET /api/system/mqtt/debug/authority` (admin-only)
+- `GET /api/system/mqtt/debug/effective-access/{principal_id}` (admin-only)
 - `POST /api/system/mqtt/debug/topic-validate` (admin-only)
 - `GET /api/system/mqtt/principals` (admin-only)
 - `POST /api/system/mqtt/principals/{principal_id}/actions/{action}` (admin-only)
@@ -86,6 +87,8 @@ Implemented registration/approval APIs:
 - `POST /api/system/mqtt/generic-users/{principal_id}/revoke` (admin-only)
 - `POST /api/system/mqtt/generic-users/{principal_id}/rotate-credentials` (admin-only)
 - `GET /api/system/mqtt/generic-users/{principal_id}/effective-access` (admin-only)
+- `GET /api/system/mqtt/noisy-clients` (admin-only)
+- `POST /api/system/mqtt/noisy-clients/{principal_id}/actions/{action}` (admin-only)
 - `POST /api/system/mqtt/setup-state`
 
 Behavior:
@@ -103,6 +106,7 @@ Embedded authority foundations:
 - ACL compiler module: `backend/app/system/mqtt/acl_compiler.py`
 - effective-access compiler module: `backend/app/system/mqtt/effective_access.py`
 - credential store module: `backend/app/system/mqtt/credential_store.py`
+- noisy-client evaluator module: `backend/app/system/mqtt/noisy_clients.py`
 - Broker config renderer: `backend/app/system/mqtt/config_renderer.py`
 - Runtime boundary interface: `backend/app/system/mqtt/runtime_boundary.py`
 - Startup reconcile service: `backend/app/system/mqtt/startup_reconcile.py`
@@ -118,6 +122,7 @@ Embedded API semantics:
 - `/mqtt/health` returns effective degraded/healthy summary.
 - principal lifecycle actions (`activate|revoke|expire|probation|promote`) are admin-controlled and audited.
 - generic users are lifecycle-managed under Core authority state and denied from reserved Synthia families by default.
+- noisy client state model is tracked in principal state (`normal|watch|noisy|blocked`) with manual admin actions for watch/quarantine/block/revoke-credentials/clear; automated enforcement is not enabled.
 
 ## JSON Envelope Requirement
 

@@ -20,6 +20,7 @@ from .integration_models import (
 )
 from .integration_state import MqttIntegrationStateStore
 from .manager import MqttManager
+from .noisy_clients import MqttNoisyClientEvaluator
 from .observability_store import MqttObservabilityStore
 from .runtime_boundary import (
     BrokerRuntimeBoundary,
@@ -43,6 +44,7 @@ from .router import build_mqtt_router
 
 __all__ = [
     "MqttManager",
+    "MqttNoisyClientEvaluator",
     "MqttAclCompiler",
     "MqttApplyPipeline",
     "ApplyPipelineResult",

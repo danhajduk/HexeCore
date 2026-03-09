@@ -12,6 +12,7 @@ MQTT_GRANT_STATUSES = Literal["approved", "active", "provisioned", "revoked", "e
 MQTT_HA_DISCOVERY_MODES = Literal["disabled", "gateway_managed", "addon_managed"]
 MQTT_PRINCIPAL_TYPES = Literal["synthia_addon", "synthia_node", "generic_user"]
 MQTT_PRINCIPAL_STATUSES = Literal["pending", "active", "probation", "revoked", "expired"]
+MQTT_NOISY_STATES = Literal["normal", "watch", "noisy", "blocked"]
 MQTT_BOOTSTRAP_TOPIC = "synthia/bootstrap/core"
 MQTT_BOOTSTRAP_VERSION = 1
 
@@ -73,6 +74,9 @@ class MqttPrincipal(BaseModel):
     publish_topics: list[str] = Field(default_factory=list)
     subscribe_topics: list[str] = Field(default_factory=list)
     approved_reserved_topics: list[str] = Field(default_factory=list)
+    noisy_state: MQTT_NOISY_STATES = "normal"
+    noisy_inputs: dict[str, int] = Field(default_factory=dict)
+    noisy_updated_at: str | None = None
     probation_reason: str | None = None
     notes: str | None = None
     last_activated_at: str | None = None

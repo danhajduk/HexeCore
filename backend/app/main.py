@@ -46,6 +46,7 @@ from app.system.mqtt import (
     MqttCredentialStore,
     MqttIntegrationStateStore,
     MqttManager,
+    MqttNoisyClientEvaluator,
     MqttObservabilityStore,
     MqttRegistrationApprovalService,
     MqttSetupStateUpdate,
@@ -173,6 +174,7 @@ def create_app() -> FastAPI:
                     mqtt_manager = getattr(app.state, "mqtt_manager", None)
                     mqtt_obsv = getattr(app.state, "mqtt_observability_store", None)
                     startup_reconciler = getattr(app.state, "mqtt_startup_reconciler", None)
+                    noisy_evaluator = getattr(app.state, "mqtt_noisy_evaluator", None)
                     if runtime is not None and state_store is not None:
                         status = await runtime.health_check()
                         if not status.healthy:
@@ -228,6 +230,8 @@ def create_app() -> FastAPI:
                                 "denied_topic_attempts": int(denied_count),
                             },
                         )
+                    if noisy_evaluator is not None:
+                        await noisy_evaluator.evaluate()
                 except Exception:
                     log.exception("MQTT runtime supervision loop failed")
                 await asyncio.sleep(30.0)
@@ -430,6 +434,7 @@ def create_app() -> FastAPI:
         observability_store=mqtt_observability_store,
         runtime_reconcile_hook=mqtt_startup_reconciler.reconcile_authority,
         audit_store=mqtt_authority_audit,
+        credential_rotate_hook=mqtt_credential_store.rotate_principal,
     )
     app.state.mqtt_registration_approval = mqtt_registration_approval
     app.state.mqtt_runtime_boundary = mqtt_runtime_boundary
@@ -438,6 +443,13 @@ def create_app() -> FastAPI:
     app.state.mqtt_config_renderer = mqtt_config_renderer
     app.state.mqtt_apply_pipeline = mqtt_apply_pipeline
     app.state.mqtt_startup_reconciler = mqtt_startup_reconciler
+    mqtt_noisy_evaluator = MqttNoisyClientEvaluator(
+        state_store=mqtt_integration_state_store,
+        mqtt_manager=mqtt_manager,
+        observability_store=mqtt_observability_store,
+        audit_store=mqtt_authority_audit,
+    )
+    app.state.mqtt_noisy_evaluator = mqtt_noisy_evaluator
     register_addons(app, registry)
     addon_proxy = AddonProxy(registry)
     app.state.addon_proxy = addon_proxy

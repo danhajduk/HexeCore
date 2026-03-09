@@ -48,6 +48,10 @@ class MqttGenericUserGrantUpdateRequest(BaseModel):
     notes: str | None = None
 
 
+class MqttNoisyActionRequest(BaseModel):
+    reason: str | None = None
+
+
 async def _authorize_mqtt_request(
     *,
     request: Request,
@@ -255,12 +259,10 @@ def build_mqtt_router(
         x_admin_token: str | None = Header(default=None),
     ):
         require_admin_token(x_admin_token, request)
-        if credential_store is None:
-            raise HTTPException(status_code=503, detail="credential_store_unavailable")
-        rotated = bool(credential_store.rotate_principal(principal_id))
-        if runtime_reconciler is not None:
-            await runtime_reconciler.reconcile_authority(reason=f"rotate_credentials:{principal_id}")
-        return {"ok": True, "principal_id": principal_id, "rotated": rotated}
+        result = await approval.apply_noisy_client_action(principal_id, "revoke_credentials", reason="rotate_credentials")
+        if not result.get("ok"):
+            raise HTTPException(status_code=400, detail=str(result.get("error") or "rotate_credentials_failed"))
+        return {"ok": True, "principal_id": principal_id, "rotated": bool(result.get("rotated"))}
 
     @router.get("/mqtt/generic-users/{principal_id}/effective-access")
     async def mqtt_generic_user_effective_access(
@@ -277,6 +279,42 @@ def build_mqtt_router(
         if access is None:
             raise HTTPException(status_code=404, detail="principal_not_found")
         return {"ok": True, "principal_id": principal_id, "effective_access": access.__dict__}
+
+    @router.get("/mqtt/debug/effective-access/{principal_id}")
+    async def mqtt_debug_effective_access(
+        principal_id: str,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        compiler = acl_compiler or getattr(runtime_reconciler, "_acl_compiler", None)
+        if compiler is None:
+            raise HTTPException(status_code=503, detail="acl_compiler_unavailable")
+        state = await state_store.get_state()
+        access = compiler.inspect_effective_access(state, principal_id)
+        if access is None:
+            raise HTTPException(status_code=404, detail="principal_not_found")
+        return {"ok": True, "principal_id": principal_id, "effective_access": access.__dict__}
+
+    @router.get("/mqtt/noisy-clients")
+    async def mqtt_noisy_clients(request: Request, x_admin_token: str | None = Header(default=None)):
+        require_admin_token(x_admin_token, request)
+        items = await approval.list_noisy_clients()
+        return {"ok": True, "items": items}
+
+    @router.post("/mqtt/noisy-clients/{principal_id}/actions/{action}")
+    async def mqtt_noisy_client_action(
+        principal_id: str,
+        action: str,
+        body: MqttNoisyActionRequest,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        result = await approval.apply_noisy_client_action(principal_id, action, reason=body.reason)
+        if not result.get("ok"):
+            raise HTTPException(status_code=400, detail=str(result.get("error") or "noisy_action_failed"))
+        return result
 
     @router.get("/mqtt/setup-summary")
     async def mqtt_setup_summary(request: Request, x_admin_token: str | None = Header(default=None)):
