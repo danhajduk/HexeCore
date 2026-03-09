@@ -371,7 +371,16 @@ def reconcile_one(addon_dir: Path) -> ReconcileResult | None:
                 prior_runtime.last_applied_compose_digest,
                 compose_digest,
             )
-        ensure_compose_files(desired, extracted_dir, compose_file, env_file)
+        if not runtime_path.exists():
+            runtime_path.write_text("{}\n", encoding="utf-8")
+        ensure_compose_files(
+            desired,
+            extracted_dir,
+            compose_file,
+            env_file,
+            desired_path,
+            runtime_path,
+        )
 
         compose_up(
             compose_files,

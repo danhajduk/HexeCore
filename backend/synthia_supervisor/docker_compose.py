@@ -137,7 +137,14 @@ def ensure_extracted(artifact_path: Path, extracted_dir: Path):
     log.info("extract_done dest=%s", extracted_dir)
 
 
-def ensure_compose_files(desired, extracted_dir: Path, compose_file: Path, env_file: Path):
+def ensure_compose_files(
+    desired,
+    extracted_dir: Path,
+    compose_file: Path,
+    env_file: Path,
+    desired_file: Path,
+    runtime_file: Path,
+):
     env_values = dict(getattr(desired.config, "env", {}) or {})
     service_token = os.environ.get("SYNTHIA_SERVICE_TOKEN")
     if service_token:
@@ -167,6 +174,12 @@ def ensure_compose_files(desired, extracted_dir: Path, compose_file: Path, env_f
     memory_limit = getattr(desired.runtime, "memory", None)
     cpu_section = f"    cpus: {float(cpu_limit)}\n" if cpu_limit is not None else ""
     memory_section = f"    mem_limit: {str(memory_limit).strip()}\n" if memory_limit else ""
+    state_section = (
+        "    volumes:\n"
+        f"      - {desired_file}:/state/desired.json:ro\n"
+        f"      - {runtime_file}:/state/runtime.json:ro\n"
+        f"      - {compose_file}:/state/docker-compose.yml:ro\n"
+    )
     compose_file.write_text(f"""
 services:
   {desired.addon_id}:
@@ -179,7 +192,7 @@ services:
       - {env_file}
     networks:
       - {network_name}
-{cpu_section}{memory_section}{ports_section}
+{state_section}{cpu_section}{memory_section}{ports_section}
 
 networks:
   {network_name}:

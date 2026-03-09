@@ -131,6 +131,10 @@ Implemented:
 - Supervisor generates `versions/<version>/docker-compose.yml` only if missing.
 - If compose file already exists and compose-impacting desired inputs are unchanged, supervisor leaves it unchanged.
 - If compose file already exists and compose-impacting desired inputs change for the same active version, supervisor regenerates compose by replacing the file before template write.
+- Generated compose template mounts control-plane state files read-only into the container:
+  - `<addon_dir>/desired.json` -> `/state/desired.json`
+  - `<addon_dir>/runtime.json` -> `/state/runtime.json`
+  - `versions/<version>/docker-compose.yml` -> `/state/docker-compose.yml`
 
 Implication:
 - Custom compose file content in that path is preserved and used on future reconciles.

@@ -119,8 +119,19 @@ class TestSynthiaSupervisorCompose(unittest.TestCase):
             extracted.mkdir(parents=True, exist_ok=True)
             compose_file = Path(tmp) / "docker-compose.yml"
             env_file = Path(tmp) / "runtime.env"
+            desired_file = Path(tmp) / "desired.json"
+            runtime_file = Path(tmp) / "runtime.json"
+            desired_file.write_text("{}\n", encoding="utf-8")
+            runtime_file.write_text("{}\n", encoding="utf-8")
             with patch.dict(os.environ, {"SYNTHIA_SERVICE_TOKEN": "token-123"}, clear=False):
-                ensure_compose_files(desired, extracted, compose_file, env_file)
+                ensure_compose_files(
+                    desired,
+                    extracted,
+                    compose_file,
+                    env_file,
+                    desired_file,
+                    runtime_file,
+                )
 
             compose_text = compose_file.read_text(encoding="utf-8")
             env_text = env_file.read_text(encoding="utf-8")
@@ -130,6 +141,9 @@ class TestSynthiaSupervisorCompose(unittest.TestCase):
             self.assertIn("networks:", compose_text)
             self.assertIn("synthia_net", compose_text)
             self.assertIn("127.0.0.1:9002:9002/tcp", compose_text)
+            self.assertIn(f"{desired_file}:/state/desired.json:ro", compose_text)
+            self.assertIn(f"{runtime_file}:/state/runtime.json:ro", compose_text)
+            self.assertIn(f"{compose_file}:/state/docker-compose.yml:ro", compose_text)
             self.assertIn("CORE_URL=http://127.0.0.1:9001", env_text)
             self.assertIn("SYNTHIA_SERVICE_TOKEN=token-123", env_text)
 
@@ -160,7 +174,11 @@ class TestSynthiaSupervisorCompose(unittest.TestCase):
             extracted.mkdir(parents=True, exist_ok=True)
             compose_file = Path(tmp) / "docker-compose.yml"
             env_file = Path(tmp) / "runtime.env"
-            ensure_compose_files(desired, extracted, compose_file, env_file)
+            desired_file = Path(tmp) / "desired.json"
+            runtime_file = Path(tmp) / "runtime.json"
+            desired_file.write_text("{}\n", encoding="utf-8")
+            runtime_file.write_text("{}\n", encoding="utf-8")
+            ensure_compose_files(desired, extracted, compose_file, env_file, desired_file, runtime_file)
 
             compose_text = compose_file.read_text(encoding="utf-8")
             self.assertIn("0.0.0.0:18081:18081/tcp", compose_text)
@@ -192,7 +210,11 @@ class TestSynthiaSupervisorCompose(unittest.TestCase):
             extracted.mkdir(parents=True, exist_ok=True)
             compose_file = Path(tmp) / "docker-compose.yml"
             env_file = Path(tmp) / "runtime.env"
-            ensure_compose_files(desired, extracted, compose_file, env_file)
+            desired_file = Path(tmp) / "desired.json"
+            runtime_file = Path(tmp) / "runtime.json"
+            desired_file.write_text("{}\n", encoding="utf-8")
+            runtime_file.write_text("{}\n", encoding="utf-8")
+            ensure_compose_files(desired, extracted, compose_file, env_file, desired_file, runtime_file)
 
             compose_text = compose_file.read_text(encoding="utf-8")
             self.assertIn("cpus: 1.25", compose_text)

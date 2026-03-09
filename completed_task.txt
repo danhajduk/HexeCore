@@ -319,3 +319,4 @@
 2026-03-08 - Core standalone desired rewrite now always sets force_rebuild=true to trigger supervisor rebuild.
 2026-03-08 - Supervisor rebuild path now runs docker compose build --no-cache before up to prevent stale BuildKit cache reuse.
 2026-03-08 - Store uninstall now removes standalone compose images (best-effort) in addition to compose down and service-dir cleanup.
+2026-03-08 - Mounted standalone state files into addon containers (/state/desired.json, /state/runtime.json, /state/docker-compose.yml) and documented the contract.
