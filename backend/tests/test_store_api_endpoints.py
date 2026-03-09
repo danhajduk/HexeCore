@@ -454,6 +454,27 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(res.status_code, 200, res.text)
         self.assertEqual(catalog.refresh_calls, 1)
 
+    def test_catalog_endpoint_refreshes_source_even_when_cache_is_recent(self) -> None:
+        catalog = _CatalogAutoRefreshClient(metadata={"last_success_at": "2099-01-01T00:00:00+00:00"})
+        source = StoreSource(
+            id="official",
+            type="github_raw",
+            base_url="https://raw.githubusercontent.test/catalog",
+            enabled=True,
+            refresh_seconds=3600,
+            last_refresh_requested_at=None,
+        )
+        app = FastAPI()
+        app.include_router(
+            build_store_router(self.registry, self.audit, _SingleSourceStore(source), catalog),
+            prefix="/api/store",
+        )
+        client = TestClient(app)
+
+        res = client.get("/api/store/catalog?source_id=official")
+        self.assertEqual(res.status_code, 200, res.text)
+        self.assertEqual(catalog.refresh_calls, 1)
+
     def test_validate_source_reports_invalid_release_versions(self) -> None:
         artifact_bytes = b"artifact-invalid-version"
         fake_catalog = self._build_catalog_client(

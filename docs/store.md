@@ -22,7 +22,7 @@ Implemented:
 - source CRUD and refresh endpoints
 - cache metadata per source in runtime store cache paths
 - source validate endpoint for schema/version checks
-- `/api/store/catalog` auto-refreshes source cache when stale based on `refresh_seconds` or when `last_refresh_requested_at` is newer than last successful refresh
+- `/api/store/catalog` always performs a live source refresh before serving catalog payload (falls back to cached payload when live refresh fails)
 - Core background loop checks enabled sources every 5 minutes and refreshes stale catalog caches using per-source `refresh_seconds`
 
 ## Install Pipeline

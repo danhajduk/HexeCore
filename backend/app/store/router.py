@@ -19,7 +19,7 @@ from app.api.admin import require_admin_token
 from app.system.events import PlatformEventService
 from app.system.runtime import StandaloneRuntimeService
 from .audit import StoreAuditLogStore
-from .catalog import CatalogCacheClient, CatalogQuery, StaticCatalogStore, catalog_refresh_due
+from .catalog import CatalogCacheClient, CatalogQuery, StaticCatalogStore
 from . import lifecycle as lifecycle_mod
 from .extract import extract_package, find_addon_dir
 from .lifecycle import (
@@ -83,6 +83,18 @@ def _cleanup_store_workdirs(backup_retention: int, staging_ttl_minutes: int):
 
 def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _refresh_catalog_source_now(cache_catalog: CatalogCacheClient, selected: StoreSource) -> dict[str, Any] | None:
+    refresh_source = getattr(cache_catalog, "refresh_source", None)
+    if not callable(refresh_source):
+        return None
+    refresh = refresh_source(selected)
+    if not isinstance(refresh, dict):
+        raise RuntimeError("catalog_refresh_failed")
+    if not bool(refresh.get("ok")):
+        raise RuntimeError(str(refresh.get("catalog_status", {}).get("last_error_message") or "catalog_refresh_failed"))
+    return refresh
 
 
 def _store_install_state_path() -> Path:
@@ -1208,16 +1220,11 @@ def build_store_router(
                     },
                 }
             else:
-                load_source_metadata = getattr(cache_catalog, "load_source_metadata", None)
-                refresh_source = getattr(cache_catalog, "refresh_source", None)
-                metadata = load_source_metadata(selected.id) if callable(load_source_metadata) else {}
-                if not isinstance(metadata, dict):
-                    metadata = {}
-                if callable(refresh_source) and catalog_refresh_due(selected, metadata):
-                    try:
-                        refresh_source(selected)
-                    except Exception:
-                        pass
+                try:
+                    _refresh_catalog_source_now(cache_catalog, selected)
+                except Exception:
+                    # Keep endpoint usable with existing cached payload if live refresh fails.
+                    pass
                 payload = cache_catalog.query_cached(selected.id, req)
                 load_cached_docs = getattr(cache_catalog, "load_cached_documents", None)
                 if callable(load_cached_docs):
@@ -1429,6 +1436,16 @@ def build_store_router(
                 source_id = selected.id
                 debug_source_id = source_id
                 debug_resolved_base_url = _resolved_base_url_for_source(cache_catalog, source_id, selected.base_url)
+                try:
+                    refresh = _refresh_catalog_source_now(cache_catalog, selected)
+                    if isinstance(refresh, dict):
+                        refresh_status = refresh.get("catalog_status", {})
+                        if isinstance(refresh_status, dict):
+                            refresh_resolved = str(refresh_status.get("resolved_base_url") or "").strip()
+                            if refresh_resolved:
+                                debug_resolved_base_url = refresh_resolved
+                except Exception:
+                    pass
                 index_payload, publishers_payload = cache_catalog.load_cached_documents(selected.id)
                 if index_payload is None:
                     raise HTTPException(status_code=400, detail="catalog_cache_missing")
