@@ -68,6 +68,31 @@ class TestMqttLifecycleHooks(unittest.TestCase):
         self.assertEqual(deleted.status_code, 200, deleted.text)
         self.assertIn(("revoke", "vision:addon_untrusted_or_removed"), self.service.calls)
 
+    def test_platform_managed_addon_cannot_be_disabled_or_unregistered(self) -> None:
+        self.registry.addons["mqtt"] = BackendAddon(
+            meta=AddonMeta(
+                id="mqtt",
+                name="MQTT",
+                version="1.0.0",
+                platform_managed=True,
+            ),
+            router=APIRouter(),
+        )
+        self.registry.enabled["mqtt"] = True
+        self.registry.registered["mqtt"] = RegisteredAddon(
+            id="mqtt",
+            name="MQTT",
+            version="1.0.0",
+            base_url="http://127.0.0.1:9100",
+        )
+        disable = self.client.post("/api/addons/mqtt/enable", json={"enabled": False})
+        self.assertEqual(disable.status_code, 403, disable.text)
+        self.assertEqual(disable.json()["detail"], "platform_managed_addon_cannot_be_disabled")
+
+        delete = self.client.delete("/api/admin/addons/registry/mqtt", headers={"X-Admin-Token": "test-token"})
+        self.assertEqual(delete.status_code, 403, delete.text)
+        self.assertEqual(delete.json()["detail"], "platform_managed_addon_cannot_be_unregistered")
+
 
 if __name__ == "__main__":
     unittest.main()

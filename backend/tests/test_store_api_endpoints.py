@@ -44,6 +44,7 @@ class _FakeRegistry:
         self.addons = {"hello_world": _FakeAddon("1.0.0")}
         self.enabled: dict[str, bool] = {}
         self.registered: dict[str, dict] = {}
+        self.platform_managed: set[str] = set()
 
     def is_enabled(self, addon_id: str) -> bool:
         return self.enabled.get(addon_id, True)
@@ -56,6 +57,9 @@ class _FakeRegistry:
         if existed:
             del self.registered[addon_id]
         return existed
+
+    def is_platform_managed(self, addon_id: str) -> bool:
+        return addon_id in self.platform_managed
 
 
 class _FakeSourcesStore:
@@ -666,6 +670,16 @@ class TestStoreApiEndpoints(unittest.TestCase):
             json={"addon_id": "missing-addon"},
         )
         self.assertEqual(uninstall_res.status_code, 404, uninstall_res.text)
+
+    def test_uninstall_blocks_platform_managed_addon(self) -> None:
+        self.registry.platform_managed.add("mqtt")
+        uninstall_res = self.client.post(
+            "/api/store/uninstall",
+            headers={"X-Admin-Token": "test-token"},
+            json={"addon_id": "mqtt"},
+        )
+        self.assertEqual(uninstall_res.status_code, 403, uninstall_res.text)
+        self.assertEqual(uninstall_res.json()["detail"], "platform_managed_addon_cannot_be_uninstalled")
 
     def test_uninstall_removes_standalone_service_and_registry(self) -> None:
         standalone_root = Path(self.tmp.name) / "SynthiaAddons"

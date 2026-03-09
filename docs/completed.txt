@@ -280,3 +280,7 @@
 216. Task 236: Add explicit Phase 1 topic TODO markers for not-yet-implemented families. - Completed on 03/09/2026 07:03
 217. Task 237: Add regression tests for topic-family validation. - Completed on 03/09/2026 07:03
 218. Task 238: Update API/setup docs to reference canonical topic spec. - Completed on 03/09/2026 07:03
+219. Task 239: Implement embedded MQTT addon skeleton. - Completed on 03/09/2026 08:26
+220. Task 240: Implement broker runtime provider (Mosquitto Phase 1). - Completed on 03/09/2026 08:26
+221. Task 241: Implement broker process supervision. - Completed on 03/09/2026 08:26
+222. Task 242: Wire ACL compiler output into runtime config. - Completed on 03/09/2026 08:26

@@ -15,6 +15,7 @@ class AddonMeta(BaseModel):
     auth_modes: list[str] = Field(default_factory=list)
     limits: dict[str, Any] = Field(default_factory=dict)
     ui: dict[str, Any] = Field(default_factory=dict)
+    platform_managed: bool = False
 
 
 class BackendAddon(BaseModel):

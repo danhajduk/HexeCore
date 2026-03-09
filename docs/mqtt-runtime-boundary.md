@@ -1,6 +1,6 @@
 # MQTT Broker Runtime Boundary (Embedded)
 
-Last Updated: 2026-03-09 06:37 US/Pacific
+Last Updated: 2026-03-09 08:26 US/Pacific
 
 ## Boundary Definition
 
@@ -26,4 +26,9 @@ Runtime status contract:
 
 Current implementation in repo:
 - `InMemoryBrokerRuntimeBoundary` provides deterministic behavior for boundary integration/testing.
-- Provider-specific Docker/Mosquitto runtime control remains a later implementation task behind this boundary.
+- `MosquittoProcessRuntimeBoundary` provides Phase 1 process control for an embedded Mosquitto runtime:
+  - start (`mosquitto -c <live>/broker.conf`)
+  - stop (graceful terminate + forced kill fallback)
+  - reload (`SIGHUP`)
+  - health checks (process alive + TCP connect probe)
+  - connection/runtime status via boundary status object

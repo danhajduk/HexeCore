@@ -26,6 +26,8 @@ def build_system_router(
     async def set_addon_enabled(addon_id: str, body: SetAddonEnabledRequest):
         if not registry.has_addon(addon_id):
             raise HTTPException(status_code=404, detail="addon_not_found")
+        if registry.is_platform_managed(addon_id) and not body.enabled:
+            raise HTTPException(status_code=403, detail="platform_managed_addon_cannot_be_disabled")
         registry.set_enabled(addon_id, body.enabled)
         if mqtt_approval_service is not None:
             if body.enabled:

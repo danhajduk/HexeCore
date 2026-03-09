@@ -19,7 +19,12 @@ from .integration_models import (
 from .integration_state import MqttIntegrationStateStore
 from .manager import MqttManager
 from .observability_store import MqttObservabilityStore
-from .runtime_boundary import BrokerRuntimeBoundary, BrokerRuntimeStatus, InMemoryBrokerRuntimeBoundary
+from .runtime_boundary import (
+    BrokerRuntimeBoundary,
+    BrokerRuntimeStatus,
+    InMemoryBrokerRuntimeBoundary,
+    MosquittoProcessRuntimeBoundary,
+)
 from .topic_families import (
     BOOTSTRAP_TOPIC,
     is_addon_scoped_topic,
@@ -48,6 +53,7 @@ __all__ = [
     "BrokerRuntimeBoundary",
     "BrokerRuntimeStatus",
     "InMemoryBrokerRuntimeBoundary",
+    "MosquittoProcessRuntimeBoundary",
     "EmbeddedMqttStartupReconciler",
     "StartupReconcileResult",
     "BOOTSTRAP_TOPIC",

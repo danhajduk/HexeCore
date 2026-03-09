@@ -39,6 +39,7 @@ from app.system.settings.router import build_settings_router
 from app.system.mqtt import (
     EmbeddedMqttStartupReconciler,
     InMemoryBrokerRuntimeBoundary,
+    MosquittoProcessRuntimeBoundary,
     MqttAclCompiler,
     MqttAuthorityAuditStore,
     MqttBrokerConfigRenderer,
@@ -46,6 +47,7 @@ from app.system.mqtt import (
     MqttManager,
     MqttObservabilityStore,
     MqttRegistrationApprovalService,
+    MqttSetupStateUpdate,
     MqttApplyPipeline,
     build_mqtt_router,
 )
@@ -161,6 +163,56 @@ def create_app() -> FastAPI:
             except Exception:
                 log.exception("Embedded MQTT startup reconciliation failed")
 
+        async def mqtt_runtime_supervision_loop() -> None:
+            while True:
+                try:
+                    runtime = getattr(app.state, "mqtt_runtime_boundary", None)
+                    state_store = getattr(app.state, "mqtt_integration_state_store", None)
+                    audit = getattr(app.state, "mqtt_authority_audit", None)
+                    if runtime is not None and state_store is not None:
+                        status = await runtime.health_check()
+                        if not status.healthy:
+                            status = await runtime.ensure_running()
+                        state = await state_store.get_state()
+                        if not status.healthy:
+                            await state_store.update_setup_state(
+                                MqttSetupStateUpdate(
+                                    requires_setup=state.requires_setup,
+                                    setup_complete=False,
+                                    setup_status="degraded",
+                                    broker_mode=state.broker_mode,
+                                    direct_mqtt_supported=state.direct_mqtt_supported,
+                                    setup_error=(status.degraded_reason or "runtime_unhealthy"),
+                                    authority_mode=state.authority_mode,
+                                    authority_ready=False,
+                                )
+                            )
+                            if audit is not None:
+                                await audit.append_event(
+                                    event_type="mqtt_runtime_health",
+                                    status="degraded",
+                                    message=status.degraded_reason,
+                                    payload={"provider": status.provider, "state": status.state},
+                                )
+                        elif state.setup_status == "degraded" and state.setup_error:
+                            await state_store.update_setup_state(
+                                MqttSetupStateUpdate(
+                                    requires_setup=state.requires_setup,
+                                    setup_complete=True,
+                                    setup_status="ready",
+                                    broker_mode=state.broker_mode,
+                                    direct_mqtt_supported=state.direct_mqtt_supported,
+                                    setup_error=None,
+                                    authority_mode=state.authority_mode,
+                                    authority_ready=True,
+                                )
+                            )
+                except Exception:
+                    log.exception("MQTT runtime supervision loop failed")
+                await asyncio.sleep(30.0)
+
+        asyncio.create_task(mqtt_runtime_supervision_loop())
+
     @app.on_event("shutdown")
     async def shutdown_background_tasks():
         proxy = getattr(app.state, "addon_proxy", None)
@@ -169,6 +221,11 @@ def create_app() -> FastAPI:
         mqtt_manager = getattr(app.state, "mqtt_manager", None)
         if mqtt_manager is not None:
             await mqtt_manager.stop()
+        mqtt_runtime_boundary = getattr(app.state, "mqtt_runtime_boundary", None)
+        if mqtt_runtime_boundary is not None:
+            stop = getattr(mqtt_runtime_boundary, "stop", None)
+            if callable(stop):
+                await stop()
 
     app.add_middleware(
         CORSMiddleware,
@@ -327,13 +384,18 @@ def create_app() -> FastAPI:
         observability_store=mqtt_observability_store,
     )
     app.state.mqtt_registration_approval = mqtt_registration_approval
-    mqtt_runtime_boundary = InMemoryBrokerRuntimeBoundary(provider="embedded_mosquitto")
+    mqtt_live_dir = os.path.join(os.getcwd(), "var", "mqtt_runtime", "live")
+    runtime_provider = str(os.getenv("SYNTHIA_MQTT_RUNTIME_PROVIDER", "mosquitto")).strip().lower()
+    if runtime_provider in {"memory", "inmemory"}:
+        mqtt_runtime_boundary = InMemoryBrokerRuntimeBoundary(provider="embedded_mosquitto")
+    else:
+        mqtt_runtime_boundary = MosquittoProcessRuntimeBoundary(live_dir=mqtt_live_dir)
     mqtt_acl_compiler = MqttAclCompiler()
     mqtt_config_renderer = MqttBrokerConfigRenderer()
     mqtt_apply_pipeline = MqttApplyPipeline(
         runtime_boundary=mqtt_runtime_boundary,
         audit_store=mqtt_authority_audit,
-        live_dir=os.path.join(os.getcwd(), "var", "mqtt_runtime", "live"),
+        live_dir=mqtt_live_dir,
     )
     mqtt_startup_reconciler = EmbeddedMqttStartupReconciler(
         state_store=mqtt_integration_state_store,

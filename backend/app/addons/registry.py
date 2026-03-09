@@ -40,6 +40,12 @@ class AddonRegistry:
     def has_addon(self, addon_id: str) -> bool:
         return addon_id in self.addons or addon_id in self.registered
 
+    def is_platform_managed(self, addon_id: str) -> bool:
+        local = self.addons.get(addon_id)
+        if local is not None:
+            return bool(local.meta.platform_managed)
+        return False
+
     def list_registered(self) -> List[RegisteredAddon]:
         return sorted(self.registered.values(), key=lambda a: a.id)
 
@@ -490,6 +496,7 @@ def list_addons(registry: AddonRegistry) -> List[dict]:
             "auth_mode": addon.auth_mode,
             "tls_warning": addon.tls_warning,
             "discovery_source": "registered",
+            "platform_managed": registry.is_platform_managed(addon.id),
         }
 
     for addon_id, addon in registry.addons.items():

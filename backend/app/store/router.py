@@ -2502,6 +2502,8 @@ def build_store_router(
         require_admin_token(x_admin_token, request)
         actor = body.actor or "admin_token"
         addon_id = body.addon_id.strip()
+        if registry.is_platform_managed(addon_id):
+            raise HTTPException(status_code=403, detail="platform_managed_addon_cannot_be_uninstalled")
 
         try:
             manifest_path = _addons_root() / addon_id / "manifest.json"

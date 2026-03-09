@@ -1,6 +1,6 @@
 # MQTT Startup Reconciliation (Embedded)
 
-Last Updated: 2026-03-09 06:37 US/Pacific
+Last Updated: 2026-03-09 08:26 US/Pacific
 
 ## Implementation
 
@@ -9,6 +9,7 @@ Core startup reconciler:
 
 Wiring:
 - `backend/app/main.py` startup flow invokes reconciler after MQTT manager start.
+- `backend/app/main.py` also runs a periodic runtime supervision loop to keep the broker running and mark setup state degraded if runtime health drops.
 
 ## Startup Flow
 
@@ -25,3 +26,4 @@ On startup the reconciler:
 
 - Reconcile errors are captured as degraded/error state.
 - Audit events are written for startup reconcile outcomes.
+- Runtime supervision writes degraded setup state and runtime-health audit events when broker health checks fail.

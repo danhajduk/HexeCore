@@ -122,6 +122,7 @@ def discover_backend_addons() -> list[DiscoveredAddon]:
                 auth_modes=addon.meta.auth_modes,
                 limits=addon.meta.limits,
                 ui=addon.meta.ui,
+                platform_managed=addon.meta.platform_managed or manifest_meta.platform_managed,
             )
             addon = BackendAddon(meta=merged_meta, router=addon.router)
             missing = _validate_backend_contract(addon)
