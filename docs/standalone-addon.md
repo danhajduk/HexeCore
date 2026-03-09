@@ -412,9 +412,9 @@ Generated template defaults include:
 • `privileged: false`\
 • `security_opt: no-new-privileges:true`\
 • no host network mode setting\
-• read-only control-plane mounts:
-  - `<addon_dir>/desired.json` -> `/state/desired.json`
-  - `<addon_dir>/runtime.json` -> `/state/runtime.json`
+• control-plane mounts:
+  - `<addon_dir>/desired.json` -> `/state/desired.json` (read-write)
+  - `<addon_dir>/runtime.json` -> `/state/runtime.json` (read-write)
   - `versions/<version>/docker-compose.yml` -> `/state/docker-compose.yml`
 
 These defaults apply only to supervisor-generated compose templates.

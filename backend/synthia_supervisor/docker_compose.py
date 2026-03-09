@@ -176,8 +176,8 @@ def ensure_compose_files(
     memory_section = f"    mem_limit: {str(memory_limit).strip()}\n" if memory_limit else ""
     state_section = (
         "    volumes:\n"
-        f"      - {desired_file}:/state/desired.json:ro\n"
-        f"      - {runtime_file}:/state/runtime.json:ro\n"
+        f"      - {desired_file}:/state/desired.json\n"
+        f"      - {runtime_file}:/state/runtime.json\n"
         f"      - {compose_file}:/state/docker-compose.yml:ro\n"
     )
     compose_file.write_text(f"""
