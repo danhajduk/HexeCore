@@ -41,6 +41,7 @@ Implemented tokens from `shared/theme/tokens.css`:
   - `--sx-radius-sm`
   - `--sx-radius-md`
   - `--sx-radius-lg`
+  - `--sx-radius-pill`
 - depth:
   - `--sx-shadow-1`
   - `--sx-shadow-2`

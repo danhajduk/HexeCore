@@ -1,7 +1,7 @@
 .addon-frame-page {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  gap: 12px;
+  gap: var(--sx-space-3);
   height: calc(100vh - 64px);
 }
 
@@ -9,7 +9,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--sx-space-3);
 }
 
 .addon-frame-title {
@@ -19,11 +19,11 @@
 
 .addon-frame-actions {
   display: flex;
-  gap: 12px;
+  gap: var(--sx-space-3);
 }
 
 .addon-frame-link {
-  color: var(--accent, #0b6);
+  color: hsl(var(--sx-accent));
   text-decoration: none;
   font-weight: 600;
 }
@@ -35,13 +35,13 @@
 .addon-frame-iframe {
   width: 100%;
   height: 100%;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  border-radius: 8px;
-  background: #fff;
+  border: 1px solid hsl(0 0% 0% / 0.12);
+  border-radius: calc(var(--sx-radius-sm) + 2px);
+  background: hsl(var(--sx-panel));
 }
 
 .addon-frame-empty {
-  padding: 16px;
+  padding: var(--sx-space-4);
 }
 
 .addon-frame-embed-wrap {
@@ -51,23 +51,23 @@
 
 .addon-frame-status {
   display: grid;
-  gap: 4px;
-  padding: 12px;
-  border: 1px solid hsl(var(--color-border));
-  border-radius: var(--radius-md);
-  background: hsl(var(--color-panel));
+  gap: var(--sx-space-1);
+  padding: var(--sx-space-3);
+  border: 1px solid hsl(var(--sx-border));
+  border-radius: var(--sx-radius-md);
+  background: hsl(var(--sx-panel));
 }
 
 .addon-frame-status-error {
-  border-color: hsl(var(--color-warning));
+  border-color: hsl(var(--sx-warning));
 }
 
 .addon-frame-retry {
   justify-self: start;
-  border-radius: var(--radius-sm);
-  border: 1px solid hsl(var(--color-border));
+  border-radius: var(--sx-radius-sm);
+  border: 1px solid hsl(var(--sx-border));
   background: transparent;
-  color: hsl(var(--color-text));
-  padding: 6px 10px;
+  color: hsl(var(--sx-text));
+  padding: calc(var(--sx-space-1) + 2px) calc(var(--sx-space-2) + 2px);
   cursor: pointer;
 }

@@ -2,16 +2,16 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(0, 0, 0, 0.2);
+  padding: 0 var(--sx-space-4);
+  border-bottom: 1px solid hsl(var(--sx-text) / 0.08);
+  background: hsl(0 0% 0% / 0.2);
   backdrop-filter: blur(10px);
 }
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sx-space-2);
 }
 
 .header-title {
@@ -26,15 +26,15 @@
 .header-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
+  gap: calc(var(--sx-space-1) + 2px);
+  padding: var(--sx-space-1) calc(var(--sx-space-2) + 2px);
+  border-radius: var(--sx-radius-pill);
+  background: hsl(var(--sx-text) / 0.12);
   font-size: 12px;
 }
 
 .header-badge-warn {
-  background: rgba(255, 200, 80, 0.25);
+  background: hsl(var(--sx-warning) / 0.25);
 }
 
 .header-badge-muted {

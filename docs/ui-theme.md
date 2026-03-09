@@ -40,6 +40,7 @@ Core imports `shared/theme/index.css` from frontend entry (`frontend/src/main.ts
 - `--sx-radius-sm`
 - `--sx-radius-md`
 - `--sx-radius-lg`
+- `--sx-radius-pill`
 
 ### Shadows
 
@@ -74,3 +75,8 @@ Example:
 ```
 
 For iframe addons, Core theme injection also includes `--sx-*` tokens and base primitive classes.
+
+## Core Migration Status
+
+- Core CSS now uses token-backed color/spacing/radius/shadow values across `frontend/src/core`, `frontend/src/components`, and `frontend/src/pages`.
+- Avoid adding hardcoded `rgba(...)`, hex colors, or raw spacing/radius/shadow literals in new styles.

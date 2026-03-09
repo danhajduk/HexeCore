@@ -10,6 +10,6 @@
 }
 
 .shell-content {
-  padding: 16px;
+  padding: var(--sx-space-4);
   overflow: auto;
 }

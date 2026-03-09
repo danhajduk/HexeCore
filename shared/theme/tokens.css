@@ -27,6 +27,7 @@
   --sx-radius-sm: 6px;
   --sx-radius-md: 10px;
   --sx-radius-lg: 14px;
+  --sx-radius-pill: 999px;
 
   /* shadows */
   --sx-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
