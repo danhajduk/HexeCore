@@ -1,6 +1,6 @@
 # Addons Reference (Core + Addon Workspace)
 
-Last Updated: 2026-03-09 06:37 US/Pacific
+Last Updated: 2026-03-09 07:03 US/Pacific
 
 This document is the single handoff reference for building, registering, and operating addons with Synthia Core.
 
@@ -134,6 +134,8 @@ Core subscribes and updates registry `last_seen`/health metadata from these topi
 Control-plane boundary:
 - Use Core HTTP APIs for control actions (registration approval/provision/revoke/setup-state/admin flows).
 - Use MQTT topics for asynchronous events and runtime visibility, not deterministic control transactions.
+- Canonical MQTT topic spec:
+  - `docs/mqtt-topic-tree.md`
 
 ## 10) MQTT Broker Setup in Core
 
@@ -168,6 +170,7 @@ Apply config via settings API and restart MQTT manager:
 ## 12) MQTT Contract Reference
 
 - Core MQTT platform contract: [mqtt-contract.md](./mqtt-contract.md)
+- Canonical topic tree: [mqtt-topic-tree.md](./mqtt-topic-tree.md)
 
 ## 13) Standalone Desired/Rebuild Contract
 

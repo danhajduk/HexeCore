@@ -20,6 +20,17 @@ from .integration_state import MqttIntegrationStateStore
 from .manager import MqttManager
 from .observability_store import MqttObservabilityStore
 from .runtime_boundary import BrokerRuntimeBoundary, BrokerRuntimeStatus, InMemoryBrokerRuntimeBoundary
+from .topic_families import (
+    BOOTSTRAP_TOPIC,
+    is_addon_scoped_topic,
+    is_bootstrap_topic,
+    is_generic_non_reserved_topic,
+    is_node_scoped_topic,
+    is_platform_reserved_topic,
+    is_policy_topic_path,
+    is_reserved_family_topic,
+    topic_family,
+)
 from .startup_reconcile import EmbeddedMqttStartupReconciler, StartupReconcileResult
 from .router import build_mqtt_router
 
@@ -39,6 +50,15 @@ __all__ = [
     "InMemoryBrokerRuntimeBoundary",
     "EmbeddedMqttStartupReconciler",
     "StartupReconcileResult",
+    "BOOTSTRAP_TOPIC",
+    "topic_family",
+    "is_reserved_family_topic",
+    "is_platform_reserved_topic",
+    "is_addon_scoped_topic",
+    "is_node_scoped_topic",
+    "is_bootstrap_topic",
+    "is_generic_non_reserved_topic",
+    "is_policy_topic_path",
     "build_mqtt_router",
     "MqttRegistrationApprovalService",
     "MqttIntegrationStateStore",

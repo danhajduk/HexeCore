@@ -177,3 +177,9 @@ Principal-role summary for Phase 1:
   - `synthia/core/health/...`
   - `synthia/core/events/...`
 - Additional service visibility topic set beyond `synthia/services/+/catalog`.
+
+## Phase 1 TODO Markers
+
+- TODO(phase1-topic): implement runtime usage and validation semantics for `synthia/nodes/<node_id>/...`.
+- TODO(phase1-topic): implement additional Core visibility subtrees (`status`, `health`, `events`) when concrete producers/consumers are defined.
+- TODO(phase1-topic): evaluate additional `synthia/services/<service>/(health|status)` topics once service-side producers are implemented.

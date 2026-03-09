@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Iterable
 
 from .integration_models import MqttAddonGrant, MqttIntegrationState, MqttPrincipal
+from .topic_families import BOOTSTRAP_TOPIC
 
 
 DEFAULT_RESERVED_PREFIXES: tuple[str, ...] = (
@@ -14,7 +15,7 @@ DEFAULT_RESERVED_PREFIXES: tuple[str, ...] = (
     "synthia/policy/#",
     "synthia/telemetry/#",
 )
-DEFAULT_BOOTSTRAP_TOPIC = "synthia/bootstrap/core"
+DEFAULT_BOOTSTRAP_TOPIC = BOOTSTRAP_TOPIC
 
 
 @dataclass(frozen=True)

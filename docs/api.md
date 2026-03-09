@@ -1,6 +1,6 @@
 # API Documentation (Structure)
 
-Last Updated: 2026-03-09 06:37 US/Pacific
+Last Updated: 2026-03-09 07:03 US/Pacific
 
 ## Conventions
 
@@ -67,6 +67,8 @@ Implemented MQTT authority APIs:
 MQTT control-plane rule (implemented contract):
 - Core uses HTTP APIs for deterministic control transactions (registration approval, provisioning, revocation, setup-state updates, admin actions).
 - MQTT topics are treated as async/event transport only (announce, health, telemetry, retained info), not as the primary control transaction channel.
+- Canonical topic structure reference:
+  - `docs/mqtt-topic-tree.md`
 
 Current setup summary/additional compatibility details:
 - `setup` payload now includes:
@@ -92,6 +94,7 @@ Embedded MQTT migration target:
   - `docs/mqtt-embedded-gap-note.md`
   - `docs/mqtt-embedded-architecture.md`
   - `docs/mqtt-embedded-contract.md`
+  - `docs/mqtt-topic-tree.md`
 
 Implemented admin-protected runtime endpoints:
 - `GET /api/system/addons/runtime`

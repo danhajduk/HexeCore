@@ -276,3 +276,7 @@
 212. Task 232: Define telemetry topic family contract. - Completed on 03/09/2026 06:59
 213. Task 233: Define system/supervisor/scheduler topic family boundaries. - Completed on 03/09/2026 06:59
 214. Task 234: Add topic ownership matrix to docs. - Completed on 03/09/2026 06:59
+215. Task 235: Add topic validation helpers in backend for reserved-family enforcement. - Completed on 03/09/2026 07:03
+216. Task 236: Add explicit Phase 1 topic TODO markers for not-yet-implemented families. - Completed on 03/09/2026 07:03
+217. Task 237: Add regression tests for topic-family validation. - Completed on 03/09/2026 07:03
+218. Task 238: Update API/setup docs to reference canonical topic spec. - Completed on 03/09/2026 07:03
