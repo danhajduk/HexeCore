@@ -40,13 +40,23 @@ a{color:hsl(var(--color-primary));text-decoration:none;}
 .home-panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
 `;
 
-export function injectCoreCssIntoIframe(iframe: HTMLIFrameElement): boolean {
+export type IframeThemeInjectResult = {
+  injected: boolean;
+  reason: "ok" | "no_document" | "no_root" | "cross_origin" | "error";
+};
+
+export function injectCoreCssIntoIframe(iframe: HTMLIFrameElement): IframeThemeInjectResult {
   try {
+    const childWindow = iframe.contentWindow;
+    if (!childWindow) return { injected: false, reason: "no_document" };
+    if (childWindow.location.origin !== window.location.origin) {
+      return { injected: false, reason: "cross_origin" };
+    }
     const childDoc = iframe.contentDocument;
-    if (!childDoc) return false;
+    if (!childDoc) return { injected: false, reason: "no_document" };
 
     const childRoot = childDoc.documentElement;
-    if (!childRoot) return false;
+    if (!childRoot) return { injected: false, reason: "no_root" };
     const parentStyles = window.getComputedStyle(document.documentElement);
     for (const token of TOKEN_NAMES) {
       const value = parentStyles.getPropertyValue(token);
@@ -62,10 +72,10 @@ export function injectCoreCssIntoIframe(iframe: HTMLIFrameElement): boolean {
       (childDoc.head || childDoc.documentElement).appendChild(styleEl);
     }
     styleEl.setAttribute(STYLE_MARKER_ATTR, "true");
-    styleEl.textContent = COMPONENT_RULES;
+    styleEl.textContent = typeof COMPONENT_RULES === "string" ? COMPONENT_RULES : "";
     childRoot.setAttribute(ROOT_MARKER_ATTR, "true");
-    return true;
+    return { injected: true, reason: "ok" };
   } catch {
-    return false;
+    return { injected: false, reason: "error" };
   }
 }
