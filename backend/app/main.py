@@ -471,6 +471,8 @@ def create_app() -> FastAPI:
             acl_compiler=mqtt_acl_compiler,
             credential_store=mqtt_credential_store,
             runtime_reconciler=mqtt_startup_reconciler,
+            observability_store=mqtt_observability_store,
+            audit_store=mqtt_authority_audit,
         ),
         prefix="/api/system",
         tags=["mqtt"],

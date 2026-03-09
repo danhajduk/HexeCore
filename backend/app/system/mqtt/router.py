@@ -85,6 +85,8 @@ def build_mqtt_router(
     acl_compiler: MqttAclCompiler | None = None,
     credential_store=None,
     runtime_reconciler=None,
+    observability_store=None,
+    audit_store=None,
 ) -> APIRouter:
     router = APIRouter()
     approval = approval_service or MqttRegistrationApprovalService(registry=registry, state_store=state_store)
@@ -315,6 +317,28 @@ def build_mqtt_router(
         if not result.get("ok"):
             raise HTTPException(status_code=400, detail=str(result.get("error") or "noisy_action_failed"))
         return result
+
+    @router.get("/mqtt/observability")
+    async def mqtt_observability_events(
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+        limit: int = 100,
+    ):
+        require_admin_token(x_admin_token, request)
+        if observability_store is None:
+            return {"ok": True, "items": []}
+        return {"ok": True, "items": await observability_store.list_events(limit=limit)}
+
+    @router.get("/mqtt/audit")
+    async def mqtt_authority_audit_events(
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+        limit: int = 100,
+    ):
+        require_admin_token(x_admin_token, request)
+        if audit_store is None:
+            return {"ok": True, "items": []}
+        return {"ok": True, "items": await audit_store.list_events(limit=limit)}
 
     @router.get("/mqtt/setup-summary")
     async def mqtt_setup_summary(request: Request, x_admin_token: str | None = Header(default=None)):
