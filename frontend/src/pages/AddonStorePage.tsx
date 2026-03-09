@@ -355,7 +355,7 @@ export default function AddonStorePage() {
             className="store-search"
           />
           <button onClick={refreshCatalog} disabled={refreshing || loading} className="store-btn">
-            {refreshing ? "Refreshing..." : "Refresh"}
+            {refreshing ? "Updating..." : "Update Catalog"}
           </button>
         </div>
       </div>

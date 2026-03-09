@@ -94,6 +94,8 @@ export default function Addons() {
   const [runtimeItems, setRuntimeItems] = useState<StandaloneAddonRuntime[]>([]);
   const [runtimeErr, setRuntimeErr] = useState<string | null>(null);
   const [runtimeBusy, setRuntimeBusy] = useState(false);
+  const [catalogBusy, setCatalogBusy] = useState(false);
+  const [catalogMsg, setCatalogMsg] = useState<string | null>(null);
   const [uninstallStates, setUninstallStates] = useState<Record<string, UninstallViewState>>({});
 
   function uninstallStateFor(addonId: string): UninstallViewState {
@@ -136,6 +138,24 @@ export default function Addons() {
       setRuntimeErr(e?.message ?? String(e));
     } finally {
       setRuntimeBusy(false);
+    }
+  }
+
+  async function updateCatalogNow() {
+    setCatalogBusy(true);
+    setCatalogMsg(null);
+    try {
+      const res = await fetch("/api/store/sources/official/refresh", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) throw new Error(await readError(res));
+      setCatalogMsg("Catalog updated.");
+    } catch (e: any) {
+      setCatalogMsg(`Catalog update failed: ${e?.message ?? String(e)}`);
+    } finally {
+      setCatalogBusy(false);
     }
   }
 
@@ -332,7 +352,18 @@ export default function Addons() {
 
   return (
     <div>
-      <h1 className="addons-title">Addons</h1>
+      <div className="addons-head">
+        <h1 className="addons-title">Addons</h1>
+        <div className="addons-head-actions">
+          <button className="addon-btn" onClick={() => void updateCatalogNow()} disabled={catalogBusy}>
+            {catalogBusy ? "Updating Catalog..." : "Update Catalog"}
+          </button>
+          <button className="addon-btn" onClick={() => void refreshInventory()} disabled={busy !== null}>
+            Refresh List
+          </button>
+        </div>
+      </div>
+      {catalogMsg && <div className="addon-meta">{catalogMsg}</div>}
       {err && <pre className="addons-error">{err}</pre>}
       {!err && (
         <div className="addons-container">
