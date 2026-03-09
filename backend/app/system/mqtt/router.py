@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from pathlib import Path
 
 from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -8,15 +9,24 @@ from pydantic import BaseModel, Field
 from app.api.admin import require_admin_token
 from app.system.auth import ServiceTokenError, ServiceTokenKeyStore, validate_claims, verify_hs256
 
+from .acl_compiler import MqttAclCompiler
 from .approval import MqttRegistrationApprovalService
 from .integration_models import MqttRegistrationRequest, MqttSetupStateUpdate
 from .integration_state import MqttIntegrationStateStore
 from .manager import MqttManager
+from .topic_policy import validate_topic_scopes
 
 
 class MqttTestRequest(BaseModel):
     topic: str | None = None
     payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class MqttTopicValidationRequest(BaseModel):
+    addon_id: str = Field(..., min_length=1)
+    publish_topics: list[str] = Field(default_factory=list)
+    subscribe_topics: list[str] = Field(default_factory=list)
+    approved_reserved_topics: list[str] = Field(default_factory=list)
 
 
 async def _authorize_mqtt_request(
@@ -49,6 +59,7 @@ def build_mqtt_router(
     state_store: MqttIntegrationStateStore,
     key_store: ServiceTokenKeyStore,
     approval_service: MqttRegistrationApprovalService | None = None,
+    acl_compiler: MqttAclCompiler | None = None,
     runtime_reconciler=None,
 ) -> APIRouter:
     router = APIRouter()
@@ -184,6 +195,12 @@ def build_mqtt_router(
             "effective_status": effective,
             "last_authority_errors": last_authority_errors,
             "last_provisioning_errors": last_authority_errors,
+            "reconciliation": (
+                runtime_reconciler.reconciliation_status() if runtime_reconciler is not None else {"status": "unknown"}
+            ),
+            "bootstrap_publish": (
+                runtime_reconciler.bootstrap_status() if runtime_reconciler is not None else {"published": False}
+            ),
         }
 
     @router.get("/mqtt/health")
@@ -218,5 +235,69 @@ def build_mqtt_router(
             "setup": setup.model_dump(mode="json"),
             "broker": broker.model_dump(mode="json"),
         }
+
+    @router.get("/mqtt/debug/acl")
+    async def mqtt_debug_acl(request: Request, x_admin_token: str | None = Header(default=None)):
+        require_admin_token(x_admin_token, request)
+        compiler = acl_compiler or getattr(runtime_reconciler, "_acl_compiler", None)
+        if compiler is None:
+            raise HTTPException(status_code=503, detail="acl_compiler_unavailable")
+        state = await state_store.get_state()
+        compiled = compiler.compile(state)
+        return {
+            "ok": True,
+            "rules": [rule.__dict__ for rule in compiled.rules],
+            "acl_text": compiled.acl_text,
+        }
+
+    @router.get("/mqtt/debug/config")
+    async def mqtt_debug_config(request: Request, x_admin_token: str | None = Header(default=None)):
+        require_admin_token(x_admin_token, request)
+        live_dir = None
+        if runtime_reconciler is not None and hasattr(runtime_reconciler, "live_dir"):
+            live_dir = runtime_reconciler.live_dir()
+        if not live_dir:
+            raise HTTPException(status_code=503, detail="runtime_live_dir_unavailable")
+        base = Path(str(live_dir))
+        files: dict[str, str] = {}
+        for name in ["broker.conf", "listeners.conf", "auth.conf", "acl.conf", "acl_compiled.conf", "passwords.conf"]:
+            path = base / name
+            if path.exists() and path.is_file():
+                files[name] = path.read_text(encoding="utf-8")
+        return {"ok": True, "live_dir": str(base), "files": files}
+
+    @router.get("/mqtt/debug/authority")
+    async def mqtt_debug_authority(request: Request, x_admin_token: str | None = Header(default=None)):
+        require_admin_token(x_admin_token, request)
+        state = await state_store.get_state()
+        principals = [item.model_dump(mode="json") for item in sorted(state.principals.values(), key=lambda x: x.principal_id)]
+        grants = [item.model_dump(mode="json") for item in sorted(state.active_grants.values(), key=lambda x: x.addon_id)]
+        return {
+            "ok": True,
+            "principals": principals,
+            "grants": grants,
+            "setup": {
+                "requires_setup": state.requires_setup,
+                "setup_status": state.setup_status,
+                "setup_complete": state.setup_complete,
+                "authority_ready": state.authority_ready,
+                "setup_error": state.setup_error,
+            },
+        }
+
+    @router.post("/mqtt/debug/topic-validate")
+    async def mqtt_debug_topic_validate(
+        body: MqttTopicValidationRequest,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        errors = validate_topic_scopes(
+            addon_id=body.addon_id,
+            publish_topics=body.publish_topics,
+            subscribe_topics=body.subscribe_topics,
+            approved_reserved_topics=body.approved_reserved_topics,
+        )
+        return {"ok": len(errors) == 0, "errors": errors}
 
     return router

@@ -163,6 +163,8 @@ class TestMqttProvisioningApi(unittest.TestCase):
         self.assertIn("effective_status", summary.json())
         self.assertIn("last_authority_errors", summary.json())
         self.assertIn("last_provisioning_errors", summary.json())
+        self.assertIn("reconciliation", summary.json())
+        self.assertIn("bootstrap_publish", summary.json())
         self.assertIn("setup_error", summary.json()["setup"])
         self.assertIn("status", summary.json()["effective_status"])
 

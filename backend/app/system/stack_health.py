@@ -349,6 +349,24 @@ def _derive_overall_status(payload: dict[str, Any]) -> dict[str, Any]:
     mqtt_state = subsystems.get("mqtt", {}).get("state")
     if mqtt_state == "disconnected":
         reasons.append("MQTT disconnected")
+    mqtt_infra = subsystems.get("mqtt", {}).get("infrastructure", {})
+    if isinstance(mqtt_infra, dict):
+        broker_runtime = mqtt_infra.get("broker_runtime", {})
+        if isinstance(broker_runtime, dict) and broker_runtime.get("healthy") is False:
+            reasons.append("MQTT broker runtime unhealthy")
+        authority = mqtt_infra.get("authority", {})
+        if isinstance(authority, dict) and authority.get("healthy") is False:
+            reasons.append("MQTT authority degraded")
+        reconcile = mqtt_infra.get("reconciliation", {})
+        if isinstance(reconcile, dict) and str(reconcile.get("status") or "").lower() in {"degraded", "error"}:
+            reasons.append("MQTT reconciliation degraded")
+        bootstrap = mqtt_infra.get("bootstrap_publish", {})
+        if (
+            isinstance(bootstrap, dict)
+            and bootstrap.get("published") is False
+            and int(bootstrap.get("attempts") or 0) > 0
+        ):
+            reasons.append("MQTT bootstrap publish pending")
 
     scheduler_state = subsystems.get("scheduler", {}).get("state")
     if scheduler_state in {"degraded", "unknown"}:
@@ -394,6 +412,9 @@ def build_stack_health_router() -> APIRouter:
     async def stack_summary(request: Request):
         registry = getattr(request.app.state, "addon_registry", None)
         mqtt_manager = getattr(request.app.state, "mqtt_manager", None)
+        mqtt_runtime_boundary = getattr(request.app.state, "mqtt_runtime_boundary", None)
+        mqtt_state_store = getattr(request.app.state, "mqtt_integration_state_store", None)
+        mqtt_startup_reconciler = getattr(request.app.state, "mqtt_startup_reconciler", None)
         scheduler_engine = getattr(request.app.state, "scheduler_engine", None)
 
         core_state = "healthy"
@@ -411,6 +432,35 @@ def build_stack_health_router() -> APIRouter:
 
         mqtt_state = "unknown"
         mqtt_last_message_at = None
+        mqtt_infrastructure = {
+            "broker_runtime": {
+                "healthy": None,
+                "state": "unknown",
+                "degraded_reason": None,
+            },
+            "authority": {
+                "healthy": None,
+                "setup_status": "unknown",
+                "authority_ready": False,
+                "setup_ready": False,
+                "setup_error": None,
+            },
+            "reconciliation": {
+                "status": "unknown",
+                "last_reconcile_at": None,
+                "last_reconcile_reason": None,
+                "last_error": None,
+                "last_runtime_state": "unknown",
+            },
+            "bootstrap_publish": {
+                "published": False,
+                "attempts": 0,
+                "successes": 0,
+                "last_attempt_at": None,
+                "last_success_at": None,
+                "last_error": None,
+            },
+        }
         if mqtt_manager is not None:
             try:
                 mqtt_status = await mqtt_manager.status()
@@ -427,6 +477,57 @@ def build_stack_health_router() -> APIRouter:
                 mqtt_last_message_at = mqtt_status.get("last_message_at")
             except Exception:
                 mqtt_state = "unknown"
+        if mqtt_runtime_boundary is not None:
+            try:
+                runtime_status = await mqtt_runtime_boundary.get_status()
+                mqtt_infrastructure["broker_runtime"] = {
+                    "healthy": bool(runtime_status.healthy),
+                    "state": str(runtime_status.state),
+                    "degraded_reason": runtime_status.degraded_reason,
+                }
+            except Exception:
+                pass
+        if mqtt_state_store is not None:
+            try:
+                integration_state = await mqtt_state_store.get_state()
+                setup_ready = bool(
+                    (not integration_state.requires_setup)
+                    or (
+                        integration_state.setup_complete
+                        and integration_state.setup_status == "ready"
+                        and integration_state.authority_ready
+                    )
+                )
+                mqtt_infrastructure["authority"] = {
+                    "healthy": bool(integration_state.authority_ready and setup_ready),
+                    "setup_status": integration_state.setup_status,
+                    "authority_ready": bool(integration_state.authority_ready),
+                    "setup_ready": setup_ready,
+                    "setup_error": integration_state.setup_error,
+                }
+            except Exception:
+                pass
+        if mqtt_startup_reconciler is not None:
+            try:
+                reconcile_status = mqtt_startup_reconciler.reconciliation_status()
+                bootstrap_status = mqtt_startup_reconciler.bootstrap_status()
+                mqtt_infrastructure["reconciliation"] = {
+                    "status": str(reconcile_status.get("last_reconcile_status") or "unknown"),
+                    "last_reconcile_at": reconcile_status.get("last_reconcile_at"),
+                    "last_reconcile_reason": reconcile_status.get("last_reconcile_reason"),
+                    "last_error": reconcile_status.get("last_reconcile_error"),
+                    "last_runtime_state": reconcile_status.get("last_runtime_state"),
+                }
+                mqtt_infrastructure["bootstrap_publish"] = {
+                    "published": bool(bootstrap_status.get("published")),
+                    "attempts": int(bootstrap_status.get("attempts") or 0),
+                    "successes": int(bootstrap_status.get("successes") or 0),
+                    "last_attempt_at": bootstrap_status.get("last_attempt_at"),
+                    "last_success_at": bootstrap_status.get("last_success_at"),
+                    "last_error": bootstrap_status.get("last_error"),
+                }
+            except Exception:
+                pass
 
         scheduler_state = "unknown"
         active_leases = 0
@@ -491,7 +592,11 @@ def build_stack_health_router() -> APIRouter:
             "subsystems": {
                 "core": {"state": core_state},
                 "supervisor": {"state": _state_from_bool(supervisor_running, "healthy", "unhealthy")},
-                "mqtt": {"state": mqtt_state, "last_message_at": mqtt_last_message_at},
+                "mqtt": {
+                    "state": mqtt_state,
+                    "last_message_at": mqtt_last_message_at,
+                    "infrastructure": mqtt_infrastructure,
+                },
                 "scheduler": {
                     "state": scheduler_state,
                     "active_leases": active_leases,

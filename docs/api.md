@@ -1,6 +1,6 @@
 # API Documentation (Structure)
 
-Last Updated: 2026-03-09 09:01 US/Pacific
+Last Updated: 2026-03-09 09:18 US/Pacific
 
 ## Conventions
 
@@ -58,12 +58,18 @@ Implemented MQTT authority APIs:
 - `GET /api/system/mqtt/grants/{addon_id}`
 - `GET /api/system/mqtt/setup-summary`
   - exposes setup state, broker capability summary, MQTT health summary, and aggregated authority/apply errors for operators/UI
+  - includes `reconciliation` and `bootstrap_publish` status blocks
 - `GET /api/system/mqtt/health`
   - returns effective health/degraded status view derived from setup authority state + MQTT runtime connectivity
 - `POST /api/system/mqtt/setup-state`
   - updates Core-side MQTT setup awareness (`requires_setup`, `setup_complete`, `setup_status`, `broker_mode`, `direct_mqtt_supported`, `setup_error`)
   - auth: admin session/token or service token (`aud=synthia-core`, scope `mqtt.setup.write`, subject `mqtt`)
   - authority apply endpoints are gated until setup is ready when setup is required
+- Admin-only MQTT debug helpers:
+  - `GET /api/system/mqtt/debug/acl`
+  - `GET /api/system/mqtt/debug/config`
+  - `GET /api/system/mqtt/debug/authority`
+  - `POST /api/system/mqtt/debug/topic-validate`
 
 MQTT control-plane rule (implemented contract):
 - Core uses HTTP APIs for deterministic control transactions (registration approval, provisioning, revocation, setup-state updates, admin actions).
@@ -107,6 +113,7 @@ Implemented dashboard summary endpoint:
   - includes:
     - `status`: overall state + concise reasons
     - `subsystems`: core/supervisor/mqtt/scheduler/workers/addons
+      - `subsystems.mqtt.infrastructure` now includes broker runtime health, authority health, reconcile status, and bootstrap publish status
     - `connectivity`: local network + internet state
       - local network probe target precedence: `SYNTHIA_LOCAL_NETWORK_CHECK_HOST` -> `MQTT_HOST` -> `SYNTHIA_BACKEND_HOST` (with `SYNTHIA_BACKEND_PORT`, default `9001`) -> `not_configured`
     - `samples.internet_speed`: cached active speed sample only; `/stack/summary` never starts a new speedtest run

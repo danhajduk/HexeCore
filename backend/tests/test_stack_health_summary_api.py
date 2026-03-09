@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from subprocess import CompletedProcess
 
 from app.system import stack_health
+from app.system.mqtt.integration_models import MqttIntegrationState
 from app.system.stack_health import build_stack_health_router
 
 
@@ -29,6 +30,42 @@ class _FakeMqtt:
             "connected": True,
             "enabled": True,
             "last_message_at": "2026-03-07T16:00:00Z",
+        }
+
+
+class _FakeMqttRuntime:
+    async def get_status(self):
+        return type("S", (), {"healthy": True, "state": "running", "degraded_reason": None})()
+
+
+class _FakeMqttStateStore:
+    async def get_state(self):
+        return MqttIntegrationState(
+            requires_setup=True,
+            setup_complete=True,
+            setup_status="ready",
+            authority_ready=True,
+        )
+
+
+class _FakeMqttStartupReconciler:
+    def reconciliation_status(self) -> dict[str, object]:
+        return {
+            "last_reconcile_at": "2026-03-09T09:00:00Z",
+            "last_reconcile_reason": "startup",
+            "last_reconcile_status": "ok",
+            "last_reconcile_error": None,
+            "last_runtime_state": "running",
+        }
+
+    def bootstrap_status(self) -> dict[str, object]:
+        return {
+            "published": True,
+            "attempts": 1,
+            "successes": 1,
+            "last_attempt_at": "2026-03-09T09:00:00Z",
+            "last_success_at": "2026-03-09T09:00:00Z",
+            "last_error": None,
         }
 
 
@@ -144,6 +181,9 @@ class TestStackHealthSummaryApi(unittest.TestCase):
         app.include_router(build_stack_health_router(), prefix="/api/system")
         app.state.scheduler_engine = _FakeScheduler()
         app.state.mqtt_manager = _FakeMqtt()
+        app.state.mqtt_runtime_boundary = _FakeMqttRuntime()
+        app.state.mqtt_integration_state_store = _FakeMqttStateStore()
+        app.state.mqtt_startup_reconciler = _FakeMqttStartupReconciler()
         app.state.addon_registry = _FakeRegistry()
         app.state.latest_stats = _FakeStats()
 
@@ -158,6 +198,10 @@ class TestStackHealthSummaryApi(unittest.TestCase):
         self.assertIn("samples", payload)
 
         self.assertEqual(payload["subsystems"]["mqtt"]["state"], "connected")
+        self.assertTrue(payload["subsystems"]["mqtt"]["infrastructure"]["broker_runtime"]["healthy"])
+        self.assertTrue(payload["subsystems"]["mqtt"]["infrastructure"]["authority"]["healthy"])
+        self.assertEqual(payload["subsystems"]["mqtt"]["infrastructure"]["reconciliation"]["status"], "ok")
+        self.assertTrue(payload["subsystems"]["mqtt"]["infrastructure"]["bootstrap_publish"]["published"])
         self.assertEqual(payload["subsystems"]["scheduler"]["state"], "running")
         self.assertEqual(payload["subsystems"]["workers"]["active_count"], 2)
         self.assertEqual(payload["subsystems"]["addons"]["installed_count"], 2)

@@ -455,6 +455,7 @@ def create_app() -> FastAPI:
             mqtt_integration_state_store,
             service_token_keys,
             approval_service=mqtt_registration_approval,
+            acl_compiler=mqtt_acl_compiler,
             runtime_reconciler=mqtt_startup_reconciler,
         ),
         prefix="/api/system",

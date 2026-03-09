@@ -50,6 +50,11 @@ class EmbeddedMqttStartupReconciler:
         self._bootstrap_last_attempt_at: str | None = None
         self._bootstrap_last_success_at: str | None = None
         self._bootstrap_last_error: str | None = None
+        self._last_reconcile_at: str | None = None
+        self._last_reconcile_reason: str | None = None
+        self._last_reconcile_status: str = "unknown"
+        self._last_reconcile_error: str | None = None
+        self._last_runtime_state: str = "unknown"
 
     async def reconcile_startup(self) -> StartupReconcileResult:
         return await self.reconcile_authority(reason="startup")
@@ -99,13 +104,15 @@ class EmbeddedMqttStartupReconciler:
                     "runtime_healthy": apply_result.runtime.healthy,
                 },
             )
-            return StartupReconcileResult(
+            result = StartupReconcileResult(
                 ok=authority_ready,
                 status=("ok" if authority_ready else "degraded"),
                 setup_status=next_setup.setup_status,
                 runtime_state=apply_result.runtime.state,
                 error=(None if authority_ready else apply_result.error),
             )
+            self._record_reconcile_outcome(reason=reason, result=result)
+            return result
         except Exception as exc:
             await self._audit.append_event(
                 event_type="mqtt_startup_reconcile",
@@ -113,7 +120,9 @@ class EmbeddedMqttStartupReconciler:
                 message=type(exc).__name__,
                 payload={"detail": str(exc), "reason": reason},
             )
-            return StartupReconcileResult(False, "error", "degraded", "unknown", error=type(exc).__name__)
+            result = StartupReconcileResult(False, "error", "degraded", "unknown", error=type(exc).__name__)
+            self._record_reconcile_outcome(reason=reason, result=result)
+            return result
 
     async def ensure_bootstrap_published(self, *, force: bool = False) -> bool:
         if self._bootstrap_successes > 0 and not force:
@@ -129,6 +138,18 @@ class EmbeddedMqttStartupReconciler:
             "last_error": self._bootstrap_last_error,
             "published": self._bootstrap_successes > 0,
         }
+
+    def reconciliation_status(self) -> dict[str, object]:
+        return {
+            "last_reconcile_at": self._last_reconcile_at,
+            "last_reconcile_reason": self._last_reconcile_reason,
+            "last_reconcile_status": self._last_reconcile_status,
+            "last_reconcile_error": self._last_reconcile_error,
+            "last_runtime_state": self._last_runtime_state,
+        }
+
+    def live_dir(self) -> str:
+        return str(self._pipeline._live_dir)
 
     async def _publish_bootstrap(self) -> bool:
         self._bootstrap_attempts += 1
@@ -159,3 +180,10 @@ class EmbeddedMqttStartupReconciler:
             or "publish_failed"
         )
         return False
+
+    def _record_reconcile_outcome(self, *, reason: str, result: StartupReconcileResult) -> None:
+        self._last_reconcile_at = _utcnow_iso()
+        self._last_reconcile_reason = str(reason)
+        self._last_reconcile_status = result.status
+        self._last_reconcile_error = result.error
+        self._last_runtime_state = result.runtime_state

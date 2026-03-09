@@ -1,6 +1,6 @@
 # MQTT Integration Contract
 
-Last Updated: 2026-03-09 09:01 US/Pacific
+Last Updated: 2026-03-09 09:18 US/Pacific
 
 ## Scope
 
@@ -75,6 +75,10 @@ Implemented registration/approval APIs:
 - `GET /api/system/mqtt/grants`
 - `GET /api/system/mqtt/grants/{addon_id}`
 - `GET /api/system/mqtt/setup-summary`
+- `GET /api/system/mqtt/debug/acl` (admin-only)
+- `GET /api/system/mqtt/debug/config` (admin-only)
+- `GET /api/system/mqtt/debug/authority` (admin-only)
+- `POST /api/system/mqtt/debug/topic-validate` (admin-only)
 - `POST /api/system/mqtt/setup-state`
 
 Behavior:
@@ -86,6 +90,7 @@ Behavior:
 Setup summary compatibility:
 - Preferred error aggregation key: `last_authority_errors`
 - Compatibility alias preserved: `last_provisioning_errors`
+- Includes reconciliation and bootstrap publish status blocks.
 
 Embedded authority foundations:
 - ACL compiler module: `backend/app/system/mqtt/acl_compiler.py`

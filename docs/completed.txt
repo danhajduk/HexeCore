@@ -288,3 +288,6 @@
 224. Task 244: Implement bootstrap topic publish on runtime start. - Completed on 03/09/2026 09:01
 225. Task 245: Implement broker config reload pipeline. - Completed on 03/09/2026 09:01
 226. Task 246: Implement broker health telemetry. - Completed on 03/09/2026 09:01
+227. Task 247: Add Core status integration for MQTT infrastructure. - Completed on 03/09/2026 09:40
+228. Task 248: Add developer CLI/debug helpers. - Completed on 03/09/2026 09:40
+229. Task 249: Add runtime integration tests. - Completed on 03/09/2026 09:40
