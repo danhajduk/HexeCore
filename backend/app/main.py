@@ -49,6 +49,7 @@ from app.system.repo_status import router as repo_status_router
 from app.system.stack_health import build_stack_health_router, speed_sampler_loop
 from app.system.scheduler import build_scheduler_router
 from app.store import CatalogCacheClient, build_store_models_router, StoreAuditLogStore, StoreSourcesStore, build_store_router
+from app.store.catalog import catalog_refresh_due
 
 setup_logging()
 log = logging.getLogger("synthia.core")
@@ -111,6 +112,29 @@ def create_app() -> FastAPI:
                 await asyncio.sleep(30.0)
 
         asyncio.create_task(addon_health_poll_loop())
+
+        async def store_catalog_refresh_loop() -> None:
+            while True:
+                try:
+                    sources_store = getattr(app.state, "store_sources_store", None)
+                    catalog_client = getattr(app.state, "store_catalog_client", None)
+                    if sources_store is not None and catalog_client is not None:
+                        sources = await sources_store.list_sources()
+                        for source in sources:
+                            if not bool(getattr(source, "enabled", False)):
+                                continue
+                            load_metadata = getattr(catalog_client, "load_source_metadata", None)
+                            refresh_source = getattr(catalog_client, "refresh_source", None)
+                            metadata = load_metadata(source.id) if callable(load_metadata) else {}
+                            if not isinstance(metadata, dict):
+                                metadata = {}
+                            if callable(refresh_source) and catalog_refresh_due(source, metadata):
+                                await asyncio.to_thread(refresh_source, source)
+                except Exception:
+                    log.exception("Store catalog auto-refresh loop failed")
+                await asyncio.sleep(300.0)
+
+        asyncio.create_task(store_catalog_refresh_loop())
         asyncio.create_task(speed_sampler_loop())
         users_store = getattr(app.state, "users_store", None)
         if users_store is not None:
@@ -302,6 +326,7 @@ def create_app() -> FastAPI:
         catalog_public_keys_path=Path(cfg_boot.store_catalog_public_keys_path),
         catalog_public_keys_json=cfg_boot.store_catalog_public_keys_json,
     )
+    app.state.store_catalog_client = catalog_cache_client
     app.include_router(
         build_store_router(
             registry,

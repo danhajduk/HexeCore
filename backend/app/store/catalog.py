@@ -135,6 +135,32 @@ def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _parse_iso_datetime(value: Any) -> datetime | None:
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    try:
+        parsed = datetime.fromisoformat(raw)
+    except Exception:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def catalog_refresh_due(source: StoreSource, metadata: dict[str, Any]) -> bool:
+    now = datetime.now(timezone.utc)
+    refresh_every_s = max(10, int(getattr(source, "refresh_seconds", 300) or 300))
+    last_success = _parse_iso_datetime(metadata.get("last_success_at"))
+    last_requested = _parse_iso_datetime(getattr(source, "last_refresh_requested_at", None))
+
+    if last_requested is not None and (last_success is None or last_requested > last_success):
+        return True
+    if last_success is None:
+        return True
+    return (now - last_success).total_seconds() >= refresh_every_s
+
+
 def _env_int(name: str, default: int, min_value: int = 0) -> int:
     raw = os.getenv(name)
     if raw is None or raw.strip() == "":

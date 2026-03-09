@@ -4,13 +4,14 @@ import base64
 import json
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
-from app.store.catalog import CatalogCacheClient, CatalogQuery
+from app.store.catalog import CatalogCacheClient, CatalogQuery, catalog_refresh_due
 from app.store.sources import StoreSource
 
 
@@ -38,6 +39,32 @@ class TestCatalogCacheClient(unittest.TestCase):
 
     def _client(self, cache_path: Path) -> CatalogCacheClient:
         return CatalogCacheClient(cache_path, catalog_public_keys_json=json.dumps([self._public_key_pem]))
+
+    def test_catalog_refresh_due_when_no_success_timestamp(self) -> None:
+        source = self._source()
+        self.assertTrue(catalog_refresh_due(source, {}))
+
+    def test_catalog_refresh_due_when_success_is_stale(self) -> None:
+        source = self._source()
+        last_success = (datetime.now(timezone.utc) - timedelta(seconds=301)).isoformat()
+        self.assertTrue(catalog_refresh_due(source, {"last_success_at": last_success}))
+
+    def test_catalog_refresh_not_due_when_recent_success(self) -> None:
+        source = self._source()
+        last_success = (datetime.now(timezone.utc) - timedelta(seconds=30)).isoformat()
+        self.assertFalse(catalog_refresh_due(source, {"last_success_at": last_success}))
+
+    def test_catalog_refresh_due_when_manual_refresh_requested_after_success(self) -> None:
+        last_success_dt = datetime.now(timezone.utc) - timedelta(minutes=1)
+        source = StoreSource(
+            id="official",
+            type="github_raw",
+            base_url="https://raw.githubusercontent.test/catalog",
+            enabled=True,
+            refresh_seconds=300,
+            last_refresh_requested_at=(last_success_dt + timedelta(seconds=10)).isoformat(),
+        )
+        self.assertTrue(catalog_refresh_due(source, {"last_success_at": last_success_dt.isoformat()}))
 
     def test_valid_signature_accepted(self) -> None:
         with tempfile.TemporaryDirectory() as td:
