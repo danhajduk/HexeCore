@@ -153,7 +153,7 @@ class TestSynthiaSupervisorCompose(unittest.TestCase):
             self.assertIn("compose_up_failed", str(ctx.exception))
             self.assertIn("missing Dockerfile", str(ctx.exception))
 
-    def test_compose_up_uses_build_and_force_recreate_when_force_rebuild_enabled(self) -> None:
+    def test_compose_up_runs_no_cache_build_then_force_recreate_when_force_rebuild_enabled(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             compose_file = Path(tmp) / "docker-compose.yml"
             compose_file.write_text("services: {}\n", encoding="utf-8")
@@ -165,9 +165,13 @@ class TestSynthiaSupervisorCompose(unittest.TestCase):
             )
             with patch("synthia_supervisor.docker_compose.subprocess.run", return_value=ok) as run_mock:
                 compose_up(compose_file, "synthia-addon-mqtt", force_rebuild=True)
-            args = run_mock.call_args.args[0]
-            self.assertIn("--build", args)
-            self.assertIn("--force-recreate", args)
+            self.assertEqual(run_mock.call_count, 2)
+            build_args = run_mock.call_args_list[0].args[0]
+            up_args = run_mock.call_args_list[1].args[0]
+            self.assertIn("build", build_args)
+            self.assertIn("--no-cache", build_args)
+            self.assertNotIn("--build", up_args)
+            self.assertIn("--force-recreate", up_args)
 
     def test_compose_up_accepts_multiple_compose_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -150,6 +150,8 @@ Important rebuild boundary:
 - Compose-affecting desired fields are digested by supervisor; if digest changes on same version, supervisor regenerates compose before `compose up`.
 - `force_rebuild=true` in desired payload forces one rebuild/recreate cycle for that `desired_revision` (then no-op resumes for unchanged revision).
 - On desired pinned-version transition from previous active version, supervisor runs compose with rebuild/recreate semantics to avoid stale local image reuse.
+- On first activation (no prior running runtime/active version), supervisor also runs compose with rebuild/recreate semantics to avoid stale local image reuse on reinstall.
+- Rebuild path executes `docker compose build --no-cache` before `docker compose up --force-recreate`.
 
 ## 8) Container Build Model
 

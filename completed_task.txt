@@ -317,3 +317,4 @@
 2026-03-08 - Fixed uninstall-addon.sh standalone addons path resolution to use repo-root relative path (../SynthiaAddons).
 2026-03-08 - Fixed supervisor reconcile to force compose rebuild on version transitions to avoid stale image reuse.
 2026-03-08 - Core standalone desired rewrite now always sets force_rebuild=true to trigger supervisor rebuild.
+2026-03-08 - Supervisor rebuild path now runs docker compose build --no-cache before up to prevent stale BuildKit cache reuse.

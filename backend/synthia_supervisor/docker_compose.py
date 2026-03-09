@@ -36,9 +36,16 @@ def compose_up(compose_file: Path | Iterable[Path], project_name: str, *, force_
     cmd = ["docker", "compose"]
     for item in compose_files:
         cmd.extend(["-f", str(item)])
-    cmd.extend(["-p", project_name, "up", "-d", "--remove-orphans"])
+    base = [*cmd, "-p", project_name]
     if force_rebuild:
-        cmd.extend(["--build", "--force-recreate"])
+        build_cmd = [*base, "build", "--no-cache"]
+        _run_compose_command(
+            build_cmd,
+            "compose_build",
+        )
+    cmd = [*base, "up", "-d", "--remove-orphans"]
+    if force_rebuild:
+        cmd.append("--force-recreate")
     _run_compose_command(
         cmd,
         "compose_up",
