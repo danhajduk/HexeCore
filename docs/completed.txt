@@ -371,3 +371,4 @@
 306. Task 325: Enforce correct initialization order in setup apply/init - Completed on 03/10/2026 02:49
 307. Task 326: Add runtime artifact existence regression test - Completed on 03/10/2026 02:53
 308. Task 327: Add runtime artifact directory bootstrap logic - Completed on 03/10/2026 02:55
+309. Task 328: Verify bootstrap publish occurs only after runtime healthy - Completed on 03/10/2026 02:56

@@ -136,6 +136,10 @@ class EmbeddedMqttStartupReconciler:
     async def ensure_bootstrap_published(self, *, force: bool = False) -> bool:
         if self._bootstrap_successes > 0 and not force:
             return True
+        runtime_status = await self._pipeline._runtime.get_status()
+        if not bool(getattr(runtime_status, "healthy", False)):
+            self._bootstrap_last_error = "runtime_not_healthy_for_bootstrap_publish"
+            return False
         return await self._publish_bootstrap()
 
     def bootstrap_status(self) -> dict[str, object]:

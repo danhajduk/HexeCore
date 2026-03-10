@@ -101,6 +101,30 @@ class TestMqttStartupReconcile(unittest.TestCase):
             self.assertTrue(published)
             self.assertTrue(reconciler.bootstrap_status()["published"])
 
+    def test_bootstrap_publish_skips_when_runtime_unhealthy(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            state_store = MqttIntegrationStateStore(str(Path(tmp) / "state.json"))
+            audit = MqttAuthorityAuditStore(str(Path(tmp) / "audit.db"))
+            boundary = InMemoryBrokerRuntimeBoundary()
+            pipeline = MqttApplyPipeline(
+                runtime_boundary=boundary,
+                audit_store=audit,
+                live_dir=str(Path(tmp) / "live"),
+            )
+            fake_manager = _FakeMqttManager()
+            reconciler = EmbeddedMqttStartupReconciler(
+                state_store=state_store,
+                acl_compiler=MqttAclCompiler(),
+                config_renderer=MqttBrokerConfigRenderer(),
+                apply_pipeline=pipeline,
+                audit_store=audit,
+                credential_store=MqttCredentialStore(str(Path(tmp) / "credentials.json")),
+                mqtt_manager=fake_manager,
+            )
+            published = asyncio.run(reconciler.ensure_bootstrap_published(force=True))
+            self.assertFalse(published)
+            self.assertEqual(len(fake_manager.published), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

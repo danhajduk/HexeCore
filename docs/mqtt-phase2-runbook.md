@@ -166,6 +166,9 @@ Local setup/apply enforced order:
 4. publish bootstrap after runtime healthy
 5. mark setup state ready/degraded
 
+Bootstrap publish guard:
+- `ensure_bootstrap_published` now checks runtime health before publishing and skips publish when runtime is unhealthy.
+
 Audit trail:
 - runtime actions append `event_type=mqtt_runtime_control` entries in `/api/system/mqtt/audit`.
 
