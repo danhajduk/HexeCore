@@ -25,6 +25,25 @@ class TestMqttConfigRenderer(unittest.TestCase):
         self.assertIn("listener 1883 0.0.0.0", output.files["listeners.conf"])
         self.assertIn("listener 1884 0.0.0.0", output.files["listeners.conf"])
         self.assertIn("allow_anonymous true", output.files["listeners.conf"])
+        self.assertTrue(output.files["broker.conf"].strip())
+
+    def test_raises_when_broker_conf_empty(self) -> None:
+        class _BrokenRenderer(MqttBrokerConfigRenderer):
+            def _render_main(self, item: MqttBrokerRenderInput) -> str:
+                return "   \n"
+
+        renderer = _BrokenRenderer()
+        with self.assertRaises(ValueError):
+            renderer.render(
+                MqttBrokerRenderInput(
+                    provider="mosquitto",
+                    acl_file="/tmp/acl.conf",
+                    password_file="/tmp/passwords.conf",
+                    data_dir="/tmp/data",
+                    log_dir="/tmp/logs",
+                    listeners=[MqttListenerSpec(name="main", enabled=True, port=1883)],
+                )
+            )
 
 
 if __name__ == "__main__":

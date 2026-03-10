@@ -36,6 +36,9 @@ class MqttBrokerConfigRenderer:
             "listeners.conf": self._render_listeners(listeners),
             "broker.conf": self._render_main(item),
         }
+        broker_conf = str(files.get("broker.conf") or "")
+        if not broker_conf.strip():
+            raise ValueError("broker_conf_empty")
         return MqttBrokerRenderOutput(files=files)
 
     def _render_main(self, item: MqttBrokerRenderInput) -> str:
