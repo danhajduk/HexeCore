@@ -170,10 +170,10 @@ class TestMqttRuntimeIntegration(unittest.TestCase):
         staged_dir = live_dir.parent / "staged"
         self.assertTrue((staged_dir / "broker.conf").exists())
         acl_text = (live_dir / "acl_compiled.conf").read_text(encoding="utf-8")
-        self.assertIn("anonymous allow subscribe synthia/bootstrap/core", acl_text)
-        self.assertIn("anonymous deny publish #", acl_text)
-        self.assertIn("anonymous deny subscribe #", acl_text)
-        self.assertIn("addon:vision allow publish synthia/addons/vision/state/#", acl_text)
+        self.assertIn("topic read synthia/bootstrap/core", acl_text)
+        self.assertIn("topic deny #", acl_text)
+        self.assertIn("user addon_vision", acl_text)
+        self.assertIn("topic write synthia/addons/vision/state/#", acl_text)
 
         passwords_text = (live_dir / "passwords.conf").read_text(encoding="utf-8")
         self.assertIn("sx_vision:$7$", passwords_text)

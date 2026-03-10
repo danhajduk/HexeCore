@@ -9,8 +9,8 @@ class TestMqttAclCompiler(unittest.TestCase):
         compiler = MqttAclCompiler()
         result = compiler.compile(MqttIntegrationState())
         acl = result.acl_text
-        self.assertIn("anonymous allow subscribe synthia/bootstrap/core", acl)
-        self.assertIn("generic_user:* deny subscribe synthia/core/#", acl)
+        self.assertIn("topic read synthia/bootstrap/core", acl)
+        self.assertIn("topic deny #", acl)
         self.assertGreaterEqual(len(result.effective_access), 1)
 
     def test_compiles_active_synthia_principal_rules(self) -> None:
@@ -22,6 +22,7 @@ class TestMqttAclCompiler(unittest.TestCase):
                     status="active",
                     logical_identity="vision",
                     linked_addon_id="vision",
+                    username="sx_vision",
                 )
             },
             active_grants={
@@ -36,8 +37,9 @@ class TestMqttAclCompiler(unittest.TestCase):
         compiler = MqttAclCompiler()
         result = compiler.compile(state)
         acl = result.acl_text
-        self.assertIn("addon:vision allow publish synthia/addons/vision/event/#", acl)
-        self.assertIn("addon:vision allow subscribe synthia/system/health", acl)
+        self.assertIn("user sx_vision", acl)
+        self.assertIn("topic write synthia/addons/vision/event/#", acl)
+        self.assertIn("topic read synthia/system/health", acl)
 
 
 if __name__ == "__main__":
