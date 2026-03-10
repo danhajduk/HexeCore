@@ -26,10 +26,14 @@ class TestMqttConfigRenderer(unittest.TestCase):
         self.assertIn("listener 1884 0.0.0.0", output.files["listeners.conf"])
         self.assertIn("allow_anonymous true", output.files["listeners.conf"])
         self.assertTrue(output.files["broker.conf"].strip())
+        self.assertIn("listener_allow_anonymous true", output.files["broker.conf"])
+        self.assertIn("password_file /tmp/passwords.conf", output.files["broker.conf"])
+        self.assertIn("acl_file /tmp/acl.conf", output.files["broker.conf"])
+        self.assertNotIn("\ninclude ", output.files["broker.conf"])
 
     def test_raises_when_broker_conf_empty(self) -> None:
         class _BrokenRenderer(MqttBrokerConfigRenderer):
-            def _render_main(self, item: MqttBrokerRenderInput) -> str:
+            def _render_main(self, item: MqttBrokerRenderInput, listeners: list[MqttListenerSpec]) -> str:
                 return "   \n"
 
         renderer = _BrokenRenderer()
