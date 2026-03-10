@@ -85,11 +85,72 @@ def build_mqtt_router(
     acl_compiler: MqttAclCompiler | None = None,
     credential_store=None,
     runtime_reconciler=None,
+    runtime_boundary=None,
     observability_store=None,
     audit_store=None,
 ) -> APIRouter:
     router = APIRouter()
     approval = approval_service or MqttRegistrationApprovalService(registry=registry, state_store=state_store)
+
+    def _runtime_status_payload(status: Any) -> dict[str, Any]:
+        if isinstance(status, dict):
+            return dict(status)
+        return {
+            "provider": getattr(status, "provider", "unknown"),
+            "state": getattr(status, "state", "unknown"),
+            "healthy": bool(getattr(status, "healthy", False)),
+            "degraded_reason": getattr(status, "degraded_reason", None),
+            "checked_at": getattr(status, "checked_at", None),
+        }
+
+    def _reconcile_payload(result: Any) -> dict[str, Any]:
+        if result is None:
+            return {}
+        if isinstance(result, dict):
+            return dict(result)
+        dump = getattr(result, "model_dump", None)
+        if callable(dump):
+            try:
+                return dict(dump(mode="json"))
+            except Exception:
+                pass
+        return {
+            "ok": bool(getattr(result, "ok", False)),
+            "status": getattr(result, "status", "unknown"),
+            "setup_status": getattr(result, "setup_status", "unknown"),
+            "runtime_state": getattr(result, "runtime_state", "unknown"),
+            "error": getattr(result, "error", None),
+        }
+
+    async def _audit_runtime_action(
+        *,
+        action: str,
+        status: str,
+        message: str | None = None,
+        payload: dict[str, Any] | None = None,
+    ) -> None:
+        if audit_store is None:
+            return
+        append_event = getattr(audit_store, "append_event", None)
+        if not callable(append_event):
+            return
+        await append_event(
+            event_type="mqtt_runtime_control",
+            status=status,
+            message=message,
+            payload={"action": action, **(payload or {})},
+        )
+
+    async def _manager_status_safe() -> dict[str, Any]:
+        try:
+            return await manager.status()
+        except Exception as exc:
+            return {"ok": False, "error": f"status_failed:{type(exc).__name__}"}
+
+    def _runtime_required() -> Any:
+        if runtime_boundary is None:
+            raise HTTPException(status_code=503, detail="runtime_boundary_unavailable")
+        return runtime_boundary
 
     @router.get("/mqtt/status")
     async def mqtt_status():
@@ -112,6 +173,128 @@ def build_mqtt_router(
         else:
             await manager.restart()
         return await manager.status()
+
+    @router.get("/mqtt/runtime/health")
+    async def mqtt_runtime_health(request: Request, x_admin_token: str | None = Header(default=None)):
+        require_admin_token(x_admin_token, request)
+        runtime = _runtime_required()
+        runtime_status = await runtime.health_check()
+        health = await _manager_status_safe()
+        return {
+            "ok": True,
+            "action": "health",
+            "runtime": _runtime_status_payload(runtime_status),
+            "health": health,
+        }
+
+    @router.post("/mqtt/runtime/start")
+    async def mqtt_runtime_start(request: Request, x_admin_token: str | None = Header(default=None)):
+        require_admin_token(x_admin_token, request)
+        runtime = _runtime_required()
+        runtime_status = await runtime.ensure_running()
+        if getattr(runtime_status, "healthy", False):
+            await manager.restart()
+        health = await _manager_status_safe()
+        result = {
+            "ok": bool(getattr(runtime_status, "healthy", False)),
+            "action": "start",
+            "runtime": _runtime_status_payload(runtime_status),
+            "health": health,
+        }
+        await _audit_runtime_action(
+            action="start",
+            status=("ok" if result["ok"] else "degraded"),
+            message=result["runtime"].get("degraded_reason"),
+            payload={"runtime": result["runtime"], "health_connected": bool(health.get("connected"))},
+        )
+        return result
+
+    @router.post("/mqtt/runtime/stop")
+    async def mqtt_runtime_stop(request: Request, x_admin_token: str | None = Header(default=None)):
+        require_admin_token(x_admin_token, request)
+        runtime = _runtime_required()
+        runtime_status = await runtime.stop()
+        stop = getattr(manager, "stop", None)
+        if callable(stop):
+            await stop()
+        health = await _manager_status_safe()
+        runtime_payload = _runtime_status_payload(runtime_status)
+        stopped = str(runtime_payload.get("state") or "").lower() == "stopped"
+        result = {
+            "ok": stopped,
+            "action": "stop",
+            "runtime": runtime_payload,
+            "health": health,
+        }
+        await _audit_runtime_action(
+            action="stop",
+            status=("ok" if result["ok"] else "degraded"),
+            message=runtime_payload.get("degraded_reason"),
+            payload={"runtime": runtime_payload, "health_connected": bool(health.get("connected"))},
+        )
+        return result
+
+    @router.post("/mqtt/runtime/init")
+    async def mqtt_runtime_init(request: Request, x_admin_token: str | None = Header(default=None)):
+        require_admin_token(x_admin_token, request)
+        runtime = _runtime_required()
+        reconcile_result = None
+        if runtime_reconciler is not None and hasattr(runtime_reconciler, "reconcile_authority"):
+            reconcile_result = await runtime_reconciler.reconcile_authority(reason="api_runtime_init")
+        runtime_status = await runtime.ensure_running()
+        if getattr(runtime_status, "healthy", False):
+            await manager.restart()
+        health = await _manager_status_safe()
+        result = {
+            "ok": bool(getattr(runtime_status, "healthy", False)),
+            "action": "init",
+            "runtime": _runtime_status_payload(runtime_status),
+            "health": health,
+            "reconciliation": _reconcile_payload(reconcile_result),
+        }
+        await _audit_runtime_action(
+            action="init",
+            status=("ok" if result["ok"] else "degraded"),
+            message=result["runtime"].get("degraded_reason"),
+            payload={
+                "runtime": result["runtime"],
+                "reconciliation": result["reconciliation"],
+                "health_connected": bool(health.get("connected")),
+            },
+        )
+        return result
+
+    @router.post("/mqtt/runtime/rebuild")
+    async def mqtt_runtime_rebuild(request: Request, x_admin_token: str | None = Header(default=None)):
+        require_admin_token(x_admin_token, request)
+        runtime = _runtime_required()
+        reconcile_result = None
+        if runtime_reconciler is not None and hasattr(runtime_reconciler, "reconcile_authority"):
+            reconcile_result = await runtime_reconciler.reconcile_authority(reason="api_runtime_rebuild")
+            runtime_status = await runtime.health_check()
+        else:
+            runtime_status = await runtime.controlled_restart()
+        if getattr(runtime_status, "healthy", False):
+            await manager.restart()
+        health = await _manager_status_safe()
+        result = {
+            "ok": bool(getattr(runtime_status, "healthy", False)),
+            "action": "rebuild",
+            "runtime": _runtime_status_payload(runtime_status),
+            "health": health,
+            "reconciliation": _reconcile_payload(reconcile_result),
+        }
+        await _audit_runtime_action(
+            action="rebuild",
+            status=("ok" if result["ok"] else "degraded"),
+            message=result["runtime"].get("degraded_reason"),
+            payload={
+                "runtime": result["runtime"],
+                "reconciliation": result["reconciliation"],
+                "health_connected": bool(health.get("connected")),
+            },
+        )
+        return result
 
     @router.post("/mqtt/registrations/approve")
     async def mqtt_registration_approve(

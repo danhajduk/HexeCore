@@ -1,6 +1,6 @@
 # MQTT Embedded Phase 2 Runbook
 
-Last Updated: 2026-03-09 09:08 US/Pacific
+Last Updated: 2026-03-10 02:03 US/Pacific
 
 ## Scope
 
@@ -133,3 +133,25 @@ Automated noisy evaluation:
 5. Validate principal effective access for impacted identities.
 
 If runtime remains degraded after reload, use `reconciliation.last_reconcile_error`, `health.last_error`, and audit event payloads for root-cause isolation.
+
+## Runtime Control Operations
+
+Runtime control endpoints (admin token required):
+- `GET /api/system/mqtt/runtime/health`
+- `POST /api/system/mqtt/runtime/init`
+- `POST /api/system/mqtt/runtime/start`
+- `POST /api/system/mqtt/runtime/stop`
+- `POST /api/system/mqtt/runtime/rebuild`
+
+Implemented semantics:
+- `init`: triggers authority reconcile (`reason=api_runtime_init`), ensures runtime is running, then restarts Core MQTT client connection.
+- `start`: ensures broker runtime process is running, then restarts Core MQTT client connection.
+- `stop`: stops broker runtime process and stops Core MQTT client connection.
+- `rebuild`: triggers authority reconcile (`reason=api_runtime_rebuild`) and validates runtime health.
+- `health`: returns runtime provider state/health and current MQTT manager connection status.
+
+Audit trail:
+- runtime actions append `event_type=mqtt_runtime_control` entries in `/api/system/mqtt/audit`.
+
+Addon UI mapping:
+- `/addons/mqtt` Runtime section now exposes buttons for `Init`, `Start`, `Stop`, `Rebuild`, and `Check Health`, wired to the endpoints above.

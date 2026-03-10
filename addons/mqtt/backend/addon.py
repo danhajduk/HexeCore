@@ -44,7 +44,7 @@ def addon_ui_root() -> str:
       color: var(--text);
     }
     .page {
-      max-width: 980px;
+      max-width: 90%;
       margin: 0 auto;
       padding: 20px;
     }
@@ -213,6 +213,9 @@ def addon_ui_root() -> str:
       font-size: 12px;
       white-space: pre-wrap;
     }
+    .runtime-actions {
+      margin-bottom: 10px;
+    }
   </style>
 </head>
 <body>
@@ -341,6 +344,8 @@ def addon_ui_root() -> str:
       statusPayload: null,
       lastAction: null,
       lastExternalTest: null,
+      runtimeActionStatus: "",
+      runtimeActionKind: "",
     };
 
     function sectionFromPath() {
@@ -451,6 +456,58 @@ def addon_ui_root() -> str:
       return res.json();
     }
 
+    function setRuntimeActionStatus(message, kind) {
+      state.runtimeActionStatus = message || "";
+      state.runtimeActionKind = kind || "";
+      const node = document.getElementById("runtime-action-status");
+      if (!node) return;
+      node.textContent = state.runtimeActionStatus;
+      node.className = state.runtimeActionKind ? `status ${state.runtimeActionKind}` : "status";
+    }
+
+    function setRuntimeBusy(busy) {
+      const nodes = sectionContent.querySelectorAll("[data-runtime-action]");
+      nodes.forEach((node) => {
+        node.disabled = busy;
+      });
+    }
+
+    function runtimeActionEndpoint(action) {
+      const normalized = String(action || "").trim().toLowerCase();
+      if (normalized === "health") return { method: "GET", url: "/api/system/mqtt/runtime/health" };
+      if (normalized === "init") return { method: "POST", url: "/api/system/mqtt/runtime/init" };
+      if (normalized === "start") return { method: "POST", url: "/api/system/mqtt/runtime/start" };
+      if (normalized === "stop") return { method: "POST", url: "/api/system/mqtt/runtime/stop" };
+      return { method: "POST", url: "/api/system/mqtt/runtime/rebuild" };
+    }
+
+    async function runRuntimeAction(action) {
+      const endpoint = runtimeActionEndpoint(action);
+      setRuntimeBusy(true);
+      setStatus(`Running runtime action: ${action}...`, "");
+      setRuntimeActionStatus("Running...", "");
+      try {
+        const res = await fetch(endpoint.url, { method: endpoint.method, credentials: "include" });
+        const payload = await res.json();
+        if (!res.ok) throw new Error(payload && payload.detail ? payload.detail : `${endpoint.url}_http_${res.status}`);
+        await loadStatus();
+        const runtime = payload && payload.runtime ? payload.runtime : {};
+        const health = payload && payload.health ? payload.health : {};
+        const healthy = action === "health" ? Boolean(runtime.healthy) : Boolean(payload.ok);
+        const message = action === "health"
+          ? (runtime.healthy ? "Runtime health is healthy." : `Runtime health is degraded: ${runtime.degraded_reason || "unknown"}.`)
+          : `Runtime ${action} completed (state=${runtime.state || "unknown"}, connected=${health.connected ? "true" : "false"}).`;
+        setRuntimeActionStatus(message, healthy ? "ok" : "error");
+        setStatus(message, healthy ? "ok" : "error");
+      } catch (error) {
+        const message = `Runtime ${action} failed: ${error?.message || String(error)}`;
+        setRuntimeActionStatus(message, "error");
+        setStatus(message, "error");
+      } finally {
+        setRuntimeBusy(false);
+      }
+    }
+
     function renderGateBanner() {
       if (!state.gateActive) {
         setupBanner.classList.remove("visible");
@@ -520,6 +577,14 @@ def addon_ui_root() -> str:
         const recon = state.setupSummary && state.setupSummary.reconciliation ? state.setupSummary.reconciliation : {};
         const bootstrap = state.setupSummary && state.setupSummary.bootstrap_publish ? state.setupSummary.bootstrap_publish : {};
         sectionContent.innerHTML =
+          `<div class='row runtime-actions'>` +
+          `<button data-runtime-action='init'>Init</button>` +
+          `<button data-runtime-action='start'>Start</button>` +
+          `<button data-runtime-action='stop'>Stop</button>` +
+          `<button data-runtime-action='rebuild'>Rebuild</button>` +
+          `<button data-runtime-action='health'>Check Health</button>` +
+          `</div>` +
+          `<div id='runtime-action-status' class='${state.runtimeActionKind ? "status " + state.runtimeActionKind : "status"}'>${escapeHtml(state.runtimeActionStatus || "")}</div>` +
           `<div class='mono'>` +
           `last_reconcile_status: ${escapeHtml(recon.last_reconcile_status || "unknown")}\\n` +
           `last_reconcile_reason: ${escapeHtml(recon.last_reconcile_reason || "-")}\\n` +
@@ -711,6 +776,13 @@ def addon_ui_root() -> str:
       const section = btn.getAttribute("data-section");
       if (!section) return;
       navigateTo(section, false);
+    });
+    sectionContent.addEventListener("click", (event) => {
+      const btn = event.target.closest("[data-runtime-action]");
+      if (!btn) return;
+      const action = btn.getAttribute("data-runtime-action");
+      if (!action) return;
+      void runRuntimeAction(action);
     });
     window.addEventListener("popstate", () => {
       state.currentSection = sectionFromPath();

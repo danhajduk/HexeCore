@@ -1,6 +1,6 @@
 # MQTT Broker Runtime Boundary (Embedded)
 
-Last Updated: 2026-03-09 08:26 US/Pacific
+Last Updated: 2026-03-10 02:03 US/Pacific
 
 ## Boundary Definition
 
@@ -32,3 +32,14 @@ Current implementation in repo:
   - reload (`SIGHUP`)
   - health checks (process alive + TCP connect probe)
   - connection/runtime status via boundary status object
+
+## Runtime Control API Surface
+
+Core exposes runtime-control routes that use this boundary:
+- `GET /api/system/mqtt/runtime/health` -> `health_check`
+- `POST /api/system/mqtt/runtime/start` -> `ensure_running`
+- `POST /api/system/mqtt/runtime/stop` -> `stop`
+- `POST /api/system/mqtt/runtime/rebuild` -> reconcile path + health verification (or `controlled_restart` fallback)
+- `POST /api/system/mqtt/runtime/init` -> reconcile path + `ensure_running`
+
+All runtime control actions emit authority audit events under `event_type=mqtt_runtime_control`.

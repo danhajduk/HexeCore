@@ -16,6 +16,8 @@ class TestMqttEmbeddedUiRoutes(unittest.TestCase):
         self.assertIn("Save and Initialize", res.text)
         self.assertIn("Local broker", res.text)
         self.assertIn("External broker", res.text)
+        self.assertIn("Check Health", res.text)
+        self.assertIn("data-runtime-action='start'", res.text)
 
     def test_subroute_ui_page_serves_same_shell(self) -> None:
         res = self.client.get("/api/addons/mqtt/principals")
