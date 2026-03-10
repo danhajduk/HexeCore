@@ -63,6 +63,39 @@ def addon_ui_root() -> str:
       padding: 16px;
       margin-bottom: 14px;
     }
+    .status-banner {
+      border: 1px solid #92400e;
+      background: #451a03;
+      color: #fde68a;
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      display: none;
+    }
+    .status-banner.visible {
+      display: block;
+    }
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .tab {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: #0b1220;
+      color: var(--text);
+      padding: 6px 12px;
+      font-size: 13px;
+    }
+    .tab.active {
+      border-color: var(--accent);
+      background: #082f49;
+    }
+    .tab.locked {
+      opacity: 0.45;
+    }
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -116,6 +149,65 @@ def addon_ui_root() -> str:
     .status.ok {
       color: var(--ok);
     }
+    .checks {
+      display: grid;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .check {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 13px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .check.ready {
+      border-color: #166534;
+      color: #86efac;
+    }
+    .check.warning {
+      border-color: #92400e;
+      color: #fde68a;
+    }
+    .check.failed {
+      border-color: #991b1b;
+      color: #fecaca;
+    }
+    .section-body {
+      margin-top: 8px;
+    }
+    .mode-local-only,
+    .mode-external-only {
+      display: none;
+    }
+    .mode-local .mode-local-only {
+      display: flex;
+    }
+    .mode-external .mode-external-only {
+      display: flex;
+    }
+    .list {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: 13px;
+    }
+    .table th,
+    .table td {
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      padding: 8px 6px;
+      vertical-align: top;
+    }
     .mono {
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 12px;
@@ -127,14 +219,24 @@ def addon_ui_root() -> str:
   <main class="page">
     <h1 class="title">Synthia MQTT Setup</h1>
     <p class="sub">Configure broker mode and connection settings for the embedded MQTT runtime.</p>
+    <div id="setup-banner" class="status-banner"></div>
 
     <section class="card">
-      <h2>Current Runtime Status</h2>
+      <div class="tabs" id="tabs">
+        <button class="tab" data-section="setup">Setup</button>
+        <button class="tab" data-section="overview">Overview</button>
+        <button class="tab" data-section="principals">Principals</button>
+        <button class="tab" data-section="users">Generic Users</button>
+        <button class="tab" data-section="runtime">Runtime</button>
+        <button class="tab" data-section="audit">Audit</button>
+        <button class="tab" data-section="noisy-clients">Noisy Clients</button>
+      </div>
+      <h2 id="section-title">Current Runtime Status</h2>
       <div id="runtime-status" class="status">Loading...</div>
-      <div id="runtime-debug" class="mono"></div>
+      <div id="section-content" class="section-body"></div>
     </section>
 
-    <section class="card">
+    <section class="card" id="setup-card">
       <h2>MQTT Setup</h2>
       <div class="grid">
         <label>
@@ -148,15 +250,23 @@ def addon_ui_root() -> str:
           Host
           <input id="host" placeholder="127.0.0.1" />
         </label>
+        <label class="mode-local-only">
+          Runtime note
+          <input value="Synthia will supervise local broker runtime." readonly />
+        </label>
+        <label class="mode-external-only">
+          External note
+          <input value="Synthia will connect to an existing broker." readonly />
+        </label>
         <label>
           Port
           <input id="port" placeholder="1883" />
         </label>
-        <label>
+        <label class="mode-external-only">
           Username (optional)
           <input id="username" />
         </label>
-        <label>
+        <label class="mode-external-only">
           Password (optional)
           <input id="password" type="password" />
         </label>
@@ -176,10 +286,25 @@ def addon_ui_root() -> str:
           <input id="client_id" placeholder="synthia-core" />
         </label>
       </div>
+      <div class="card" style="margin-top:12px;">
+        <div class="settings-card-title">Preflight</div>
+        <div id="preflight" class="checks"></div>
+      </div>
+      <div class="card" style="margin-top:12px;">
+        <div class="settings-card-title">Reserved Topics and Bootstrap</div>
+        <ul class="list">
+          <li><code>synthia/#</code> is reserved for Synthia-managed traffic.</li>
+          <li>Anonymous access is limited to bootstrap discovery flows only.</li>
+          <li>Users, policies, and grants are configured after initial setup.</li>
+        </ul>
+      </div>
       <div class="row">
-        <button id="apply" class="primary">Apply MQTT settings</button>
-        <button id="apply-restart">Apply and restart MQTT</button>
+        <button id="apply" class="primary">Save and Initialize</button>
+        <button id="apply-restart">Save + Restart MQTT</button>
+        <button id="test-connection">Test Connection</button>
         <button id="refresh">Refresh status</button>
+        <button id="retry" disabled>Retry Last Action</button>
+        <button id="recheck">Re-check</button>
       </div>
       <div id="action-status" class="status"></div>
     </section>
@@ -196,10 +321,45 @@ def addon_ui_root() -> str:
     const clientId = document.getElementById("client_id");
     const applyBtn = document.getElementById("apply");
     const applyRestartBtn = document.getElementById("apply-restart");
+    const testConnectionBtn = document.getElementById("test-connection");
     const refreshBtn = document.getElementById("refresh");
+    const retryBtn = document.getElementById("retry");
+    const recheckBtn = document.getElementById("recheck");
+    const setupBanner = document.getElementById("setup-banner");
+    const tabs = document.getElementById("tabs");
+    const sectionTitle = document.getElementById("section-title");
+    const sectionContent = document.getElementById("section-content");
+    const setupCard = document.getElementById("setup-card");
+    const preflight = document.getElementById("preflight");
     const actionStatus = document.getElementById("action-status");
     const runtimeStatus = document.getElementById("runtime-status");
-    const runtimeDebug = document.getElementById("runtime-debug");
+    const sections = ["setup", "overview", "principals", "users", "runtime", "audit", "noisy-clients"];
+    const state = {
+      currentSection: "overview",
+      gateActive: false,
+      setupSummary: null,
+      statusPayload: null,
+      lastAction: null,
+      lastExternalTest: null,
+    };
+
+    function sectionFromPath() {
+      const marker = "/api/addons/mqtt";
+      const path = window.location.pathname || "";
+      if (!path.startsWith(marker)) return "overview";
+      const tail = path.slice(marker.length).replace(/^\\/+/, "");
+      const first = tail.split("/", 1)[0].trim();
+      return sections.includes(first) ? first : "overview";
+    }
+
+    function navigateTo(section, replace) {
+      const normalized = sections.includes(section) ? section : "overview";
+      const nextPath = normalized === "overview" ? "/api/addons/mqtt" : `/api/addons/mqtt/${normalized}`;
+      const method = replace ? "replaceState" : "pushState";
+      window.history[method]({}, "", nextPath);
+      state.currentSection = normalized;
+      renderRoute();
+    }
 
     function setStatus(message, kind) {
       actionStatus.textContent = message || "";
@@ -209,7 +369,208 @@ def addon_ui_root() -> str:
     function setBusy(busy) {
       applyBtn.disabled = busy;
       applyRestartBtn.disabled = busy;
+      testConnectionBtn.disabled = busy;
       refreshBtn.disabled = busy;
+      retryBtn.disabled = busy || !state.lastAction;
+      recheckBtn.disabled = busy;
+    }
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    function gateIsActive(summary) {
+      const setup = summary && summary.setup ? summary.setup : {};
+      return Boolean(setup.requires_setup) && !Boolean(setup.setup_complete);
+    }
+
+    function modeValue() {
+      return mode.value === "external" ? "external" : "local";
+    }
+
+    function applyModeClass() {
+      const selected = modeValue();
+      const root = setupCard;
+      root.classList.remove("mode-local", "mode-external");
+      root.classList.add(selected === "external" ? "mode-external" : "mode-local");
+      const external = selected === "external";
+      username.disabled = !external;
+      password.disabled = !external;
+    }
+
+    function buildPreflightChecks() {
+      const checks = [];
+      const hostValue = String(host.value || "").trim();
+      const portValue = Number.parseInt(String(port.value || "").trim(), 10);
+      const keepaliveValue = Number.parseInt(String(keepalive.value || "").trim(), 10);
+      checks.push({
+        label: "Host",
+        status: hostValue ? "ready" : "failed",
+        detail: hostValue ? hostValue : "Host is required",
+      });
+      checks.push({
+        label: "Port",
+        status: Number.isFinite(portValue) && portValue > 0 && portValue <= 65535 ? "ready" : "failed",
+        detail: Number.isFinite(portValue) && portValue > 0 && portValue <= 65535 ? String(portValue) : "Expected 1-65535",
+      });
+      checks.push({
+        label: "Keepalive",
+        status: Number.isFinite(keepaliveValue) && keepaliveValue > 0 ? "ready" : "failed",
+        detail: Number.isFinite(keepaliveValue) && keepaliveValue > 0 ? `${keepaliveValue}s` : "Must be a positive integer",
+      });
+      if (modeValue() === "external") {
+        if (!state.lastExternalTest) {
+          checks.push({ label: "Connection test", status: "warning", detail: "Run Test Connection" });
+        } else if (state.lastExternalTest.ok) {
+          checks.push({ label: "Connection test", status: "ready", detail: state.lastExternalTest.detail });
+        } else {
+          checks.push({ label: "Connection test", status: "failed", detail: state.lastExternalTest.detail });
+        }
+      } else {
+        checks.push({ label: "Local runtime", status: "ready", detail: "Broker managed by Synthia runtime." });
+      }
+      return checks;
+    }
+
+    function renderPreflight() {
+      const checks = buildPreflightChecks();
+      preflight.innerHTML = checks
+        .map((item) => {
+          return `<div class="check ${item.status}"><strong>${escapeHtml(item.label)}</strong><span>${escapeHtml(item.detail)}</span></div>`;
+        })
+        .join("");
+      return checks;
+    }
+
+    async function fetchJson(url, options) {
+      const res = await fetch(url, Object.assign({ credentials: "include", cache: "no-store" }, options || {}));
+      if (!res.ok) throw new Error(`${url}_http_${res.status}`);
+      return res.json();
+    }
+
+    function renderGateBanner() {
+      if (!state.gateActive) {
+        setupBanner.classList.remove("visible");
+        setupBanner.textContent = "";
+        return;
+      }
+      setupBanner.classList.add("visible");
+      setupBanner.textContent =
+        "Setup required: only the setup page is available until MQTT initialization completes.";
+    }
+
+    async function loadSectionPayload(section) {
+      if (section === "principals" || section === "users") {
+        const principals = await fetchJson("/api/system/mqtt/principals");
+        const items = Array.isArray(principals.items) ? principals.items : [];
+        if (section === "users") {
+          return items.filter((item) => {
+            const kind = String(item.principal_type || item.type || "").toLowerCase();
+            const identity = String(item.logical_identity || "").toLowerCase();
+            return kind.includes("generic") || identity.startsWith("generic:");
+          });
+        }
+        return items;
+      }
+      if (section === "noisy-clients") {
+        const noisy = await fetchJson("/api/system/mqtt/noisy-clients");
+        return Array.isArray(noisy.items) ? noisy.items : [];
+      }
+      if (section === "audit") {
+        const audit = await fetchJson("/api/system/mqtt/audit?limit=50");
+        return Array.isArray(audit.items) ? audit.items : [];
+      }
+      return null;
+    }
+
+    async function renderSectionBody() {
+      const section = state.currentSection;
+      if (section === "setup") {
+        sectionTitle.textContent = "Setup";
+        sectionContent.innerHTML = "<div class='status'>Use the setup form below to initialize MQTT.</div>";
+        setupCard.style.display = "block";
+        return;
+      }
+
+      setupCard.style.display = state.gateActive ? "block" : "none";
+
+      if (section === "overview") {
+        sectionTitle.textContent = "Overview";
+        const setup = state.setupSummary && state.setupSummary.setup ? state.setupSummary.setup : {};
+        const broker = state.setupSummary && state.setupSummary.broker ? state.setupSummary.broker : {};
+        sectionContent.innerHTML =
+          `<div class='mono'>` +
+          `connected: ${escapeHtml(state.statusPayload && state.statusPayload.connected ? "true" : "false")}\\n` +
+          `mode: ${escapeHtml(state.statusPayload && state.statusPayload.mode ? state.statusPayload.mode : "unknown")}\\n` +
+          `endpoint: ${escapeHtml(state.statusPayload && state.statusPayload.host ? `${state.statusPayload.host}:${state.statusPayload.port || "-"}` : "not configured")}\\n` +
+          `setup_status: ${escapeHtml(setup.setup_status || "unknown")}\\n` +
+          `requires_setup: ${escapeHtml(setup.requires_setup ? "true" : "false")}\\n` +
+          `setup_complete: ${escapeHtml(setup.setup_complete ? "true" : "false")}\\n` +
+          `broker_mode: ${escapeHtml(broker.broker_mode || "unknown")}\\n` +
+          `direct_mqtt_supported: ${escapeHtml(broker.direct_mqtt_supported ? "true" : "false")}` +
+          `</div>`;
+        return;
+      }
+
+      if (section === "runtime") {
+        sectionTitle.textContent = "Runtime";
+        const recon = state.setupSummary && state.setupSummary.reconciliation ? state.setupSummary.reconciliation : {};
+        const bootstrap = state.setupSummary && state.setupSummary.bootstrap_publish ? state.setupSummary.bootstrap_publish : {};
+        sectionContent.innerHTML =
+          `<div class='mono'>` +
+          `last_reconcile_status: ${escapeHtml(recon.last_reconcile_status || "unknown")}\\n` +
+          `last_reconcile_reason: ${escapeHtml(recon.last_reconcile_reason || "-")}\\n` +
+          `last_runtime_state: ${escapeHtml(recon.last_runtime_state || "unknown")}\\n` +
+          `bootstrap_published: ${escapeHtml(bootstrap.published ? "true" : "false")}\\n` +
+          `bootstrap_attempts: ${escapeHtml(bootstrap.attempts || 0)}\\n` +
+          `bootstrap_last_error: ${escapeHtml(bootstrap.last_error || "none")}` +
+          `</div>`;
+        return;
+      }
+
+      sectionTitle.textContent =
+        section === "principals" ? "Principals" : section === "users" ? "Generic Users" : section === "audit" ? "Audit" : "Noisy Clients";
+      sectionContent.innerHTML = "<div class='status'>Loading...</div>";
+      try {
+        const items = await loadSectionPayload(section);
+        if (!Array.isArray(items) || items.length === 0) {
+          sectionContent.innerHTML = "<div class='status'>No items.</div>";
+          return;
+        }
+        const rows = items
+          .slice(0, 50)
+          .map((item) => {
+            const a = escapeHtml(item.principal_id || item.id || "-");
+            const b = escapeHtml(item.status || item.type || item.event_type || "-");
+            const c = escapeHtml(item.updated_at || item.ts || item.reason || "-");
+            return `<tr><td>${a}</td><td>${b}</td><td>${c}</td></tr>`;
+          })
+          .join("");
+        sectionContent.innerHTML =
+          `<table class='table'><thead><tr><th>ID</th><th>Status/Type</th><th>Updated/Reason</th></tr></thead><tbody>${rows}</tbody></table>`;
+      } catch (error) {
+        sectionContent.innerHTML = `<div class='status error'>Section load failed: ${escapeHtml(error && error.message ? error.message : String(error))}</div>`;
+      }
+    }
+
+    async function renderRoute() {
+      const active = sections.includes(state.currentSection) ? state.currentSection : "overview";
+      if (state.gateActive && active !== "setup") {
+        navigateTo("setup", true);
+        return;
+      }
+      const tabButtons = tabs.querySelectorAll(".tab");
+      tabButtons.forEach((node) => {
+        const section = node.getAttribute("data-section");
+        const locked = state.gateActive && section !== "setup";
+        node.classList.toggle("active", section === active);
+        node.classList.toggle("locked", locked);
+        node.disabled = locked;
+      });
+      await renderSectionBody();
     }
 
     async function loadSettings() {
@@ -227,6 +588,8 @@ def addon_ui_root() -> str:
       tls.value = Boolean(settings[`mqtt.${selectedMode}.tls_enabled`]) ? "true" : "false";
       keepalive.value = String(settings["mqtt.keepalive_s"] ?? 30);
       clientId.value = String(settings["mqtt.client_id"] || "synthia-core");
+      applyModeClass();
+      renderPreflight();
     }
 
     async function loadStatus() {
@@ -238,12 +601,16 @@ def addon_ui_root() -> str:
       if (!setupRes.ok) throw new Error(`mqtt_setup_http_${setupRes.status}`);
       const statusPayload = await statusRes.json();
       const setupPayload = await setupRes.json();
+      state.statusPayload = statusPayload;
+      state.setupSummary = setupPayload;
+      state.gateActive = gateIsActive(setupPayload);
       const connected = statusPayload.connected ? "connected" : "disconnected";
       const modeText = statusPayload.mode || "unknown";
       const endpoint = statusPayload.host ? `${statusPayload.host}:${statusPayload.port ?? "-"}` : "not configured";
       const setupState = setupPayload?.setup?.setup_status || "unknown";
       runtimeStatus.textContent = `MQTT ${connected} • mode ${modeText} • endpoint ${endpoint} • setup ${setupState}`;
-      runtimeDebug.textContent = JSON.stringify(setupPayload, null, 2);
+      renderGateBanner();
+      await renderRoute();
     }
 
     async function putSetting(key, value) {
@@ -258,8 +625,12 @@ def addon_ui_root() -> str:
 
     async function applySettings(restartAfter) {
       setBusy(true);
-      setStatus("Applying settings...", "");
+      setStatus("Validating settings...", "");
       try {
+        const checks = renderPreflight();
+        if (checks.some((item) => item.status === "failed")) {
+          throw new Error("preflight_failed");
+        }
         const selectedMode = mode.value === "external" ? "external" : "local";
         const parsedPort = Number.parseInt(String(port.value || "").trim(), 10);
         const parsedKeepalive = Number.parseInt(String(keepalive.value || "").trim(), 10);
@@ -279,30 +650,75 @@ def addon_ui_root() -> str:
         await putSetting("mqtt.keepalive_s", parsedKeepalive);
         await putSetting("mqtt.client_id", String(clientId.value || "").trim() || "synthia-core");
 
+        setStatus("Initializing MQTT...", "");
         if (restartAfter) {
           const restartRes = await fetch("/api/system/mqtt/restart", { method: "POST", credentials: "include" });
           if (!restartRes.ok) throw new Error(`mqtt_restart_http_${restartRes.status}`);
         }
 
-        await loadStatus();
+        await Promise.all([loadStatus(), loadSettings()]);
+        state.lastAction = { restartAfter };
         await loadSettings();
-        setStatus(restartAfter ? "Settings applied and MQTT restarted." : "Settings applied.", "ok");
+        setStatus(restartAfter ? "Initialization successful (restart applied)." : "Initialization successful.", "ok");
+        if (!state.gateActive && state.currentSection === "setup") {
+          navigateTo("overview", true);
+        }
       } catch (error) {
-        setStatus(`Apply failed: ${error?.message || String(error)}`, "error");
+        setStatus(`Initialization failed: ${error?.message || String(error)}`, "error");
       } finally {
         setBusy(false);
       }
     }
 
-    mode.addEventListener("change", async () => {
+    async function testExternalConnection() {
+      setBusy(true);
+      setStatus("Testing external connection...", "");
       try {
-        await loadSettings();
-      } catch {
-        // ignore; main status handles failures
+        const selectedMode = modeValue();
+        if (selectedMode !== "external") {
+          state.lastExternalTest = { ok: true, detail: "Local mode does not require external connection test." };
+        } else {
+          const statusPayload = await fetchJson("/api/system/mqtt/status");
+          const connected = Boolean(statusPayload.connected);
+          state.lastExternalTest = {
+            ok: connected,
+            detail: connected ? "Broker reported connected." : "Broker not connected yet.",
+          };
+        }
+        renderPreflight();
+        setStatus(state.lastExternalTest.detail, state.lastExternalTest.ok ? "ok" : "error");
+      } catch (error) {
+        state.lastExternalTest = { ok: false, detail: error?.message || String(error) };
+        renderPreflight();
+        setStatus(`Test failed: ${state.lastExternalTest.detail}`, "error");
+      } finally {
+        setBusy(false);
       }
+    }
+
+    mode.addEventListener("change", () => {
+      applyModeClass();
+      state.lastExternalTest = null;
+      renderPreflight();
+    });
+    [host, port, username, password, tls, keepalive, clientId].forEach((el) => {
+      el.addEventListener("input", () => renderPreflight());
+      el.addEventListener("change", () => renderPreflight());
+    });
+    tabs.addEventListener("click", (event) => {
+      const btn = event.target.closest(".tab");
+      if (!btn) return;
+      const section = btn.getAttribute("data-section");
+      if (!section) return;
+      navigateTo(section, false);
+    });
+    window.addEventListener("popstate", () => {
+      state.currentSection = sectionFromPath();
+      void renderRoute();
     });
     applyBtn.addEventListener("click", () => void applySettings(false));
     applyRestartBtn.addEventListener("click", () => void applySettings(true));
+    testConnectionBtn.addEventListener("click", () => void testExternalConnection());
     refreshBtn.addEventListener("click", async () => {
       setStatus("", "");
       try {
@@ -311,11 +727,26 @@ def addon_ui_root() -> str:
         setStatus(`Refresh failed: ${error?.message || String(error)}`, "error");
       }
     });
+    retryBtn.addEventListener("click", async () => {
+      if (!state.lastAction) return;
+      await applySettings(Boolean(state.lastAction.restartAfter));
+    });
+    recheckBtn.addEventListener("click", async () => {
+      setStatus("", "");
+      renderPreflight();
+      try {
+        await loadStatus();
+      } catch (error) {
+        setStatus(`Re-check failed: ${error?.message || String(error)}`, "error");
+      }
+    });
 
     (async () => {
       setBusy(true);
       try {
+        state.currentSection = sectionFromPath();
         await Promise.all([loadSettings(), loadStatus()]);
+        renderPreflight();
         setStatus("Ready.", "ok");
       } catch (error) {
         setStatus(`Load failed: ${error?.message || String(error)}`, "error");
@@ -379,6 +810,11 @@ def addon_config_update(body: dict[str, Any]) -> dict[str, Any]:
         "updated_at": _utcnow_iso(),
         "config": dict(_config),
     }
+
+
+@router.get("/{path:path}", response_class=HTMLResponse)
+def addon_ui_subroute(path: str) -> str:
+    return addon_ui_root()
 
 
 addon = BackendAddon(
