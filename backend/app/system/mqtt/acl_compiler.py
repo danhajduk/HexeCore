@@ -9,6 +9,7 @@ from .topic_families import BOOTSTRAP_TOPIC
 
 
 DEFAULT_RESERVED_PREFIXES: tuple[str, ...] = (
+    "synthia/#",
     "synthia/system/#",
     "synthia/core/#",
     "synthia/supervisor/#",

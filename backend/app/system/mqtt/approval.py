@@ -328,6 +328,7 @@ class MqttRegistrationApprovalService:
         principal_id: str,
         logical_identity: str,
         username: str | None,
+        topic_prefix: str | None = None,
         publish_topics: list[str],
         subscribe_topics: list[str],
         approved_reserved_topics: list[str] | None = None,
@@ -352,6 +353,8 @@ class MqttRegistrationApprovalService:
         principal.principal_type = "generic_user"
         principal.logical_identity = logical_identity
         principal.username = username or principal.username
+        if topic_prefix is not None:
+            principal.topic_prefix = topic_prefix
         principal.publish_topics = sorted({topic for topic in publish_topics if topic and not is_platform_reserved_topic(topic)})
         principal.subscribe_topics = sorted({topic for topic in subscribe_topics if topic and not is_platform_reserved_topic(topic)})
         principal.approved_reserved_topics = []

@@ -378,3 +378,5 @@
 313. Task 342: Investigate addon:mqtt pending principal root cause - Completed on 03/10/2026 06:49
 314. Task 343: Verify Core startup registration for MQTT addon principal - Completed on 03/10/2026 06:49
 315. Task 344: Fix addon principal activation pipeline after runtime apply - Completed on 03/10/2026 06:49
+316. Task 345: Implement `/api/system/mqtt/users` generic user create endpoint - Completed on 03/10/2026 06:52
+317. Task 346: Enforce generic user ACL boundary (allow external/<username>/#, deny synthia/#) - Completed on 03/10/2026 06:52

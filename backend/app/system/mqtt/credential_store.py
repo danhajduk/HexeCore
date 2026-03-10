@@ -85,6 +85,57 @@ class MqttCredentialStore:
         )
         return True
 
+    def set_principal_password(
+        self,
+        *,
+        principal_id: str,
+        principal_type: str,
+        username: str,
+        password: str,
+    ) -> bool:
+        clean_password = str(password or "").strip()
+        clean_username = _sanitize_username(username)
+        if not principal_id or not clean_username or not clean_password:
+            return False
+        payload = self._load_payload()
+        credentials = dict(payload.get("credentials") or {})
+        credentials[principal_id] = {
+            "principal_id": principal_id,
+            "principal_type": str(principal_type or "generic_user"),
+            "username": clean_username,
+            "password": clean_password,
+            "password_hash": _hash_password(clean_password),
+            "updated_at": _utcnow_iso(),
+        }
+        self._save_payload(
+            {
+                "schema_version": 1,
+                "updated_at": _utcnow_iso(),
+                "credentials": credentials,
+            }
+        )
+        return True
+
+    def get_principal_credential(self, principal_id: str) -> dict[str, str] | None:
+        payload = self._load_payload()
+        credentials = payload.get("credentials")
+        if not isinstance(credentials, dict):
+            return None
+        item = credentials.get(principal_id)
+        if not isinstance(item, dict):
+            return None
+        out = {
+            "principal_id": str(item.get("principal_id") or ""),
+            "principal_type": str(item.get("principal_type") or ""),
+            "username": str(item.get("username") or ""),
+            "password": str(item.get("password") or ""),
+            "password_hash": str(item.get("password_hash") or ""),
+            "updated_at": str(item.get("updated_at") or ""),
+        }
+        if not out["principal_id"] or not out["username"]:
+            return None
+        return out
+
     def _principal_username(self, principal: MqttPrincipal, *, fallback: str | None) -> str:
         preferred = str(principal.username or "").strip()
         if preferred:

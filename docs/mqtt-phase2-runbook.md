@@ -1,6 +1,6 @@
 # MQTT Embedded Phase 2 Runbook
 
-Last Updated: 2026-03-10 06:49 US/Pacific
+Last Updated: 2026-03-10 06:52 US/Pacific
 
 ## Scope
 
@@ -96,6 +96,13 @@ Implemented fix:
 
 ## Generic User Lifecycle
 
+Create user (operator contract):
+- `POST /api/system/mqtt/users`
+- request fields:
+  - `username`
+  - `password` (`generated` for auto-generated credential)
+  - `topic_prefix` (must resolve to `external/<username>`)
+
 Create or update generic user:
 - `POST /api/system/mqtt/generic-users`
 
@@ -109,6 +116,8 @@ Rotate credentials:
 - `POST /api/system/mqtt/generic-users/{principal_id}/rotate-credentials`
 
 Implemented policy boundary:
+- allow scope for users API: `external/<username>/#`
+- deny scope for generic users includes `synthia/#`
 - generic users cannot keep reserved Synthia topic families in effective access
 
 ## Noisy-Client State and Actions

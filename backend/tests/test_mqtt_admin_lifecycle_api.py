@@ -94,6 +94,7 @@ class TestMqttAdminLifecycleApi(unittest.TestCase):
             registry=self.registry,
             state_store=self.state_store,
             runtime_reconcile_hook=self.runtime.reconcile_authority,
+            credential_rotate_hook=self.credential_store.rotate_principal,
         )
         app = FastAPI()
         app.include_router(
@@ -201,6 +202,37 @@ class TestMqttAdminLifecycleApi(unittest.TestCase):
         )
         self.assertEqual(inspect_debug.status_code, 200, inspect_debug.text)
         self.assertEqual(inspect_debug.json()["principal_id"], "user:guest2")
+
+    def test_users_api_creates_external_scoped_generic_user(self) -> None:
+        created = self.client.post(
+            "/api/system/mqtt/users",
+            headers={"X-Admin-Token": "test-token"},
+            json={
+                "username": "HomeAssistant",
+                "password": "generated",
+                "topic_prefix": "external/homeassistant",
+            },
+        )
+        self.assertEqual(created.status_code, 200, created.text)
+        payload = created.json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["username"], "homeassistant")
+        self.assertEqual(payload["topic_prefix"], "external/homeassistant")
+        self.assertEqual(payload["scope"], "external/homeassistant/#")
+        self.assertEqual(payload["password_mode"], "generated")
+        self.assertTrue(payload.get("password"))
+
+        state = asyncio.run(self.state_store.get_state())
+        principal = state.principals.get("user:homeassistant")
+        self.assertIsNotNone(principal)
+        self.assertEqual(principal.principal_type, "generic_user")
+        self.assertEqual(principal.topic_prefix, "external/homeassistant")
+
+        acl = MqttAclCompiler().compile(state).acl_text
+        self.assertIn("user homeassistant", acl)
+        self.assertIn("topic write external/homeassistant/#", acl)
+        self.assertIn("topic read external/homeassistant/#", acl)
+        self.assertIn("topic deny synthia/#", acl)
 
     def test_noisy_client_manual_actions(self) -> None:
         created = asyncio.run(

@@ -71,6 +71,7 @@ class MqttPrincipal(BaseModel):
     linked_addon_id: str | None = None
     linked_node_id: str | None = None
     username: str | None = None
+    topic_prefix: str | None = None
     managed_by: str | None = None
     publish_topics: list[str] = Field(default_factory=list)
     subscribe_topics: list[str] = Field(default_factory=list)

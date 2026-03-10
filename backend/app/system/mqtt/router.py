@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 from pathlib import Path
+import re
 import socket
 
 from fastapi import APIRouter, Header, HTTPException, Request
@@ -43,6 +44,12 @@ class MqttGenericUserUpsertRequest(BaseModel):
     notes: str | None = None
 
 
+class MqttUserCreateRequest(BaseModel):
+    username: str = Field(..., min_length=1)
+    password: str | None = "generated"
+    topic_prefix: str | None = None
+
+
 class MqttGenericUserGrantUpdateRequest(BaseModel):
     publish_topics: list[str] = Field(default_factory=list)
     subscribe_topics: list[str] = Field(default_factory=list)
@@ -69,6 +76,24 @@ class MqttSetupConnectionTestRequest(BaseModel):
     host: str = Field(..., min_length=1)
     port: int = Field(..., ge=1, le=65535)
     timeout_s: float = Field(default=2.0, gt=0.0, le=10.0)
+
+
+_MQTT_USERNAME_RE = re.compile(r"^[A-Za-z0-9._-]{3,64}$")
+
+
+def _normalize_generic_username(value: str) -> str:
+    return str(value or "").strip().lower()
+
+
+def _valid_generic_username(value: str) -> bool:
+    return bool(_MQTT_USERNAME_RE.fullmatch(value))
+
+
+def _normalize_topic_prefix(value: str | None) -> str:
+    raw = str(value or "").strip().strip("/")
+    while "//" in raw:
+        raw = raw.replace("//", "/")
+    return raw
 
 
 async def _authorize_mqtt_request(
@@ -655,6 +680,75 @@ def build_mqtt_router(
         if not result.get("ok"):
             raise HTTPException(status_code=400, detail=str(result.get("error") or "generic_user_upsert_failed"))
         return result
+
+    @router.post("/mqtt/users")
+    async def mqtt_users_create(
+        body: MqttUserCreateRequest,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        normalized_username = _normalize_generic_username(body.username)
+        if not _valid_generic_username(normalized_username):
+            raise HTTPException(status_code=400, detail="username_invalid")
+        expected_prefix = f"external/{normalized_username}"
+        requested_prefix = _normalize_topic_prefix(body.topic_prefix)
+        if requested_prefix and requested_prefix != expected_prefix:
+            raise HTTPException(status_code=400, detail="topic_prefix_invalid")
+        topic_prefix = requested_prefix or expected_prefix
+        topic_scope = f"{topic_prefix}/#"
+        principal_id = f"user:{normalized_username}"
+        requested_password = str(body.password or "generated").strip()
+        result = await approval.create_or_update_generic_user(
+            principal_id=principal_id,
+            logical_identity=f"generic:{normalized_username}",
+            username=normalized_username,
+            topic_prefix=topic_prefix,
+            publish_topics=[topic_scope],
+            subscribe_topics=[topic_scope],
+            notes="generic_user_api_create",
+        )
+        if not result.get("ok"):
+            raise HTTPException(status_code=400, detail=str(result.get("error") or "generic_user_create_failed"))
+        password_mode = "generated"
+        if requested_password and requested_password.lower() != "generated":
+            password_mode = "provided"
+            if credential_store is not None:
+                override_ok = bool(
+                    credential_store.set_principal_password(
+                        principal_id=principal_id,
+                        principal_type="generic_user",
+                        username=normalized_username,
+                        password=requested_password,
+                    )
+                )
+                if override_ok:
+                    result = await approval.create_or_update_generic_user(
+                        principal_id=principal_id,
+                        logical_identity=f"generic:{normalized_username}",
+                        username=normalized_username,
+                        topic_prefix=topic_prefix,
+                        publish_topics=[topic_scope],
+                        subscribe_topics=[topic_scope],
+                        notes="generic_user_api_create",
+                    )
+                    if not result.get("ok"):
+                        raise HTTPException(status_code=400, detail=str(result.get("error") or "generic_user_create_failed"))
+        principal = result.get("principal") if isinstance(result.get("principal"), dict) else {}
+        credential = credential_store.get_principal_credential(principal_id) if credential_store is not None else None
+        if credential is None and credential_store is not None:
+            state = await state_store.get_state()
+            credential_store.render_password_file(state)
+            credential = credential_store.get_principal_credential(principal_id)
+        return {
+            "ok": True,
+            "principal": principal,
+            "username": normalized_username,
+            "topic_prefix": topic_prefix,
+            "scope": topic_scope,
+            "password_mode": password_mode,
+            "password": (credential or {}).get("password"),
+        }
 
     @router.patch("/mqtt/generic-users/{principal_id}/grants")
     async def mqtt_generic_user_update_grants(
