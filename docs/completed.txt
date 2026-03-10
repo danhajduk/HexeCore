@@ -317,3 +317,7 @@
 252. Task 272: Add setup failure and retry UX - Completed on 03/10/2026 01:21
 253. Task 273: Add route protection tests for setup-only mode - Completed on 03/10/2026 01:21
 254. Task 274: Update MQTT addon UI docs for setup-first behavior - Completed on 03/10/2026 01:21
+255. Task 275: make the addon ui "streach" at the 90% width - Completed on 03/10/2026 01:38
+256. Task 276: check if the Task 213: Core startup reconciliation was completed. and how it will work with the addon? - Completed on 03/10/2026 01:38
+257. Task 277: inspect the runtime provider (Task 240). - Completed on 03/10/2026 01:38
+258. Task 278: create task that will implement the broker init/start/stop/rebuild/check health - Completed on 03/10/2026 01:38

@@ -81,3 +81,42 @@ Setup-first UI behavior:
   - preflight checks (`ready`, `warning`, `failed`)
   - actions: `Save and Initialize`, `Save + Restart MQTT`, `Test Connection`, `Retry Last Action`, `Re-check`
 - Frontend route layer supports sectioned paths (`/addons/mqtt/:section`) and redirects protected sections to `/addons/mqtt/setup` while gate is active.
+
+## Task 276 Verification: Task 213 Startup Reconciliation
+
+Status:
+- `Task 213` is recorded completed in `docs/completed.txt` on `03/09/2026 06:37`.
+- Implementation is present and wired in runtime startup flow.
+
+Code-verified behavior:
+- Core startup calls `mqtt_startup_reconciler.reconcile_startup()` in `backend/app/main.py`.
+- Reconcile path compiles ACL, renders broker config, applies artifacts, updates setup state, and publishes bootstrap when authority is ready in:
+  - `backend/app/system/mqtt/startup_reconcile.py`
+  - `backend/app/system/mqtt/apply_pipeline.py`
+- Ongoing supervision loop in `backend/app/main.py` checks runtime health and updates setup state (`ready`/`degraded`) continuously.
+
+How it works with the addon UI:
+- Addon setup page and route guard read `GET /api/system/mqtt/setup-summary`.
+- `setup-summary` reflects reconciler/runtime state, so addon UI gating is driven by actual startup reconciliation outcomes.
+- `Save + Restart MQTT` currently restarts MQTT client connection (`/api/system/mqtt/restart`) while authority/runtime reconciliation remains controlled by startup/runtime reconcile flows.
+
+## Task 277 Verification: Runtime Provider (Task 240)
+
+Status:
+- `Task 240` is recorded completed in `docs/completed.txt` on `03/09/2026 08:26`.
+
+Code-verified behavior:
+- Runtime boundary contract is defined in `backend/app/system/mqtt/runtime_boundary.py` with:
+  - `ensure_running`
+  - `stop`
+  - `health_check`
+  - `reload`
+  - `controlled_restart`
+  - `get_status`
+- Provider implementations:
+  - `InMemoryBrokerRuntimeBoundary` (dev/test fallback)
+  - `MosquittoProcessRuntimeBoundary` (embedded Mosquitto process)
+- Main wiring selects provider by environment:
+  - `SYNTHIA_MQTT_RUNTIME_PROVIDER=memory` -> in-memory
+  - default -> mosquitto process runtime
+  in `backend/app/main.py`.
