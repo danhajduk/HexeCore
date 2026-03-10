@@ -23,10 +23,10 @@ class _FakeRegistry:
         self.registered = {"mqtt": _RegisteredAddon("http://mqtt-addon.local:9100")}
 
     def has_addon(self, addon_id: str) -> bool:
-        return addon_id == "vision"
+        return addon_id in {"vision", "mqtt"}
 
     def is_enabled(self, addon_id: str) -> bool:
-        return addon_id == "vision"
+        return addon_id in {"vision", "mqtt"}
 
 
 class TestMqttApprovalValidation(unittest.TestCase):
@@ -46,7 +46,7 @@ class TestMqttApprovalValidation(unittest.TestCase):
                     addon_id="vision",
                     access_mode="gateway",
                     publish_topics=["synthia/addons/vision/state/main"],
-                    subscribe_topics=["synthia/system/#", "synthia/addons/vision/command/#"],
+                    subscribe_topics=["synthia/addons/vision/command/#"],
                 )
             )
         )
@@ -108,7 +108,7 @@ class TestMqttApprovalValidation(unittest.TestCase):
                     addon_id="vision",
                     access_mode="both",
                     publish_topics=["synthia/addons/vision/event/#"],
-                    subscribe_topics=["synthia/system/#"],
+                    subscribe_topics=["synthia/addons/vision/command/#"],
                 )
             )
         )
@@ -122,7 +122,7 @@ class TestMqttApprovalValidation(unittest.TestCase):
                     addon_id="vision",
                     access_mode="both",
                     publish_topics=["synthia/addons/vision/event/#", "synthia/addons/vision/state/#"],
-                    subscribe_topics=["synthia/system/#"],
+                    subscribe_topics=["synthia/addons/vision/command/#"],
                 )
             )
         )
@@ -169,6 +169,26 @@ class TestMqttApprovalValidation(unittest.TestCase):
         result = asyncio.run(self.service.reconcile("vision"))
         self.assertTrue(result["ok"])
         self.assertEqual(result["status"], "active")
+
+    def test_reconcile_bootstraps_mqtt_addon_principal(self) -> None:
+        asyncio.run(
+            self.service.update_setup_state(
+                MqttSetupStateUpdate(
+                    requires_setup=True,
+                    setup_complete=True,
+                    setup_status="ready",
+                    broker_mode="local",
+                    direct_mqtt_supported=False,
+                    authority_ready=True,
+                )
+            )
+        )
+        result = asyncio.run(self.service.reconcile("mqtt"))
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["status"], "active")
+        principal = asyncio.run(self.service.get_principal("addon:mqtt"))
+        self.assertIsNotNone(principal)
+        self.assertEqual(principal["status"], "active")
 
 
 if __name__ == "__main__":

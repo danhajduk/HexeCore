@@ -96,6 +96,9 @@ class EmbeddedMqttStartupReconciler:
             artifacts["passwords.conf"] = self._credential_store.render_password_file(state)
             apply_result = await self._pipeline.apply(artifacts)
             authority_ready = bool(apply_result.ok and apply_result.runtime.healthy)
+            activated_addons: list[str] = []
+            if authority_ready:
+                activated_addons = await self._activate_ready_addon_principals(reason=reason)
             setup_status = "ready" if authority_ready else "degraded"
             if update_setup_state:
                 next_setup = MqttSetupStateUpdate(
@@ -120,6 +123,7 @@ class EmbeddedMqttStartupReconciler:
                     "reason": reason,
                     "runtime_state": apply_result.runtime.state,
                     "runtime_healthy": apply_result.runtime.healthy,
+                    "activated_addons": activated_addons,
                 },
             )
             result = StartupReconcileResult(
@@ -229,3 +233,48 @@ class EmbeddedMqttStartupReconciler:
             next_principal.managed_by = "core"
             next_principal.notes = "core_system_principal"
             await self._state_store.upsert_principal(next_principal)
+
+    async def _activate_ready_addon_principals(self, *, reason: str) -> list[str]:
+        from .integration_models import MqttPrincipal
+
+        state = await self._state_store.get_state()
+        activated: list[str] = []
+        for addon_id in sorted(state.active_grants.keys()):
+            grant = state.active_grants.get(addon_id)
+            if grant is None:
+                continue
+            if grant.revocation_pending:
+                continue
+            if grant.status not in {"approved", "error", "provisioned"}:
+                continue
+            next_grant = grant.model_copy(deep=True)
+            next_grant.status = "active"
+            next_grant.last_error = None
+            next_grant.last_provisioned_at = _utcnow_iso()
+            next_grant.provision_contract = {
+                "mode": "embedded_core_authority",
+                "reason": f"runtime_apply:{reason}",
+                "applied_at": _utcnow_iso(),
+            }
+            await self._state_store.upsert_grant(next_grant)
+            principal_id = f"addon:{addon_id}"
+            current_principal = state.principals.get(principal_id)
+            next_principal = current_principal.model_copy(deep=True) if current_principal is not None else MqttPrincipal(
+                principal_id=principal_id,
+                principal_type="synthia_addon",
+                status="active",
+                logical_identity=addon_id,
+                linked_addon_id=addon_id,
+            )
+            next_principal.principal_type = "synthia_addon"
+            next_principal.logical_identity = addon_id
+            next_principal.linked_addon_id = addon_id
+            next_principal.status = "active"
+            next_principal.publish_topics = sorted({str(topic).strip() for topic in next_grant.publish_topics if str(topic).strip()})
+            next_principal.subscribe_topics = sorted({str(topic).strip() for topic in next_grant.subscribe_topics if str(topic).strip()})
+            next_principal.managed_by = "authority"
+            next_principal.last_activated_at = _utcnow_iso()
+            next_principal.probation_reason = None
+            await self._state_store.upsert_principal(next_principal)
+            activated.append(addon_id)
+        return activated

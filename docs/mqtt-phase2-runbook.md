@@ -1,6 +1,6 @@
 # MQTT Embedded Phase 2 Runbook
 
-Last Updated: 2026-03-10 02:24 US/Pacific
+Last Updated: 2026-03-10 06:49 US/Pacific
 
 ## Scope
 
@@ -81,6 +81,18 @@ Implemented actions:
 - `promote`
 
 Each action writes authority state and triggers runtime reconcile.
+
+### Addon Principal Pending Root Cause (Task 342)
+
+Observed root cause:
+- `addon:mqtt` principal status tracks grant status from authority state.
+- when setup was previously degraded, `provision_grant` persisted grant `status=error` (`mqtt_setup_not_ready:*`), so principal stayed `pending`.
+- later runtime recovery did not auto-promote existing `approved/error` grants to `active` without explicit reprovision.
+
+Implemented fix:
+- startup/runtime authority reconcile now promotes eligible addon grants (`approved|error|provisioned`) to `active` after successful runtime apply.
+- the same promote step updates matching addon principals to `status=active`.
+- Core startup explicitly runs `mqtt_registration_approval.reconcile("mqtt")` for enabled addon `mqtt` to ensure registration bootstrap on startup.
 
 ## Generic User Lifecycle
 

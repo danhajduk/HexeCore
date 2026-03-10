@@ -8,7 +8,7 @@ from app.system.mqtt.apply_pipeline import MqttApplyPipeline
 from app.system.mqtt.authority_audit import MqttAuthorityAuditStore
 from app.system.mqtt.config_renderer import MqttBrokerConfigRenderer
 from app.system.mqtt.credential_store import MqttCredentialStore
-from app.system.mqtt.integration_models import MqttPrincipal
+from app.system.mqtt.integration_models import MqttAddonGrant, MqttPrincipal
 from app.system.mqtt.integration_state import MqttIntegrationStateStore
 from app.system.mqtt.runtime_boundary import InMemoryBrokerRuntimeBoundary
 from app.system.mqtt.startup_reconcile import EmbeddedMqttStartupReconciler
@@ -135,6 +135,58 @@ class TestMqttStartupReconcile(unittest.TestCase):
             published = asyncio.run(reconciler.ensure_bootstrap_published(force=True))
             self.assertFalse(published)
             self.assertEqual(len(fake_manager.published), 0)
+
+    def test_reconcile_promotes_ready_addon_grants_to_active(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            state_store = MqttIntegrationStateStore(str(Path(tmp) / "state.json"))
+            audit = MqttAuthorityAuditStore(str(Path(tmp) / "audit.db"))
+            boundary = InMemoryBrokerRuntimeBoundary()
+            asyncio.run(boundary.ensure_running())
+            cred_store = MqttCredentialStore(str(Path(tmp) / "credentials.json"))
+            asyncio.run(
+                state_store.upsert_grant(
+                    MqttAddonGrant(
+                        addon_id="mqtt",
+                        access_mode="gateway",
+                        status="error",
+                        publish_topics=["synthia/addons/mqtt/state/#"],
+                        subscribe_topics=["synthia/addons/mqtt/command/#"],
+                        last_error="mqtt_setup_not_ready:degraded",
+                    )
+                )
+            )
+            asyncio.run(
+                state_store.upsert_principal(
+                    MqttPrincipal(
+                        principal_id="addon:mqtt",
+                        principal_type="synthia_addon",
+                        status="pending",
+                        logical_identity="mqtt",
+                        linked_addon_id="mqtt",
+                    )
+                )
+            )
+            pipeline = MqttApplyPipeline(
+                runtime_boundary=boundary,
+                audit_store=audit,
+                live_dir=str(Path(tmp) / "live"),
+            )
+            reconciler = EmbeddedMqttStartupReconciler(
+                state_store=state_store,
+                acl_compiler=MqttAclCompiler(),
+                config_renderer=MqttBrokerConfigRenderer(),
+                apply_pipeline=pipeline,
+                audit_store=audit,
+                credential_store=cred_store,
+                mqtt_manager=_FakeMqttManager(),
+            )
+            result = asyncio.run(reconciler.reconcile_startup())
+            self.assertTrue(result.ok)
+            next_state = asyncio.run(state_store.get_state())
+            self.assertEqual(next_state.active_grants["mqtt"].status, "active")
+            self.assertIsNone(next_state.active_grants["mqtt"].last_error)
+            self.assertEqual(next_state.principals["addon:mqtt"].status, "active")
+            self.assertEqual(next_state.principals["addon:mqtt"].managed_by, "authority")
 
 
 if __name__ == "__main__":

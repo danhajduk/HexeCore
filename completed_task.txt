@@ -347,3 +347,6 @@
 2026-03-10 - Completed Task 329: updated MQTT runtime docs with staged/live pipeline, file tree, startup bootstrap, and preflight diagnostic expectations.
 2026-03-10 - Completed Task 340: exposed core system principals in MQTT principals API with startup reconciliation recreation and managed_by metadata.
 2026-03-10 - Completed Task 341: updated Principals UI grouping and core-managed visibility with system-action lockouts.
+2026-03-10 - Task 342: identified addon:mqtt pending root cause as grant status remaining error/approved after degraded setup recovery.
+2026-03-10 - Task 343: added Core startup reconcile hook to bootstrap mqtt addon principal registration.
+2026-03-10 - Task 344: promoted eligible addon grants/principals to active automatically after successful authority runtime apply.

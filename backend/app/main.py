@@ -165,6 +165,14 @@ def create_app() -> FastAPI:
                 await mqtt_startup_reconciler.reconcile_startup()
             except Exception:
                 log.exception("Embedded MQTT startup reconciliation failed")
+        mqtt_approval = getattr(app.state, "mqtt_registration_approval", None)
+        addon_registry = getattr(app.state, "addon_registry", None)
+        if mqtt_approval is not None and addon_registry is not None:
+            try:
+                if addon_registry.has_addon("mqtt") and addon_registry.is_enabled("mqtt"):
+                    await mqtt_approval.reconcile("mqtt")
+            except Exception:
+                log.exception("MQTT startup addon principal reconciliation failed for addon:mqtt")
 
         async def mqtt_runtime_supervision_loop() -> None:
             while True:

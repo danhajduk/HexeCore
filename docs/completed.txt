@@ -375,3 +375,6 @@
 310. Task 329: Update MQTT runtime documentation - Completed on 03/10/2026 02:58
 311. Task 340: Expose system principals in MQTT principals API - Completed on 03/10/2026 06:39
 312. Task 341: Show system principals in Principals UI - Completed on 03/10/2026 06:42
+313. Task 342: Investigate addon:mqtt pending principal root cause - Completed on 03/10/2026 06:49
+314. Task 343: Verify Core startup registration for MQTT addon principal - Completed on 03/10/2026 06:49
+315. Task 344: Fix addon principal activation pipeline after runtime apply - Completed on 03/10/2026 06:49
