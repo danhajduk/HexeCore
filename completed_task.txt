@@ -326,3 +326,4 @@
 2026-03-10 - Allow uninstall for platform-managed embedded addons with regression tests.
 2026-03-10 - Investigated missing MQTT embedded addon UI at /addons/mqtt (proxy registration + readiness mismatch).
 2026-03-10 - Implemented MQTT embedded addon UI visibility fix across proxy/status/frontend contract.
+2026-03-10 - Resolved addon page registered_addon_not_found by redirecting local embedded UI aliases to /api/addons/{id}.

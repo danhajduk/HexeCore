@@ -8,6 +8,7 @@ from urllib.parse import quote
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi.responses import RedirectResponse
 
 from .registry import AddonRegistry
 
@@ -150,6 +151,14 @@ class AddonProxy:
         return headers
 
     async def forward(self, request: Request, addon_id: str, path: str = "") -> Response:
+        if addon_id in self._registry.addons and addon_id not in self._registry.registered:
+            local_path = f"/api/addons/{quote(addon_id, safe='')}"
+            if path:
+                local_path = f"{local_path}/{quote(path.lstrip('/'), safe='/')}"
+            if request.url.query:
+                local_path = f"{local_path}?{request.url.query}"
+            return RedirectResponse(url=local_path, status_code=307)
+
         target_base = self._target_base(addon_id, request)
         if self._is_circuit_open(addon_id):
             raise HTTPException(status_code=503, detail="addon_circuit_open")

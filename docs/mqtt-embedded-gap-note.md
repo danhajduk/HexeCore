@@ -1,6 +1,6 @@
 # MQTT Embedded Migration Gap Note
 
-Last Updated: 2026-03-10 00:45 US/Pacific
+Last Updated: 2026-03-10 01:08 US/Pacific
 
 ## Scope
 
@@ -66,3 +66,6 @@ Implemented:
 Validation snapshot:
 - `GET /ui/addons/mqtt` returns `200` with MQTT embedded HTML content.
 - `GET /api/store/status/mqtt` returns `loaded=true`, `installed=true`, `ui_reachable=true`, `ui_reason=embedded_local`.
+
+Routing note:
+- Local embedded addon UI alias requests now short-circuit to local addon routes (`/api/addons/{addon_id}`) instead of relying on outbound proxy network hops.
