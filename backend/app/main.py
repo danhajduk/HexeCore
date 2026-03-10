@@ -420,6 +420,7 @@ def create_app() -> FastAPI:
     else:
         mqtt_runtime_boundary = DockerMosquittoRuntimeBoundary(
             live_dir=mqtt_live_dir,
+            staged_dir=os.path.join(os.getcwd(), "var", "mqtt_runtime", "staged"),
             data_dir=os.path.join(os.getcwd(), "var", "mqtt_runtime", "data"),
             log_dir=os.path.join(os.getcwd(), "var", "mqtt_runtime", "logs"),
             container_name=os.getenv("SYNTHIA_MQTT_DOCKER_CONTAINER", "synthia-mqtt-broker"),

@@ -248,7 +248,12 @@ Container behavior:
   - `live/broker.conf`
   - `live/acl_compiled.conf`
   - `live/passwords.conf`
-  If missing, runtime start is rejected with `config_missing:*` and a suggestion to run setup apply/rebuild.
+  If missing, runtime start is rejected with `config_missing:*` including:
+  - expected live broker config path
+  - staged broker config existence flag
+  - live directory existence flag
+  - missing artifact list
+  - suggestion to run setup apply/rebuild
 
 Failure and recovery:
 1. Check setup/runtime summary: `GET /api/system/mqtt/setup-summary`

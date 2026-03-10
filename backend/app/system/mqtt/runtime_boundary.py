@@ -95,6 +95,7 @@ class DockerMosquittoRuntimeBoundary:
         data_dir: str,
         log_dir: str,
         config_filename: str = "broker.conf",
+        staged_dir: str | None = None,
         container_name: str = "synthia-mqtt-broker",
         image: str = "eclipse-mosquitto:2",
         host: str = "127.0.0.1",
@@ -102,6 +103,9 @@ class DockerMosquittoRuntimeBoundary:
     ) -> None:
         self._provider = "embedded_mosquitto_docker"
         self._live_dir = os.path.abspath(live_dir)
+        if staged_dir is None:
+            staged_dir = os.path.join(os.path.dirname(self._live_dir), "staged")
+        self._staged_dir = os.path.abspath(staged_dir)
         self._data_dir = os.path.abspath(data_dir)
         self._log_dir = os.path.abspath(log_dir)
         self._config_filename = config_filename
@@ -215,10 +219,16 @@ class DockerMosquittoRuntimeBoundary:
         conf_path = os.path.join(self._live_dir, self._config_filename)
         missing = self._missing_runtime_artifacts()
         if missing:
+            staged_conf = os.path.join(self._staged_dir, self._config_filename)
+            staged_exists = os.path.isfile(staged_conf) and os.path.getsize(staged_conf) > 0
+            live_exists = os.path.isdir(self._live_dir)
             self._state = "stopped"
             self._healthy = False
             self._degraded_reason = (
-                f"config_missing:missing={','.join(missing)};"
+                f"config_missing:expected={conf_path};"
+                f"staged_exists={str(bool(staged_exists)).lower()};"
+                f"live_dir_exists={str(bool(live_exists)).lower()};"
+                f"missing={','.join(missing)};"
                 "suggestion=run_setup_apply_or_runtime_rebuild"
             )
             return self._status()

@@ -93,6 +93,9 @@ class TestMqttRuntimeBoundary(unittest.TestCase):
             self.assertEqual(status.state, "stopped")
             self.assertFalse(status.healthy)
             self.assertTrue(str(status.degraded_reason or "").startswith("config_missing:"))
+            self.assertIn("expected=", str(status.degraded_reason))
+            self.assertIn("staged_exists=false", str(status.degraded_reason))
+            self.assertIn("live_dir_exists=true", str(status.degraded_reason))
             self.assertIn("run_setup_apply_or_runtime_rebuild", str(status.degraded_reason))
 
 
