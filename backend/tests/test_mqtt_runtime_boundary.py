@@ -44,6 +44,8 @@ class TestMqttRuntimeBoundary(unittest.TestCase):
             data_dir.mkdir(parents=True, exist_ok=True)
             log_dir.mkdir(parents=True, exist_ok=True)
             (live_dir / "broker.conf").write_text("listener 1883\n", encoding="utf-8")
+            (live_dir / "acl_compiled.conf").write_text("topic readwrite #\n", encoding="utf-8")
+            (live_dir / "passwords.conf").write_text("user:$7$hash\n", encoding="utf-8")
             boundary = DockerMosquittoRuntimeBoundary(
                 live_dir=str(live_dir),
                 data_dir=str(data_dir),
@@ -64,12 +66,34 @@ class TestMqttRuntimeBoundary(unittest.TestCase):
             data_dir.mkdir(parents=True, exist_ok=True)
             log_dir.mkdir(parents=True, exist_ok=True)
             (live_dir / "broker.conf").write_text("listener 1883\n", encoding="utf-8")
+            (live_dir / "acl_compiled.conf").write_text("topic readwrite #\n", encoding="utf-8")
+            (live_dir / "passwords.conf").write_text("user:$7$hash\n", encoding="utf-8")
             boundary = MosquittoProcessRuntimeBoundary(
                 live_dir=str(live_dir),
                 data_dir=str(data_dir),
                 log_dir=str(log_dir),
             )
             self.assertIsInstance(boundary, DockerMosquittoRuntimeBoundary)
+
+    def test_docker_boundary_preflight_reports_missing_live_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            live_dir = Path(tmp) / "live"
+            data_dir = Path(tmp) / "data"
+            log_dir = Path(tmp) / "logs"
+            live_dir.mkdir(parents=True, exist_ok=True)
+            data_dir.mkdir(parents=True, exist_ok=True)
+            log_dir.mkdir(parents=True, exist_ok=True)
+            (live_dir / "broker.conf").write_text("listener 1883\n", encoding="utf-8")
+            boundary = DockerMosquittoRuntimeBoundary(
+                live_dir=str(live_dir),
+                data_dir=str(data_dir),
+                log_dir=str(log_dir),
+            )
+            status = asyncio.run(boundary.ensure_running())
+            self.assertEqual(status.state, "stopped")
+            self.assertFalse(status.healthy)
+            self.assertTrue(str(status.degraded_reason or "").startswith("config_missing:"))
+            self.assertIn("run_setup_apply_or_runtime_rebuild", str(status.degraded_reason))
 
 
 if __name__ == "__main__":

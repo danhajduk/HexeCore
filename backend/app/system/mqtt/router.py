@@ -217,7 +217,7 @@ def build_mqtt_router(
             return payload, existing
         reason = str(payload.get("degraded_reason") or "").strip().lower()
         reconcile_fn = _runtime_reconciler_callable()
-        if reason == "config_missing" and reconcile_fn is not None:
+        if reason.startswith("config_missing") and reconcile_fn is not None:
             retried = await reconcile_fn(reason=retry_reason)
             existing = _reconcile_payload(retried)
             status = await runtime.ensure_running()

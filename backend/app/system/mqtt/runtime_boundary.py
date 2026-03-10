@@ -213,10 +213,14 @@ class DockerMosquittoRuntimeBoundary:
 
     def _start_sync(self) -> BrokerRuntimeStatus:
         conf_path = os.path.join(self._live_dir, self._config_filename)
-        if not os.path.exists(conf_path):
+        missing = self._missing_runtime_artifacts()
+        if missing:
             self._state = "stopped"
             self._healthy = False
-            self._degraded_reason = "config_missing"
+            self._degraded_reason = (
+                f"config_missing:missing={','.join(missing)};"
+                "suggestion=run_setup_apply_or_runtime_rebuild"
+            )
             return self._status()
         if not self._docker_available():
             self._state = "stopped"
@@ -264,6 +268,24 @@ class DockerMosquittoRuntimeBoundary:
                 self._degraded_reason = "runtime_start_failed"
                 return self._status()
         return self._health_check_sync()
+
+    def _missing_runtime_artifacts(self) -> list[str]:
+        required = [
+            os.path.join(self._live_dir, self._config_filename),
+            os.path.join(self._live_dir, "acl_compiled.conf"),
+            os.path.join(self._live_dir, "passwords.conf"),
+        ]
+        missing: list[str] = []
+        for path in required:
+            if not os.path.exists(path):
+                missing.append(path)
+                continue
+            if not os.path.isfile(path):
+                missing.append(path)
+                continue
+            if os.path.getsize(path) <= 0:
+                missing.append(path)
+        return missing
 
     def _docker_available(self) -> bool:
         return bool(shutil.which("docker"))

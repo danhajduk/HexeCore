@@ -366,3 +366,4 @@
 301. Task 320: Audit MQTT apply/init pipeline ordering - Completed on 03/10/2026 02:39
 302. Task 321: Ensure config renderer always produces broker.conf - Completed on 03/10/2026 02:41
 303. Task 322: Implement staged → live artifact promotion - Completed on 03/10/2026 02:43
+304. Task 323: Add runtime preflight validation before broker start - Completed on 03/10/2026 02:45

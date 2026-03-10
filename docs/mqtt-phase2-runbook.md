@@ -244,6 +244,11 @@ Container behavior:
 - Core health checks combine container running state + TCP reachability.
 - `reload` uses Docker signal flow (`HUP`) and keeps container identity stable.
 - `controlled_restart` uses stop/remove + fresh start path.
+- Runtime preflight validates required live artifacts before broker start:
+  - `live/broker.conf`
+  - `live/acl_compiled.conf`
+  - `live/passwords.conf`
+  If missing, runtime start is rejected with `config_missing:*` and a suggestion to run setup apply/rebuild.
 
 Failure and recovery:
 1. Check setup/runtime summary: `GET /api/system/mqtt/setup-summary`

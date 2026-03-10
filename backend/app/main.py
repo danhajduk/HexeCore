@@ -181,7 +181,7 @@ def create_app() -> FastAPI:
                             status = await runtime.ensure_running()
                             if (
                                 not status.healthy
-                                and str(getattr(status, "degraded_reason", "") or "").lower() == "config_missing"
+                                and str(getattr(status, "degraded_reason", "") or "").lower().startswith("config_missing")
                                 and startup_reconciler is not None
                             ):
                                 await startup_reconciler.reconcile_authority(reason="runtime_supervisor_config_missing")
