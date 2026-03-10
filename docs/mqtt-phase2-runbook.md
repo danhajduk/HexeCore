@@ -142,6 +142,8 @@ Runtime control endpoints (admin token required):
 - `POST /api/system/mqtt/runtime/start`
 - `POST /api/system/mqtt/runtime/stop`
 - `POST /api/system/mqtt/runtime/rebuild`
+- `POST /api/system/mqtt/setup/apply`
+- `POST /api/system/mqtt/setup/test-connection`
 
 Implemented semantics:
 - `init`: triggers authority reconcile (`reason=api_runtime_init`), ensures runtime is running, then restarts Core MQTT client connection.
@@ -149,6 +151,8 @@ Implemented semantics:
 - `stop`: stops broker runtime process and stops Core MQTT client connection.
 - `rebuild`: triggers authority reconcile (`reason=api_runtime_rebuild`) and validates runtime health.
 - `health`: returns runtime provider state/health and current MQTT manager connection status.
+- `setup/apply`: persists selected MQTT mode/settings, initializes local runtime through reconcile/ensure-running path, or validates external endpoint reachability and updates setup state.
+- `setup/test-connection`: runs a lightweight endpoint reachability test for external broker setup flow without marking setup complete.
 
 Audit trail:
 - runtime actions append `event_type=mqtt_runtime_control` entries in `/api/system/mqtt/audit`.

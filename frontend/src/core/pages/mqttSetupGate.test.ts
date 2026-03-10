@@ -28,4 +28,22 @@ describe("resolveMqttSetupSection", () => {
     expect(res.redirected).toBe(false);
     expect(res.section).toBe("overview");
   });
+
+  it("allows setup section while gate is active", () => {
+    const res = resolveMqttSetupSection("setup", {
+      setup: { requires_setup: true, setup_complete: false },
+    });
+    expect(res.gateActive).toBe(true);
+    expect(res.redirected).toBe(false);
+    expect(res.section).toBe("setup");
+  });
+
+  it("keeps protected sections gated when setup remains incomplete after failure", () => {
+    const res = resolveMqttSetupSection("overview", {
+      setup: { requires_setup: true, setup_complete: false },
+    });
+    expect(res.gateActive).toBe(true);
+    expect(res.redirected).toBe(true);
+    expect(res.section).toBe("setup");
+  });
 });

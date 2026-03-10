@@ -22,6 +22,10 @@ class _FakeSettingsStore:
     async def get(self, key: str):
         return self._data.get(key)
 
+    async def set(self, key: str, value):
+        self._data[key] = value
+        return value
+
 
 class _FakeMqttManager:
     def __init__(self) -> None:
@@ -151,6 +155,7 @@ class TestMqttRuntimeControlApi(unittest.TestCase):
                 self.registry,
                 self.state_store,
                 self.key_store,
+                settings_store=self.settings,
                 runtime_boundary=runtime_boundary,
                 runtime_reconciler=runtime_reconciler,
                 audit_store=audit_store,
@@ -216,6 +221,79 @@ class TestMqttRuntimeControlApi(unittest.TestCase):
         start = client.post("/api/system/mqtt/runtime/start", headers={"X-Admin-Token": "test-token"})
         self.assertEqual(start.status_code, 503, start.text)
         self.assertEqual(start.json()["detail"], "runtime_boundary_unavailable")
+
+    def test_setup_apply_local_persists_settings_and_initializes(self) -> None:
+        manager = _FakeMqttManager()
+        runtime = _FakeRuntimeBoundary()
+        reconciler = _FakeRuntimeReconciler()
+        client = self._client(
+            manager=manager,
+            runtime_boundary=runtime,
+            runtime_reconciler=reconciler,
+            audit_store=_FakeAuditStore(),
+        )
+
+        resp = client.post(
+            "/api/system/mqtt/setup/apply",
+            headers={"X-Admin-Token": "test-token"},
+            json={
+                "mode": "local",
+                "host": "127.0.0.1",
+                "port": 1883,
+                "initialize": True,
+                "keepalive_s": 30,
+                "client_id": "synthia-core",
+            },
+        )
+        self.assertEqual(resp.status_code, 200, resp.text)
+        payload = resp.json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["mode"], "local")
+        self.assertEqual(self.settings._data.get("mqtt.mode"), "local")
+        self.assertEqual(self.settings._data.get("mqtt.local.host"), "127.0.0.1")
+        self.assertEqual(self.settings._data.get("mqtt.local.port"), 1883)
+        self.assertIn("api_setup_apply_local", reconciler.reasons)
+        self.assertGreaterEqual(manager.restart_calls, 1)
+
+    def test_setup_apply_external_uses_probe_result(self) -> None:
+        manager = _FakeMqttManager()
+        runtime = _FakeRuntimeBoundary()
+        client = self._client(manager=manager, runtime_boundary=runtime, runtime_reconciler=_FakeRuntimeReconciler(), audit_store=_FakeAuditStore())
+
+        with patch("app.system.mqtt.router.socket.create_connection") as create_conn:
+            create_conn.return_value.__enter__.return_value = object()
+            resp = client.post(
+                "/api/system/mqtt/setup/apply",
+                headers={"X-Admin-Token": "test-token"},
+                json={
+                    "mode": "external",
+                    "host": "10.0.0.10",
+                    "port": 1883,
+                    "initialize": True,
+                },
+            )
+        self.assertEqual(resp.status_code, 200, resp.text)
+        payload = resp.json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["mode"], "external")
+        self.assertEqual(payload["external_probe"]["result"], "reachable")
+        self.assertEqual(self.settings._data.get("mqtt.mode"), "external")
+
+    def test_setup_connection_test_returns_unreachable(self) -> None:
+        manager = _FakeMqttManager()
+        runtime = _FakeRuntimeBoundary()
+        client = self._client(manager=manager, runtime_boundary=runtime, runtime_reconciler=_FakeRuntimeReconciler(), audit_store=_FakeAuditStore())
+
+        with patch("app.system.mqtt.router.socket.create_connection", side_effect=OSError("no route")):
+            resp = client.post(
+                "/api/system/mqtt/setup/test-connection",
+                headers={"X-Admin-Token": "test-token"},
+                json={"host": "10.0.0.55", "port": 1883},
+            )
+        self.assertEqual(resp.status_code, 200, resp.text)
+        payload = resp.json()
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["result"], "unreachable")
 
 
 if __name__ == "__main__":

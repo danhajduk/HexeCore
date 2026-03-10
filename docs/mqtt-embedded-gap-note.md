@@ -1,6 +1,6 @@
 # MQTT Embedded Migration Gap Note
 
-Last Updated: 2026-03-10 01:21 US/Pacific
+Last Updated: 2026-03-10 02:03 US/Pacific
 
 ## Scope
 
@@ -80,6 +80,9 @@ Setup-first UI behavior:
   - reserved topic/bootstrap info panel
   - preflight checks (`ready`, `warning`, `failed`)
   - actions: `Save and Initialize`, `Save + Restart MQTT`, `Test Connection`, `Retry Last Action`, `Re-check`
+  - setup APIs used by page actions:
+    - `POST /api/system/mqtt/setup/apply`
+    - `POST /api/system/mqtt/setup/test-connection`
 - Frontend route layer supports sectioned paths (`/addons/mqtt/:section`) and redirects protected sections to `/addons/mqtt/setup` while gate is active.
 
 ## Task 276 Verification: Task 213 Startup Reconciliation

@@ -678,16 +678,6 @@ def addon_ui_root() -> str:
       await renderRoute();
     }
 
-    async function putSetting(key, value) {
-      const res = await fetch(`/api/system/settings/${encodeURIComponent(key)}`, {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ value }),
-      });
-      if (!res.ok) throw new Error(`settings_put_http_${res.status}`);
-    }
-
     async function applySettings(restartAfter) {
       setBusy(true);
       setStatus("Validating settings...", "");
@@ -705,26 +695,38 @@ def addon_ui_root() -> str:
         if (!Number.isFinite(parsedKeepalive) || parsedKeepalive <= 0) {
           throw new Error("invalid_keepalive");
         }
-
-        await putSetting("mqtt.mode", selectedMode);
-        await putSetting(`mqtt.${selectedMode}.host`, String(host.value || "").trim());
-        await putSetting(`mqtt.${selectedMode}.port`, parsedPort);
-        await putSetting(`mqtt.${selectedMode}.username`, String(username.value || "").trim());
-        await putSetting(`mqtt.${selectedMode}.password`, String(password.value || ""));
-        await putSetting(`mqtt.${selectedMode}.tls_enabled`, tls.value === "true");
-        await putSetting("mqtt.keepalive_s", parsedKeepalive);
-        await putSetting("mqtt.client_id", String(clientId.value || "").trim() || "synthia-core");
-
         setStatus("Initializing MQTT...", "");
-        if (restartAfter) {
-          const restartRes = await fetch("/api/system/mqtt/restart", { method: "POST", credentials: "include" });
-          if (!restartRes.ok) throw new Error(`mqtt_restart_http_${restartRes.status}`);
+        const applyRes = await fetch("/api/system/mqtt/setup/apply", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: selectedMode,
+            host: String(host.value || "").trim(),
+            port: parsedPort,
+            username: String(username.value || "").trim(),
+            password: String(password.value || ""),
+            tls_enabled: tls.value === "true",
+            keepalive_s: parsedKeepalive,
+            client_id: String(clientId.value || "").trim() || "synthia-core",
+            initialize: true,
+            restart_after: Boolean(restartAfter),
+          }),
+        });
+        const applyPayload = await applyRes.json();
+        if (!applyRes.ok) {
+          throw new Error(applyPayload && applyPayload.detail ? applyPayload.detail : `mqtt_setup_apply_http_${applyRes.status}`);
+        }
+        if (!applyPayload.ok) {
+          const setup = applyPayload && applyPayload.setup ? applyPayload.setup : {};
+          const err = setup.setup_error || (applyPayload.external_probe && applyPayload.external_probe.detail) || "setup_apply_failed";
+          throw new Error(String(err));
         }
 
         await Promise.all([loadStatus(), loadSettings()]);
         state.lastAction = { restartAfter };
         await loadSettings();
-        setStatus(restartAfter ? "Initialization successful (restart applied)." : "Initialization successful.", "ok");
+        setStatus(restartAfter ? "Initialization successful (runtime restart applied)." : "Initialization successful.", "ok");
         if (!state.gateActive && state.currentSection === "setup") {
           navigateTo("overview", true);
         }
@@ -743,11 +745,22 @@ def addon_ui_root() -> str:
         if (selectedMode !== "external") {
           state.lastExternalTest = { ok: true, detail: "Local mode does not require external connection test." };
         } else {
-          const statusPayload = await fetchJson("/api/system/mqtt/status");
-          const connected = Boolean(statusPayload.connected);
+          const probeRes = await fetch("/api/system/mqtt/setup/test-connection", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              host: String(host.value || "").trim(),
+              port: Number.parseInt(String(port.value || "").trim(), 10),
+            }),
+          });
+          const probePayload = await probeRes.json();
+          if (!probeRes.ok) throw new Error(probePayload && probePayload.detail ? probePayload.detail : `mqtt_setup_test_http_${probeRes.status}`);
+          const connected = Boolean(probePayload.ok);
+          const result = String(probePayload.result || "unreachable");
           state.lastExternalTest = {
             ok: connected,
-            detail: connected ? "Broker reported connected." : "Broker not connected yet.",
+            detail: connected ? "External broker is reachable." : `External broker test failed (${result}).`,
           };
         }
         renderPreflight();

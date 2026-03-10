@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 from pathlib import Path
+import socket
 
 from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -52,6 +53,24 @@ class MqttNoisyActionRequest(BaseModel):
     reason: str | None = None
 
 
+class MqttSetupApplyRequest(BaseModel):
+    mode: str = "local"
+    host: str = Field(..., min_length=1)
+    port: int = Field(..., ge=1, le=65535)
+    username: str | None = None
+    password: str | None = None
+    tls_enabled: bool = False
+    keepalive_s: int = Field(default=30, ge=1)
+    client_id: str = "synthia-core"
+    initialize: bool = True
+
+
+class MqttSetupConnectionTestRequest(BaseModel):
+    host: str = Field(..., min_length=1)
+    port: int = Field(..., ge=1, le=65535)
+    timeout_s: float = Field(default=2.0, gt=0.0, le=10.0)
+
+
 async def _authorize_mqtt_request(
     *,
     request: Request,
@@ -81,6 +100,7 @@ def build_mqtt_router(
     registry,
     state_store: MqttIntegrationStateStore,
     key_store: ServiceTokenKeyStore,
+    settings_store=None,
     approval_service: MqttRegistrationApprovalService | None = None,
     acl_compiler: MqttAclCompiler | None = None,
     credential_store=None,
@@ -152,6 +172,30 @@ def build_mqtt_router(
             raise HTTPException(status_code=503, detail="runtime_boundary_unavailable")
         return runtime_boundary
 
+    def _settings_required() -> Any:
+        if settings_store is None:
+            raise HTTPException(status_code=503, detail="settings_store_unavailable")
+        return settings_store
+
+    def _normalized_mode(mode: str) -> str:
+        return "external" if str(mode or "").strip().lower() == "external" else "local"
+
+    def _test_tcp_connection(host: str, port: int, timeout_s: float = 2.0) -> dict[str, Any]:
+        trimmed_host = str(host or "").strip()
+        if not trimmed_host:
+            return {"ok": False, "result": "invalid_input", "detail": "host_required"}
+        try:
+            with socket.create_connection((trimmed_host, int(port)), timeout=float(timeout_s)):
+                return {"ok": True, "result": "reachable", "detail": "tcp_connect_ok"}
+        except TimeoutError:
+            return {"ok": False, "result": "timeout", "detail": "connect_timeout"}
+        except ValueError:
+            return {"ok": False, "result": "invalid_input", "detail": "invalid_port"}
+        except OSError:
+            return {"ok": False, "result": "unreachable", "detail": "connect_failed"}
+        except Exception:
+            return {"ok": False, "result": "unreachable", "detail": "connect_failed"}
+
     @router.get("/mqtt/status")
     async def mqtt_status():
         return await manager.status()
@@ -173,6 +217,123 @@ def build_mqtt_router(
         else:
             await manager.restart()
         return await manager.status()
+
+    @router.post("/mqtt/setup/test-connection")
+    async def mqtt_setup_test_connection(
+        body: MqttSetupConnectionTestRequest,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        tested = _test_tcp_connection(body.host, body.port, body.timeout_s)
+        return {
+            "ok": bool(tested.get("ok")),
+            "result": tested.get("result", "unreachable"),
+            "detail": tested.get("detail"),
+            "host": body.host,
+            "port": body.port,
+        }
+
+    @router.post("/mqtt/setup/apply")
+    async def mqtt_setup_apply(
+        body: MqttSetupApplyRequest,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        settings = _settings_required()
+        mode = _normalized_mode(body.mode)
+        host = str(body.host or "").strip()
+        port = int(body.port)
+        if not host:
+            raise HTTPException(status_code=400, detail="setup_host_required")
+        if port <= 0 or port > 65535:
+            raise HTTPException(status_code=400, detail="setup_port_invalid")
+        if body.keepalive_s <= 0:
+            raise HTTPException(status_code=400, detail="setup_keepalive_invalid")
+
+        await settings.set("mqtt.mode", mode)
+        await settings.set(f"mqtt.{mode}.host", host)
+        await settings.set(f"mqtt.{mode}.port", port)
+        await settings.set(f"mqtt.{mode}.username", str(body.username or "").strip())
+        await settings.set(f"mqtt.{mode}.password", str(body.password or ""))
+        await settings.set(f"mqtt.{mode}.tls_enabled", bool(body.tls_enabled))
+        await settings.set("mqtt.keepalive_s", int(body.keepalive_s))
+        await settings.set("mqtt.client_id", str(body.client_id or "").strip() or "synthia-core")
+
+        external_probe = None
+        reconcile_payload: dict[str, Any] = {}
+        runtime_payload: dict[str, Any] = {}
+        status_payload: dict[str, Any] = {}
+        setup_update: MqttSetupStateUpdate | None = None
+
+        if mode == "external":
+            external_probe = _test_tcp_connection(host, port, 2.0)
+            ready = bool(external_probe.get("ok"))
+            setup_update = MqttSetupStateUpdate(
+                requires_setup=True,
+                setup_complete=ready,
+                setup_status=("ready" if ready else "degraded"),
+                broker_mode="external",
+                direct_mqtt_supported=True,
+                setup_error=(None if ready else f"external_broker_{external_probe.get('result', 'unreachable')}"),
+                authority_mode="embedded_platform",
+                authority_ready=ready,
+            )
+            await approval.update_setup_state(setup_update)
+            if body.initialize and ready:
+                await manager.restart()
+                status_payload = await _manager_status_safe()
+        else:
+            if runtime_reconciler is not None and hasattr(runtime_reconciler, "reconcile_authority"):
+                reconcile_result = await runtime_reconciler.reconcile_authority(reason="api_setup_apply_local")
+                reconcile_payload = _reconcile_payload(reconcile_result)
+            runtime = _runtime_required()
+            runtime_status = await runtime.ensure_running()
+            runtime_payload = _runtime_status_payload(runtime_status)
+            if body.initialize and bool(runtime_payload.get("healthy")):
+                await manager.restart()
+            status_payload = await _manager_status_safe()
+            ready = bool(runtime_payload.get("healthy"))
+            setup_update = MqttSetupStateUpdate(
+                requires_setup=True,
+                setup_complete=ready,
+                setup_status=("ready" if ready else "degraded"),
+                broker_mode="local",
+                direct_mqtt_supported=False,
+                setup_error=(None if ready else str(runtime_payload.get("degraded_reason") or "runtime_unhealthy")),
+                authority_mode="embedded_platform",
+                authority_ready=ready,
+            )
+            await approval.update_setup_state(setup_update)
+
+        setup_summary = await approval.setup_summary()
+        broker_summary = await approval.broker_summary()
+        await _audit_runtime_action(
+            action="setup_apply",
+            status=("ok" if setup_summary.setup_ready else "degraded"),
+            message=(None if setup_summary.setup_ready else setup_summary.setup_error),
+            payload={
+                "mode": mode,
+                "host": host,
+                "port": port,
+                "initialize": bool(body.initialize),
+                "setup_status": setup_summary.setup_status,
+                "external_probe": external_probe,
+                "runtime": runtime_payload,
+                "reconciliation": reconcile_payload,
+            },
+        )
+        return {
+            "ok": bool(setup_summary.setup_ready),
+            "mode": mode,
+            "setup": setup_summary.model_dump(mode="json"),
+            "broker": broker_summary.model_dump(mode="json"),
+            "health": status_payload,
+            "runtime": runtime_payload,
+            "reconciliation": reconcile_payload,
+            "external_probe": external_probe,
+        }
 
     @router.get("/mqtt/runtime/health")
     async def mqtt_runtime_health(request: Request, x_admin_token: str | None = Header(default=None)):

@@ -1,6 +1,6 @@
 # Frontend Documentation
 
-Last Updated: 2026-03-10 01:21 US/Pacific
+Last Updated: 2026-03-10 02:03 US/Pacific
 
 ## Stack
 
@@ -92,6 +92,9 @@ Last Updated: 2026-03-10 01:21 US/Pacific
   - `AddonFrame` reads `/api/system/mqtt/setup-summary` for `addonId=mqtt`
   - when `requires_setup=true` and `setup_complete=false`, requested MQTT sections are redirected to `/addons/mqtt/setup`
   - once setup completes, normal MQTT sections unlock
+  - setup actions in embedded MQTT UI call Core setup APIs:
+    - `POST /api/system/mqtt/setup/apply`
+    - `POST /api/system/mqtt/setup/test-connection`
 - when iframe is same-origin accessible (proxy path), `AddonFrame` injects Core theme tokens and base component classes into iframe document on load
   - verification markers:
     - iframe element attribute: `data-core-theme-injected=true|false`

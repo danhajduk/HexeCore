@@ -330,3 +330,5 @@
 2026-03-10 - Moved MQTT setup controls from Settings page into embedded MQTT addon UI.
 2026-03-10 - Implemented MQTT setup-first addon UI with section gating, preflight, initialize/retry flow, and section route support.
 2026-03-10 - Completed Tasks 275-278: widened addon UI shell to 90%, verified Task 213/240 implementation wiring, and created runtime control implementation queue (Tasks 279-283).
+2026-03-10 - Completed Tasks 279-291: verified setup-first UI items, added Core setup apply/test APIs, wired setup actions to Core APIs, and advanced queue to frontend test/docs tasks.
+2026-03-10 - Completed Tasks 292-293: expanded setup-gate/frontend shell tests and updated MQTT setup-first frontend/runbook documentation.

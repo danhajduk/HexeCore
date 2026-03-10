@@ -321,3 +321,18 @@
 256. Task 276: check if the Task 213: Core startup reconciliation was completed. and how it will work with the addon? - Completed on 03/10/2026 01:38
 257. Task 277: inspect the runtime provider (Task 240). - Completed on 03/10/2026 01:38
 258. Task 278: create task that will implement the broker init/start/stop/rebuild/check health - Completed on 03/10/2026 01:38
+259. Task 279: Add setup-gate route guard for MQTT addon UI - Completed on 03/10/2026 02:02
+260. Task 280: Create MQTT setup page shell - Completed on 03/10/2026 02:02
+261. Task 281: Add broker mode selector with setup-state binding - Completed on 03/10/2026 02:02
+262. Task 282: Add local broker setup form - Completed on 03/10/2026 02:02
+263. Task 283: Add external broker setup form - Completed on 03/10/2026 02:02
+264. Task 284: Add setup information panels - Completed on 03/10/2026 02:02
+265. Task 285: Add Core setup apply/init API for setup-page flow - Completed on 03/10/2026 02:02
+266. Task 286: Add external broker test-connection API - Completed on 03/10/2026 02:02
+267. Task 287: Connect setup apply/init API to apply pipeline, startup reconciliation, and audit - Completed on 03/10/2026 02:02
+268. Task 288: Add setup page preflight and validation result UI - Completed on 03/10/2026 02:02
+269. Task 289: Add Save and Initialize action flow to setup page - Completed on 03/10/2026 02:02
+270. Task 290: Add external mode Test Connection action flow - Completed on 03/10/2026 02:02
+271. Task 291: Add setup failure and retry UX - Completed on 03/10/2026 02:02
+272. Task 292: Add setup-only mode frontend tests - Completed on 03/10/2026 02:03
+273. Task 293: Update MQTT frontend docs and runbook for setup-first workflow - Completed on 03/10/2026 02:03
