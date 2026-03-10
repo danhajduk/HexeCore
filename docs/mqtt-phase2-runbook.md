@@ -234,6 +234,7 @@ Addon UI mapping:
 ## Docker Runtime Operations (Local Mode)
 
 Runtime files:
+- staged rendered config/auth/ACL: `var/mqtt_runtime/staged/*`
 - live rendered config/auth/ACL: `var/mqtt_runtime/live/*`
 - data: `var/mqtt_runtime/data/*`
 - logs: `var/mqtt_runtime/logs/*`

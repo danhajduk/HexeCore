@@ -433,6 +433,7 @@ def create_app() -> FastAPI:
         runtime_boundary=mqtt_runtime_boundary,
         audit_store=mqtt_authority_audit,
         live_dir=mqtt_live_dir,
+        staged_dir=os.path.join(os.getcwd(), "var", "mqtt_runtime", "staged"),
     )
     mqtt_startup_reconciler = EmbeddedMqttStartupReconciler(
         state_store=mqtt_integration_state_store,

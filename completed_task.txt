@@ -337,3 +337,4 @@
 2026-03-10 - Completed Tasks 317-320: added config_missing reconcile+retry recovery in MQTT runtime setup/start/init, supervisor self-heal retry, regression tests, and runbook updates.
 2026-03-10 - Completed Task 320 (new queue): audited MQTT setup/apply/init ordering and documented current vs strict target sequence.
 2026-03-10 - Completed Task 321: enforced non-empty broker.conf output in config renderer with regression coverage.
+2026-03-10 - Completed Task 322: switched MQTT apply to persistent staged directory with atomic staged->live promotion and rollback-safe failure handling.

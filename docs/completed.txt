@@ -365,3 +365,4 @@
 300. Task 320: Update runbook/docs for config_missing recovery behavior - Completed on 03/10/2026 02:30
 301. Task 320: Audit MQTT apply/init pipeline ordering - Completed on 03/10/2026 02:39
 302. Task 321: Ensure config renderer always produces broker.conf - Completed on 03/10/2026 02:41
+303. Task 322: Implement staged → live artifact promotion - Completed on 03/10/2026 02:43
