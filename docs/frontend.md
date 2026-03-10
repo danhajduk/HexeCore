@@ -1,6 +1,6 @@
 # Frontend Documentation
 
-Last Updated: 2026-03-10 00:45 US/Pacific
+Last Updated: 2026-03-10 01:08 US/Pacific
 
 ## Stack
 
@@ -59,7 +59,7 @@ Last Updated: 2026-03-10 00:45 US/Pacific
     - General (app name, theme, maintenance mode)
     - Platform (Core API endpoint + stack summary fields)
     - Connectivity (MQTT + network/internet reachability summaries)
-      - includes editable MQTT setup controls (mode, host, port, credentials, TLS, keepalive, client id) with apply and apply+restart actions
+      - no longer includes editable MQTT setup controls; setup actions moved to MQTT addon UI (`/addons/mqtt`)
       - consumes `GET /api/system/mqtt/setup-summary` to show setup state, broker mode, direct MQTT support, health summary, and recent provisioning errors
     - Addon Registry (managed registry controls)
     - Security / Access (user management)

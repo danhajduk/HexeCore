@@ -305,3 +305,4 @@
 240. Task 261: investigate why i can not see the mqtt embeded addon ui on the "host:8080/addons/mqtt" - Completed on 03/10/2026 00:33
 241. Task 261: implement embedded MQTT UI visibility fix for /addons/mqtt (proxy + status + frame readiness) - Completed on 03/10/2026 00:45
 242. Task 262: resolve :{"detail":"registered_addon_not_found"} on addon page - Completed on 03/10/2026 01:08
+243. Task 263: remove the mqtt setup from the http://<host>:8080/settings and put it in the addon ui - Completed on 03/10/2026 01:13
