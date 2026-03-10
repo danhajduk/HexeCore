@@ -1,6 +1,6 @@
 # MQTT Broker Runtime Boundary (Embedded)
 
-Last Updated: 2026-03-10 02:14 US/Pacific
+Last Updated: 2026-03-10 02:57 US/Pacific
 
 ## Boundary Definition
 
@@ -51,6 +51,59 @@ Behavior contract:
 - `health_check` requires both:
   - container running state
   - broker TCP reachability at configured host/port
+
+## Runtime Artifact Pipeline
+
+Authoritative runtime artifact directories:
+
+```text
+var/mqtt_runtime/
+  staged/
+    broker.conf
+    listeners.conf
+    auth.conf
+    acl.conf
+    acl_compiled.conf
+    passwords.conf
+  live/
+    broker.conf
+    listeners.conf
+    auth.conf
+    acl.conf
+    acl_compiled.conf
+    passwords.conf
+  data/
+  logs/
+```
+
+Pipeline ordering:
+1. Core persists selected setup settings (`mqtt.mode`, host/port/auth/client options).
+2. Reconciler renders broker artifacts.
+3. Apply pipeline writes rendered files into `var/mqtt_runtime/staged/`.
+4. Apply pipeline atomically promotes staged artifacts into `var/mqtt_runtime/live/`.
+5. Runtime boundary reload/restart path verifies runtime health.
+6. Router/runtime flow ensures runtime running and finalizes setup state.
+7. Bootstrap topic publish runs only after runtime reports healthy.
+
+Startup bootstrap:
+- Core startup now ensures runtime directory structure exists before runtime boundary/pipeline wiring:
+  - `var/mqtt_runtime/`
+  - `var/mqtt_runtime/staged/`
+  - `var/mqtt_runtime/live/`
+  - `var/mqtt_runtime/data/`
+  - `var/mqtt_runtime/logs/`
+
+Runtime preflight expectations:
+- Runtime start validates required live files before attempting Docker start:
+  - `live/broker.conf`
+  - `live/acl_compiled.conf`
+  - `live/passwords.conf`
+- If missing, runtime reports `degraded_reason=config_missing:*` with:
+  - expected live broker path
+  - staged broker existence flag
+  - live directory existence flag
+  - missing file list
+  - remediation suggestion (`run_setup_apply_or_runtime_rebuild`)
 
 ## Runtime Control API Surface
 
