@@ -51,6 +51,7 @@ from app.system.mqtt import (
     MqttRegistrationApprovalService,
     MqttSetupStateUpdate,
     MqttApplyPipeline,
+    ensure_runtime_dirs,
     build_mqtt_router,
 )
 from app.system.events import PlatformEventService, build_events_router
@@ -410,7 +411,8 @@ def create_app() -> FastAPI:
         enabled=bool(getattr(cfg_boot, "mqtt_listener_enabled", True)),
     )
     app.state.mqtt_manager = mqtt_manager
-    mqtt_live_dir = os.path.join(os.getcwd(), "var", "mqtt_runtime", "live")
+    mqtt_dirs = ensure_runtime_dirs(os.getcwd())
+    mqtt_live_dir = mqtt_dirs["live"]
     mqtt_credential_store = MqttCredentialStore(
         os.getenv("MQTT_CREDENTIAL_STORE_PATH", os.path.join(os.getcwd(), "var", "mqtt_credentials.json"))
     )
@@ -420,9 +422,9 @@ def create_app() -> FastAPI:
     else:
         mqtt_runtime_boundary = DockerMosquittoRuntimeBoundary(
             live_dir=mqtt_live_dir,
-            staged_dir=os.path.join(os.getcwd(), "var", "mqtt_runtime", "staged"),
-            data_dir=os.path.join(os.getcwd(), "var", "mqtt_runtime", "data"),
-            log_dir=os.path.join(os.getcwd(), "var", "mqtt_runtime", "logs"),
+            staged_dir=mqtt_dirs["staged"],
+            data_dir=mqtt_dirs["data"],
+            log_dir=mqtt_dirs["logs"],
             container_name=os.getenv("SYNTHIA_MQTT_DOCKER_CONTAINER", "synthia-mqtt-broker"),
             image=os.getenv("SYNTHIA_MQTT_DOCKER_IMAGE", "eclipse-mosquitto:2"),
             host=str(os.getenv("SYNTHIA_MQTT_HOST", "127.0.0.1")),
@@ -434,7 +436,7 @@ def create_app() -> FastAPI:
         runtime_boundary=mqtt_runtime_boundary,
         audit_store=mqtt_authority_audit,
         live_dir=mqtt_live_dir,
-        staged_dir=os.path.join(os.getcwd(), "var", "mqtt_runtime", "staged"),
+        staged_dir=mqtt_dirs["staged"],
     )
     mqtt_startup_reconciler = EmbeddedMqttStartupReconciler(
         state_store=mqtt_integration_state_store,

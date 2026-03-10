@@ -245,6 +245,7 @@ Runtime files:
 - live rendered config/auth/ACL: `var/mqtt_runtime/live/*`
 - data: `var/mqtt_runtime/data/*`
 - logs: `var/mqtt_runtime/logs/*`
+- Core startup bootstrap guarantees these runtime directories exist on fresh installs.
 
 Container behavior:
 - Core starts broker container with host networking and mounts runtime paths.

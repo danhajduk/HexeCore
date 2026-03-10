@@ -29,6 +29,7 @@ from .runtime_boundary import (
     InMemoryBrokerRuntimeBoundary,
     MosquittoProcessRuntimeBoundary,
 )
+from .runtime_paths import ensure_runtime_dirs
 from .topic_families import (
     BOOTSTRAP_TOPIC,
     is_addon_scoped_topic,
@@ -63,6 +64,7 @@ __all__ = [
     "DockerMosquittoRuntimeBoundary",
     "InMemoryBrokerRuntimeBoundary",
     "MosquittoProcessRuntimeBoundary",
+    "ensure_runtime_dirs",
     "EmbeddedMqttStartupReconciler",
     "StartupReconcileResult",
     "BOOTSTRAP_TOPIC",

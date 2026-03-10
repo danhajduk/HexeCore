@@ -342,3 +342,4 @@
 2026-03-10 - Completed Task 324: expanded config_missing diagnostics with expected path plus staged/live existence indicators.
 2026-03-10 - Completed Task 325: enforced setup apply/init ordering by deferring setup-state finalize/bootstrap until runtime health is confirmed.
 2026-03-10 - Completed Task 326: added regression coverage for staged/live artifact creation and runtime-start failure when live artifacts are missing.
+2026-03-10 - Completed Task 327: added startup bootstrap logic that creates mqtt runtime directories (root/staged/live/data/logs).
