@@ -23,7 +23,6 @@ export default function AddonFrame() {
   const [phase, setPhase] = useState<FramePhase>("checking");
   const [reason, setReason] = useState("runtime_unavailable");
   const [iframeLoaded, setIframeLoaded] = useState(false);
-  const [themeInjectReason, setThemeInjectReason] = useState<string>("pending");
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const nonceRef = useRef(0);
 
@@ -33,7 +32,6 @@ export default function AddonFrame() {
     nonceRef.current = nonce;
     setPhase("checking");
     setIframeLoaded(false);
-    setThemeInjectReason("pending");
     setReason("runtime_unavailable");
     setSrc(fallbackSrc);
 
@@ -138,16 +136,6 @@ export default function AddonFrame() {
               <span>Frame target: {src}</span>
             </div>
           )}
-          {iframeLoaded && themeInjectReason !== "ok" && (
-            <div className="addon-frame-status addon-frame-status-error">
-              <strong>Core theme CSS was not injected.</strong>
-              <span>
-                {themeInjectReason === "cross_origin"
-                  ? "Frame is cross-origin (direct host:port), so browser security blocks parent CSS injection."
-                  : "Theme injection failed for this frame document."}
-              </span>
-            </div>
-          )}
           <iframe
             ref={iframeRef}
             title={`addon-ui-${addonId}`}
@@ -155,15 +143,12 @@ export default function AddonFrame() {
             className="addon-frame-iframe"
             onLoad={() => {
               let injected = false;
-              let injectReason = "error";
               if (iframeRef.current) {
                 const result = injectCoreCssIntoIframe(iframeRef.current);
                 injected = result.injected;
-                injectReason = result.reason;
                 iframeRef.current.setAttribute("data-core-theme-injected", injected ? "true" : "false");
-                iframeRef.current.setAttribute("data-core-theme-inject-reason", injectReason);
+                iframeRef.current.setAttribute("data-core-theme-inject-reason", result.reason);
               }
-              setThemeInjectReason(injectReason);
               setIframeLoaded(true);
             }}
             onError={() => {
