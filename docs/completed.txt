@@ -453,3 +453,4 @@
 2026-03-11 - Task 426: added AI Node internal and golden-doc cross-links via `See Also` sections.
 2026-03-11 - Task 427: resolved queue hygiene decisions to use `docs/New_tasks.txt` as canonical task filename in both repos.
 2026-03-11 - Task 428: converted active queue files to task-entries-only format in both repos.
+2026-03-11 - Task 429: reviewed AI Node/Core onboarding docs and created implementation task breakdown (430-438) for node login during onboarding trust establishment.
