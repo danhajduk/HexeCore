@@ -16,6 +16,7 @@ Status: Implemented
 Status: Implemented
 
 - Public route: `/`.
+- Onboarding approval route: `/onboarding/nodes/approve?sid=...&state=...` (login-gated within page flow).
 - Admin-gated routes: `/store`, `/addons`, `/settings`, `/settings/jobs`, `/settings/metrics`, `/settings/statistics`, and addon routes.
 - Addon frame routes: `/addons/:addonId` and `/addons/:addonId/:section`.
 
@@ -42,6 +43,7 @@ Status: Implemented
 - Home dashboard surfaces stack health, metrics, and activity.
 - Settings organizes platform controls by subsystem.
 - MQTT embedded UI includes overview/principals/users/runtime/audit/noisy-client pages.
+- Node onboarding approval page requires normal admin session login before showing approval context.
 
 ## Planned
 

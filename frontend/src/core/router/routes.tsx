@@ -9,6 +9,7 @@ import SettingsJobs from "../pages/SettingsJobs";
 import SettingsMetrics from "../pages/SettingsMetrics";
 import SettingsStatistics from "../pages/SettingsStatistics";
 import AddonStorePage from "../../pages/AddonStorePage";
+import OnboardingNodeApproval from "../pages/OnboardingNodeApproval";
 import { getAddonRoutes } from "./loadAddons";
 
 export function buildRoutes(isAdmin: boolean, ready: boolean): RouteObject[] {
@@ -26,6 +27,7 @@ export function buildRoutes(isAdmin: boolean, ready: boolean): RouteObject[] {
     { path: "/addons", element: protectedRoute(<Addons />) },
     { path: "/addons/:addonId/:section", element: protectedRoute(<AddonFrame />) },
     { path: "/addons/:addonId", element: protectedRoute(<AddonFrame />) },
+    { path: "/onboarding/nodes/approve", element: <OnboardingNodeApproval /> },
     { path: "/settings", element: protectedRoute(<Settings />) },
     { path: "/settings/jobs", element: protectedRoute(<SettingsJobs />) },
     { path: "/settings/metrics", element: protectedRoute(<SettingsMetrics />) },

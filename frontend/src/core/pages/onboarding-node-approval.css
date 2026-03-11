@@ -1,0 +1,90 @@
+.onboard-page {
+  display: grid;
+  gap: 12px;
+}
+
+.onboard-page h1 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.onboard-meta {
+  color: var(--text-muted, #6b7280);
+}
+
+.onboard-error {
+  color: #b91c1c;
+  background: rgba(185, 28, 28, 0.1);
+  border: 1px solid rgba(185, 28, 28, 0.2);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.onboard-help {
+  color: var(--text-muted, #6b7280);
+}
+
+.onboard-login {
+  display: grid;
+  gap: 10px;
+  max-width: 420px;
+  padding: 14px;
+  border: 1px solid var(--border-color, #d1d5db);
+  border-radius: 12px;
+  background: var(--surface-1, #fff);
+}
+
+.onboard-login label {
+  display: grid;
+  gap: 6px;
+}
+
+.onboard-login input {
+  border: 1px solid var(--border-color, #d1d5db);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.onboard-login button,
+.onboard-actions button {
+  border: 1px solid var(--border-color, #d1d5db);
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: var(--surface-1, #fff);
+  color: inherit;
+}
+
+.onboard-login button[disabled],
+.onboard-actions button[disabled] {
+  opacity: 0.6;
+}
+
+.onboard-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--border-color, #d1d5db);
+  border-radius: 12px;
+  padding: 14px;
+  background: var(--surface-1, #fff);
+}
+
+.onboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px 14px;
+}
+
+.onboard-grid > div {
+  display: grid;
+  gap: 4px;
+}
+
+.onboard-grid strong {
+  font-size: 0.82rem;
+  color: var(--text-muted, #6b7280);
+}
+
+.onboard-actions {
+  display: flex;
+  gap: 10px;
+}

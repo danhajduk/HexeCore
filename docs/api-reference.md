@@ -23,6 +23,8 @@ Status: Implemented
   - `GET /api/system/repo/status`
 - Events/services:
   - `GET /api/system/events`
+  - `POST /api/system/nodes/onboarding/sessions`
+  - `GET /api/system/nodes/onboarding/sessions/{session_id}` (admin session/token required)
   - `POST /api/services/register`
   - `GET /api/services/resolve`
 
@@ -89,9 +91,7 @@ Status: Implemented
 
 Status: Planned
 
-- AI Node onboarding session creation contract:
-  - `POST /api/system/nodes/onboarding/sessions`
-  - Request/response/error schema authority: [AI Node Onboarding API Contract](./ai-node-onboarding-api-contract.md)
+- AI Node onboarding approval/finalization decision endpoints.
 - Formal OpenAPI-focused endpoint stability tiers.
 - Explicit deprecation lifecycle metadata per endpoint group.
 
@@ -101,3 +101,4 @@ Status: Planned
 - [MQTT Platform](./mqtt-platform.md)
 - [Auth and Identity](./auth-and-identity.md)
 - [Runtime and Supervision](./runtime-and-supervision.md)
+- [AI Node Onboarding API Contract](./ai-node-onboarding-api-contract.md)

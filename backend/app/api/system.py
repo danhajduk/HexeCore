@@ -4,7 +4,7 @@ import os
 import secrets
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi import APIRouter, Header, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from ..addons.registry import AddonRegistry, list_addons
@@ -138,6 +138,45 @@ def build_system_router(
                     "method": "GET",
                     "path": f"/api/system/nodes/onboarding/sessions/{session.session_id}/finalize",
                 },
+            },
+        }
+
+    @router.get("/system/nodes/onboarding/sessions/{session_id}")
+    def get_node_onboarding_session(
+        session_id: str,
+        request: Request,
+        state: str | None = Query(default=None),
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        if onboarding_sessions_store is None:
+            raise HTTPException(status_code=503, detail="onboarding_sessions_unavailable")
+        try:
+            session = onboarding_sessions_store.get(session_id)
+        except KeyError:
+            raise HTTPException(status_code=404, detail="session_not_found")
+        if state is not None:
+            expected = str((session.request_metadata or {}).get("approval_state") or "").strip()
+            if not expected or state.strip() != expected:
+                raise HTTPException(status_code=400, detail="approval_state_mismatch")
+        return {
+            "ok": True,
+            "session": {
+                "session_id": session.session_id,
+                "session_state": session.session_state,
+                "requested_node_name": session.requested_node_name,
+                "requested_node_type": session.requested_node_type,
+                "requested_node_software_version": session.requested_node_software_version,
+                "requested_hostname": session.requested_hostname,
+                "requested_from_ip": session.requested_from_ip,
+                "created_at": session.created_at,
+                "expires_at": session.expires_at,
+                "approved_at": session.approved_at,
+                "rejected_at": session.rejected_at,
+                "approved_by_user_id": session.approved_by_user_id,
+                "rejection_reason": session.rejection_reason,
+                "linked_node_id": session.linked_node_id,
+                "final_payload_consumed_at": session.final_payload_consumed_at,
             },
         }
 
