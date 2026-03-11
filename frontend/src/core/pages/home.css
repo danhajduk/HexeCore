@@ -74,33 +74,6 @@
   overflow-x: auto;
 }
 
-.home-subsystem {
-  padding: var(--sx-space-1) var(--sx-space-2);
-  border-radius: var(--sx-radius-pill);
-  font-size: 12px;
-  border: 2px solid hsl(var(--sx-border));
-}
-
-.home-subsystem.ok {
-  border-color: hsl(var(--sx-success));
-  background: color-mix(in oklab, hsl(var(--sx-success)) 25%, transparent);
-}
-
-.home-subsystem.warn {
-  border-color: hsl(var(--sx-warning));
-  background: color-mix(in oklab, hsl(var(--sx-warning)) 25%, transparent);
-}
-
-.home-subsystem.bad {
-  border-color: hsl(var(--sx-danger));
-  background: color-mix(in oklab, hsl(var(--sx-danger)) 25%, transparent);
-}
-
-.home-subsystem.neutral {
-  border-color: hsl(var(--sx-accent));
-  background: color-mix(in oklab, hsl(var(--sx-accent)) 20%, transparent);
-}
-
 .home-status-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(96px, 96px));
