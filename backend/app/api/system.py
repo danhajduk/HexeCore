@@ -29,6 +29,7 @@ class NodeOnboardingStartRequest(BaseModel):
     protocol_version: str
     hostname: str | None = None
     node_nonce: str
+    node_id: str | None = None
 
 
 class NodeOnboardingRejectRequest(BaseModel):
@@ -125,6 +126,20 @@ def _validate_node_nonce(value: str | None) -> str:
 def _stable_node_id_from_nonce(node_nonce: str) -> str:
     digest = hashlib.sha256(str(node_nonce or "").encode("utf-8")).hexdigest()[:16]
     return f"node-{digest}"
+
+
+def _validate_node_id(value: str | None) -> str:
+    node_id = str(value or "").strip()
+    if len(node_id) < 8 or len(node_id) > 128:
+        raise ValueError("node_id_invalid")
+    if not node_id.startswith("node-"):
+        raise ValueError("node_id_invalid")
+    tail = node_id[len("node-") :]
+    if not tail:
+        raise ValueError("node_id_invalid")
+    if not all(ch.isalnum() or ch in {"_", "-"} for ch in tail):
+        raise ValueError("node_id_invalid")
+    return node_id
 
 
 def _enforce_csrf_for_cookie_session(request: Request, x_admin_token: str | None) -> None:
@@ -307,6 +322,12 @@ def build_system_router(
             node_nonce = _validate_node_nonce(body.node_nonce)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
+        requested_node_id = None
+        if str(body.node_id or "").strip():
+            try:
+                requested_node_id = _validate_node_id(body.node_id)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc))
 
         active = onboarding_sessions_store.find_active_by_node_nonce(node_nonce)
         if active is not None:
@@ -314,7 +335,7 @@ def build_system_router(
                 status_code=409,
                 detail=_onboarding_error("duplicate_active_session", "active onboarding session already exists"),
             )
-        node_id = _stable_node_id_from_nonce(node_nonce)
+        node_id = requested_node_id or _stable_node_id_from_nonce(node_nonce)
         if node_registrations_store is not None:
             existing_registration = node_registrations_store.get(node_id)
             if existing_registration is not None:
@@ -338,6 +359,7 @@ def build_system_router(
                 "protocol_version": protocol_version,
                 "approval_state": approval_state,
                 "requested_node_type": node_type,
+                "requested_node_id": requested_node_id,
             },
         )
         _record_audit(
@@ -552,7 +574,12 @@ def build_system_router(
             raise HTTPException(status_code=400, detail="approval_state_mismatch")
         if str(session.session_state) == "expired":
             raise HTTPException(status_code=409, detail="session_expired")
-        linked_node_id = str(session.linked_node_id or "").strip() or _stable_node_id_from_nonce(session.node_nonce)
+        requested_node_id = str((session.request_metadata or {}).get("requested_node_id") or "").strip()
+        linked_node_id = (
+            str(session.linked_node_id or "").strip()
+            or requested_node_id
+            or _stable_node_id_from_nonce(session.node_nonce)
+        )
         try:
             decided = onboarding_sessions_store.approve_session(
                 session_id,

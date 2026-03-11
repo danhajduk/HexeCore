@@ -263,6 +263,29 @@ class TestNodeOnboardingStartApi(unittest.TestCase):
         self.assertEqual(consumed.status_code, 200, consumed.text)
         self.assertEqual(consumed.json()["onboarding_status"], "consumed")
 
+    def test_requested_node_id_is_preserved_for_activation_payload(self) -> None:
+        payload = self._payload()
+        payload["node_nonce"] = "nonce-legacy-preserve"
+        payload["node_id"] = "node-j2u7V_weljvD"
+        started = self.client.post("/api/system/nodes/onboarding/sessions", json=payload)
+        self.assertEqual(started.status_code, 200, started.text)
+        session_id = started.json()["session"]["session_id"]
+        state = started.json()["session"]["approval_url"].split("state=", 1)[1]
+
+        approve = self.client.post(
+            f"/api/system/nodes/onboarding/sessions/{session_id}/approve?state={state}",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(approve.status_code, 200, approve.text)
+        self.assertEqual(approve.json()["session"]["linked_node_id"], "node-j2u7V_weljvD")
+
+        finalized = self.client.get(
+            f"/api/system/nodes/onboarding/sessions/{session_id}/finalize?node_nonce=nonce-legacy-preserve"
+        )
+        self.assertEqual(finalized.status_code, 200, finalized.text)
+        self.assertEqual(finalized.json()["onboarding_status"], "approved")
+        self.assertEqual(finalized.json()["activation"]["node_id"], "node-j2u7V_weljvD")
+
     def test_finalize_returns_invalid_for_unknown_session(self) -> None:
         resp = self.client.get("/api/system/nodes/onboarding/sessions/does-not-exist/finalize?node_nonce=nonce-abc")
         self.assertEqual(resp.status_code, 200, resp.text)
