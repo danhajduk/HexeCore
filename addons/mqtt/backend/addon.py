@@ -1322,6 +1322,18 @@ def addon_ui_root() -> str:
         navigateTo("setup", true);
         return;
       }
+      const desiredOrder = state.gateActive
+        ? ["setup"]
+        : ["overview", "principals", "users", "runtime", "audit", "noisy-clients", "setup"];
+      const buttonBySection = {};
+      tabs.querySelectorAll(".tab").forEach((node) => {
+        const section = String(node.getAttribute("data-section") || "");
+        if (section) buttonBySection[section] = node;
+      });
+      desiredOrder.forEach((section) => {
+        const node = buttonBySection[section];
+        if (node) tabs.appendChild(node);
+      });
       const tabButtons = tabs.querySelectorAll(".tab");
       tabButtons.forEach((node) => {
         const section = node.getAttribute("data-section");

@@ -372,3 +372,4 @@
 2026-03-10 - Task 362: added $SYS-based broker client counters, runtime session table, and runtime sessions API endpoints.
 2026-03-10 - Task 363: added admin-only MQTT debug subscribe/unsubscribe flow with temporary client, timeout, and Runtime UI stream polling.
 2026-03-11 - Task 364: added admin debug publish endpoint/UI form with reserved system topic blocking and regression coverage.
+2026-03-11 - Task 365: reordered MQTT tabs to move Setup to the end once setup is complete.
