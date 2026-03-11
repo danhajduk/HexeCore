@@ -207,7 +207,7 @@ class TestMqttRuntimeIntegration(unittest.TestCase):
         acl_text = (live_dir / "acl_compiled.conf").read_text(encoding="utf-8")
         self.assertIn("topic read synthia/bootstrap/core", acl_text)
         self.assertIn("topic deny #", acl_text)
-        self.assertIn("user addon_vision", acl_text)
+        self.assertIn("user sx_vision", acl_text)
         self.assertIn("topic write synthia/addons/vision/state/#", acl_text)
 
         passwords_text = (live_dir / "passwords.conf").read_text(encoding="utf-8")

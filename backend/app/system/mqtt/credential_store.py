@@ -151,6 +151,8 @@ class MqttCredentialStore:
 
     @staticmethod
     def _principal_requires_credential(principal: MqttPrincipal) -> bool:
+        if principal.principal_type == "system":
+            return principal.principal_id in {"core.runtime"}
         if principal.principal_type not in {"synthia_addon", "synthia_node", "generic_user"}:
             return False
         if principal.status in {"revoked", "expired"}:

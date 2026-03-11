@@ -243,6 +243,22 @@ class EmbeddedMqttStartupReconciler:
                 next_principal.status = "active"
             next_principal.managed_by = "core"
             next_principal.notes = "core_system_principal"
+            if principal_id == "core.runtime":
+                next_principal.publish_topics = sorted(
+                    {
+                        "synthia/core/mqtt/info",
+                        "synthia/bootstrap/core",
+                    }
+                )
+                next_principal.subscribe_topics = sorted(
+                    {
+                        "#",
+                        "$SYS/#",
+                    }
+                )
+            elif principal_id == "core.bootstrap":
+                next_principal.publish_topics = sorted({"synthia/bootstrap/core"})
+                next_principal.subscribe_topics = sorted({"synthia/bootstrap/core"})
             await self._state_store.upsert_principal(next_principal)
 
     async def _activate_ready_addon_principals(self, *, reason: str) -> list[str]:

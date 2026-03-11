@@ -388,6 +388,10 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
                 json.dump(
                     {
                         "credentials": {
+                            "core.runtime": {
+                                "username": "sx_core.runtime",
+                                "password": "core-runtime-secret",
+                            },
                             "addon:mqtt": {
                                 "username": "sx_mqtt",
                                 "password": "runtime-secret",
@@ -422,8 +426,8 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
                 else:
                     os.environ["MQTT_CREDENTIAL_STORE_PATH"] = old
             self.assertEqual(cfg.mode, "local")
-            self.assertEqual(cfg.username, "sx_mqtt")
-            self.assertEqual(cfg.password, "runtime-secret")
+            self.assertEqual(cfg.username, "sx_core.runtime")
+            self.assertEqual(cfg.password, "core-runtime-secret")
 
     async def test_load_config_external_keeps_auth_settings(self) -> None:
         manager = MqttManager(

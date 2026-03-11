@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from typing import Iterable
 
 from .effective_access import MqttEffectiveAccessCompiler, MqttEffectiveAccessEntry
@@ -42,6 +43,12 @@ class NormalizedEffectiveAccess:
 
 def _sorted_unique(items: Iterable[str]) -> list[str]:
     return sorted({str(item).strip() for item in items if str(item).strip()})
+
+
+def _sanitize_username(value: str) -> str:
+    clean = re.sub(r"[^a-zA-Z0-9_.-]+", "_", str(value or "").strip())
+    clean = clean.strip("_.-")
+    return clean[:64] if clean else "mqtt_user"
 
 
 class MqttAclCompiler:
@@ -276,8 +283,13 @@ class MqttAclCompiler:
     def _principal_username(state: MqttIntegrationState, principal_id: str) -> str:
         principal = state.principals.get(principal_id)
         if principal is None:
-            return principal_id.replace(":", "_")
+            return _sanitize_username(principal_id.replace(":", "_"))
         username = str(principal.username or "").strip()
         if username:
-            return username
-        return principal.principal_id.replace(":", "_")
+            return _sanitize_username(username)
+        prefix = "sx"
+        if principal.principal_type == "generic_user":
+            prefix = "gu"
+        elif principal.principal_type == "synthia_node":
+            prefix = "sn"
+        return _sanitize_username(f"{prefix}_{principal.logical_identity}")

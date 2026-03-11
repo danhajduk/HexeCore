@@ -42,6 +42,31 @@ class TestMqttAclCompiler(unittest.TestCase):
         self.assertIn("topic write synthia/addons/vision/event/#", acl)
         self.assertIn("topic read synthia/system/health", acl)
 
+    def test_compiles_synthia_principal_without_username_using_credential_style_name(self) -> None:
+        state = MqttIntegrationState(
+            principals={
+                "addon:mqtt": MqttPrincipal(
+                    principal_id="addon:mqtt",
+                    principal_type="synthia_addon",
+                    status="active",
+                    logical_identity="mqtt",
+                    linked_addon_id="mqtt",
+                    username=None,
+                )
+            },
+            active_grants={
+                "mqtt": MqttAddonGrant(
+                    addon_id="mqtt",
+                    status="active",
+                    publish_topics=["synthia/addons/mqtt/event/#"],
+                    subscribe_topics=["synthia/addons/mqtt/command/#"],
+                )
+            },
+        )
+        acl = MqttAclCompiler().compile(state).acl_text
+        self.assertIn("user sx_mqtt", acl)
+        self.assertNotIn("user addon_mqtt", acl)
+
     def test_generic_user_reserved_denies_include_future_federation_families(self) -> None:
         state = MqttIntegrationState(
             principals={

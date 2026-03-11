@@ -393,7 +393,7 @@ class MqttManager:
         credentials = payload.get("credentials") if isinstance(payload, dict) else None
         if not isinstance(credentials, dict):
             return None
-        for principal_id in ("addon:mqtt", "core.runtime", "core.bootstrap"):
+        for principal_id in ("core.runtime", "core.bootstrap", "addon:mqtt"):
             item = credentials.get(principal_id)
             if not isinstance(item, dict):
                 continue

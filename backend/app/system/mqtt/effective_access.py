@@ -111,6 +111,11 @@ class MqttEffectiveAccessCompiler:
                 if custom_subscribe_topics:
                     subscribe_topics = list(custom_subscribe_topics)
             reserved_denies = [] if mode == "admin" else list(self._reserved_prefixes)
+        elif principal.principal_type == "system":
+            # Core-managed system principals render explicit publish/subscribe topics.
+            publish_topics = _sorted_unique(list(principal.publish_topics))
+            subscribe_topics = _sorted_unique(list(principal.subscribe_topics))
+            reserved_denies = []
         else:
             return None
 

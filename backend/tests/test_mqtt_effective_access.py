@@ -23,6 +23,14 @@ class TestMqttEffectiveAccess(unittest.TestCase):
                     publish_topics=["devices/guest1/state", "synthia/core/should-deny"],
                     subscribe_topics=["devices/guest1/cmd", "synthia/system/should-deny"],
                 ),
+                "core.runtime": MqttPrincipal(
+                    principal_id="core.runtime",
+                    principal_type="system",
+                    status="active",
+                    logical_identity="core.runtime",
+                    publish_topics=["synthia/core/mqtt/info"],
+                    subscribe_topics=["#", "$SYS/#"],
+                ),
             },
             active_grants={
                 "vision": MqttAddonGrant(
@@ -43,9 +51,14 @@ class TestMqttEffectiveAccess(unittest.TestCase):
         self.assertIn("synthia/addons/vision/event/#", by_id["addon:vision"].publish_scopes)
 
         self.assertIn("user:guest1", by_id)
-        self.assertTrue(by_id["user:guest1"].generic_non_reserved_only)
+        self.assertFalse(by_id["user:guest1"].generic_non_reserved_only)
         self.assertNotIn("synthia/core/should-deny", by_id["user:guest1"].publish_scopes)
         self.assertIn("synthia/core/#", by_id["user:guest1"].reserved_prefix_denies)
+
+        self.assertIn("core.runtime", by_id)
+        self.assertIn("#", by_id["core.runtime"].subscribe_scopes)
+        self.assertIn("$SYS/#", by_id["core.runtime"].subscribe_scopes)
+        self.assertIn("synthia/core/mqtt/info", by_id["core.runtime"].publish_scopes)
 
 
 if __name__ == "__main__":
