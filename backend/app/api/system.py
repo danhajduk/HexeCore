@@ -270,6 +270,37 @@ def build_system_router(
             },
         }
 
+    @router.get("/system/nodes/onboarding/sessions")
+    def list_node_onboarding_sessions(
+        request: Request,
+        state: str | None = Query(default=None),
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        _expire_if_needed(onboarding_sessions_store)
+        if onboarding_sessions_store is None:
+            raise HTTPException(status_code=503, detail="onboarding_sessions_unavailable")
+        items = onboarding_sessions_store.list_sessions(state=state if state else None)
+        payload = []
+        for session in items:
+            payload.append(
+                {
+                    "session_id": session.session_id,
+                    "session_state": session.session_state,
+                    "requested_node_name": session.requested_node_name,
+                    "requested_node_type": session.requested_node_type,
+                    "requested_node_software_version": session.requested_node_software_version,
+                    "requested_hostname": session.requested_hostname,
+                    "created_at": session.created_at,
+                    "expires_at": session.expires_at,
+                    "approved_by_user_id": session.approved_by_user_id,
+                    "linked_node_id": session.linked_node_id,
+                    "rejection_reason": session.rejection_reason,
+                    "final_payload_consumed_at": session.final_payload_consumed_at,
+                }
+            )
+        return {"ok": True, "items": payload}
+
     @router.post("/system/nodes/onboarding/sessions/{session_id}/approve")
     def approve_node_onboarding_session(
         session_id: str,

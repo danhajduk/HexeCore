@@ -24,6 +24,7 @@ Status: Implemented
 - Events/services:
   - `GET /api/system/events`
   - `POST /api/system/nodes/onboarding/sessions`
+  - `GET /api/system/nodes/onboarding/sessions` (admin session/token required)
   - `GET /api/system/nodes/onboarding/sessions/{session_id}` (admin session/token required)
   - `POST /api/system/nodes/onboarding/sessions/{session_id}/approve` (admin session/token required)
   - `POST /api/system/nodes/onboarding/sessions/{session_id}/reject` (admin session/token required)

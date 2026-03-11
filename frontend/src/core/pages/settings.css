@@ -425,6 +425,30 @@
   gap: var(--sx-space-3);
 }
 
+.settings-onboarding-controls {
+  margin-bottom: var(--sx-space-3);
+}
+
+.settings-onboarding-list {
+  display: grid;
+  gap: var(--sx-space-2);
+}
+
+.settings-onboarding-item {
+  border: 1px solid hsl(var(--sx-text) / 0.12);
+  border-radius: var(--sx-radius-sm);
+  padding: var(--sx-space-2) var(--sx-space-3);
+  background: hsl(var(--sx-bg) / 0.55);
+}
+
+.settings-onboarding-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sx-space-2);
+  margin-bottom: calc(var(--sx-space-1) + 2px);
+}
+
 .settings-mqtt-admin-top {
   display: flex;
   align-items: flex-start;

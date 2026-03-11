@@ -81,6 +81,21 @@ type MqttSetupSummary = {
   }>;
 };
 
+type NodeOnboardingSessionSummary = {
+  session_id: string;
+  session_state: string;
+  requested_node_name: string;
+  requested_node_type: string;
+  requested_node_software_version: string;
+  requested_hostname?: string | null;
+  created_at: string;
+  expires_at: string;
+  approved_by_user_id?: string | null;
+  linked_node_id?: string | null;
+  rejection_reason?: string | null;
+  final_payload_consumed_at?: string | null;
+};
+
 function displayState(value: unknown): string {
   const raw = String(value || "unknown").trim();
   if (!raw) return "Unknown";
@@ -109,6 +124,9 @@ export default function Settings() {
   const [stack, setStack] = useState<StackSummary | null>(null);
   const [mqtt, setMqtt] = useState<MqttStatus | null>(null);
   const [mqttSetup, setMqttSetup] = useState<MqttSetupSummary | null>(null);
+  const [onboardingSessions, setOnboardingSessions] = useState<NodeOnboardingSessionSummary[]>([]);
+  const [onboardingStateFilter, setOnboardingStateFilter] = useState("all");
+  const [onboardingErr, setOnboardingErr] = useState<string | null>(null);
 
   async function loadSettings() {
     setErr(null);
@@ -178,9 +196,27 @@ export default function Settings() {
     }
   }
 
+  async function loadOnboardingSessions(stateFilter = onboardingStateFilter) {
+    setOnboardingErr(null);
+    try {
+      const qp = stateFilter && stateFilter !== "all" ? `?state=${encodeURIComponent(stateFilter)}` : "";
+      const res = await fetch(`/api/system/nodes/onboarding/sessions${qp}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!res.ok) throw new Error(`onboarding HTTP ${res.status}`);
+      const payload = (await res.json()) as { items?: NodeOnboardingSessionSummary[] };
+      setOnboardingSessions(Array.isArray(payload.items) ? payload.items : []);
+    } catch (e: any) {
+      setOnboardingErr(e?.message ?? String(e));
+      setOnboardingSessions([]);
+    }
+  }
+
   useEffect(() => {
     void loadSettings();
     void loadOperationalSummary();
+    void loadOnboardingSessions("all");
     setTheme(getTheme());
   }, []);
 
@@ -378,6 +414,62 @@ export default function Settings() {
           <p>Embedded MQTT authority administration views for principals, access, runtime health, and audit signals.</p>
         </div>
         <MqttAdminFoundationCard />
+      </section>
+
+      <section className="settings-section">
+        <div className="settings-section-head">
+          <h2>Node Onboarding Sessions</h2>
+          <p>Visibility into pending, approved, rejected, expired, and consumed node onboarding decisions.</p>
+        </div>
+        <div className="settings-card">
+          <div className="settings-row settings-onboarding-controls">
+            <label className="settings-select">
+              <span>Filter state</span>
+              <select
+                value={onboardingStateFilter}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setOnboardingStateFilter(next);
+                  void loadOnboardingSessions(next);
+                }}
+              >
+                <option value="all">all</option>
+                <option value="pending">pending</option>
+                <option value="approved">approved</option>
+                <option value="rejected">rejected</option>
+                <option value="expired">expired</option>
+                <option value="consumed">consumed</option>
+              </select>
+            </label>
+            <button className="settings-btn" onClick={() => void loadOnboardingSessions()}>
+              Refresh onboarding sessions
+            </button>
+          </div>
+          {onboardingErr && <div className="settings-error">Onboarding sessions load failed: {onboardingErr}</div>}
+          <div className="settings-onboarding-list">
+            {onboardingSessions.map((item) => (
+              <div key={item.session_id} className="settings-onboarding-item">
+                <div className="settings-onboarding-top">
+                  <span className="settings-mono">{item.session_id}</span>
+                  <span className="settings-pill">{displayState(item.session_state)}</span>
+                </div>
+                <div className="settings-help">
+                  {item.requested_node_name} ({item.requested_node_type}) • version {item.requested_node_software_version} • hostname{" "}
+                  {item.requested_hostname || "-"}
+                </div>
+                <div className="settings-help">
+                  Created {relative(item.created_at)} • Expires {relative(item.expires_at)}
+                </div>
+                <div className="settings-help">
+                  Decision actor {item.approved_by_user_id || "-"} • Linked node {item.linked_node_id || "-"}
+                  {item.rejection_reason ? ` • Rejection: ${item.rejection_reason}` : ""}
+                  {item.final_payload_consumed_at ? ` • Consumed ${relative(item.final_payload_consumed_at)}` : ""}
+                </div>
+              </div>
+            ))}
+            {onboardingSessions.length === 0 && <div className="settings-help">No onboarding sessions found for this filter.</div>}
+          </div>
+        </div>
       </section>
 
       <section className="settings-section">
