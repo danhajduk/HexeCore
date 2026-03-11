@@ -712,6 +712,38 @@ def addon_ui_root() -> str:
       }
     }
 
+    async function runPrincipalInfoAction(action, principalId) {
+      const id = String(principalId || "").trim();
+      const act = String(action || "").trim().toLowerCase();
+      if (!id || !act) return;
+      let url = "";
+      let label = "";
+      if (act === "details") {
+        url = `/api/system/mqtt/principals/${encodeURIComponent(id)}`;
+        label = "principal";
+      } else if (act === "permissions") {
+        url = `/api/system/mqtt/principals/${encodeURIComponent(id)}/permissions`;
+        label = "permissions";
+      } else if (act === "last-seen") {
+        url = `/api/system/mqtt/principals/${encodeURIComponent(id)}/last-seen`;
+        label = "last_seen";
+      } else {
+        return;
+      }
+      setStatus(`Loading ${act} for ${id}...`, "");
+      try {
+        const response = await fetch(url, { credentials: "include" });
+        const payload = await response.json();
+        if (!response.ok || (payload && payload.ok === false)) {
+          throw new Error(payload && payload.detail ? payload.detail : `${act}_failed`);
+        }
+        window.alert(JSON.stringify(payload[label] || payload, null, 2));
+        setStatus(`${act} loaded for ${id}.`, "ok");
+      } catch (error) {
+        setStatus(`${act} failed for ${id}: ${error && error.message ? error.message : String(error)}`, "error");
+      }
+    }
+
     function setRuntimeActionStatus(message, kind) {
       state.runtimeActionStatus = message || "";
       state.runtimeActionKind = kind || "";
@@ -1073,14 +1105,14 @@ def addon_ui_root() -> str:
                     `<button class='mini' disabled title='System principals are Core-managed'>Delete</button>` +
                     `<button class='mini' disabled title='System principals are Core-managed'>Rotate Password</button>` +
                     `<button class='mini' disabled title='System principals are Core-managed'>Edit Policy</button>`;
-                  const readonly = `<button class='mini' title='Read-only view'>Details</button>` +
-                    `<button class='mini' title='Read-only view'>Permissions</button>` +
-                    `<button class='mini' title='Read-only view'>Last Seen</button>`;
+                  const readonly = `<button class='mini' data-principal-info='details' data-principal-id='${principalId}'>Details</button>` +
+                    `<button class='mini' data-principal-info='permissions' data-principal-id='${principalId}'>Permissions</button>` +
+                    `<button class='mini' data-principal-info='last-seen' data-principal-id='${principalId}'>Last Seen</button>`;
                   const genericActions = key === "generic"
                     ? `<button class='mini' data-generic-action='revoke' data-principal-id='${principalId}'>Revoke</button>` +
                       `<button class='mini' data-generic-action='disable' data-principal-id='${principalId}'>Disable</button>` +
                       `<button class='mini' data-generic-action='rotate' data-principal-id='${principalId}'>Rotate Password</button>` +
-                      `<button class='mini' data-generic-action='edit' data-principal-id='${principalId}' data-topic-prefix='${topicPrefix}' data-access-mode='${accessMode}' data-allowed-topics='${allowedTopics}'>Edit</button>` +
+                      `<button class='mini' data-generic-action='edit' data-principal-id='${principalId}' data-topic-prefix='${topicPrefix}' data-access-mode='${accessMode}' data-allowed-topics='${allowedTopics}'>Edit Policy</button>` +
                       `<button class='mini' data-generic-action='delete' data-principal-id='${principalId}'>Delete</button>`
                     : "";
                   const principalActions = key !== "generic" && !systemLocked
@@ -1330,6 +1362,13 @@ def addon_ui_root() -> str:
         const action = principalAction.getAttribute("data-principal-action");
         const principalId = principalAction.getAttribute("data-principal-id");
         if (action && principalId) void runPrincipalAction(action, principalId);
+        return;
+      }
+      const principalInfo = event.target.closest("[data-principal-info]");
+      if (principalInfo) {
+        const action = principalInfo.getAttribute("data-principal-info");
+        const principalId = principalInfo.getAttribute("data-principal-id");
+        if (action && principalId) void runPrincipalInfoAction(action, principalId);
       }
     });
     sectionContent.addEventListener("click", async (event) => {

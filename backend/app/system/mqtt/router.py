@@ -678,6 +678,71 @@ def build_mqtt_router(
         require_admin_token(x_admin_token, request)
         return {"ok": True, "items": await approval.list_principals()}
 
+    def _principal_permissions_payload(item: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "principal_id": str(item.get("principal_id") or ""),
+            "principal_type": str(item.get("principal_type") or ""),
+            "access_mode": str(item.get("access_mode") or "private"),
+            "allowed_topics": list(item.get("allowed_topics") or []),
+            "publish_topics": list(item.get("publish_topics") or []),
+            "subscribe_topics": list(item.get("subscribe_topics") or []),
+            "approved_reserved_topics": list(item.get("approved_reserved_topics") or []),
+        }
+
+    def _principal_last_seen_payload(item: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "principal_id": str(item.get("principal_id") or ""),
+            "last_seen": (
+                item.get("noisy_updated_at")
+                or item.get("updated_at")
+                or item.get("last_activated_at")
+                or item.get("last_revoked_at")
+            ),
+            "updated_at": item.get("updated_at"),
+            "last_activated_at": item.get("last_activated_at"),
+            "last_revoked_at": item.get("last_revoked_at"),
+            "status": item.get("status"),
+        }
+
+    @router.get("/mqtt/principals/{principal_id}")
+    @router.get("/principals/{principal_id}")
+    async def mqtt_principal_details(
+        principal_id: str,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        item = await approval.get_principal(principal_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="principal_not_found")
+        return {"ok": True, "principal": item}
+
+    @router.get("/mqtt/principals/{principal_id}/permissions")
+    @router.get("/principals/{principal_id}/permissions")
+    async def mqtt_principal_permissions(
+        principal_id: str,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        item = await approval.get_principal(principal_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="principal_not_found")
+        return {"ok": True, "permissions": _principal_permissions_payload(item)}
+
+    @router.get("/mqtt/principals/{principal_id}/last-seen")
+    @router.get("/principals/{principal_id}/last_seen")
+    async def mqtt_principal_last_seen(
+        principal_id: str,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        item = await approval.get_principal(principal_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="principal_not_found")
+        return {"ok": True, "last_seen": _principal_last_seen_payload(item)}
+
     @router.post("/mqtt/principals/{principal_id}/actions/{action}")
     async def mqtt_principal_action(
         principal_id: str,
@@ -690,6 +755,110 @@ def build_mqtt_router(
         result = await approval.apply_principal_action(principal_id, action, reason=body.reason)
         if not result.get("ok"):
             raise HTTPException(status_code=400, detail=str(result.get("error") or "principal_action_failed"))
+        return result
+
+    async def _apply_principal_alias_action(principal_id: str, action: str, reason: str) -> dict[str, Any]:
+        result = await approval.apply_principal_action(principal_id, action, reason=reason)
+        if not result.get("ok"):
+            raise HTTPException(status_code=400, detail=str(result.get("error") or "principal_action_failed"))
+        await _audit_runtime_action(
+            action=f"principal_{action}",
+            status="ok",
+            payload={"principal_id": principal_id, "reason": reason},
+        )
+        return result
+
+    @router.post("/mqtt/principals/{principal_id}/activate")
+    @router.post("/principals/{principal_id}/activate")
+    async def mqtt_principal_activate(
+        principal_id: str,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        return await _apply_principal_alias_action(principal_id, "activate", "api_activate")
+
+    @router.post("/mqtt/principals/{principal_id}/disable")
+    @router.post("/principals/{principal_id}/disable")
+    async def mqtt_principal_disable(
+        principal_id: str,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        return await _apply_principal_alias_action(principal_id, "probation", "api_disable")
+
+    @router.post("/mqtt/principals/{principal_id}/revoke")
+    @router.post("/principals/{principal_id}/revoke")
+    async def mqtt_principal_revoke(
+        principal_id: str,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        return await _apply_principal_alias_action(principal_id, "revoke", "api_revoke")
+
+    @router.post("/mqtt/principals/{principal_id}/rotate-password")
+    @router.post("/principals/{principal_id}/rotate_password")
+    async def mqtt_principal_rotate_password(
+        principal_id: str,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        result = await approval.apply_noisy_client_action(
+            principal_id,
+            "rotate_credentials",
+            reason="api_principal_rotate_password",
+        )
+        if not result.get("ok"):
+            raise HTTPException(status_code=400, detail=str(result.get("error") or "rotate_credentials_failed"))
+        credential = credential_store.get_principal_credential(principal_id) if credential_store is not None else None
+        if credential_store is not None:
+            state = await state_store.get_state()
+            if credential is None and principal_id in state.principals:
+                credential_store.render_password_file(state)
+                credential = credential_store.get_principal_credential(principal_id)
+        await _audit_runtime_action(
+            action="principal_rotate_password",
+            status="ok",
+            payload={"principal_id": principal_id, "rotated": bool(result.get("rotated"))},
+        )
+        return {
+            "ok": True,
+            "principal_id": principal_id,
+            "rotated": bool(result.get("rotated")),
+            "password": (credential or {}).get("password"),
+            "username": (credential or {}).get("username"),
+        }
+
+    @router.delete("/mqtt/principals/{principal_id}")
+    @router.delete("/principals/{principal_id}")
+    async def mqtt_principal_delete(
+        principal_id: str,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        principal = await approval.get_principal(principal_id)
+        if principal is None:
+            raise HTTPException(status_code=404, detail="principal_not_found")
+        principal_type = str(principal.get("principal_type") or "")
+        if principal_type == "system":
+            raise HTTPException(status_code=400, detail="system_principal_delete_not_allowed")
+        if principal_type != "generic_user":
+            raise HTTPException(status_code=400, detail="principal_delete_not_supported")
+        result = await approval.delete_generic_user(principal_id)
+        if not result.get("ok"):
+            error = str(result.get("error") or "principal_delete_failed")
+            if error == "principal_not_found":
+                raise HTTPException(status_code=404, detail=error)
+            raise HTTPException(status_code=400, detail=error)
+        await _audit_runtime_action(
+            action="principal_delete",
+            status="ok",
+            payload={"principal_id": principal_id},
+        )
         return result
 
     @router.post("/mqtt/generic-users")

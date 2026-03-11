@@ -229,6 +229,78 @@ class TestMqttAdminLifecycleApi(unittest.TestCase):
         self.assertTrue(rotate_alias.json()["rotated"])
         self.assertTrue(rotate_alias.json().get("password"))
 
+    def test_principal_alias_endpoints_cover_details_permissions_last_seen_and_actions(self) -> None:
+        created = self.client.post(
+            "/api/system/mqtt/users",
+            headers={"X-Admin-Token": "test-token"},
+            json={
+                "username": "aliasuser",
+                "password": "generated",
+                "topic_prefix": "external/aliasuser",
+                "access_mode": "private",
+                "allowed_topics": [],
+            },
+        )
+        self.assertEqual(created.status_code, 200, created.text)
+        principal_id = "user:aliasuser"
+
+        details = self.client.get(
+            f"/api/system/principals/{principal_id}",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(details.status_code, 200, details.text)
+        self.assertEqual(details.json()["principal"]["principal_id"], principal_id)
+
+        permissions = self.client.get(
+            f"/api/system/principals/{principal_id}/permissions",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(permissions.status_code, 200, permissions.text)
+        self.assertEqual(permissions.json()["permissions"]["principal_id"], principal_id)
+        self.assertTrue(permissions.json()["permissions"]["publish_topics"])
+
+        last_seen = self.client.get(
+            f"/api/system/principals/{principal_id}/last_seen",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(last_seen.status_code, 200, last_seen.text)
+        self.assertEqual(last_seen.json()["last_seen"]["principal_id"], principal_id)
+
+        disable = self.client.post(
+            f"/api/system/principals/{principal_id}/disable",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(disable.status_code, 200, disable.text)
+        self.assertEqual(disable.json()["principal"]["status"], "probation")
+
+        activate = self.client.post(
+            f"/api/system/principals/{principal_id}/activate",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(activate.status_code, 200, activate.text)
+        self.assertEqual(activate.json()["principal"]["status"], "active")
+
+        rotate = self.client.post(
+            f"/api/system/principals/{principal_id}/rotate_password",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(rotate.status_code, 200, rotate.text)
+        self.assertTrue(rotate.json()["rotated"])
+
+        revoke = self.client.post(
+            f"/api/system/principals/{principal_id}/revoke",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(revoke.status_code, 200, revoke.text)
+        self.assertEqual(revoke.json()["principal"]["status"], "revoked")
+
+        deleted = self.client.delete(
+            f"/api/system/principals/{principal_id}",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(deleted.status_code, 200, deleted.text)
+        self.assertTrue(deleted.json()["ok"])
+
     def test_users_api_creates_external_scoped_generic_user(self) -> None:
         created = self.client.post(
             "/api/system/mqtt/users",
