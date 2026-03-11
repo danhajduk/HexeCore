@@ -49,6 +49,7 @@ Status: Implemented
 - Keep embedded MQTT and admin workflows stable.
 - Preserve deterministic scheduler and runtime behavior.
 - Maintain clean docs boundaries with canonical-first updates.
+- Keep AI Node architecture documentation aligned between golden docs and the AI Node repo mapping policy.
 
 ## See Also
 
@@ -56,3 +57,4 @@ Status: Implemented
 - [Core Platform](./core-platform.md)
 - [MQTT Platform](./mqtt-platform.md)
 - [Document Index](./document-index.md)
+- [AI Node Docs Mapping](./ai-node-docs-mapping.md)

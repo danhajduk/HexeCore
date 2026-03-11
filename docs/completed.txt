@@ -445,3 +445,11 @@
 2026-03-11 - Task 418: finalized `docs/document-index.md` to prioritize canonical docs and route legacy references to archive.
 2026-03-11 - Task 419: added documentation maintenance note in canonical docs to prevent future doc sprawl.
 2026-03-11 - Task 420: completed final migration verification and added `docs/documentation-migration-summary.md`.
+2026-03-11 - Task 421: added AI Node architecture track section to `docs/document-index.md` and linked mapping/canonical node docs.
+2026-03-11 - Task 422: selected AI Node doc ownership model as node-first canonical (`/home/dan/Projects/SynthiaAiNode/docs`).
+2026-03-11 - Task 423: added `docs/ai-node-docs-mapping.md` with file mapping, ownership, and sync direction.
+2026-03-11 - Task 424: completed AI Node `phase1-overview.md` system diagram/body with bootstrap->registration->approval->trust->persistence flow.
+2026-03-11 - Task 425: normalized AI Node status taxonomy using section-level planned status maps while preserving not-developed posture.
+2026-03-11 - Task 426: added AI Node internal and golden-doc cross-links via `See Also` sections.
+2026-03-11 - Task 427: resolved queue hygiene decisions to use `docs/New_tasks.txt` as canonical task filename in both repos.
+2026-03-11 - Task 428: converted active queue files to task-entries-only format in both repos.

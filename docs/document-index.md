@@ -23,6 +23,7 @@ Synthia is a Core + Addons platform with an embedded MQTT control/data plane, sc
 
 - [Roadmap](./ROADMAP.md)
 - [Documentation Migration Map](./documentation-migration-map.md)
+- [AI Node Docs Mapping](./ai-node-docs-mapping.md)
 - [Distributed Addons Reference](./distributed_addons/README.md)
 - [Addon Store Incident Runbook](./addon-store/incident-runbook.md)
 - JSON schemas:
@@ -34,6 +35,17 @@ Synthia is a Core + Addons platform with an embedded MQTT control/data plane, sc
 
 - [Operators Guide](./operators-guide.md) (canonical runbook)
 - [Addon Store Incident Runbook](./addon-store/incident-runbook.md)
+
+## AI Node Architecture Track
+
+Status: Planned
+
+- Canonical source: `/home/dan/Projects/SynthiaAiNode/docs` (node-first ownership)
+- Mapping and sync policy: [AI Node Docs Mapping](./ai-node-docs-mapping.md)
+- AI Node canonical docs:
+  - `/home/dan/Projects/SynthiaAiNode/docs/phase1-overview.md`
+  - `/home/dan/Projects/SynthiaAiNode/docs/ai-node-architecture.md`
+  - `/home/dan/Projects/SynthiaAiNode/docs/node-capability-declaration.md`
 
 ## Archived and Legacy
 
