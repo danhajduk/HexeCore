@@ -511,3 +511,4 @@
 2026-03-11 16:10 - Task 484: fixed Home status-pill severity mapping so `offline/stopped` subsystem states render warning/error tones instead of neutral.
 2026-03-11 16:40 - Task 447 (Phase 2): defined Core-side node capability activation architecture baseline covering capability registry, governance service, node management responsibilities, and post-trust interaction flow.
 2026-03-11 16:42 - Task 448 (Phase 2): extended node registry model/persistence/API view with capability metadata fields (`declared_capabilities`, `enabled_providers`, declaration version/timestamp, `capability_profile_id`) using backward-compatible defaults and schema_version `2`.
+2026-03-11 16:44 - Task 449 (Phase 2): defined canonical strict capability declaration schema in Core (`manifest_version`, node metadata, task families, provider sets, feature flags, environment hints) with no-extra-keys validation and version compatibility checks.

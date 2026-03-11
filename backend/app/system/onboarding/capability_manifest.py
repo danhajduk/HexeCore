@@ -1,0 +1,140 @@
+from __future__ import annotations
+
+import re
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+
+CAPABILITY_DECLARATION_SCHEMA_VERSION = "1.0"
+SUPPORTED_CAPABILITY_DECLARATION_VERSIONS = {CAPABILITY_DECLARATION_SCHEMA_VERSION}
+_ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{1,127}$")
+_TASK_FAMILY_RE = re.compile(r"^[a-z0-9][a-z0-9._/-]{1,127}$")
+
+
+class CapabilityManifestValidationError(ValueError):
+    code = "capability_manifest_invalid"
+
+    def __init__(self, detail: str) -> None:
+        super().__init__(f"{self.code}: {detail}")
+
+
+def _clean_list(values: list[str]) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for item in values:
+        value = str(item or "").strip().lower()
+        if not value or value in seen:
+            continue
+        seen.add(value)
+        out.append(value)
+    return out
+
+
+class CapabilityNodeMetadata(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    node_id: str = Field(..., min_length=3, max_length=128)
+    node_type: str = Field(..., min_length=2, max_length=64)
+    node_name: str = Field(..., min_length=1, max_length=128)
+    node_software_version: str = Field(..., min_length=1, max_length=64)
+
+    @field_validator("node_id")
+    @classmethod
+    def _validate_node_id(cls, value: str) -> str:
+        v = str(value or "").strip()
+        if not v.startswith("node-"):
+            raise ValueError("invalid_node_id")
+        return v
+
+
+class CapabilityNodeFeatures(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    telemetry: bool = False
+    governance_refresh: bool = False
+    lifecycle_events: bool = False
+    provider_failover: bool = False
+
+
+class CapabilityEnvironmentHints(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    deployment_target: str | None = Field(default=None, max_length=64)
+    acceleration: str | None = Field(default=None, max_length=64)
+    network_tier: str | None = Field(default=None, max_length=64)
+    region: str | None = Field(default=None, max_length=64)
+
+
+class CapabilityDeclaration(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    manifest_version: str = Field(..., min_length=1, max_length=16)
+    node: CapabilityNodeMetadata
+    declared_task_families: list[str] = Field(..., min_length=1)
+    supported_providers: list[str] = Field(..., min_length=1)
+    enabled_providers: list[str] = Field(default_factory=list)
+    node_features: CapabilityNodeFeatures
+    environment_hints: CapabilityEnvironmentHints
+
+    @field_validator("manifest_version")
+    @classmethod
+    def _validate_manifest_version(cls, value: str) -> str:
+        v = str(value or "").strip()
+        if v not in SUPPORTED_CAPABILITY_DECLARATION_VERSIONS:
+            raise ValueError("unsupported_capability_manifest_version")
+        return v
+
+    @field_validator("declared_task_families", mode="before")
+    @classmethod
+    def _validate_task_families(cls, value: Any) -> list[str]:
+        if not isinstance(value, list):
+            raise ValueError("declared_task_families_must_be_list")
+        values = _clean_list([str(item) for item in value])
+        if not values:
+            raise ValueError("declared_task_families_empty")
+        for item in values:
+            if not _TASK_FAMILY_RE.match(item):
+                raise ValueError("invalid_task_family")
+        return values
+
+    @field_validator("supported_providers", mode="before")
+    @classmethod
+    def _validate_supported_providers(cls, value: Any) -> list[str]:
+        if not isinstance(value, list):
+            raise ValueError("supported_providers_must_be_list")
+        values = _clean_list([str(item) for item in value])
+        if not values:
+            raise ValueError("supported_providers_empty")
+        for item in values:
+            if not _ID_RE.match(item):
+                raise ValueError("invalid_provider_id")
+        return values
+
+    @field_validator("enabled_providers", mode="before")
+    @classmethod
+    def _validate_enabled_providers(cls, value: Any) -> list[str]:
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            raise ValueError("enabled_providers_must_be_list")
+        values = _clean_list([str(item) for item in value])
+        for item in values:
+            if not _ID_RE.match(item):
+                raise ValueError("invalid_provider_id")
+        return values
+
+    @model_validator(mode="after")
+    def _validate_enabled_subset(self) -> "CapabilityDeclaration":
+        supported = set(self.supported_providers)
+        for provider in self.enabled_providers:
+            if provider not in supported:
+                raise ValueError("enabled_provider_not_supported")
+        return self
+
+
+def validate_capability_declaration(payload: dict[str, Any]) -> dict[str, Any]:
+    try:
+        parsed = CapabilityDeclaration.model_validate(payload)
+        return parsed.model_dump(mode="python")
+    except ValidationError as exc:
+        raise CapabilityManifestValidationError(str(exc)) from exc

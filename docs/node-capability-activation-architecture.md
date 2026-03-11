@@ -19,9 +19,11 @@ This document does not define prompt/task execution logic.
 - Out of scope: task routing, policy enforcement engine internals, execution planning.
 
 ## Current Implementation State
-The following Phase 2 capabilities are currently not implemented in Core code:
+Implemented:
+- Canonical capability declaration schema module and strict validator (`backend/app/system/onboarding/capability_manifest.py`).
+
+Not developed:
 - node capability declaration API
-- capability manifest schema validation
 - capability profile registry
 - governance bundle generation/distribution
 - governance version tracking
