@@ -86,6 +86,7 @@ class MqttManager:
             "_counter_total": None,
             "_counter_at": None,
         }
+        self._principal_traffic_windows: dict[str, dict[str, Any]] = {}
 
     async def start(self) -> None:
         if not self._enabled:
@@ -240,6 +241,20 @@ class MqttManager:
             "dropped_messages": self._broker_metrics.get("dropped_messages"),
             "retained_messages": self._broker_metrics.get("retained_messages"),
         }
+
+    async def principal_traffic_metrics(self) -> dict[str, dict[str, Any]]:
+        self._trim_principal_traffic_windows()
+        out: dict[str, dict[str, Any]] = {}
+        for principal_id, item in sorted(self._principal_traffic_windows.items()):
+            dt = max(0.001, float(item.get("window_seconds") or 10.0))
+            count = int(item.get("message_count") or 0)
+            total_size = int(item.get("payload_size_total") or 0)
+            out[principal_id] = {
+                "messages_per_second": round(count / dt, 3),
+                "payload_size": total_size,
+                "topic_count": len(item.get("topics") or set()),
+            }
+        return out
 
     def _core_info_payload(self) -> dict[str, Any]:
         cfg = self._config
@@ -419,6 +434,11 @@ class MqttManager:
             addon_id = parts[2]
             event = parts[3]
             self._touch_principal_runtime(f"addon:{addon_id}", client_id=f"addon:{addon_id}")
+            self._record_principal_traffic(
+                principal_id=f"addon:{addon_id}",
+                topic=topic,
+                payload_size=len(getattr(msg, "payload", b"") or b""),
+            )
             if event == "announce":
                 self._dispatch_registry_update(addon_id, payload, announce=True)
             elif event == "health":
@@ -509,6 +529,38 @@ class MqttManager:
             updated = dict(session)
             updated["connected"] = False
             self._runtime_sessions[client_id] = updated
+
+    def _record_principal_traffic(self, *, principal_id: str, topic: str, payload_size: int) -> None:
+        now = time.time()
+        window = dict(self._principal_traffic_windows.get(principal_id) or {})
+        started_at = float(window.get("window_started_at") or 0.0)
+        if started_at <= 0.0 or (now - started_at) > 10.0:
+            window = {
+                "window_started_at": now,
+                "window_seconds": 10.0,
+                "message_count": 0,
+                "payload_size_total": 0,
+                "topics": set(),
+                "updated_at": now,
+            }
+        window["message_count"] = int(window.get("message_count") or 0) + 1
+        window["payload_size_total"] = int(window.get("payload_size_total") or 0) + max(0, int(payload_size))
+        topics = set(window.get("topics") or set())
+        topics.add(str(topic))
+        window["topics"] = topics
+        window["updated_at"] = now
+        self._principal_traffic_windows[principal_id] = window
+
+    def _trim_principal_traffic_windows(self) -> None:
+        now = time.time()
+        keep_seconds = 60.0
+        for principal_id, item in list(self._principal_traffic_windows.items()):
+            updated_at = float(item.get("updated_at") or 0.0)
+            if updated_at <= 0.0:
+                continue
+            if (now - updated_at) <= keep_seconds:
+                continue
+            self._principal_traffic_windows.pop(principal_id, None)
 
     def _update_broker_metrics(self, *, topic: str, payload: dict[str, Any], decoded: str) -> None:
         value_int = self._parse_int_payload(payload, decoded)

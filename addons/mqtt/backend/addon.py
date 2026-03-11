@@ -1306,6 +1306,26 @@ def addon_ui_root() -> str:
           return;
         }
 
+        if (section === "noisy-clients") {
+          const rows = visible
+            .slice(0, 50)
+            .map((item) => {
+              const principalId = escapeHtml(item.principal_id || "-");
+              const noisyState = escapeHtml(item.noisy_state || item.status || "-");
+              const inputs = item && item.noisy_inputs ? item.noisy_inputs : {};
+              const mps = escapeHtml(String(inputs.messages_per_second ?? "-"));
+              const payloadSize = escapeHtml(String(inputs.payload_size ?? "-"));
+              const topicCount = escapeHtml(String(inputs.topic_count ?? "-"));
+              const updated = escapeHtml(item.noisy_updated_at || item.updated_at || "-");
+              return `<tr><td>${principalId}</td><td>${noisyState}</td><td>${mps}</td><td>${payloadSize}</td><td>${topicCount}</td><td>${updated}</td></tr>`;
+            })
+            .join("");
+          sectionContent.innerHTML =
+            toolbar +
+            `<table class='table'><thead><tr><th>Principal</th><th>Noisy State</th><th>msg/s</th><th>Payload Size</th><th>Topic Count</th><th>Updated</th></tr></thead><tbody>${rows}</tbody></table>`;
+          return;
+        }
+
         const rows = visible
           .slice(0, 50)
           .map((item) => {

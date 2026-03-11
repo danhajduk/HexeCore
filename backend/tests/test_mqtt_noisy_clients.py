@@ -19,6 +19,15 @@ class _FakeMqttManager:
             "reconnect_spikes": 5,
         }
 
+    async def principal_traffic_metrics(self):
+        return {
+            "addon:vision": {
+                "messages_per_second": 240,
+                "payload_size": 4096,
+                "topic_count": 5,
+            }
+        }
+
 
 class TestMqttNoisyClientEvaluator(unittest.TestCase):
     def test_noisy_evaluation_updates_principal_state(self) -> None:
@@ -53,8 +62,9 @@ class TestMqttNoisyClientEvaluator(unittest.TestCase):
             self.assertTrue(result["ok"])
             state = asyncio.run(state_store.get_state())
             principal = state.principals["addon:vision"]
-            self.assertIn(principal.noisy_state, {"watch", "noisy"})
+            self.assertEqual(principal.noisy_state, "noisy")
             self.assertGreaterEqual(int(principal.noisy_inputs.get("auth_failures") or 0), 1)
+            self.assertGreaterEqual(int(principal.noisy_inputs.get("messages_per_second") or 0), 200)
 
 
 if __name__ == "__main__":

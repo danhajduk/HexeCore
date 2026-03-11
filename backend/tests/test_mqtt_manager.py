@@ -249,6 +249,21 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(metrics["dropped_messages"], 2)
         self.assertEqual(metrics["retained_messages"], 5)
 
+    async def test_principal_traffic_metrics_tracks_addon_topics(self) -> None:
+        manager = MqttManager(
+            settings_store=_FakeSettingsStore(),
+            registry=_FakeRegistry(),
+            service_catalog_store=_FakeServiceCatalogStore(),
+            enabled=True,
+        )
+        manager._loop = asyncio.get_running_loop()
+        manager._on_message(None, None, _Msg("synthia/addons/mqtt/announce", {"ok": True}))
+        manager._on_message(None, None, _Msg("synthia/addons/mqtt/health", {"status": "ok"}))
+        metrics = await manager.principal_traffic_metrics()
+        self.assertIn("addon:mqtt", metrics)
+        self.assertGreater(float(metrics["addon:mqtt"]["messages_per_second"]), 0.0)
+        self.assertGreaterEqual(int(metrics["addon:mqtt"]["topic_count"]), 1)
+
     async def test_on_connect_accepts_reason_code_object(self) -> None:
         manager = MqttManager(
             settings_store=_FakeSettingsStore(),

@@ -374,3 +374,4 @@
 2026-03-11 - Task 364: added admin debug publish endpoint/UI form with reserved system topic blocking and regression coverage.
 2026-03-11 - Task 365: reordered MQTT tabs to move Setup to the end once setup is complete.
 2026-03-11 - Task 366: added $SYS broker health metric aggregation, runtime health API metrics payload, and Overview metric cards.
+2026-03-11 - Task 367: implemented traffic-threshold noisy detection (msg/s, payload size, topic count) and surfaced metrics in Noisy Clients UI.

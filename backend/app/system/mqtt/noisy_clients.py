@@ -19,6 +19,15 @@ class MqttNoisyClientEvaluator:
     async def evaluate(self) -> dict[str, object]:
         state = await self._state_store.get_state()
         status = await self._mqtt.status()
+        traffic_map: dict[str, dict[str, object]] = {}
+        traffic_fn = getattr(self._mqtt, "principal_traffic_metrics", None)
+        if callable(traffic_fn):
+            try:
+                payload = await traffic_fn()
+                if isinstance(payload, dict):
+                    traffic_map = payload
+            except Exception:
+                traffic_map = {}
         reconnect_spikes = int(status.get("reconnect_spikes") or 0)
         auth_failures = int(status.get("auth_failures") or 0)
         connection_churn = int(status.get("connection_count") or 0)
@@ -28,11 +37,18 @@ class MqttNoisyClientEvaluator:
             if principal.noisy_state == "blocked":
                 continue
             denied = await self._denied_topic_attempts_for_principal(principal.principal_id, principal.linked_addon_id)
+            traffic = traffic_map.get(principal.principal_id) if isinstance(traffic_map, dict) else {}
+            messages_per_second = float((traffic or {}).get("messages_per_second") or 0.0)
+            payload_size = int((traffic or {}).get("payload_size") or 0)
+            topic_count = int((traffic or {}).get("topic_count") or 0)
             inputs = {
                 "reconnect_spikes": reconnect_spikes,
                 "auth_failures": auth_failures,
                 "connection_churn": connection_churn,
                 "denied_topic_attempts": denied,
+                "messages_per_second": int(messages_per_second),
+                "payload_size": payload_size,
+                "topic_count": topic_count,
             }
             next_state = self._score_state(inputs)
             if principal.noisy_state != next_state or principal.noisy_inputs != inputs:
@@ -73,6 +89,13 @@ class MqttNoisyClientEvaluator:
 
     @staticmethod
     def _score_state(inputs: dict[str, int]) -> str:
+        messages_per_second = int(inputs.get("messages_per_second") or 0)
+        if messages_per_second > 500:
+            return "blocked"
+        if messages_per_second > 200:
+            return "noisy"
+        if messages_per_second > 50:
+            return "watch"
         score = 0
         if int(inputs.get("reconnect_spikes") or 0) >= 5:
             score += 1
