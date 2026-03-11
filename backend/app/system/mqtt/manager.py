@@ -96,8 +96,8 @@ class MqttManager:
         self._integration_state_path = str(
             os.getenv("MQTT_INTEGRATION_STATE_PATH", os.path.join(os.getcwd(), "var", "mqtt_integration_state.json"))
         ).strip()
-        self._generic_topic_scopes_by_principal: dict[str, list[str]] = {}
-        self._generic_topic_scopes_mtime: float | None = None
+        self._topic_scopes_by_principal: dict[str, list[str]] = {}
+        self._topic_scopes_mtime: float | None = None
         self._error_count = 0
         self._stats_history: deque[dict[str, Any]] = deque(maxlen=50000)
         self._stats_retention_s = 24 * 60 * 60
@@ -501,25 +501,33 @@ class MqttManager:
         if topic.startswith("$SYS/broker/"):
             self._update_broker_metrics(topic=topic, payload=payload, decoded=decoded)
             return
-        inferred_principal = self._infer_generic_principal_from_topic(topic)
+        inferred_principal = self._infer_principal_from_topic(topic)
+        inferred_tracked = False
         if inferred_principal is not None:
-            inferred_client = inferred_principal.split(":", 1)[1]
+            inferred_client = (
+                inferred_principal.split(":", 1)[1]
+                if ":" in inferred_principal
+                else inferred_principal
+            )
             self._touch_principal_runtime(inferred_principal, client_id=inferred_client)
             self._record_principal_traffic(
                 principal_id=inferred_principal,
                 topic=topic,
                 payload_size=len(getattr(msg, "payload", b"") or b""),
             )
+            inferred_tracked = True
         parts = topic.split("/")
         if len(parts) >= 4 and parts[0] == "synthia" and parts[1] == "addons":
             addon_id = parts[2]
             event = parts[3]
-            self._touch_principal_runtime(f"addon:{addon_id}", client_id=f"addon:{addon_id}")
-            self._record_principal_traffic(
-                principal_id=f"addon:{addon_id}",
-                topic=topic,
-                payload_size=len(getattr(msg, "payload", b"") or b""),
-            )
+            addon_principal = f"addon:{addon_id}"
+            if not (inferred_tracked and inferred_principal == addon_principal):
+                self._touch_principal_runtime(addon_principal, client_id=addon_principal)
+                self._record_principal_traffic(
+                    principal_id=addon_principal,
+                    topic=topic,
+                    payload_size=len(getattr(msg, "payload", b"") or b""),
+                )
             if event == "announce":
                 self._dispatch_registry_update(addon_id, payload, announce=True)
             elif event == "health":
@@ -555,37 +563,38 @@ class MqttManager:
         literal_chars = sum(len(level) for level in literal_levels)
         return (len(literal_levels), literal_chars)
 
-    def _refresh_generic_topic_scopes(self) -> None:
+    def _refresh_principal_topic_scopes(self) -> None:
         path = self._integration_state_path
         if not path:
-            self._generic_topic_scopes_by_principal = {}
-            self._generic_topic_scopes_mtime = None
+            self._topic_scopes_by_principal = {}
+            self._topic_scopes_mtime = None
             return
         try:
             mtime = os.path.getmtime(path)
         except Exception:
-            self._generic_topic_scopes_by_principal = {}
-            self._generic_topic_scopes_mtime = None
+            self._topic_scopes_by_principal = {}
+            self._topic_scopes_mtime = None
             return
-        if self._generic_topic_scopes_mtime is not None and self._generic_topic_scopes_mtime == mtime:
+        if self._topic_scopes_mtime is not None and self._topic_scopes_mtime == mtime:
             return
         try:
             with open(path, "r", encoding="utf-8") as handle:
                 payload = json.load(handle)
         except Exception:
-            self._generic_topic_scopes_by_principal = {}
-            self._generic_topic_scopes_mtime = mtime
+            self._topic_scopes_by_principal = {}
+            self._topic_scopes_mtime = mtime
             return
         principals = payload.get("principals") if isinstance(payload, dict) else None
         if not isinstance(principals, dict):
-            self._generic_topic_scopes_by_principal = {}
-            self._generic_topic_scopes_mtime = mtime
+            self._topic_scopes_by_principal = {}
+            self._topic_scopes_mtime = mtime
             return
         out: dict[str, list[str]] = {}
         for principal_id, row in principals.items():
             if not isinstance(row, dict):
                 continue
-            if str(row.get("principal_type") or "").strip().lower() != "generic_user":
+            principal_type = str(row.get("principal_type") or "").strip().lower()
+            if principal_type not in {"generic_user", "synthia_addon", "synthia_node", "system"}:
                 continue
             status = str(row.get("status") or "").strip().lower()
             if status in {"revoked", "expired"}:
@@ -611,18 +620,19 @@ class MqttManager:
                     scopes = [f"{prefix}/#"]
             if scopes:
                 out[str(principal_id)] = scopes
-        self._generic_topic_scopes_by_principal = out
-        self._generic_topic_scopes_mtime = mtime
+        self._topic_scopes_by_principal = out
+        self._topic_scopes_mtime = mtime
 
-    def _infer_generic_principal_from_topic(self, topic: str) -> str | None:
+    def _infer_principal_from_topic(self, topic: str) -> str | None:
         normalized = str(topic or "").strip()
         if not normalized:
             return None
         if normalized.startswith("$SYS/") or normalized.startswith("synthia/"):
-            return None
-        self._refresh_generic_topic_scopes()
+            # Scope matching may still map synthia/* to addon/core principals; generic fallback is skipped.
+            pass
+        self._refresh_principal_topic_scopes()
         matches: list[tuple[tuple[int, int], str]] = []
-        for principal_id, scopes in self._generic_topic_scopes_by_principal.items():
+        for principal_id, scopes in self._topic_scopes_by_principal.items():
             best_for_principal: tuple[int, int] | None = None
             for scope in scopes:
                 if not self._topic_matches_filter(normalized, scope):
@@ -635,6 +645,8 @@ class MqttManager:
         if matches:
             matches.sort(key=lambda row: (row[0][0], row[0][1], row[1]), reverse=True)
             return matches[0][1]
+        if normalized.startswith("$SYS/") or normalized.startswith("synthia/"):
+            return None
         head = normalized.split("/", 1)[0].strip()
         if not head:
             return None

@@ -416,6 +416,54 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
                 else:
                     os.environ["MQTT_INTEGRATION_STATE_PATH"] = old
 
+    async def test_addon_and_core_topic_activity_maps_to_principal_scopes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            state_path = os.path.join(tmp, "mqtt_integration_state.json")
+            with open(state_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "principals": {
+                            "addon:vision": {
+                                "principal_id": "addon:vision",
+                                "principal_type": "synthia_addon",
+                                "status": "active",
+                                "publish_topics": ["synthia/addons/vision/state/#"],
+                                "subscribe_topics": ["synthia/addons/vision/command/#"],
+                            },
+                            "core.scheduler": {
+                                "principal_id": "core.scheduler",
+                                "principal_type": "system",
+                                "status": "active",
+                                "publish_topics": ["synthia/scheduler/heartbeat"],
+                                "subscribe_topics": [],
+                            },
+                        }
+                    },
+                    handle,
+                )
+            old = os.environ.get("MQTT_INTEGRATION_STATE_PATH")
+            os.environ["MQTT_INTEGRATION_STATE_PATH"] = state_path
+            try:
+                manager = MqttManager(
+                    settings_store=_FakeSettingsStore(),
+                    registry=_FakeRegistry(),
+                    service_catalog_store=_FakeServiceCatalogStore(),
+                    enabled=True,
+                )
+                manager._loop = asyncio.get_running_loop()
+                manager._on_message(None, None, _Msg("synthia/addons/vision/state/temp", {"ok": True}, retain=False))
+                manager._on_message(None, None, _Msg("synthia/scheduler/heartbeat", {"ok": True}, retain=False))
+                runtime = await manager.principal_connection_states()
+                self.assertIn("addon:vision", runtime)
+                self.assertTrue(runtime["addon:vision"]["connected"])
+                self.assertIn("core.scheduler", runtime)
+                self.assertTrue(runtime["core.scheduler"]["connected"])
+            finally:
+                if old is None:
+                    del os.environ["MQTT_INTEGRATION_STATE_PATH"]
+                else:
+                    os.environ["MQTT_INTEGRATION_STATE_PATH"] = old
+
     async def test_topic_activity_limit_prefers_most_recent_topics(self) -> None:
         manager = MqttManager(
             settings_store=_FakeSettingsStore(),
