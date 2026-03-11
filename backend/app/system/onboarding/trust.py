@@ -23,10 +23,12 @@ def _repo_root() -> Path:
 @dataclass
 class NodeTrustRecord:
     node_id: str
+    node_type: str
     paired_core_id: str
     node_trust_token: str
     initial_baseline_policy: dict[str, Any]
     baseline_policy_version: str
+    activation_profile: dict[str, Any]
     operational_mqtt_identity: str
     operational_mqtt_token: str
     operational_mqtt_host: str
@@ -37,10 +39,12 @@ class NodeTrustRecord:
     def to_dict(self) -> dict[str, Any]:
         return {
             "node_id": self.node_id,
+            "node_type": self.node_type,
             "paired_core_id": self.paired_core_id,
             "node_trust_token": self.node_trust_token,
             "initial_baseline_policy": self.initial_baseline_policy,
             "baseline_policy_version": self.baseline_policy_version,
+            "activation_profile": self.activation_profile,
             "operational_mqtt_identity": self.operational_mqtt_identity,
             "operational_mqtt_token": self.operational_mqtt_token,
             "operational_mqtt_host": self.operational_mqtt_host,
@@ -77,12 +81,16 @@ class NodeTrustStore:
                 try:
                     rec = NodeTrustRecord(
                         node_id=node_id,
+                        node_type=str(item.get("node_type") or "ai-node").strip() or "ai-node",
                         paired_core_id=str(item.get("paired_core_id") or "synthia-core"),
                         node_trust_token=str(item.get("node_trust_token") or ""),
                         initial_baseline_policy=item.get("initial_baseline_policy")
                         if isinstance(item.get("initial_baseline_policy"), dict)
                         else {"version": "1", "rules": []},
                         baseline_policy_version=str(item.get("baseline_policy_version") or "1"),
+                        activation_profile=item.get("activation_profile")
+                        if isinstance(item.get("activation_profile"), dict)
+                        else {"node_type": str(item.get("node_type") or "ai-node").strip() or "ai-node"},
                         operational_mqtt_identity=str(item.get("operational_mqtt_identity") or f"node:{node_id}"),
                         operational_mqtt_token=str(item.get("operational_mqtt_token") or ""),
                         operational_mqtt_host=str(item.get("operational_mqtt_host") or "127.0.0.1"),
@@ -150,17 +158,24 @@ class NodeTrustIssuanceService:
             return {"ok": True, "activation": existing.to_dict()}
 
         node_id = str(session.linked_node_id or "").strip() or f"node-{session.session_id[:12]}"
+        node_type = str(session.requested_node_type or "").strip() or "unknown"
         baseline_policy_version = "1"
         baseline_policy = {
             "version": baseline_policy_version,
             "rules": [],
         }
+        activation_profile = {
+            "node_type": node_type,
+            "extensions": {},
+        }
         record = NodeTrustRecord(
             node_id=node_id,
+            node_type=node_type,
             paired_core_id=self._core_id,
             node_trust_token=secrets.token_urlsafe(32),
             initial_baseline_policy=baseline_policy,
             baseline_policy_version=baseline_policy_version,
+            activation_profile=activation_profile,
             operational_mqtt_identity=f"node:{node_id}",
             operational_mqtt_token=secrets.token_urlsafe(32),
             operational_mqtt_host=self._mqtt_host,

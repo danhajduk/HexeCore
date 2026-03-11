@@ -15,7 +15,7 @@ except Exception:  # pragma: no cover
     build_system_router = None
     FASTAPI_STACK_AVAILABLE = False
 
-from app.system.onboarding import NodeOnboardingSessionsStore, NodeRegistrationsStore
+from app.system.onboarding import NodeOnboardingSessionsStore, NodeRegistrationsStore, NodeTrustIssuanceService, NodeTrustStore
 
 
 class _FakeRegistry:
@@ -42,12 +42,15 @@ class TestNodeRegistrationsApi(unittest.TestCase):
         self.tmpdir = tempfile.TemporaryDirectory()
         self.sessions = NodeOnboardingSessionsStore(path=Path(self.tmpdir.name) / "node_onboarding_sessions.json")
         self.registrations = NodeRegistrationsStore(path=Path(self.tmpdir.name) / "node_registrations.json")
+        self.trust_store = NodeTrustStore(path=Path(self.tmpdir.name) / "node_trust_records.json")
+        self.trust_issuance = NodeTrustIssuanceService(self.trust_store)
         app = FastAPI()
         app.include_router(
             build_system_router(
                 _FakeRegistry(),
                 onboarding_sessions_store=self.sessions,
                 node_registrations_store=self.registrations,
+                node_trust_issuance=self.trust_issuance,
             ),
             prefix="/api",
         )
@@ -106,6 +109,38 @@ class TestNodeRegistrationsApi(unittest.TestCase):
         registration = got.json()["registration"]
         self.assertEqual(registration["node_type"], "ai-node")
         self.assertEqual(registration["requested_node_type"], "ai-node")
+
+    def test_finalize_marks_registration_trusted(self) -> None:
+        started = self.client.post(
+            "/api/system/nodes/onboarding/sessions",
+            json={
+                "node_name": "trust-node",
+                "node_type": "ai-node",
+                "node_software_version": "1.0.0",
+                "protocol_version": "1.0",
+                "node_nonce": "nonce-api-4",
+            },
+        )
+        self.assertEqual(started.status_code, 200, started.text)
+        session_id = started.json()["session"]["session_id"]
+        state = started.json()["session"]["approval_url"].split("state=", 1)[1]
+        approve = self.client.post(
+            f"/api/system/nodes/onboarding/sessions/{session_id}/approve?state={state}",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(approve.status_code, 200, approve.text)
+        node_id = approve.json()["registration"]["node_id"]
+
+        finalized = self.client.get(
+            f"/api/system/nodes/onboarding/sessions/{session_id}/finalize?node_nonce=nonce-api-4"
+        )
+        self.assertEqual(finalized.status_code, 200, finalized.text)
+        self.assertEqual(finalized.json()["onboarding_status"], "approved")
+        self.assertEqual(finalized.json()["activation"]["node_type"], "ai-node")
+
+        got = self.client.get(f"/api/system/nodes/registrations/{node_id}", headers={"X-Admin-Token": "test-token"})
+        self.assertEqual(got.status_code, 200, got.text)
+        self.assertEqual(got.json()["registration"]["trust_status"], "trusted")
 
     def test_list_registrations_filters(self) -> None:
         self._start_and_approve("office-node", "ai-node", "nonce-api-2")

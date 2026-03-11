@@ -198,3 +198,35 @@ class NodeRegistrationsStore:
             updated_at=_utcnow_iso(),
         )
         return self.upsert(record)
+
+    def set_trust_status(
+        self,
+        node_id: str,
+        *,
+        trust_status: str,
+        approved_by_user_id: str | None = None,
+        approved_at: str | None = None,
+    ) -> NodeRegistrationRecord | None:
+        record = self.get(node_id)
+        if record is None:
+            return None
+        status = str(trust_status or "").strip().lower()
+        if status not in VALID_TRUST_STATUSES:
+            raise ValueError("trust_status_invalid")
+        record.trust_status = status
+        if approved_by_user_id is not None:
+            record.approved_by_user_id = str(approved_by_user_id or "").strip() or None
+        if approved_at is not None:
+            record.approved_at = str(approved_at or "").strip() or None
+        return self.upsert(record)
+
+    def mark_trusted_by_session(self, session_id: str) -> NodeRegistrationRecord | None:
+        record = self.get_by_session(session_id)
+        if record is None:
+            return None
+        return self.set_trust_status(
+            record.node_id,
+            trust_status="trusted",
+            approved_by_user_id=record.approved_by_user_id,
+            approved_at=record.approved_at,
+        )

@@ -502,6 +502,11 @@ def build_system_router(
                 },
             )
             onboarding_sessions_store.consume_final_payload(session_id, actor_id="node_finalize")
+            if node_registrations_store is not None:
+                try:
+                    node_registrations_store.mark_trusted_by_session(session_id)
+                except Exception:
+                    pass
             _record_audit(
                 audit_store,
                 event_type="node_onboarding_trust_consumed",

@@ -45,6 +45,8 @@ class TestNodeTrustIssuanceService(unittest.TestCase):
         self.assertTrue(first["ok"])
         self.assertTrue(second["ok"])
         self.assertEqual(first["activation"]["node_id"], "node-fixed-1")
+        self.assertEqual(first["activation"]["node_type"], "ai-node")
+        self.assertEqual(first["activation"]["activation_profile"]["node_type"], "ai-node")
         self.assertEqual(first["activation"]["node_trust_token"], second["activation"]["node_trust_token"])
         self.assertEqual(first["activation"]["operational_mqtt_token"], second["activation"]["operational_mqtt_token"])
         self.assertEqual(first["activation"]["source_session_id"], approved.session_id)
