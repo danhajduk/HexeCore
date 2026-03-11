@@ -138,6 +138,7 @@ class TestSynthiaSupervisorCompose(unittest.TestCase):
             env_text = env_file.read_text(encoding="utf-8")
             self.assertIn("privileged: false", compose_text)
             self.assertIn("no-new-privileges:true", compose_text)
+            self.assertIn("restart: no", compose_text)
             self.assertNotIn("network_mode: host", compose_text)
             self.assertIn("networks:", compose_text)
             self.assertIn("synthia_net", compose_text)
@@ -262,6 +263,40 @@ class TestSynthiaSupervisorCompose(unittest.TestCase):
             self.assertNotIn("/state/runtime.json:ro", compose_text)
             self.assertIn(f"{desired_file}:/state/desired.json", compose_text)
             self.assertIn(f"{runtime_file}:/state/runtime.json", compose_text)
+
+    def test_compose_uses_configured_restart_policy(self) -> None:
+        desired = DesiredState.model_validate(
+            {
+                "ssap_version": "1.0",
+                "addon_id": "mqtt",
+                "desired_state": "running",
+                "install_source": {
+                    "type": "catalog",
+                    "release": {
+                        "artifact_url": "https://example.test/mqtt.tgz",
+                        "sha256": "a" * 64,
+                    },
+                },
+                "runtime": {
+                    "project_name": "synthia-addon-mqtt",
+                    "network": "synthia_net",
+                },
+                "config": {"env": {}},
+            }
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            extracted = Path(tmp) / "extracted"
+            extracted.mkdir(parents=True, exist_ok=True)
+            compose_file = Path(tmp) / "docker-compose.yml"
+            env_file = Path(tmp) / "runtime.env"
+            desired_file = Path(tmp) / "desired.json"
+            runtime_file = Path(tmp) / "runtime.json"
+            desired_file.write_text("{}\n", encoding="utf-8")
+            runtime_file.write_text("{}\n", encoding="utf-8")
+            with patch.dict(os.environ, {"SYNTHIA_SUPERVISOR_COMPOSE_RESTART_POLICY": "unless-stopped"}, clear=False):
+                ensure_compose_files(desired, extracted, compose_file, env_file, desired_file, runtime_file, "mqtt")
+            compose_text = compose_file.read_text(encoding="utf-8")
+            self.assertIn("restart: unless-stopped", compose_text)
 
     def test_compose_up_reports_stderr_summary_on_failure(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -10,6 +10,12 @@ from typing import Iterable
 log = logging.getLogger("synthia.supervisor")
 
 
+def _restart_policy() -> str:
+    raw = str(os.environ.get("SYNTHIA_SUPERVISOR_COMPOSE_RESTART_POLICY", "no")).strip().lower()
+    allowed = {"no", "on-failure", "always", "unless-stopped"}
+    return raw if raw in allowed else "no"
+
+
 def _normalize_tree_mtime(root: Path) -> None:
     now = time.time()
     for path in sorted(root.rglob("*"), key=lambda item: len(item.parts), reverse=True):
@@ -172,6 +178,7 @@ def ensure_compose_files(
     memory_limit = getattr(desired.runtime, "memory", None)
     cpu_section = f"    cpus: {float(cpu_limit)}\n" if cpu_limit is not None else ""
     memory_section = f"    mem_limit: {str(memory_limit).strip()}\n" if memory_limit else ""
+    restart_policy = _restart_policy()
     state_section = (
         "    volumes:\n"
         f"      - {desired_file}:/state/desired.json\n"
@@ -182,7 +189,7 @@ def ensure_compose_files(
 services:
   {service_name}:
     build: {extracted_dir}
-    restart: unless-stopped
+    restart: {restart_policy}
     privileged: false
     security_opt:
       - no-new-privileges:true
@@ -201,10 +208,14 @@ networks:
         stale_read_only_state_mount = (
             "/state/desired.json:ro" in existing or "/state/runtime.json:ro" in existing
         )
-        if not stale_read_only_state_mount:
+        restart_policy_mismatch = f"restart: {restart_policy}" not in existing
+        if not stale_read_only_state_mount and not restart_policy_mismatch:
             log.info("compose_file_skip path=%s reason=already_exists", compose_file)
             return
-        log.info("compose_file_regen path=%s reason=state_mount_mode_update", compose_file)
+        if stale_read_only_state_mount:
+            log.info("compose_file_regen path=%s reason=state_mount_mode_update", compose_file)
+        else:
+            log.info("compose_file_regen path=%s reason=restart_policy_update", compose_file)
     compose_file.write_text(compose_content)
     log.info(
         "compose_file_written path=%s network=%s host_bind=%s",
