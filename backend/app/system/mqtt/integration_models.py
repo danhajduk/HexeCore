@@ -75,6 +75,8 @@ class MqttPrincipal(BaseModel):
     topic_prefix: str | None = None
     access_mode: MQTT_GENERIC_ACCESS_MODES = "private"
     allowed_topics: list[str] = Field(default_factory=list)
+    allowed_publish_topics: list[str] = Field(default_factory=list)
+    allowed_subscribe_topics: list[str] = Field(default_factory=list)
     managed_by: str | None = None
     publish_topics: list[str] = Field(default_factory=list)
     subscribe_topics: list[str] = Field(default_factory=list)

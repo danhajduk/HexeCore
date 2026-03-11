@@ -403,3 +403,5 @@
 338. Task 367: Implement noisy client detection - Completed on 03/11/2026 00:24
 339. Task 368: Implement noisy client mitigation - Completed on 03/11/2026 00:31
 340. Task 369: Enforce reserved topic protection - Completed on 03/11/2026 00:39
+
+2026-03-10 - Task 370: supported separate generic-user publish/subscribe topic arrays (`allowed_publish_topics` / `allowed_subscribe_topics`) across API, state, effective ACL compilation, and embedded MQTT UI; added topic pattern validation.

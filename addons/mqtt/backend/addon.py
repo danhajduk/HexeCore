@@ -593,13 +593,23 @@ def addon_ui_root() -> str:
       const prefixNode = document.getElementById("create-user-prefix");
       const modeNode = document.getElementById("create-user-access-mode");
       const topicsNode = document.getElementById("create-user-allowed-topics");
+      const publishTopicsNode = document.getElementById("create-user-allowed-publish-topics");
+      const subscribeTopicsNode = document.getElementById("create-user-allowed-subscribe-topics");
       const statusNode = document.getElementById("create-user-status");
-      if (!usernameNode || !passwordNode || !prefixNode || !modeNode || !topicsNode || !statusNode) return;
+      if (!usernameNode || !passwordNode || !prefixNode || !modeNode || !topicsNode || !publishTopicsNode || !subscribeTopicsNode || !statusNode) return;
       const usernameValue = String(usernameNode.value || "").trim();
       const prefixValue = String(prefixNode.value || "").trim();
       const passwordValue = String(passwordNode.value || "").trim() || "generated";
       const accessMode = String(modeNode.value || "private").trim();
       const allowedTopics = String(topicsNode.value || "")
+        .split(",")
+        .map((item) => String(item || "").trim())
+        .filter((item) => item.length > 0);
+      const allowedPublishTopics = String(publishTopicsNode.value || "")
+        .split(",")
+        .map((item) => String(item || "").trim())
+        .filter((item) => item.length > 0);
+      const allowedSubscribeTopics = String(subscribeTopicsNode.value || "")
         .split(",")
         .map((item) => String(item || "").trim())
         .filter((item) => item.length > 0);
@@ -616,6 +626,8 @@ def addon_ui_root() -> str:
             topic_prefix: prefixValue,
             access_mode: accessMode,
             allowed_topics: allowedTopics,
+            allowed_publish_topics: allowedPublishTopics,
+            allowed_subscribe_topics: allowedSubscribeTopics,
           }),
         });
         const payload = await response.json();
@@ -632,7 +644,7 @@ def addon_ui_root() -> str:
       }
     }
 
-    async function runGenericUserAction(action, principalId, topicPrefix, accessMode, allowedTopics) {
+    async function runGenericUserAction(action, principalId, topicPrefix, accessMode, allowedTopics, allowedPublishTopics, allowedSubscribeTopics) {
       const id = String(principalId || "").trim();
       if (!id) return;
       const normalized = String(action || "").trim().toLowerCase();
@@ -654,6 +666,8 @@ def addon_ui_root() -> str:
         const nextMode = window.prompt("Access mode (private/custom/non_reserved/admin)", String(accessMode || "private"));
         if (!nextPrefix || !nextMode) return;
         let nextAllowed = [];
+        let nextAllowedPublish = [];
+        let nextAllowedSubscribe = [];
         if (String(nextMode).toLowerCase() === "custom") {
           const base = Array.isArray(allowedTopics) ? allowedTopics.join(",") : String(allowedTopics || "");
           const raw = window.prompt("Allowed topics (comma separated)", base);
@@ -661,10 +675,28 @@ def addon_ui_root() -> str:
             .split(",")
             .map((item) => String(item || "").trim())
             .filter((item) => item.length > 0);
+          const publishBase = Array.isArray(allowedPublishTopics) ? allowedPublishTopics.join(",") : base;
+          const rawPublish = window.prompt("Allowed publish topics (comma separated)", publishBase);
+          nextAllowedPublish = String(rawPublish || "")
+            .split(",")
+            .map((item) => String(item || "").trim())
+            .filter((item) => item.length > 0);
+          const subscribeBase = Array.isArray(allowedSubscribeTopics) ? allowedSubscribeTopics.join(",") : base;
+          const rawSubscribe = window.prompt("Allowed subscribe topics (comma separated)", subscribeBase);
+          nextAllowedSubscribe = String(rawSubscribe || "")
+            .split(",")
+            .map((item) => String(item || "").trim())
+            .filter((item) => item.length > 0);
         }
         url = `/api/system/mqtt/users/${encodeURIComponent(id)}`;
         method = "PATCH";
-        body = { topic_prefix: nextPrefix, access_mode: nextMode, allowed_topics: nextAllowed };
+        body = {
+          topic_prefix: nextPrefix,
+          access_mode: nextMode,
+          allowed_topics: nextAllowed,
+          allowed_publish_topics: nextAllowedPublish,
+          allowed_subscribe_topics: nextAllowedSubscribe,
+        };
       } else if (normalized === "delete") {
         if (!window.confirm(`Delete ${id}?`)) return;
         url = `/api/system/mqtt/users/${encodeURIComponent(id)}`;
@@ -1091,6 +1123,8 @@ def addon_ui_root() -> str:
         `<label>Topic Prefix<input id='create-user-prefix' placeholder='external/homeassistant' /></label>` +
         `<label>Access Mode<select id='create-user-access-mode'><option value='private'>private</option><option value='custom'>custom</option><option value='non_reserved'>non_reserved</option><option value='admin'>admin</option></select></label>` +
         `<label>Allowed Topics (comma separated)<input id='create-user-allowed-topics' placeholder='external/homeassistant/sensors/#' /></label>` +
+        `<label>Allowed Publish Topics (comma separated)<input id='create-user-allowed-publish-topics' placeholder='external/homeassistant/events/#' /></label>` +
+        `<label>Allowed Subscribe Topics (comma separated)<input id='create-user-allowed-subscribe-topics' placeholder='synthia/runtime/#' /></label>` +
         `</div>` +
         `<div class='modal-actions'>` +
         `<button class='primary' data-ui-action='submit-add-user'>Create</button>` +
@@ -1297,6 +1331,12 @@ def addon_ui_root() -> str:
                   const topicPrefix = escapeHtml(String(item.topic_prefix || "-"));
                   const accessMode = escapeHtml(String(item.access_mode || "private"));
                   const allowedTopics = escapeHtml(Array.isArray(item.allowed_topics) ? item.allowed_topics.join(",") : "");
+                  const allowedPublishTopics = escapeHtml(
+                    Array.isArray(item.allowed_publish_topics) ? item.allowed_publish_topics.join(",") : ""
+                  );
+                  const allowedSubscribeTopics = escapeHtml(
+                    Array.isArray(item.allowed_subscribe_topics) ? item.allowed_subscribe_topics.join(",") : ""
+                  );
                   const managed = String(item.managed_by || "").toLowerCase() === "core";
                   const managedBadge = managed ? `<span class='badge core'>Core Managed</span>` : "";
                   const updated = escapeHtml(item.updated_at || item.ts || item.reason || "-");
@@ -1312,7 +1352,7 @@ def addon_ui_root() -> str:
                     ? `<button class='mini' data-generic-action='revoke' data-principal-id='${principalId}'>Revoke</button>` +
                       `<button class='mini' data-generic-action='disable' data-principal-id='${principalId}'>Disable</button>` +
                       `<button class='mini' data-generic-action='rotate' data-principal-id='${principalId}'>Rotate Password</button>` +
-                      `<button class='mini' data-generic-action='edit' data-principal-id='${principalId}' data-topic-prefix='${topicPrefix}' data-access-mode='${accessMode}' data-allowed-topics='${allowedTopics}'>Edit Policy</button>` +
+                      `<button class='mini' data-generic-action='edit' data-principal-id='${principalId}' data-topic-prefix='${topicPrefix}' data-access-mode='${accessMode}' data-allowed-topics='${allowedTopics}' data-allowed-publish-topics='${allowedPublishTopics}' data-allowed-subscribe-topics='${allowedSubscribeTopics}'>Edit Policy</button>` +
                       `<button class='mini' data-generic-action='delete' data-principal-id='${principalId}'>Delete</button>`
                     : "";
                   const principalActions = key !== "generic" && !systemLocked
@@ -1602,7 +1642,15 @@ def addon_ui_root() -> str:
           .split(",")
           .map((item) => String(item || "").trim())
           .filter((item) => item.length > 0);
-        if (action && principalId) void runGenericUserAction(action, principalId, topicPrefix, accessMode, allowedTopics);
+        const allowedPublishTopics = String(genericAction.getAttribute("data-allowed-publish-topics") || "")
+          .split(",")
+          .map((item) => String(item || "").trim())
+          .filter((item) => item.length > 0);
+        const allowedSubscribeTopics = String(genericAction.getAttribute("data-allowed-subscribe-topics") || "")
+          .split(",")
+          .map((item) => String(item || "").trim())
+          .filter((item) => item.length > 0);
+        if (action && principalId) void runGenericUserAction(action, principalId, topicPrefix, accessMode, allowedTopics, allowedPublishTopics, allowedSubscribeTopics);
         return;
       }
       const principalAction = event.target.closest("[data-principal-action]");

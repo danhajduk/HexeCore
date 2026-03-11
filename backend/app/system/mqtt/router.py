@@ -56,12 +56,16 @@ class MqttUserCreateRequest(BaseModel):
     topic_prefix: str | None = None
     access_mode: str = "private"
     allowed_topics: list[str] = Field(default_factory=list)
+    allowed_publish_topics: list[str] = Field(default_factory=list)
+    allowed_subscribe_topics: list[str] = Field(default_factory=list)
 
 
 class MqttUserUpdateRequest(BaseModel):
     topic_prefix: str | None = None
     access_mode: str | None = None
     allowed_topics: list[str] = Field(default_factory=list)
+    allowed_publish_topics: list[str] = Field(default_factory=list)
+    allowed_subscribe_topics: list[str] = Field(default_factory=list)
 
 
 class MqttGenericUserGrantUpdateRequest(BaseModel):
@@ -138,20 +142,49 @@ def _compute_generic_scopes(
     topic_prefix: str,
     access_mode: str,
     allowed_topics: list[str],
-) -> tuple[str, list[str], list[str], list[str]]:
+    allowed_publish_topics: list[str],
+    allowed_subscribe_topics: list[str],
+) -> tuple[str, list[str], list[str], list[str], list[str], list[str]]:
+    def _normalized_unique(topics: list[str]) -> list[str]:
+        return sorted({str(item).strip() for item in topics if str(item).strip()})
+
+    def _is_valid_topic_filter(topic: str) -> bool:
+        if not topic:
+            return False
+        if "//" in topic:
+            return False
+        levels = topic.split("/")
+        for idx, level in enumerate(levels):
+            if "#" in level:
+                if level != "#" or idx != len(levels) - 1:
+                    return False
+            if "+" in level and level != "+":
+                return False
+        return True
+
+    def _validate_topic_filters(topics: list[str]) -> None:
+        invalid = [topic for topic in topics if not _is_valid_topic_filter(topic)]
+        if invalid:
+            raise HTTPException(status_code=400, detail=f"topic_pattern_invalid:{invalid[0]}")
+
     mode = str(access_mode or "private").strip().lower()
     if mode not in {"private", "custom", "non_reserved", "admin"}:
         raise HTTPException(status_code=400, detail="access_mode_invalid")
     if mode == "private":
         scope = f"{topic_prefix}/#"
-        return mode, [scope], [scope], []
+        return mode, [scope], [scope], [], [], []
     if mode == "custom":
-        topics = sorted({str(item).strip() for item in allowed_topics if str(item).strip()})
-        if not topics:
+        merged_topics = _normalized_unique(allowed_topics)
+        publish_topics = _normalized_unique(allowed_publish_topics or merged_topics)
+        subscribe_topics = _normalized_unique(allowed_subscribe_topics or merged_topics)
+        if not publish_topics or not subscribe_topics:
             raise HTTPException(status_code=400, detail="allowed_topics_required")
-        return mode, topics, topics, topics
+        _validate_topic_filters(publish_topics)
+        _validate_topic_filters(subscribe_topics)
+        all_custom_topics = sorted({*publish_topics, *subscribe_topics})
+        return mode, publish_topics, subscribe_topics, all_custom_topics, publish_topics, subscribe_topics
     # non_reserved/admin both grant broad publish/subscribe; ACL enforcement determines reserved boundaries.
-    return mode, ["#"], ["#"], []
+    return mode, ["#"], ["#"], [], [], []
 
 
 async def _authorize_mqtt_request(
@@ -998,11 +1031,20 @@ def build_mqtt_router(
         return {"ok": True, "items": items}
 
     def _principal_permissions_payload(item: dict[str, Any]) -> dict[str, Any]:
+        allowed_publish_topics = list(item.get("allowed_publish_topics") or [])
+        allowed_subscribe_topics = list(item.get("allowed_subscribe_topics") or [])
+        allowed_topics = list(item.get("allowed_topics") or [])
+        if not allowed_publish_topics and allowed_topics:
+            allowed_publish_topics = list(allowed_topics)
+        if not allowed_subscribe_topics and allowed_topics:
+            allowed_subscribe_topics = list(allowed_topics)
         return {
             "principal_id": str(item.get("principal_id") or ""),
             "principal_type": str(item.get("principal_type") or ""),
             "access_mode": str(item.get("access_mode") or "private"),
-            "allowed_topics": list(item.get("allowed_topics") or []),
+            "allowed_topics": sorted({*allowed_publish_topics, *allowed_subscribe_topics}),
+            "allowed_publish_topics": allowed_publish_topics,
+            "allowed_subscribe_topics": allowed_subscribe_topics,
             "publish_topics": list(item.get("publish_topics") or []),
             "subscribe_topics": list(item.get("subscribe_topics") or []),
             "approved_reserved_topics": list(item.get("approved_reserved_topics") or []),
@@ -1214,11 +1256,13 @@ def build_mqtt_router(
         if requested_prefix and requested_prefix != expected_prefix:
             raise HTTPException(status_code=400, detail="topic_prefix_invalid")
         topic_prefix = requested_prefix or expected_prefix
-        mode, publish_topics, subscribe_topics, allowed_topics = _compute_generic_scopes(
+        mode, publish_topics, subscribe_topics, allowed_topics, allowed_publish_topics, allowed_subscribe_topics = _compute_generic_scopes(
             username=normalized_username,
             topic_prefix=topic_prefix,
             access_mode=body.access_mode,
             allowed_topics=body.allowed_topics,
+            allowed_publish_topics=body.allowed_publish_topics,
+            allowed_subscribe_topics=body.allowed_subscribe_topics,
         )
         principal_id = f"user:{normalized_username}"
         requested_password = str(body.password or "generated").strip()
@@ -1229,6 +1273,8 @@ def build_mqtt_router(
             topic_prefix=topic_prefix,
             access_mode=mode,
             allowed_topics=allowed_topics,
+            allowed_publish_topics=allowed_publish_topics,
+            allowed_subscribe_topics=allowed_subscribe_topics,
             publish_topics=publish_topics,
             subscribe_topics=subscribe_topics,
             notes="generic_user_api_create",
@@ -1255,6 +1301,8 @@ def build_mqtt_router(
                         topic_prefix=topic_prefix,
                         access_mode=mode,
                         allowed_topics=allowed_topics,
+                        allowed_publish_topics=allowed_publish_topics,
+                        allowed_subscribe_topics=allowed_subscribe_topics,
                         publish_topics=publish_topics,
                         subscribe_topics=subscribe_topics,
                         notes="generic_user_api_create",
@@ -1275,6 +1323,8 @@ def build_mqtt_router(
             "scope": publish_topics[0] if publish_topics else None,
             "access_mode": mode,
             "allowed_topics": allowed_topics,
+            "allowed_publish_topics": allowed_publish_topics,
+            "allowed_subscribe_topics": allowed_subscribe_topics,
             "password_mode": password_mode,
             "password": (credential or {}).get("password"),
         }
@@ -1293,6 +1343,8 @@ def build_mqtt_router(
             topic_prefix=prefix,
             access_mode=body.access_mode,
             allowed_topics=body.allowed_topics,
+            allowed_publish_topics=body.allowed_publish_topics,
+            allowed_subscribe_topics=body.allowed_subscribe_topics,
         )
         if not result.get("ok"):
             error = str(result.get("error") or "generic_user_update_failed")

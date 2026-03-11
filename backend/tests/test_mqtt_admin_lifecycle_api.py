@@ -433,7 +433,8 @@ class TestMqttAdminLifecycleApi(unittest.TestCase):
                 "password": "generated",
                 "topic_prefix": "external/homeassistant",
                 "access_mode": "custom",
-                "allowed_topics": ["external/homeassistant/sensors/#", "external/homeassistant/controls/#"],
+                "allowed_publish_topics": ["external/homeassistant/controls/#"],
+                "allowed_subscribe_topics": ["external/homeassistant/sensors/#"],
             },
         )
         self.assertEqual(created.status_code, 200, created.text)
@@ -444,6 +445,8 @@ class TestMqttAdminLifecycleApi(unittest.TestCase):
         self.assertEqual(payload["scope"], "external/homeassistant/controls/#")
         self.assertEqual(payload["access_mode"], "custom")
         self.assertEqual(len(payload["allowed_topics"]), 2)
+        self.assertEqual(payload["allowed_publish_topics"], ["external/homeassistant/controls/#"])
+        self.assertEqual(payload["allowed_subscribe_topics"], ["external/homeassistant/sensors/#"])
         self.assertEqual(payload["password_mode"], "generated")
         self.assertTrue(payload.get("password"))
 
@@ -453,6 +456,8 @@ class TestMqttAdminLifecycleApi(unittest.TestCase):
         self.assertEqual(principal.principal_type, "generic_user")
         self.assertEqual(principal.topic_prefix, "external/homeassistant")
         self.assertEqual(principal.access_mode, "custom")
+        self.assertEqual(principal.allowed_publish_topics, ["external/homeassistant/controls/#"])
+        self.assertEqual(principal.allowed_subscribe_topics, ["external/homeassistant/sensors/#"])
         self.assertIn("external/homeassistant/sensors/#", principal.allowed_topics)
 
         acl = MqttAclCompiler().compile(state).acl_text
@@ -480,6 +485,22 @@ class TestMqttAdminLifecycleApi(unittest.TestCase):
         self.assertTrue(deleted.json()["ok"])
         state_after_delete = asyncio.run(self.state_store.get_state())
         self.assertNotIn("user:homeassistant", state_after_delete.principals)
+
+    def test_users_api_rejects_invalid_custom_topic_pattern(self) -> None:
+        created = self.client.post(
+            "/api/system/mqtt/users",
+            headers={"X-Admin-Token": "test-token"},
+            json={
+                "username": "badtopic",
+                "password": "generated",
+                "topic_prefix": "external/badtopic",
+                "access_mode": "custom",
+                "allowed_publish_topics": ["external/badtopic/#/events"],
+                "allowed_subscribe_topics": ["external/badtopic/events/#"],
+            },
+        )
+        self.assertEqual(created.status_code, 400, created.text)
+        self.assertIn("topic_pattern_invalid", str(created.json().get("detail")))
 
     def test_noisy_client_manual_actions(self) -> None:
         created = asyncio.run(

@@ -102,10 +102,24 @@ class MqttEffectiveAccessCompiler:
                 publish_topics = ["#"]
                 subscribe_topics = ["#"]
             if mode == "custom":
-                custom_topics = _sorted_unique([topic for topic in principal.allowed_topics if not is_platform_reserved_topic(topic)])
-                if custom_topics:
-                    publish_topics = list(custom_topics)
-                    subscribe_topics = list(custom_topics)
+                custom_publish_topics = _sorted_unique(
+                    [
+                        topic
+                        for topic in (principal.allowed_publish_topics or principal.allowed_topics)
+                        if not is_platform_reserved_topic(topic)
+                    ]
+                )
+                custom_subscribe_topics = _sorted_unique(
+                    [
+                        topic
+                        for topic in (principal.allowed_subscribe_topics or principal.allowed_topics)
+                        if not is_platform_reserved_topic(topic)
+                    ]
+                )
+                if custom_publish_topics:
+                    publish_topics = list(custom_publish_topics)
+                if custom_subscribe_topics:
+                    subscribe_topics = list(custom_subscribe_topics)
             reserved_denies = list(self._reserved_prefixes)
         else:
             return None

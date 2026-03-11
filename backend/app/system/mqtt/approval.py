@@ -22,6 +22,27 @@ def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _is_valid_topic_filter(topic: str) -> bool:
+    value = str(topic or "").strip()
+    if not value or "//" in value:
+        return False
+    levels = value.split("/")
+    for idx, level in enumerate(levels):
+        if "#" in level and (level != "#" or idx != len(levels) - 1):
+            return False
+        if "+" in level and level != "+":
+            return False
+    return True
+
+
+def _first_invalid_topic(topics: list[str] | None) -> str | None:
+    for topic in topics or []:
+        normalized = str(topic or "").strip()
+        if not _is_valid_topic_filter(normalized):
+            return normalized
+    return None
+
+
 class MqttRegistrationApprovalService:
     def __init__(
         self,
@@ -346,11 +367,25 @@ class MqttRegistrationApprovalService:
         topic_prefix: str | None = None,
         access_mode: str = "private",
         allowed_topics: list[str] | None = None,
+        allowed_publish_topics: list[str] | None = None,
+        allowed_subscribe_topics: list[str] | None = None,
         publish_topics: list[str],
         subscribe_topics: list[str],
         approved_reserved_topics: list[str] | None = None,
         notes: str | None = None,
     ) -> dict[str, Any]:
+        invalid_publish = _first_invalid_topic(publish_topics)
+        if invalid_publish is not None:
+            return {"ok": False, "error": f"topic_pattern_invalid:{invalid_publish}"}
+        invalid_subscribe = _first_invalid_topic(subscribe_topics)
+        if invalid_subscribe is not None:
+            return {"ok": False, "error": f"topic_pattern_invalid:{invalid_subscribe}"}
+        invalid_allowed_publish = _first_invalid_topic(allowed_publish_topics)
+        if invalid_allowed_publish is not None:
+            return {"ok": False, "error": f"topic_pattern_invalid:{invalid_allowed_publish}"}
+        invalid_allowed_subscribe = _first_invalid_topic(allowed_subscribe_topics)
+        if invalid_allowed_subscribe is not None:
+            return {"ok": False, "error": f"topic_pattern_invalid:{invalid_allowed_subscribe}"}
         policy_errors = validate_authority_topic_access(
             principal_type="generic_user",
             publish_topics=publish_topics,
@@ -379,7 +414,20 @@ class MqttRegistrationApprovalService:
         if topic_prefix is not None:
             principal.topic_prefix = topic_prefix
         principal.access_mode = str(access_mode or "private")
-        principal.allowed_topics = sorted({str(topic).strip() for topic in (allowed_topics or []) if str(topic).strip()})
+        normalized_allowed_topics = sorted({str(topic).strip() for topic in (allowed_topics or []) if str(topic).strip()})
+        normalized_allowed_publish_topics = sorted(
+            {str(topic).strip() for topic in (allowed_publish_topics or []) if str(topic).strip()}
+        )
+        normalized_allowed_subscribe_topics = sorted(
+            {str(topic).strip() for topic in (allowed_subscribe_topics or []) if str(topic).strip()}
+        )
+        if not normalized_allowed_publish_topics and normalized_allowed_topics:
+            normalized_allowed_publish_topics = list(normalized_allowed_topics)
+        if not normalized_allowed_subscribe_topics and normalized_allowed_topics:
+            normalized_allowed_subscribe_topics = list(normalized_allowed_topics)
+        principal.allowed_publish_topics = normalized_allowed_publish_topics
+        principal.allowed_subscribe_topics = normalized_allowed_subscribe_topics
+        principal.allowed_topics = sorted({*normalized_allowed_publish_topics, *normalized_allowed_subscribe_topics})
         principal.publish_topics = sorted({topic for topic in publish_topics if topic and not is_platform_reserved_topic(topic)})
         principal.subscribe_topics = sorted({topic for topic in subscribe_topics if topic and not is_platform_reserved_topic(topic)})
         principal.approved_reserved_topics = []
@@ -410,6 +458,8 @@ class MqttRegistrationApprovalService:
         topic_prefix: str,
         access_mode: str | None = None,
         allowed_topics: list[str] | None = None,
+        allowed_publish_topics: list[str] | None = None,
+        allowed_subscribe_topics: list[str] | None = None,
     ) -> dict[str, Any]:
         state = await self._state_store.get_state()
         current = state.principals.get(principal_id)
@@ -424,26 +474,53 @@ class MqttRegistrationApprovalService:
         if mode == "private":
             if not prefix:
                 return {"ok": False, "error": "topic_prefix_required"}
-            topics = [f"{prefix}/#"]
+            publish_topics = [f"{prefix}/#"]
+            subscribe_topics = [f"{prefix}/#"]
+            custom_topics: list[str] = []
+            custom_publish_topics: list[str] = []
+            custom_subscribe_topics: list[str] = []
         elif mode == "custom":
-            topics = sorted({str(topic).strip() for topic in (allowed_topics or current.allowed_topics) if str(topic).strip()})
-            if not topics:
+            fallback_topics = sorted({str(topic).strip() for topic in (allowed_topics or current.allowed_topics) if str(topic).strip()})
+            custom_publish_topics = sorted(
+                {
+                    str(topic).strip()
+                    for topic in (allowed_publish_topics or current.allowed_publish_topics or fallback_topics)
+                    if str(topic).strip()
+                }
+            )
+            custom_subscribe_topics = sorted(
+                {
+                    str(topic).strip()
+                    for topic in (allowed_subscribe_topics or current.allowed_subscribe_topics or fallback_topics)
+                    if str(topic).strip()
+                }
+            )
+            if not custom_publish_topics or not custom_subscribe_topics:
                 return {"ok": False, "error": "allowed_topics_required"}
             if not prefix:
                 prefix = current.topic_prefix or ""
+            publish_topics = list(custom_publish_topics)
+            subscribe_topics = list(custom_subscribe_topics)
+            custom_topics = sorted({*custom_publish_topics, *custom_subscribe_topics})
         else:
-            topics = ["#"]
+            publish_topics = ["#"]
+            subscribe_topics = ["#"]
             if not prefix:
                 prefix = current.topic_prefix or ""
+            custom_topics = []
+            custom_publish_topics = []
+            custom_subscribe_topics = []
         result = await self.create_or_update_generic_user(
             principal_id=principal_id,
             logical_identity=current.logical_identity,
             username=current.username,
             topic_prefix=prefix,
             access_mode=mode,
-            allowed_topics=(topics if mode == "custom" else []),
-            publish_topics=topics,
-            subscribe_topics=topics,
+            allowed_topics=(custom_topics if mode == "custom" else []),
+            allowed_publish_topics=(custom_publish_topics if mode == "custom" else []),
+            allowed_subscribe_topics=(custom_subscribe_topics if mode == "custom" else []),
+            publish_topics=publish_topics,
+            subscribe_topics=subscribe_topics,
             notes=current.notes,
         )
         if result.get("ok"):
