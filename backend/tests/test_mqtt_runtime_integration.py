@@ -25,6 +25,7 @@ from app.system.mqtt.integration_state import MqttIntegrationStateStore
 from app.system.mqtt.router import build_mqtt_router
 from app.system.mqtt.runtime_boundary import InMemoryBrokerRuntimeBoundary
 from app.system.mqtt.startup_reconcile import EmbeddedMqttStartupReconciler
+from app.system.onboarding import NodeRegistrationRecord, NodeRegistrationsStore
 
 
 class _FakeSettingsStore:
@@ -118,6 +119,7 @@ class TestMqttRuntimeIntegration(unittest.TestCase):
         )
         self.audit_store = MqttAuthorityAuditStore(str(root / "audit.db"))
         self.credential_store = MqttCredentialStore(str(root / "credentials.json"))
+        self.node_registrations_store = NodeRegistrationsStore(path=root / "node_registrations.json")
         self.acl_compiler = MqttAclCompiler()
         self.boundary = InMemoryBrokerRuntimeBoundary()
         asyncio.run(self.boundary.ensure_running())
@@ -173,6 +175,7 @@ class TestMqttRuntimeIntegration(unittest.TestCase):
                 acl_compiler=self.acl_compiler,
                 runtime_reconciler=self.reconciler,
                 runtime_boundary=self.boundary,
+                node_registrations_store=self.node_registrations_store,
             ),
             prefix="/api/system",
         )
@@ -206,7 +209,7 @@ class TestMqttRuntimeIntegration(unittest.TestCase):
         self.assertTrue((staged_dir / "broker.conf").exists())
         acl_text = (live_dir / "acl_compiled.conf").read_text(encoding="utf-8")
         self.assertIn("topic read synthia/bootstrap/core", acl_text)
-        self.assertIn("topic deny #", acl_text)
+        self.assertNotIn("topic deny #", acl_text)
         self.assertIn("user sx_vision", acl_text)
         self.assertIn("topic write synthia/addons/vision/state/#", acl_text)
 
@@ -224,6 +227,31 @@ class TestMqttRuntimeIntegration(unittest.TestCase):
         self.assertEqual(by_id["core.bootstrap"]["managed_by"], "core")
         self.assertIn("runtime_connection", by_id["core.bootstrap"])
         self.assertFalse(bool(by_id["core.bootstrap"]["runtime_connection"]["connected"]))
+
+    def test_mqtt_principals_includes_registered_nodes(self) -> None:
+        self.node_registrations_store.upsert(
+            NodeRegistrationRecord(
+                node_id="node-xyz",
+                node_type="ai-node",
+                node_name="main-ai-node",
+                node_software_version="0.1.0",
+                capabilities_summary=[],
+                trust_status="trusted",
+                source_onboarding_session_id="sess-xyz",
+                approved_by_user_id="admin",
+                approved_at="2026-03-11T00:00:00+00:00",
+                created_at="2026-03-11T00:00:00+00:00",
+                updated_at="2026-03-11T00:00:00+00:00",
+            )
+        )
+        principals = self.client.get("/api/system/mqtt/principals", headers={"X-Admin-Token": "test-token"})
+        self.assertEqual(principals.status_code, 200, principals.text)
+        by_id = {item["principal_id"]: item for item in principals.json()["items"]}
+        self.assertIn("node:node-xyz", by_id)
+        self.assertEqual(by_id["node:node-xyz"]["principal_type"], "synthia_node")
+        self.assertEqual(by_id["node:node-xyz"]["status"], "active")
+        details = self.client.get("/api/system/mqtt/principals/node:node-xyz", headers={"X-Admin-Token": "test-token"})
+        self.assertEqual(details.status_code, 200, details.text)
 
         sessions = self.client.get("/api/system/runtime/sessions", headers={"X-Admin-Token": "test-token"})
         self.assertEqual(sessions.status_code, 200, sessions.text)

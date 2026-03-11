@@ -543,6 +543,7 @@ def create_app() -> FastAPI:
             runtime_boundary=mqtt_runtime_boundary,
             observability_store=mqtt_observability_store,
             audit_store=mqtt_authority_audit,
+            node_registrations_store=node_registrations_store,
         ),
         prefix="/api/system",
         tags=["mqtt"],

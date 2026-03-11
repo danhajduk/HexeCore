@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 
 from app.api.admin import require_admin_token
 from app.system.auth import ServiceTokenError, ServiceTokenKeyStore, validate_claims, verify_hs256
+from app.system.onboarding import NodeRegistrationsStore
 
 from .acl_compiler import MqttAclCompiler
 from .approval import MqttRegistrationApprovalService
@@ -298,6 +299,7 @@ def build_mqtt_router(
     runtime_boundary=None,
     observability_store=None,
     audit_store=None,
+    node_registrations_store: NodeRegistrationsStore | None = None,
 ) -> APIRouter:
     router = APIRouter()
     approval = approval_service or MqttRegistrationApprovalService(registry=registry, state_store=state_store)
@@ -357,6 +359,79 @@ def build_mqtt_router(
             return await manager.status()
         except Exception as exc:
             return {"ok": False, "error": f"status_failed:{type(exc).__name__}"}
+
+    def _node_status_from_trust(trust_status: str) -> str:
+        value = str(trust_status or "").strip().lower()
+        if value == "trusted":
+            return "active"
+        if value == "revoked":
+            return "revoked"
+        if value == "rejected":
+            return "revoked"
+        return "pending"
+
+    def _node_principals() -> list[dict[str, Any]]:
+        if node_registrations_store is None:
+            return []
+        out: list[dict[str, Any]] = []
+        try:
+            records = node_registrations_store.list()
+        except Exception:
+            return out
+        for record in records:
+            node_id = str(getattr(record, "node_id", "") or "").strip()
+            if not node_id:
+                continue
+            trust_status = str(getattr(record, "trust_status", "") or "").strip().lower()
+            principal_id = f"node:{node_id}"
+            out.append(
+                {
+                    "principal_id": principal_id,
+                    "principal_type": "synthia_node",
+                    "status": _node_status_from_trust(trust_status),
+                    "logical_identity": node_id,
+                    "linked_addon_id": None,
+                    "linked_node_id": node_id,
+                    "username": None,
+                    "topic_prefix": None,
+                    "access_mode": "private",
+                    "allowed_topics": [],
+                    "allowed_publish_topics": [],
+                    "allowed_subscribe_topics": [],
+                    "managed_by": "node_onboarding",
+                    "publish_topics": [],
+                    "subscribe_topics": [],
+                    "approved_reserved_topics": [],
+                    "noisy_state": "normal",
+                    "noisy_inputs": {},
+                    "noisy_updated_at": None,
+                    "probation_reason": None,
+                    "notes": f"node_type={str(getattr(record, 'node_type', '') or '')};trust_status={trust_status}",
+                    "last_activated_at": (getattr(record, "approved_at", None) if trust_status == "trusted" else None),
+                    "last_revoked_at": (getattr(record, "updated_at", None) if trust_status in {"revoked", "rejected"} else None),
+                    "expires_at": None,
+                    "updated_at": getattr(record, "updated_at", None),
+                }
+            )
+        return out
+
+    async def _all_principals() -> list[dict[str, Any]]:
+        items = await approval.list_principals()
+        index = {str(item.get("principal_id") or ""): item for item in items}
+        for node_item in _node_principals():
+            principal_id = str(node_item.get("principal_id") or "")
+            if principal_id and principal_id not in index:
+                index[principal_id] = node_item
+        return [index[key] for key in sorted(index.keys()) if key]
+
+    async def _principal_by_id(principal_id: str) -> dict[str, Any] | None:
+        item = await approval.get_principal(principal_id)
+        if item is not None:
+            return item
+        for node_item in _node_principals():
+            if str(node_item.get("principal_id") or "") == str(principal_id or ""):
+                return node_item
+        return None
 
     async def _debug_stop_subscription(subscription_id: str) -> bool:
         item = debug_subscriptions.pop(subscription_id, None)
@@ -1186,7 +1261,7 @@ def build_mqtt_router(
     @router.get("/mqtt/principals")
     async def mqtt_principals(request: Request, x_admin_token: str | None = Header(default=None)):
         require_admin_token(x_admin_token, request)
-        items = await approval.list_principals()
+        items = await _all_principals()
         runtime_map: dict[str, dict[str, Any]] = {}
         traffic_map: dict[str, dict[str, Any]] = {}
         runtime_fn = getattr(manager, "principal_connection_states", None)
@@ -1216,7 +1291,7 @@ def build_mqtt_router(
                 "session_count": int(state.get("session_count") or 0),
             }
             messages_per_second = float(traffic.get("messages_per_second") or 0.0)
-            item["runtime_traffic"] = {
+        item["runtime_traffic"] = {
                 "messages_per_second": round(messages_per_second, 3),
                 "avg_messages_per_second": round(messages_per_second, 3),
                 "payload_size": int(traffic.get("payload_size") or 0),
@@ -1272,7 +1347,7 @@ def build_mqtt_router(
         x_admin_token: str | None = Header(default=None),
     ):
         require_admin_token(x_admin_token, request)
-        item = await approval.get_principal(principal_id)
+        item = await _principal_by_id(principal_id)
         if item is None:
             raise HTTPException(status_code=404, detail="principal_not_found")
         return {"ok": True, "principal": item}
@@ -1285,7 +1360,7 @@ def build_mqtt_router(
         x_admin_token: str | None = Header(default=None),
     ):
         require_admin_token(x_admin_token, request)
-        item = await approval.get_principal(principal_id)
+        item = await _principal_by_id(principal_id)
         if item is None:
             raise HTTPException(status_code=404, detail="principal_not_found")
         normalized_payload: dict[str, Any] | None = None
@@ -1311,7 +1386,7 @@ def build_mqtt_router(
         x_admin_token: str | None = Header(default=None),
     ):
         require_admin_token(x_admin_token, request)
-        item = await approval.get_principal(principal_id)
+        item = await _principal_by_id(principal_id)
         if item is None:
             raise HTTPException(status_code=404, detail="principal_not_found")
         return {"ok": True, "last_seen": _principal_last_seen_payload(item)}
