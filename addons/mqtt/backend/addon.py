@@ -506,6 +506,8 @@ def addon_ui_root() -> str:
       runtimeActionKind: "",
       debugSubscriptionId: null,
       debugPollHandle: null,
+      autoRefreshHandle: null,
+      autoRefreshInFlight: false,
       debugMessages: [],
       sectionCache: {},
       filters: {
@@ -516,6 +518,7 @@ def addon_ui_root() -> str:
         noisyClients: { q: "", state: "" },
       },
     };
+    const AUTO_REFRESH_MS = 5000;
 
     function sectionFromPath() {
       const marker = "/api/addons/mqtt";
@@ -1750,6 +1753,37 @@ def addon_ui_root() -> str:
       await renderRoute();
     }
 
+    function shouldAutoRefresh() {
+      if (document.hidden) return false;
+      const active = document.activeElement;
+      if (!active || !active.tagName) return true;
+      const tag = String(active.tagName || "").toUpperCase();
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return false;
+      return true;
+    }
+
+    async function autoRefreshTick() {
+      if (state.autoRefreshInFlight) return;
+      if (!shouldAutoRefresh()) return;
+      state.autoRefreshInFlight = true;
+      try {
+        await loadStatus();
+      } catch (_) {
+        // Keep auto-refresh silent; manual actions surface errors.
+      } finally {
+        state.autoRefreshInFlight = false;
+      }
+    }
+
+    function startAutoRefresh() {
+      if (state.autoRefreshHandle) {
+        clearInterval(state.autoRefreshHandle);
+      }
+      state.autoRefreshHandle = window.setInterval(() => {
+        void autoRefreshTick();
+      }, AUTO_REFRESH_MS);
+    }
+
     async function applySettings(restartAfter) {
       setBusy(true);
       setStatus("Validating settings...", "");
@@ -1995,6 +2029,17 @@ def addon_ui_root() -> str:
       state.currentSection = sectionFromPath();
       void renderRoute();
     });
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) {
+        void autoRefreshTick();
+      }
+    });
+    window.addEventListener("beforeunload", () => {
+      if (state.autoRefreshHandle) {
+        clearInterval(state.autoRefreshHandle);
+        state.autoRefreshHandle = null;
+      }
+    });
     applyBtn.addEventListener("click", () => void applySettings(false));
     applyRestartBtn.addEventListener("click", () => void applySettings(true));
     testConnectionBtn.addEventListener("click", () => void testExternalConnection());
@@ -2025,6 +2070,7 @@ def addon_ui_root() -> str:
       try {
         state.currentSection = sectionFromPath();
         await Promise.all([loadSettings(), loadStatus()]);
+        startAutoRefresh();
         renderPreflight();
         setStatus("Ready.", "ok");
       } catch (error) {
