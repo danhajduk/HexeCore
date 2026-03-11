@@ -174,6 +174,12 @@ class TestNodeOnboardingStartApi(unittest.TestCase):
         self.assertEqual(approved.json()["onboarding_status"], "approved")
         self.assertIn("activation", approved.json())
 
+        consumed = self.client.get(
+            f"/api/system/nodes/onboarding/sessions/{session_id}/finalize?node_nonce=nonce-abc"
+        )
+        self.assertEqual(consumed.status_code, 200, consumed.text)
+        self.assertEqual(consumed.json()["onboarding_status"], "consumed")
+
 
 if __name__ == "__main__":
     unittest.main()

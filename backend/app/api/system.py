@@ -279,11 +279,12 @@ def build_system_router(
         if state == "cancelled":
             return {"ok": True, "onboarding_status": "invalid"}
         if state == "consumed":
-            return {"ok": True, "onboarding_status": "approved", "already_consumed": True}
+            return {"ok": True, "onboarding_status": "consumed", "error": "already_consumed"}
         if state == "approved":
             if node_trust_issuance is None:
                 raise HTTPException(status_code=503, detail="trust_issuance_unavailable")
             issued = node_trust_issuance.issue_for_approved_session(session)
+            onboarding_sessions_store.consume_final_payload(session_id, actor_id="node_finalize")
             return {
                 "ok": True,
                 "onboarding_status": "approved",

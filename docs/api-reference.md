@@ -94,7 +94,6 @@ Status: Implemented
 
 Status: Planned
 
-- AI Node one-time trust-consumption hardening for finalization flow.
 - AI Node trust activation payload schema authority: [AI Node Trust Activation Payload Contract](./ai-node-trust-activation-payload-contract.md)
 - Formal OpenAPI-focused endpoint stability tiers.
 - Explicit deprecation lifecycle metadata per endpoint group.

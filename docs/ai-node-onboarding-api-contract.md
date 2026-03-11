@@ -114,6 +114,7 @@ Supported outcomes:
 - `approved` (includes `activation` payload)
 - `rejected`
 - `expired`
+- `consumed`
 - `invalid`
 
 ## Finalization Response Shape
@@ -155,7 +156,8 @@ Status: Partial
 - Finalization requires matching `node_nonce` for session binding.
 - Invalid session IDs or binding mismatches return `onboarding_status=invalid`.
 - Approved finalization returns trust activation payload from Core trust issuance service.
-- One-time consumption semantics are handled in follow-up task.
+- First successful approved finalization marks session as consumed.
+- Replayed finalization attempts return `onboarding_status=consumed`.
 
 ## Versioning Rules
 
