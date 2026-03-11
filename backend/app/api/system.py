@@ -50,6 +50,14 @@ def _supported_protocol_versions() -> set[str]:
     return {item.strip() for item in raw.split(",") if item.strip()}
 
 
+def _supported_node_types() -> set[str]:
+    raw = str(os.getenv("SYNTHIA_NODE_ONBOARDING_SUPPORTED_TYPES", "ai-node")).strip()
+    values = {item.strip() for item in raw.split(",") if item.strip()}
+    if not values:
+        values = {"ai-node"}
+    return values
+
+
 def _build_approval_url(request: Request, session_id: str, state: str) -> str:
     configured = str(os.getenv("SYNTHIA_AI_NODE_ONBOARDING_APPROVAL_URL_BASE", "")).strip()
     if configured.startswith(("http://", "https://")):
@@ -128,6 +136,29 @@ def _expire_if_needed(store: NodeOnboardingSessionsStore | None) -> None:
     store.expire_stale_sessions()
 
 
+def _session_payload(session) -> dict[str, object]:
+    return {
+        "session_id": session.session_id,
+        "session_state": session.session_state,
+        "node_name": session.requested_node_name,
+        "node_type": session.requested_node_type,
+        "node_software_version": session.requested_node_software_version,
+        "requested_node_name": session.requested_node_name,
+        "requested_node_type": session.requested_node_type,
+        "requested_node_software_version": session.requested_node_software_version,
+        "requested_hostname": session.requested_hostname,
+        "requested_from_ip": session.requested_from_ip,
+        "created_at": session.created_at,
+        "expires_at": session.expires_at,
+        "approved_at": session.approved_at,
+        "rejected_at": session.rejected_at,
+        "approved_by_user_id": session.approved_by_user_id,
+        "rejection_reason": session.rejection_reason,
+        "linked_node_id": session.linked_node_id,
+        "final_payload_consumed_at": session.final_payload_consumed_at,
+    }
+
+
 def build_system_router(
     registry: AddonRegistry,
     runtime_service: StandaloneRuntimeService | None = None,
@@ -175,10 +206,13 @@ def build_system_router(
         if not _rate_limit(f"onboarding:create:{source_ip}", limit=20, window_seconds=60):
             raise HTTPException(status_code=429, detail="rate_limited")
         node_type = str(body.node_type or "").strip()
-        if node_type != "ai-node":
+        if node_type not in _supported_node_types():
             raise HTTPException(
                 status_code=400,
-                detail=_onboarding_error("node_type_unsupported", "only node_type=ai-node is supported"),
+                detail=_onboarding_error(
+                    "node_type_unsupported",
+                    f"unsupported node_type; allowed={','.join(sorted(_supported_node_types()))}",
+                ),
             )
         protocol_version = str(body.protocol_version or "").strip()
         if protocol_version not in _supported_protocol_versions():
@@ -223,6 +257,12 @@ def build_system_router(
             "session": {
                 "session_id": session.session_id,
                 "onboarding_status": "pending_approval",
+                "node_name": session.requested_node_name,
+                "node_type": session.requested_node_type,
+                "node_software_version": session.requested_node_software_version,
+                "requested_node_name": session.requested_node_name,
+                "requested_node_type": session.requested_node_type,
+                "requested_node_software_version": session.requested_node_software_version,
                 "approval_url": _build_approval_url(request, session.session_id, approval_state),
                 "expires_at": session.expires_at,
                 "finalize": {
@@ -250,26 +290,7 @@ def build_system_router(
         expected = str((session.request_metadata or {}).get("approval_state") or "").strip()
         if not expected or state.strip() != expected:
             raise HTTPException(status_code=400, detail="approval_state_mismatch")
-        return {
-            "ok": True,
-            "session": {
-                "session_id": session.session_id,
-                "session_state": session.session_state,
-                "requested_node_name": session.requested_node_name,
-                "requested_node_type": session.requested_node_type,
-                "requested_node_software_version": session.requested_node_software_version,
-                "requested_hostname": session.requested_hostname,
-                "requested_from_ip": session.requested_from_ip,
-                "created_at": session.created_at,
-                "expires_at": session.expires_at,
-                "approved_at": session.approved_at,
-                "rejected_at": session.rejected_at,
-                "approved_by_user_id": session.approved_by_user_id,
-                "rejection_reason": session.rejection_reason,
-                "linked_node_id": session.linked_node_id,
-                "final_payload_consumed_at": session.final_payload_consumed_at,
-            },
-        }
+        return {"ok": True, "session": _session_payload(session)}
 
     @router.get("/system/nodes/onboarding/sessions")
     def list_node_onboarding_sessions(
@@ -284,22 +305,7 @@ def build_system_router(
         items = onboarding_sessions_store.list_sessions(state=state if state else None)
         payload = []
         for session in items:
-            payload.append(
-                {
-                    "session_id": session.session_id,
-                    "session_state": session.session_state,
-                    "requested_node_name": session.requested_node_name,
-                    "requested_node_type": session.requested_node_type,
-                    "requested_node_software_version": session.requested_node_software_version,
-                    "requested_hostname": session.requested_hostname,
-                    "created_at": session.created_at,
-                    "expires_at": session.expires_at,
-                    "approved_by_user_id": session.approved_by_user_id,
-                    "linked_node_id": session.linked_node_id,
-                    "rejection_reason": session.rejection_reason,
-                    "final_payload_consumed_at": session.final_payload_consumed_at,
-                }
-            )
+            payload.append(_session_payload(session))
         return {"ok": True, "items": payload}
 
     @router.post("/system/nodes/onboarding/sessions/{session_id}/approve")

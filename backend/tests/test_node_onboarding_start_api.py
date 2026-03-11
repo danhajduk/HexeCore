@@ -58,6 +58,7 @@ class TestNodeOnboardingStartApi(unittest.TestCase):
             {
                 "SYNTHIA_AI_NODE_ONBOARDING_ENABLED": "true",
                 "SYNTHIA_AI_NODE_ONBOARDING_PROTOCOLS": "1.0",
+                "SYNTHIA_NODE_ONBOARDING_SUPPORTED_TYPES": "ai-node",
                 "SYNTHIA_ADMIN_TOKEN": "test-token",
             },
             clear=False,
@@ -84,6 +85,10 @@ class TestNodeOnboardingStartApi(unittest.TestCase):
         body = resp.json()
         session = body["session"]
         self.assertEqual(session["onboarding_status"], "pending_approval")
+        self.assertEqual(session["node_name"], "office-node")
+        self.assertEqual(session["node_type"], "ai-node")
+        self.assertEqual(session["node_software_version"], "0.1.0")
+        self.assertEqual(session["requested_node_type"], "ai-node")
         self.assertIn("session_id", session)
         self.assertIn("approval_url", session)
         self.assertIn("expires_at", session)
@@ -104,6 +109,14 @@ class TestNodeOnboardingStartApi(unittest.TestCase):
         resp = self.client.post("/api/system/nodes/onboarding/sessions", json=payload)
         self.assertEqual(resp.status_code, 400, resp.text)
         self.assertEqual(resp.json()["detail"]["error"], "node_type_unsupported")
+
+    def test_supported_node_types_can_be_extended(self) -> None:
+        payload = self._payload()
+        payload["node_type"] = "sensor-node"
+        with patch.dict(os.environ, {"SYNTHIA_NODE_ONBOARDING_SUPPORTED_TYPES": "ai-node,sensor-node"}, clear=False):
+            resp = self.client.post("/api/system/nodes/onboarding/sessions", json=payload)
+        self.assertEqual(resp.status_code, 200, resp.text)
+        self.assertEqual(resp.json()["session"]["node_type"], "sensor-node")
 
     def test_protocol_version_unsupported(self) -> None:
         payload = self._payload()
