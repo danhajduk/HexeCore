@@ -179,6 +179,11 @@ class TestNodeRegistrationsApi(unittest.TestCase):
         by_id = {item["node_id"]: item for item in items}
         self.assertEqual(by_id[first["node_id"]]["registry_state"], "trusted")
         self.assertEqual(by_id[second["node_id"]]["registry_state"], "approved")
+        self.assertEqual(by_id[first["node_id"]]["declared_capabilities"], [])
+        self.assertEqual(by_id[first["node_id"]]["enabled_providers"], [])
+        self.assertIsNone(by_id[first["node_id"]]["capability_declaration_version"])
+        self.assertIsNone(by_id[first["node_id"]]["capability_declaration_timestamp"])
+        self.assertIsNone(by_id[first["node_id"]]["capability_profile_id"])
 
         approved_only = self.client.get(
             "/api/system/nodes/registry?state=approved",

@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
 from .sessions import NodeOnboardingSession
 
-NODE_REGISTRATION_SCHEMA_VERSION = "1"
+NODE_REGISTRATION_SCHEMA_VERSION = "2"
 REGISTRATION_FIELD_ALIASES: dict[str, tuple[str, ...]] = {
     "node_name": ("node_name", "requested_node_name"),
     "node_type": ("node_type", "requested_node_type"),
@@ -47,6 +47,11 @@ class NodeRegistrationRecord:
     approved_at: str | None
     created_at: str
     updated_at: str
+    declared_capabilities: list[str] = field(default_factory=list)
+    enabled_providers: list[str] = field(default_factory=list)
+    capability_declaration_version: str | None = None
+    capability_declaration_timestamp: str | None = None
+    capability_profile_id: str | None = None
     schema_version: str = NODE_REGISTRATION_SCHEMA_VERSION
 
     def to_dict(self) -> dict[str, object]:
@@ -58,6 +63,11 @@ class NodeRegistrationRecord:
             "node_software_version": self.node_software_version,
             "requested_node_type": self.requested_node_type,
             "capabilities_summary": list(self.capabilities_summary or []),
+            "declared_capabilities": list(self.declared_capabilities or []),
+            "enabled_providers": list(self.enabled_providers or []),
+            "capability_declaration_version": self.capability_declaration_version,
+            "capability_declaration_timestamp": self.capability_declaration_timestamp,
+            "capability_profile_id": self.capability_profile_id,
             "trust_status": self.trust_status,
             "source_onboarding_session_id": self.source_onboarding_session_id,
             "approved_by_user_id": self.approved_by_user_id,
@@ -116,6 +126,12 @@ class NodeRegistrationsStore:
                 trust_status = "pending"
             capabilities_raw = item.get("capabilities_summary")
             capabilities = [str(v).strip() for v in capabilities_raw] if isinstance(capabilities_raw, list) else []
+            declared_capabilities_raw = item.get("declared_capabilities")
+            declared_capabilities = (
+                [str(v).strip() for v in declared_capabilities_raw] if isinstance(declared_capabilities_raw, list) else []
+            )
+            enabled_providers_raw = item.get("enabled_providers")
+            enabled_providers = [str(v).strip() for v in enabled_providers_raw] if isinstance(enabled_providers_raw, list) else []
             record = NodeRegistrationRecord(
                 node_id=node_id,
                 node_type=node_type,
@@ -123,6 +139,11 @@ class NodeRegistrationsStore:
                 node_software_version=node_software_version,
                 requested_node_type=str(item.get("requested_node_type") or "").strip() or None,
                 capabilities_summary=[v for v in capabilities if v],
+                declared_capabilities=[v for v in declared_capabilities if v],
+                enabled_providers=[v for v in enabled_providers if v],
+                capability_declaration_version=str(item.get("capability_declaration_version") or "").strip() or None,
+                capability_declaration_timestamp=str(item.get("capability_declaration_timestamp") or "").strip() or None,
+                capability_profile_id=str(item.get("capability_profile_id") or "").strip() or None,
                 trust_status=trust_status,
                 source_onboarding_session_id=str(item.get("source_onboarding_session_id") or "").strip() or None,
                 approved_by_user_id=str(item.get("approved_by_user_id") or "").strip() or None,
@@ -195,6 +216,11 @@ class NodeRegistrationsStore:
             requested_node_type=str((session.request_metadata or {}).get("requested_node_type") or "").strip()
             or str(session.requested_node_type or "").strip(),
             capabilities_summary=[],
+            declared_capabilities=[],
+            enabled_providers=[],
+            capability_declaration_version=None,
+            capability_declaration_timestamp=None,
+            capability_profile_id=None,
             trust_status=status,
             source_onboarding_session_id=session.session_id,
             approved_by_user_id=str(session.approved_by_user_id or "").strip() or None,

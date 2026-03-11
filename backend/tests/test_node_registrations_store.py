@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -29,6 +30,11 @@ class TestNodeRegistrationsStore(unittest.TestCase):
             approved_at="2026-03-11T00:00:00+00:00",
             created_at="2026-03-11T00:00:00+00:00",
             updated_at="2026-03-11T00:00:00+00:00",
+            declared_capabilities=["task.classification", "task.captioning"],
+            enabled_providers=["openai", "local-cpu"],
+            capability_declaration_version="1.0",
+            capability_declaration_timestamp="2026-03-11T00:00:05+00:00",
+            capability_profile_id="cap-node-001-v1",
         )
         self.store.upsert(record)
 
@@ -40,10 +46,41 @@ class TestNodeRegistrationsStore(unittest.TestCase):
         self.assertEqual(by_id.node_type, "ai-node")
         self.assertEqual(by_id.node_software_version, "1.2.3")
         self.assertEqual(by_id.trust_status, "approved")
+        self.assertEqual(by_id.declared_capabilities, ["task.classification", "task.captioning"])
+        self.assertEqual(by_id.enabled_providers, ["openai", "local-cpu"])
+        self.assertEqual(by_id.capability_declaration_version, "1.0")
+        self.assertEqual(by_id.capability_profile_id, "cap-node-001-v1")
         by_session = reloaded.get_by_session("sess-001")
         self.assertIsNotNone(by_session)
         assert by_session is not None
         self.assertEqual(by_session.node_id, "node-001")
+
+    def test_backward_compatible_load_without_capability_metadata(self) -> None:
+        payload = {
+            "schema_version": "1",
+            "items": [
+                {
+                    "node_id": "node-legacy",
+                    "node_type": "ai-node",
+                    "node_name": "legacy",
+                    "node_software_version": "0.9.0",
+                    "trust_status": "trusted",
+                    "created_at": "2026-03-11T00:00:00+00:00",
+                    "updated_at": "2026-03-11T00:00:00+00:00",
+                }
+            ],
+            "session_to_node": {},
+        }
+        self.path.write_text(json.dumps(payload), encoding="utf-8")
+        reloaded = NodeRegistrationsStore(path=self.path)
+        item = reloaded.get("node-legacy")
+        self.assertIsNotNone(item)
+        assert item is not None
+        self.assertEqual(item.declared_capabilities, [])
+        self.assertEqual(item.enabled_providers, [])
+        self.assertIsNone(item.capability_declaration_version)
+        self.assertIsNone(item.capability_declaration_timestamp)
+        self.assertIsNone(item.capability_profile_id)
 
     def test_upsert_from_approved_session_binds_session_mapping(self) -> None:
         session = NodeOnboardingSession(
