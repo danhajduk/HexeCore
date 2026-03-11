@@ -45,20 +45,6 @@
   padding: 8px 10px;
 }
 
-.onboard-login button,
-.onboard-actions button {
-  border: 1px solid var(--border-color, #d1d5db);
-  border-radius: 8px;
-  padding: 8px 12px;
-  background: var(--surface-1, #fff);
-  color: inherit;
-}
-
-.onboard-login button[disabled],
-.onboard-actions button[disabled] {
-  opacity: 0.6;
-}
-
 .onboard-card {
   display: grid;
   gap: 12px;

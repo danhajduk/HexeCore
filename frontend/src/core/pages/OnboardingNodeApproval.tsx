@@ -166,7 +166,9 @@ export default function OnboardingNodeApproval() {
               autoComplete="current-password"
             />
           </label>
-          <button type="submit" disabled={loginBusy}>{loginBusy ? "Signing in..." : "Sign In"}</button>
+          <button className="addon-btn" type="submit" disabled={loginBusy}>
+            {loginBusy ? "Signing in..." : "Sign In"}
+          </button>
           {loginErr && <div className="onboard-error">{loginErr}</div>}
         </form>
       ) : loading ? (
@@ -190,6 +192,7 @@ export default function OnboardingNodeApproval() {
           </div>
           <div className="onboard-actions">
             <button
+              className="addon-btn"
               type="button"
               disabled={session.session_state !== "pending" || actionBusy !== null}
               onClick={() => void decide("approve")}
@@ -197,6 +200,7 @@ export default function OnboardingNodeApproval() {
               {actionBusy === "approve" ? "Approving..." : "Approve"}
             </button>
             <button
+              className="addon-btn"
               type="button"
               disabled={session.session_state !== "pending" || actionBusy !== null}
               onClick={() => void decide("reject")}
