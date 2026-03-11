@@ -388,3 +388,4 @@
 2026-03-11 - Task 377: added runtime topic explorer API and hierarchical Topics tab sourced from runtime/retained observations.
 2026-03-11 - Task 378: added runtime rebuild safety checks with active-client blocking and force override in API/UI.
 2026-03-11 - Task 379: added runtime traffic statistics history (24h retention) with messages/sec, connected clients, and errors endpoint.
+2026-03-11 - Task 380: refactored ACL compiler pipeline into explicit model-build, normalization, and Mosquitto-render stages.

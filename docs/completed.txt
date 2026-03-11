@@ -414,3 +414,4 @@
 2026-03-11 - Task 377: implemented MQTT topic explorer using runtime topic activity (`/api/system/runtime/topics`) and new Topics UI tab with hierarchical tree + observed-topic table.
 2026-03-11 - Task 378: added rebuild safety guard that blocks runtime rebuild while active non-core clients exist unless `force=true`, plus UI confirm/retry flow.
 2026-03-11 - Task 379: implemented 24-hour runtime stats history tracking in manager and exposed `/api/system/runtime/stats/history` (`messages_per_second`, `connected_clients`, `errors`).
+2026-03-11 - Task 380: refactored MQTT ACL compiler to use explicit normalized effective-access model (`read_rules`/`write_rules`/`deny_rules` + flags) before Mosquitto-specific rendering.

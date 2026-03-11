@@ -41,6 +41,17 @@ class MqttAclCompilationResult:
     effective_access: list[MqttEffectiveAccessEntry]
 
 
+@dataclass(frozen=True)
+class NormalizedEffectiveAccess:
+    principal_id: str
+    principal_type: str
+    bootstrap_only: bool
+    all_non_reserved: bool
+    read_rules: list[str]
+    write_rules: list[str]
+    deny_rules: list[str]
+
+
 def _sorted_unique(items: Iterable[str]) -> list[str]:
     return sorted({str(item).strip() for item in items if str(item).strip()})
 
@@ -61,7 +72,8 @@ class MqttAclCompiler:
 
     def compile(self, state: MqttIntegrationState) -> MqttAclCompilationResult:
         entries = self._effective_access.compile(state)
-        rules = self._render_mosquitto_rules(entries)
+        normalized_model = self._normalize_effective_access_model(self._build_effective_access_model(entries))
+        rules = self._render_mosquitto_rules(normalized_model)
         normalized = sorted(set(rules), key=lambda item: (item.principal_id, item.action, item.topic, item.effect))
         return MqttAclCompilationResult(rules=normalized, acl_text=self._to_acl_text(state, normalized), effective_access=entries)
 
@@ -72,23 +84,62 @@ class MqttAclCompiler:
         return self._effective_access.inspect_principal(state, principal_id)
 
     @staticmethod
-    def _render_mosquitto_rules(entries: list[MqttEffectiveAccessEntry]) -> list[CompiledAclRule]:
+    def _build_effective_access_model(entries: list[MqttEffectiveAccessEntry]) -> list[NormalizedEffectiveAccess]:
+        model: list[NormalizedEffectiveAccess] = []
+        for entry in entries:
+            deny_rules: list[str] = []
+            if entry.principal_id == "anonymous":
+                deny_rules = ["#"]
+            elif entry.principal_type == "generic_user":
+                deny_rules = list(entry.reserved_prefix_denies)
+            model.append(
+                NormalizedEffectiveAccess(
+                    principal_id=entry.principal_id,
+                    principal_type=entry.principal_type,
+                    bootstrap_only=bool(entry.anonymous_bootstrap_only),
+                    all_non_reserved=bool(entry.generic_non_reserved_only),
+                    read_rules=_sorted_unique(entry.subscribe_scopes),
+                    write_rules=_sorted_unique(entry.publish_scopes),
+                    deny_rules=_sorted_unique(deny_rules),
+                )
+            )
+        return model
+
+    @staticmethod
+    def _normalize_effective_access_model(entries: list[NormalizedEffectiveAccess]) -> list[NormalizedEffectiveAccess]:
+        normalized: list[NormalizedEffectiveAccess] = []
+        for entry in entries:
+            normalized.append(
+                NormalizedEffectiveAccess(
+                    principal_id=entry.principal_id,
+                    principal_type=entry.principal_type,
+                    bootstrap_only=bool(entry.bootstrap_only),
+                    all_non_reserved=bool(entry.all_non_reserved),
+                    read_rules=_sorted_unique(entry.read_rules),
+                    write_rules=_sorted_unique(entry.write_rules),
+                    deny_rules=_sorted_unique(entry.deny_rules),
+                )
+            )
+        return normalized
+
+    @staticmethod
+    def _render_mosquitto_rules(entries: list[NormalizedEffectiveAccess]) -> list[CompiledAclRule]:
         rules: list[CompiledAclRule] = []
         for entry in entries:
             if entry.principal_id == "anonymous":
-                for topic in entry.subscribe_scopes:
+                for topic in entry.read_rules:
                     rules.append(CompiledAclRule("anonymous", "subscribe", topic, "allow"))
-                rules.append(CompiledAclRule("anonymous", "publish", "#", "deny"))
-                rules.append(CompiledAclRule("anonymous", "subscribe", "#", "deny"))
+                for topic in entry.deny_rules or ["#"]:
+                    rules.append(CompiledAclRule("anonymous", "publish", topic, "deny"))
+                    rules.append(CompiledAclRule("anonymous", "subscribe", topic, "deny"))
                 continue
-            for topic in entry.publish_scopes:
+            for topic in entry.write_rules:
                 rules.append(CompiledAclRule(entry.principal_id, "publish", topic, "allow"))
-            for topic in entry.subscribe_scopes:
+            for topic in entry.read_rules:
                 rules.append(CompiledAclRule(entry.principal_id, "subscribe", topic, "allow"))
-            if entry.principal_type == "generic_user":
-                for prefix in entry.reserved_prefix_denies:
-                    rules.append(CompiledAclRule(entry.principal_id, "publish", prefix, "deny"))
-                    rules.append(CompiledAclRule(entry.principal_id, "subscribe", prefix, "deny"))
+            for prefix in entry.deny_rules:
+                rules.append(CompiledAclRule(entry.principal_id, "publish", prefix, "deny"))
+                rules.append(CompiledAclRule(entry.principal_id, "subscribe", prefix, "deny"))
         return rules
 
     def _to_acl_text(self, state: MqttIntegrationState, rules: list[CompiledAclRule]) -> str:
