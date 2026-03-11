@@ -44,7 +44,9 @@
   border-radius: var(--sx-radius-md);
   background: hsl(var(--sx-panel));
   padding: calc(var(--sx-space-3) + 2px);
-  display: grid;
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
   gap: calc(var(--sx-space-3) + 2px);
 }
 
@@ -65,19 +67,27 @@
   font-weight: 800;
 }
 
+.home-status-summary {
+  display: grid;
+  align-content: center;
+  min-height: 72px;
+}
+
 .home-status-detail {
   color: hsl(var(--sx-text-muted));
   font-size: 13px;
 }
 
 .home-status-tiles-wrap {
+  display: flex;
+  align-items: stretch;
   overflow-x: auto;
 }
 
 .home-status-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(96px, 96px));
-  justify-content: flex-start;
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
   gap: calc(var(--sx-space-2) + 2px);
 }
 
@@ -312,26 +322,11 @@
     flex-direction: column;
   }
   .home-status-card {
+    display: grid;
     padding: var(--sx-space-3);
-  }
-  .home-status-row {
-    grid-template-columns: repeat(4, 96px);
-    justify-content: center;
   }
   .home-grid {
     grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 520px) {
-  .home-status-row {
-    grid-template-columns: repeat(3, 96px);
-  }
-}
-
-@media (max-width: 360px) {
-  .home-status-row {
-    grid-template-columns: repeat(2, 96px);
   }
 }
 

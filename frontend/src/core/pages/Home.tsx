@@ -402,7 +402,7 @@ export default function Home() {
       </section>
 
       <section className={`home-status-card tone-${status.tone}`}>
-        <div>
+        <div className="home-status-summary">
           <div className="home-status-label">{status.label}</div>
           <div className="home-status-detail">{status.detail}</div>
           {status.reasons.length > 1 && (
