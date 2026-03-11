@@ -334,6 +334,26 @@ def reconcile_one(addon_dir: Path) -> ReconcileResult | None:
             and prior_runtime is not None
             and prior_runtime.last_force_rebuild_revision == desired_revision
         )
+        version_dir = addon_dir / "versions" / version
+        version_dir.mkdir(parents=True, exist_ok=True)
+
+        extracted_dir = version_dir / "extracted"
+        compose_file = version_dir / "docker-compose.yml"
+        env_file = version_dir / "runtime.env"
+
+        group_compose_files: list[Path] = []
+        for group in requested_groups:
+            group_compose = extracted_dir / f"docker-compose.group-{group}.yml"
+            if group_compose.exists():
+                group_compose_files.append(group_compose)
+        primary_service_name = _resolve_primary_service_name(desired.addon_id, group_compose_files)
+        stale_restart_policy = False
+        if compose_file.exists():
+            try:
+                compose_text = compose_file.read_text(encoding="utf-8")
+                stale_restart_policy = "restart: unless-stopped" in compose_text or "restart: always" in compose_text
+            except Exception:
+                stale_restart_policy = False
         if (
             prior_runtime is not None
             and prior_runtime.state == "running"
@@ -342,6 +362,18 @@ def reconcile_one(addon_dir: Path) -> ReconcileResult | None:
             and prior_runtime.last_applied_desired_revision == desired_revision
             and not force_rebuild
         ):
+            if stale_restart_policy:
+                if not runtime_path.exists():
+                    runtime_path.write_text("{}\n", encoding="utf-8")
+                ensure_compose_files(
+                    desired,
+                    extracted_dir,
+                    compose_file,
+                    env_file,
+                    desired_path,
+                    runtime_path,
+                    primary_service_name,
+                )
             log.info(
                 "reconcile_noop addon_id=%s version=%s desired_revision=%s",
                 desired.addon_id,
@@ -357,6 +389,18 @@ def reconcile_one(addon_dir: Path) -> ReconcileResult | None:
             and prior_runtime.last_applied_desired_revision == desired_revision
             and force_rebuild_already_applied
         ):
+            if stale_restart_policy:
+                if not runtime_path.exists():
+                    runtime_path.write_text("{}\n", encoding="utf-8")
+                ensure_compose_files(
+                    desired,
+                    extracted_dir,
+                    compose_file,
+                    env_file,
+                    desired_path,
+                    runtime_path,
+                    primary_service_name,
+                )
             log.info(
                 "reconcile_noop addon_id=%s version=%s desired_revision=%s reason=force_rebuild_already_applied",
                 desired.addon_id,
@@ -364,9 +408,6 @@ def reconcile_one(addon_dir: Path) -> ReconcileResult | None:
                 desired_revision,
             )
             return _build_reconcile_result(desired=desired, runtime=prior_runtime, prior_runtime=prior_runtime)
-        version_dir = addon_dir / "versions" / version
-        version_dir.mkdir(parents=True, exist_ok=True)
-
         artifact_path = version_dir / "addon.tgz"
         extracted_dir = version_dir / "extracted"
         compose_file = version_dir / "docker-compose.yml"

@@ -116,6 +116,8 @@ class DockerMosquittoRuntimeBoundary:
         self._host = str(host).strip() or "127.0.0.1"
         self._port = int(port)
         self._bootstrap_port = int(bootstrap_port)
+        restart_policy = str(os.getenv("SYNTHIA_MQTT_DOCKER_RESTART_POLICY", "no")).strip().lower()
+        self._restart_policy = restart_policy if restart_policy in {"no", "on-failure", "always", "unless-stopped"} else "no"
         self._state = "stopped"
         self._healthy = False
         self._degraded_reason: str | None = "runtime_not_started"
@@ -212,6 +214,7 @@ class DockerMosquittoRuntimeBoundary:
             if self._degraded_reason in {None, "runtime_stopped"}:
                 self._degraded_reason = "runtime_not_started"
             return self._status()
+        self._ensure_container_restart_policy_sync()
         if not self._container_running_sync():
             self._state = "stopped"
             self._healthy = False
@@ -268,7 +271,7 @@ class DockerMosquittoRuntimeBoundary:
                     "--name",
                     self._container_name,
                     "--restart",
-                    "unless-stopped",
+                    self._restart_policy,
                     "-p",
                     f"{self._port}:{self._port}",
                     "-p",
@@ -393,6 +396,19 @@ class DockerMosquittoRuntimeBoundary:
         if not self._container_exists_sync():
             return
         self._docker_cmd(["rm", "-f", self._container_name])
+
+    def _container_restart_policy_sync(self) -> str | None:
+        result = self._docker_cmd(["inspect", "--format", "{{.HostConfig.RestartPolicy.Name}}", self._container_name])
+        if result.returncode != 0:
+            return None
+        value = str(result.stdout or "").strip().lower()
+        return value or None
+
+    def _ensure_container_restart_policy_sync(self) -> None:
+        current = self._container_restart_policy_sync()
+        if not current or current == self._restart_policy:
+            return
+        self._docker_cmd(["update", "--restart", self._restart_policy, self._container_name])
 
     @staticmethod
     def _can_connect(host: str, port: int) -> bool:

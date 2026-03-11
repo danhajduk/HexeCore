@@ -232,6 +232,38 @@ class TestSynthiaSupervisorReconcile(unittest.TestCase):
             runtime = json.loads(runtime_path.read_text(encoding="utf-8"))
             self.assertEqual(runtime["last_applied_desired_revision"], "rev-1")
 
+    def test_reconcile_noop_refreshes_stale_restart_policy_without_compose_up(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            addon_dir = Path(tmp) / "services" / "mqtt"
+            version_dir = addon_dir / "versions" / "0.1.2"
+            version_dir.mkdir(parents=True, exist_ok=True)
+            (version_dir / "addon.tgz").write_bytes(b"artifact-bytes")
+            (version_dir / "docker-compose.yml").write_text(
+                "services:\n  mqtt:\n    restart: unless-stopped\n",
+                encoding="utf-8",
+            )
+            runtime_path = addon_dir / "runtime.json"
+            runtime_path.write_text(
+                json.dumps(
+                    {
+                        "ssap_version": "1.0",
+                        "addon_id": "mqtt",
+                        "active_version": "0.1.2",
+                        "state": "running",
+                        "last_applied_desired_revision": "rev-1",
+                        "last_applied_compose_digest": "abc",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            _write_desired(addon_dir, revision="rev-1")
+            with patch("synthia_supervisor.main.ensure_compose_files") as ensure_compose_mock, \
+                patch("synthia_supervisor.main.compose_up") as up_mock:
+                result = reconcile_one(addon_dir)
+            self.assertIsNotNone(result)
+            ensure_compose_mock.assert_called_once()
+            up_mock.assert_not_called()
+
     def test_reconcile_regenerates_compose_when_same_version_compose_inputs_change(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             addon_dir = Path(tmp) / "services" / "mqtt"

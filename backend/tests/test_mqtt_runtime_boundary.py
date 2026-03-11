@@ -184,6 +184,47 @@ class TestMqttRuntimeBoundary(unittest.TestCase):
             self.assertEqual(log_dir.stat().st_mode & 0o777, 0o777)
             self.assertEqual((live_dir / "passwords.conf").stat().st_mode & 0o777, 0o644)
 
+    def test_docker_boundary_updates_existing_container_restart_policy(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            live_dir = root / "live"
+            data_dir = root / "data"
+            log_dir = root / "logs"
+            live_dir.mkdir(parents=True, exist_ok=True)
+            data_dir.mkdir(parents=True, exist_ok=True)
+            log_dir.mkdir(parents=True, exist_ok=True)
+            (live_dir / "broker.conf").write_text("listener 1883\n", encoding="utf-8")
+            (live_dir / "acl_compiled.conf").write_text("topic readwrite #\n", encoding="utf-8")
+            (live_dir / "passwords.conf").write_text("user:$7$hash\n", encoding="utf-8")
+            boundary = DockerMosquittoRuntimeBoundary(
+                live_dir=str(live_dir),
+                data_dir=str(data_dir),
+                log_dir=str(log_dir),
+                container_name="synthia-mqtt-broker-test-restart-policy",
+            )
+            calls: list[list[str]] = []
+
+            def _fake_cmd(args: list[str]):
+                calls.append(list(args))
+                cmd = " ".join(args)
+                if cmd.startswith("ps -a"):
+                    return subprocess.CompletedProcess(["docker", *args], 0, stdout="synthia-mqtt-broker-test-restart-policy\n", stderr="")
+                if cmd.startswith("inspect --format {{.HostConfig.RestartPolicy.Name}}"):
+                    return subprocess.CompletedProcess(["docker", *args], 0, stdout="unless-stopped\n", stderr="")
+                if cmd.startswith("update --restart no"):
+                    return subprocess.CompletedProcess(["docker", *args], 0, stdout="", stderr="")
+                if cmd.startswith("ps --"):
+                    return subprocess.CompletedProcess(["docker", *args], 0, stdout="synthia-mqtt-broker-test-restart-policy\n", stderr="")
+                return subprocess.CompletedProcess(["docker", *args], 0, stdout="", stderr="")
+
+            with patch.object(boundary, "_docker_available", return_value=True):
+                with patch.object(boundary, "_can_connect", return_value=True):
+                    with patch.object(boundary, "_docker_cmd", side_effect=_fake_cmd):
+                        status = asyncio.run(boundary.health_check())
+
+            self.assertTrue(status.healthy)
+            self.assertTrue(any(call[:3] == ["update", "--restart", "no"] for call in calls))
+
     def test_docker_boundary_starts_existing_container_without_recreate(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
