@@ -39,6 +39,7 @@ type StackSummary = {
   subsystems: {
     core: { state: string };
     supervisor: { state: string };
+    ai: { state: string; trusted_nodes?: number; total_nodes?: number };
     mqtt: { state: string; last_message_at?: string | null };
     scheduler: { state: string; active_leases: number; queued_jobs: number };
     workers: { state: string; active_count: number };
@@ -379,6 +380,7 @@ export default function Home() {
         <div className="home-subsystems">
           <span className={`home-subsystem ${pillTone(stack?.subsystems.core.state || "unknown")}`}>Core</span>
           <span className={`home-subsystem ${pillTone(stack?.subsystems.supervisor.state || "unknown")}`}>Supervisor</span>
+          <span className={`home-subsystem ${pillTone(stack?.subsystems.ai?.state || "unknown")}`}>AI</span>
           <span className={`home-subsystem ${pillTone(stack?.subsystems.mqtt.state || "unknown")}`}>MQTT</span>
           <span className={`home-subsystem ${pillTone(stack?.subsystems.scheduler.state || "unknown")}`}>Scheduler</span>
           <span className={`home-subsystem ${pillTone(stack?.subsystems.workers.state || "unknown")}`}>Workers</span>
@@ -409,6 +411,11 @@ export default function Home() {
           title="MQTT"
           value={stack?.subsystems.mqtt.state || "unknown"}
           tone={pillTone(stack?.subsystems.mqtt.state || "unknown")}
+        />
+        <StatusMini
+          title="AI"
+          value={stack?.subsystems.ai?.state || "unknown"}
+          tone={pillTone(stack?.subsystems.ai?.state || "unknown")}
         />
         <StatusMini
           title="Workers"

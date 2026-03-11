@@ -373,6 +373,10 @@ def _derive_overall_status(payload: dict[str, Any]) -> dict[str, Any]:
     if scheduler_state in {"degraded", "unknown"}:
         reasons.append("Scheduler unavailable")
 
+    ai_state = str(subsystems.get("ai", {}).get("state") or "").strip().lower()
+    if ai_state in {"offline", "disconnected"}:
+        reasons.append("AI offline")
+
     worker_state = subsystems.get("workers", {}).get("state")
     if worker_state == "idle":
         reason = "No workers active"
@@ -420,6 +424,7 @@ def build_stack_health_router() -> APIRouter:
         mqtt_state_store = getattr(request.app.state, "mqtt_integration_state_store", None)
         mqtt_startup_reconciler = getattr(request.app.state, "mqtt_startup_reconciler", None)
         scheduler_engine = getattr(request.app.state, "scheduler_engine", None)
+        node_registrations_store = getattr(request.app.state, "node_registrations_store", None)
 
         core_state = "healthy"
         supervisor_running: bool | None = None
@@ -592,10 +597,34 @@ def build_stack_health_router() -> APIRouter:
                 speed = passive_speed
         network_metrics = _network_metrics_from_stats(stats)
 
+        ai_total_nodes = 0
+        ai_trusted_nodes = 0
+        ai_state = "unknown"
+        if node_registrations_store is not None:
+            try:
+                registrations = list(node_registrations_store.list())
+                ai_nodes = [
+                    item
+                    for item in registrations
+                    if str(getattr(item, "node_type", "") or "").strip().lower() == "ai-node"
+                ]
+                ai_total_nodes = len(ai_nodes)
+                ai_trusted_nodes = sum(
+                    1 for item in ai_nodes if str(getattr(item, "trust_status", "") or "").strip().lower() == "trusted"
+                )
+                ai_state = "connected" if ai_trusted_nodes > 0 else "offline"
+            except Exception:
+                ai_state = "unknown"
+
         payload = {
             "subsystems": {
                 "core": {"state": core_state},
                 "supervisor": {"state": _state_from_bool(supervisor_running, "healthy", "unhealthy")},
+                "ai": {
+                    "state": ai_state,
+                    "trusted_nodes": ai_trusted_nodes,
+                    "total_nodes": ai_total_nodes,
+                },
                 "mqtt": {
                     "state": mqtt_state,
                     "last_message_at": mqtt_last_message_at,

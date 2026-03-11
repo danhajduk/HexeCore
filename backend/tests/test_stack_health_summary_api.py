@@ -127,6 +127,20 @@ class _FakeStats:
         self.services = {}
 
 
+class _FakeNodeRegistration:
+    def __init__(self, node_type: str, trust_status: str) -> None:
+        self.node_type = node_type
+        self.trust_status = trust_status
+
+
+class _FakeNodeRegistrationsStore:
+    def __init__(self, items: list[_FakeNodeRegistration]) -> None:
+        self._items = list(items)
+
+    def list(self) -> list[_FakeNodeRegistration]:
+        return list(self._items)
+
+
 class TestStackHealthSummaryApi(unittest.TestCase):
     def setUp(self) -> None:
         self.old_local = os.environ.get("SYNTHIA_LOCAL_NETWORK_CHECK_HOST")
@@ -185,6 +199,9 @@ class TestStackHealthSummaryApi(unittest.TestCase):
         app.state.mqtt_integration_state_store = _FakeMqttStateStore()
         app.state.mqtt_startup_reconciler = _FakeMqttStartupReconciler()
         app.state.addon_registry = _FakeRegistry()
+        app.state.node_registrations_store = _FakeNodeRegistrationsStore(
+            [_FakeNodeRegistration(node_type="ai-node", trust_status="trusted")]
+        )
         app.state.latest_stats = _FakeStats()
 
         client = TestClient(app)
@@ -206,6 +223,8 @@ class TestStackHealthSummaryApi(unittest.TestCase):
         self.assertEqual(payload["subsystems"]["workers"]["active_count"], 2)
         self.assertEqual(payload["subsystems"]["addons"]["installed_count"], 2)
         self.assertEqual(payload["subsystems"]["addons"]["unhealthy_count"], 1)
+        self.assertEqual(payload["subsystems"]["ai"]["state"], "connected")
+        self.assertEqual(payload["subsystems"]["ai"]["trusted_nodes"], 1)
 
         self.assertEqual(payload["connectivity"]["network"]["state"], "not_configured")
         self.assertEqual(payload["connectivity"]["internet"]["state"], "not_configured")
@@ -232,6 +251,27 @@ class TestStackHealthSummaryApi(unittest.TestCase):
         )
         self.assertEqual(payload["overall"], "ok")
         self.assertIn("No workers active", payload["reasons"])
+
+    def test_ai_offline_degrades_overall_status(self) -> None:
+        payload = stack_health._derive_overall_status(
+            {
+                "subsystems": {
+                    "core": {"state": "healthy"},
+                    "supervisor": {"state": "healthy"},
+                    "ai": {"state": "offline"},
+                    "workers": {"state": "active"},
+                    "mqtt": {"state": "connected"},
+                    "scheduler": {"state": "running"},
+                    "addons": {"unhealthy_count": 0},
+                },
+                "connectivity": {
+                    "network": {"state": "reachable"},
+                    "internet": {"state": "reachable"},
+                },
+            }
+        )
+        self.assertEqual(payload["overall"], "degraded")
+        self.assertIn("AI offline", payload["reasons"])
 
     @patch("app.system.stack_health.subprocess.run")
     def test_stack_summary_uses_cached_speed_only(self, mock_run) -> None:
