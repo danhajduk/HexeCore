@@ -53,9 +53,12 @@ class _FakeInstallSessionsStore:
 
 
 class _Msg:
-    def __init__(self, topic: str, payload: dict) -> None:
+    def __init__(self, topic: str, payload: dict | int | str) -> None:
         self.topic = topic
-        self.payload = json.dumps(payload).encode("utf-8")
+        if isinstance(payload, (dict, list)):
+            self.payload = json.dumps(payload).encode("utf-8")
+        else:
+            self.payload = str(payload).encode("utf-8")
 
 
 class _PublishResult:
@@ -116,6 +119,9 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(registry.calls[1][0], "health")
         self.assertEqual(registry.calls[1][1], "mqtt")
         self.assertEqual(sessions.calls, ["mqtt"])
+        runtime = await manager.principal_connection_states()
+        self.assertTrue(runtime["addon:mqtt"]["connected"])
+        self.assertGreaterEqual(int(runtime["addon:mqtt"]["session_count"]), 1)
 
     async def test_on_connect_publishes_retained_core_info(self) -> None:
         manager = MqttManager(
@@ -153,6 +159,10 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(payload["broker"]["port"], 1883)
         self.assertFalse(payload["broker"]["tls_enabled"])
         self.assertTrue(payload["broker"]["username_set"])
+        runtime = await manager.principal_connection_states()
+        self.assertTrue(runtime["core.runtime"]["connected"])
+        sessions = await manager.runtime_sessions()
+        self.assertTrue(any(str(item.get("principal_id")) == "core.runtime" for item in sessions["items"]))
 
     async def test_on_connect_failure_does_not_publish_core_info(self) -> None:
         manager = MqttManager(
@@ -180,6 +190,44 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(manager._auth_failures, 1)
         self.assertEqual(client.subscribed, [])
         self.assertEqual(client.published, [])
+
+    async def test_runtime_disconnect_marks_core_runtime_disconnected(self) -> None:
+        manager = MqttManager(
+            settings_store=_FakeSettingsStore(),
+            registry=_FakeRegistry(),
+            service_catalog_store=_FakeServiceCatalogStore(),
+            enabled=True,
+        )
+        manager._config = MqttConfig(
+            mode="external",
+            host="10.0.0.100",
+            port=1883,
+            username=None,
+            password=None,
+            keepalive_s=30,
+            tls_enabled=False,
+            client_id="synthia-core",
+        )
+        client = _FakeClient()
+        manager._on_connect(client, None, None, 0)
+        manager._on_disconnect(client, None, None, 0)
+        runtime = await manager.principal_connection_states()
+        self.assertIn("core.runtime", runtime)
+        self.assertFalse(runtime["core.runtime"]["connected"])
+
+    async def test_parses_sys_client_topics_into_runtime_sessions_payload(self) -> None:
+        manager = MqttManager(
+            settings_store=_FakeSettingsStore(),
+            registry=_FakeRegistry(),
+            service_catalog_store=_FakeServiceCatalogStore(),
+            enabled=True,
+        )
+        manager._loop = asyncio.get_running_loop()
+        manager._on_message(None, None, _Msg("$SYS/broker/clients/connected", 7))
+        manager._on_message(None, None, _Msg("$SYS/broker/clients/disconnected", 3))
+        sessions = await manager.runtime_sessions()
+        self.assertEqual(sessions["broker_clients"]["connected"], 7)
+        self.assertEqual(sessions["broker_clients"]["disconnected"], 3)
 
     async def test_on_connect_accepts_reason_code_object(self) -> None:
         manager = MqttManager(

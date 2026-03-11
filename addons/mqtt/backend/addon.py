@@ -226,6 +226,7 @@ def addon_ui_root() -> str:
       margin-bottom: 6px;
     }
     .pill.ok { border-color: #166534; color: #86efac; }
+    .pill.muted { border-color: #475569; color: #cbd5e1; }
     .pill.warn { border-color: #92400e; color: #fde68a; }
     .pill.bad { border-color: #991b1b; color: #fecaca; }
     .stats {
@@ -1093,7 +1094,14 @@ def addon_ui_root() -> str:
                 .map((item) => {
                   const principalId = escapeHtml(item.principal_id || item.id || "-");
                   const principalType = escapeHtml(String(item.principal_type || item.type || key));
-                  const status = escapeHtml(String(item.status || "-"));
+                  const rawStatus = String(item.status || "-");
+                  const runtimeConnection = item && item.runtime_connection ? item.runtime_connection : {};
+                  const runtimeConnected = Boolean(runtimeConnection && runtimeConnection.connected);
+                  const status = escapeHtml(rawStatus === "active" ? `active + ${runtimeConnected ? "connected" : "disconnected"}` : rawStatus);
+                  const connectionTone = String(rawStatus).toLowerCase() === "revoked" ? "bad" : (runtimeConnected ? "ok" : "muted");
+                  const connectionPill = String(rawStatus).toLowerCase() === "active"
+                    ? healthPill(runtimeConnected ? "connected" : "disconnected", connectionTone)
+                    : "";
                   const topicPrefix = escapeHtml(String(item.topic_prefix || "-"));
                   const accessMode = escapeHtml(String(item.access_mode || "private"));
                   const allowedTopics = escapeHtml(Array.isArray(item.allowed_topics) ? item.allowed_topics.join(",") : "");
@@ -1120,7 +1128,7 @@ def addon_ui_root() -> str:
                       `<button class='mini' data-principal-action='probation' data-principal-id='${principalId}'>Disable</button>` +
                       `<button class='mini' data-principal-action='revoke' data-principal-id='${principalId}'>Revoke</button>`
                     : "";
-                  return `<tr><td>${principalId}</td><td>${principalType}${managedBadge}</td><td>${status}</td><td>${topicPrefix}</td><td>${updated}</td><td><div class='row-actions'>${readonly}${systemLocked ? destructive : (key === "generic" ? genericActions : principalActions)}</div></td></tr>`;
+                  return `<tr><td>${principalId}</td><td>${principalType}${managedBadge}</td><td>${status}${connectionPill}</td><td>${topicPrefix}</td><td>${updated}</td><td><div class='row-actions'>${readonly}${systemLocked ? destructive : (key === "generic" ? genericActions : principalActions)}</div></td></tr>`;
                 })
                 .join("");
               return `<div class='group-title'>${escapeHtml(principalGroupLabel(key))}</div><table class='table'><thead><tr><th>Principal</th><th>Type</th><th>Status</th><th>Topic Prefix</th><th>Updated</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;

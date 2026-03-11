@@ -59,6 +59,32 @@ class _FakeMqttManager:
     def _core_info_payload(self) -> dict:
         return {"source": "synthia-core", "type": "core-mqtt-info"}
 
+    async def principal_connection_states(self):
+        return {
+            "core.runtime": {
+                "connected": True,
+                "connected_since": "2026-03-10T00:00:00Z",
+                "last_seen": "2026-03-10T00:00:01Z",
+                "session_count": 1,
+            }
+        }
+
+    async def runtime_sessions(self):
+        return {
+            "ok": True,
+            "items": [
+                {
+                    "client_id": "synthia-core",
+                    "principal_id": "core.runtime",
+                    "connected": True,
+                    "connected_at": "2026-03-10T00:00:00Z",
+                    "last_activity": "2026-03-10T00:00:01Z",
+                    "session_count": 1,
+                }
+            ],
+            "broker_clients": {"connected": 1, "disconnected": 0},
+        }
+
 
 class TestMqttRuntimeIntegration(unittest.TestCase):
     def setUp(self) -> None:
@@ -187,6 +213,13 @@ class TestMqttRuntimeIntegration(unittest.TestCase):
         self.assertEqual(by_id["core.scheduler"]["managed_by"], "core")
         self.assertEqual(by_id["core.bootstrap"]["principal_type"], "system")
         self.assertEqual(by_id["core.bootstrap"]["managed_by"], "core")
+        self.assertIn("runtime_connection", by_id["core.bootstrap"])
+        self.assertFalse(bool(by_id["core.bootstrap"]["runtime_connection"]["connected"]))
+
+        sessions = self.client.get("/api/system/runtime/sessions", headers={"X-Admin-Token": "test-token"})
+        self.assertEqual(sessions.status_code, 200, sessions.text)
+        self.assertTrue(sessions.json()["ok"])
+        self.assertEqual(sessions.json()["items"][0]["principal_id"], "core.runtime")
 
     def test_setup_apply_local_creates_staged_and_live_runtime_artifacts(self) -> None:
         resp = self.client.post(

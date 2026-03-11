@@ -475,6 +475,22 @@ def build_mqtt_router(
             "health": health,
         }
 
+    @router.get("/mqtt/runtime/sessions")
+    @router.get("/runtime/sessions")
+    async def mqtt_runtime_sessions(request: Request, x_admin_token: str | None = Header(default=None)):
+        require_admin_token(x_admin_token, request)
+        sessions_fn = getattr(manager, "runtime_sessions", None)
+        if not callable(sessions_fn):
+            return {"ok": True, "items": [], "broker_clients": {"connected": None, "disconnected": None}}
+        payload = await sessions_fn()
+        if not isinstance(payload, dict):
+            return {"ok": True, "items": [], "broker_clients": {"connected": None, "disconnected": None}}
+        return {
+            "ok": bool(payload.get("ok", True)),
+            "items": list(payload.get("items") or []),
+            "broker_clients": dict(payload.get("broker_clients") or {"connected": None, "disconnected": None}),
+        }
+
     @router.post("/mqtt/runtime/start")
     async def mqtt_runtime_start(request: Request, x_admin_token: str | None = Header(default=None)):
         require_admin_token(x_admin_token, request)
@@ -676,7 +692,26 @@ def build_mqtt_router(
     @router.get("/mqtt/principals")
     async def mqtt_principals(request: Request, x_admin_token: str | None = Header(default=None)):
         require_admin_token(x_admin_token, request)
-        return {"ok": True, "items": await approval.list_principals()}
+        items = await approval.list_principals()
+        runtime_map: dict[str, dict[str, Any]] = {}
+        runtime_fn = getattr(manager, "principal_connection_states", None)
+        if callable(runtime_fn):
+            try:
+                payload = await runtime_fn()
+                if isinstance(payload, dict):
+                    runtime_map = payload
+            except Exception:
+                runtime_map = {}
+        for item in items:
+            principal_id = str(item.get("principal_id") or "")
+            state = runtime_map.get(principal_id) or {}
+            item["runtime_connection"] = {
+                "connected": bool(state.get("connected", False)),
+                "connected_since": state.get("connected_since"),
+                "last_seen": state.get("last_seen"),
+                "session_count": int(state.get("session_count") or 0),
+            }
+        return {"ok": True, "items": items}
 
     def _principal_permissions_payload(item: dict[str, Any]) -> dict[str, Any]:
         return {

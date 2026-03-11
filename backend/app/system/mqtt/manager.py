@@ -25,6 +25,8 @@ MQTT_SUBSCRIPTIONS = [
     ("synthia/services/+/catalog", 1),
     ("synthia/policy/grants/+", 1),
     ("synthia/policy/revocations/+", 1),
+    ("$SYS/broker/clients/connected", 0),
+    ("$SYS/broker/clients/disconnected", 0),
 ]
 
 
@@ -69,6 +71,11 @@ class MqttManager:
         self._auth_failures = 0
         self._reconnect_spikes = 0
         self._last_connected_monotonic: float | None = None
+        self._principal_runtime: dict[str, dict[str, Any]] = {}
+        self._runtime_sessions: dict[str, dict[str, Any]] = {}
+        self._sys_clients_connected: int | None = None
+        self._sys_clients_disconnected: int | None = None
+        self._session_idle_timeout_s = int(os.getenv("SYNTHIA_MQTT_SESSION_IDLE_TIMEOUT_S", "300"))
 
     async def start(self) -> None:
         if not self._enabled:
@@ -160,6 +167,48 @@ class MqttManager:
             bool(retain),
         )
         return {"ok": bool(getattr(result, "rc", 1) == 0), "topic": topic, "rc": int(getattr(result, "rc", 1))}
+
+    async def principal_connection_states(self) -> dict[str, dict[str, Any]]:
+        self._expire_stale_runtime_sessions()
+        out: dict[str, dict[str, Any]] = {}
+        for principal_id, item in sorted(self._principal_runtime.items()):
+            out[principal_id] = {
+                "principal_id": principal_id,
+                "connected": bool(item.get("connected")),
+                "connected_since": item.get("connected_since"),
+                "last_seen": item.get("last_seen"),
+                "session_count": int(item.get("session_count") or 0),
+            }
+        return out
+
+    async def runtime_sessions(self) -> dict[str, Any]:
+        self._expire_stale_runtime_sessions()
+        items = []
+        for _, item in sorted(
+            self._runtime_sessions.items(),
+            key=lambda pair: (
+                str(pair[1].get("principal_id") or ""),
+                str(pair[1].get("client_id") or ""),
+            ),
+        ):
+            items.append(
+                {
+                    "client_id": item.get("client_id"),
+                    "principal_id": item.get("principal_id"),
+                    "connected": bool(item.get("connected")),
+                    "connected_at": item.get("connected_at"),
+                    "last_activity": item.get("last_activity"),
+                    "session_count": int(item.get("session_count") or 0),
+                }
+            )
+        return {
+            "ok": True,
+            "items": items,
+            "broker_clients": {
+                "connected": self._sys_clients_connected,
+                "disconnected": self._sys_clients_disconnected,
+            },
+        }
 
     def _core_info_payload(self) -> dict[str, Any]:
         cfg = self._config
@@ -283,6 +332,8 @@ class MqttManager:
             self._reconnect_spikes += 1
         self._last_connected_monotonic = now
         self._connection_count += 1
+        client_id = self._config.client_id if self._config is not None else "synthia-core"
+        self._touch_principal_runtime("core.runtime", client_id=client_id)
         for topic, qos in MQTT_SUBSCRIPTIONS:
             client.subscribe(topic, qos=qos)
         self._publish_core_info_retained(client)
@@ -295,6 +346,8 @@ class MqttManager:
     def _on_disconnect(self, client: Any, userdata: Any, disconnect_flags: Any, reason_code: Any, properties: Any = None) -> None:
         self._connected = False
         rc = self._reason_code_value(reason_code)
+        client_id = self._config.client_id if self._config is not None else "synthia-core"
+        self._mark_principal_runtime_disconnected("core.runtime", client_id=client_id)
         if rc != 0:
             self._last_error = f"disconnect_rc:{rc}"
             self._record_observability_event(
@@ -318,6 +371,7 @@ class MqttManager:
         self._message_count += 1
         self._last_message_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         payload: dict[str, Any] = {}
+        decoded = ""
         try:
             decoded = msg.payload.decode("utf-8", errors="replace")
             parsed = json.loads(decoded) if decoded else {}
@@ -326,10 +380,17 @@ class MqttManager:
         except Exception:
             payload = {}
         topic = str(msg.topic)
+        if topic == "$SYS/broker/clients/connected":
+            self._sys_clients_connected = self._parse_int_payload(payload, decoded)
+            return
+        if topic == "$SYS/broker/clients/disconnected":
+            self._sys_clients_disconnected = self._parse_int_payload(payload, decoded)
+            return
         parts = topic.split("/")
         if len(parts) >= 4 and parts[0] == "synthia" and parts[1] == "addons":
             addon_id = parts[2]
             event = parts[3]
+            self._touch_principal_runtime(f"addon:{addon_id}", client_id=f"addon:{addon_id}")
             if event == "announce":
                 self._dispatch_registry_update(addon_id, payload, announce=True)
             elif event == "health":
@@ -337,6 +398,89 @@ class MqttManager:
         if len(parts) >= 4 and parts[0] == "synthia" and parts[1] == "services" and parts[3] == "catalog":
             service_name = parts[2]
             self._dispatch_service_catalog_update(service_name, payload)
+
+    @staticmethod
+    def _parse_int_payload(payload: dict[str, Any], decoded: str) -> int | None:
+        if isinstance(payload, dict):
+            if "value" in payload:
+                try:
+                    return int(payload.get("value"))
+                except Exception:
+                    pass
+        raw = str(decoded or "").strip()
+        if raw:
+            try:
+                return int(raw)
+            except Exception:
+                return None
+        return None
+
+    def _touch_principal_runtime(self, principal_id: str, *, client_id: str) -> None:
+        now = time.time()
+        now_iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now))
+        principal = dict(self._principal_runtime.get(principal_id) or {})
+        if not bool(principal.get("connected")):
+            principal["connected"] = True
+            principal["connected_since"] = now_iso
+            principal["session_count"] = int(principal.get("session_count") or 0) + 1
+        principal["last_seen"] = now_iso
+        principal["_last_seen_epoch"] = now
+        self._principal_runtime[principal_id] = principal
+
+        session = dict(self._runtime_sessions.get(client_id) or {})
+        if not bool(session.get("connected")):
+            session["connected"] = True
+            session["connected_at"] = now_iso
+            session["session_count"] = int(session.get("session_count") or 0) + 1
+        session["client_id"] = client_id
+        session["principal_id"] = principal_id
+        session["last_activity"] = now_iso
+        session["_last_activity_epoch"] = now
+        self._runtime_sessions[client_id] = session
+
+    def _mark_principal_runtime_disconnected(self, principal_id: str, *, client_id: str) -> None:
+        now_iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        principal = dict(self._principal_runtime.get(principal_id) or {})
+        principal["connected"] = False
+        principal["last_seen"] = now_iso
+        self._principal_runtime[principal_id] = principal
+
+        session = dict(self._runtime_sessions.get(client_id) or {})
+        session["client_id"] = client_id
+        session["principal_id"] = principal_id
+        session["connected"] = False
+        session["last_activity"] = now_iso
+        self._runtime_sessions[client_id] = session
+
+    def _expire_stale_runtime_sessions(self) -> None:
+        now = time.time()
+        ttl = max(30, int(self._session_idle_timeout_s))
+        for principal_id, principal in list(self._principal_runtime.items()):
+            if principal_id == "core.runtime":
+                continue
+            if not bool(principal.get("connected")):
+                continue
+            seen_at = float(principal.get("_last_seen_epoch") or 0.0)
+            if seen_at <= 0.0:
+                continue
+            if (now - seen_at) <= ttl:
+                continue
+            updated = dict(principal)
+            updated["connected"] = False
+            self._principal_runtime[principal_id] = updated
+        for client_id, session in list(self._runtime_sessions.items()):
+            if client_id == (self._config.client_id if self._config is not None else "synthia-core"):
+                continue
+            if not bool(session.get("connected")):
+                continue
+            seen_at = float(session.get("_last_activity_epoch") or 0.0)
+            if seen_at <= 0.0:
+                continue
+            if (now - seen_at) <= ttl:
+                continue
+            updated = dict(session)
+            updated["connected"] = False
+            self._runtime_sessions[client_id] = updated
 
     def _dispatch_registry_update(self, addon_id: str, payload: dict[str, Any], announce: bool) -> None:
         loop = self._loop

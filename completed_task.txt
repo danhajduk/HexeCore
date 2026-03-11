@@ -368,3 +368,5 @@
 2026-03-10 - Session complete: finished MQTT task queue (351-358) including actions UX, connection reliability, bootstrap republish, access-mode grants, and reserved-family hardening.
 2026-03-10 - Task 359: fixed local embedded MQTT manager auth source to use runtime credential store precedence and restored broker-auth connectivity path.
 2026-03-10 - Task 360: implemented principal detail/permissions/last-seen + action alias endpoints, wired Principals UI buttons, and added regression coverage.
+2026-03-10 - Task 361: added principal runtime connection state tracking and connected/disconnected status indicators in Principals UI.
+2026-03-10 - Task 362: added $SYS-based broker client counters, runtime session table, and runtime sessions API endpoints.
