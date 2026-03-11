@@ -422,3 +422,4 @@
 2026-03-11 - Task 449: made onboarding APIs node-type-aware and added canonical node_* response fields with legacy requested_* compatibility aliases.
 2026-03-11 - Task 450: added global node registrations query APIs with admin auth and filter support.
 2026-03-11 - Task 451: migrated trust issuance/finalization to global node model with node_type metadata and trusted-status promotion.
+2026-03-11 - Task 452: updated bootstrap payload to advertise global node onboarding/registration endpoints plus legacy AI-node compatibility metadata.

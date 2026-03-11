@@ -239,9 +239,16 @@ class EmbeddedMqttStartupReconciler:
             mqtt_host=(mqtt_host or None),
             mqtt_port=(int(mqtt_status.get("port")) if mqtt_status and mqtt_status.get("port") is not None else None),
             onboarding_endpoints={
+                "register_session": "/api/system/nodes/onboarding/sessions",
+                "registrations": "/api/system/nodes/registrations",
                 "register": "/api/system/nodes/onboarding/sessions",
+                "ai_node_register": "/api/system/ai-nodes/onboarding/sessions",
             },
             onboarding_mode="api",
+            onboarding_contract="global-node-v1",
+            compatibility={
+                "legacy_ai_node_keys": ["register", "ai_node_register"],
+            },
         ).model_dump(mode="json")
         bootstrap_publish = await self._mqtt.publish("synthia/bootstrap/core", payload, retain=True, qos=1)
         info_publish = await self._mqtt.publish("synthia/core/mqtt/info", self._mqtt._core_info_payload(), retain=True, qos=1)

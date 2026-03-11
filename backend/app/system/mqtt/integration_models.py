@@ -103,6 +103,8 @@ class MqttBootstrapAnnouncement(BaseModel):
     mqtt_port: int | None = None
     onboarding_endpoints: dict[str, str] = Field(default_factory=dict)
     onboarding_mode: str = "api"
+    onboarding_contract: str = "global-node-v1"
+    compatibility: dict[str, object] = Field(default_factory=dict)
     emitted_at: str = Field(default_factory=_utcnow_iso)
 
 
