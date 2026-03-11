@@ -362,6 +362,39 @@ def build_system_router(
             raise HTTPException(status_code=404, detail="node_registration_not_found")
         return {"ok": True, "registration": item.to_api_dict()}
 
+    @router.delete("/system/nodes/registrations/{node_id}")
+    def delete_node_registration(
+        node_id: str,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        if node_registrations_store is None:
+            raise HTTPException(status_code=503, detail="node_registrations_unavailable")
+        existing = node_registrations_store.get(node_id)
+        if existing is None:
+            raise HTTPException(status_code=404, detail="node_registration_not_found")
+        removed = node_registrations_store.delete(node_id)
+        trust_removed = False
+        if node_trust_issuance is not None:
+            try:
+                trust_removed = bool(node_trust_issuance.revoke_node(node_id))
+            except Exception:
+                trust_removed = False
+        _record_audit(
+            audit_store,
+            event_type="node_registration_deleted",
+            actor_role="admin",
+            actor_id=_admin_actor(x_admin_token),
+            details={"node_id": str(node_id or ""), "removed_trust_record": trust_removed},
+        )
+        return {
+            "ok": True,
+            "removed_node_id": str(node_id or ""),
+            "removed_registration": bool(removed is not None),
+            "removed_trust_record": trust_removed,
+        }
+
     @router.post("/system/nodes/onboarding/sessions/{session_id}/approve")
     def approve_node_onboarding_session(
         session_id: str,

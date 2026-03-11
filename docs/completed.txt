@@ -488,3 +488,4 @@
 2026-03-11 15:01 - Task 461: updated onboarding approval action handling to close the window after both approve and reject outcomes.
 2026-03-11 15:02 - Task 462: removed the Home "Recent Activity" panel and its events API polling from dashboard data loading.
 2026-03-11 15:04 - Task 463: added AI subsystem health in stack summary, made AI offline a degrading core reason, and surfaced AI status pill/cards on Home.
+2026-03-11 15:07 - Task 464: added node removal flow (API + UI) that deletes node registrations and revokes stored node trust credentials/MQTT identity records.

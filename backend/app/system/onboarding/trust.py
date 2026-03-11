@@ -134,6 +134,19 @@ class NodeTrustStore:
         self._save()
         return record
 
+    def delete_by_node(self, node_id: str) -> NodeTrustRecord | None:
+        node_key = str(node_id or "").strip()
+        if not node_key:
+            return None
+        record = self._records_by_node.pop(node_key, None)
+        if record is None:
+            return None
+        self._session_to_node = {
+            sid: linked_node_id for sid, linked_node_id in self._session_to_node.items() if linked_node_id != node_key
+        }
+        self._save()
+        return record
+
 
 class NodeTrustIssuanceService:
     def __init__(self, store: NodeTrustStore) -> None:
@@ -185,3 +198,6 @@ class NodeTrustIssuanceService:
         )
         self._store.upsert(record)
         return {"ok": True, "activation": record.to_dict()}
+
+    def revoke_node(self, node_id: str) -> bool:
+        return self._store.delete_by_node(node_id) is not None

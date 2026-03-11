@@ -162,6 +162,50 @@ class TestNodeRegistrationsApi(unittest.TestCase):
         self.assertEqual(filtered_status.status_code, 200, filtered_status.text)
         self.assertEqual(len(filtered_status.json()["items"]), 2)
 
+    def test_delete_registration_removes_trust_record(self) -> None:
+        started = self.client.post(
+            "/api/system/nodes/onboarding/sessions",
+            json={
+                "node_name": "delete-node",
+                "node_type": "ai-node",
+                "node_software_version": "1.0.0",
+                "protocol_version": "1.0",
+                "node_nonce": "nonce-api-delete",
+            },
+        )
+        self.assertEqual(started.status_code, 200, started.text)
+        session_id = started.json()["session"]["session_id"]
+        state = started.json()["session"]["approval_url"].split("state=", 1)[1]
+        approve = self.client.post(
+            f"/api/system/nodes/onboarding/sessions/{session_id}/approve?state={state}",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(approve.status_code, 200, approve.text)
+        node_id = approve.json()["registration"]["node_id"]
+
+        finalized = self.client.get(
+            f"/api/system/nodes/onboarding/sessions/{session_id}/finalize?node_nonce=nonce-api-delete"
+        )
+        self.assertEqual(finalized.status_code, 200, finalized.text)
+        self.assertEqual(finalized.json()["onboarding_status"], "approved")
+        self.assertIsNotNone(self.trust_store.get_by_node(node_id))
+
+        deleted = self.client.delete(
+            f"/api/system/nodes/registrations/{node_id}",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(deleted.status_code, 200, deleted.text)
+        self.assertEqual(deleted.json()["removed_node_id"], node_id)
+        self.assertTrue(bool(deleted.json()["removed_registration"]))
+        self.assertTrue(bool(deleted.json()["removed_trust_record"]))
+
+        gone = self.client.get(
+            f"/api/system/nodes/registrations/{node_id}",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(gone.status_code, 404, gone.text)
+        self.assertIsNone(self.trust_store.get_by_node(node_id))
+
 
 if __name__ == "__main__":
     unittest.main()

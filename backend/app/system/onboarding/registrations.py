@@ -220,6 +220,19 @@ class NodeRegistrationsStore:
             record.approved_at = str(approved_at or "").strip() or None
         return self.upsert(record)
 
+    def delete(self, node_id: str) -> NodeRegistrationRecord | None:
+        node_key = str(node_id or "").strip()
+        if not node_key:
+            return None
+        record = self._records_by_node.pop(node_key, None)
+        if record is None:
+            return None
+        self._session_to_node = {
+            sid: linked_node_id for sid, linked_node_id in self._session_to_node.items() if linked_node_id != node_key
+        }
+        self._save()
+        return record
+
     def mark_trusted_by_session(self, session_id: str) -> NodeRegistrationRecord | None:
         record = self.get_by_session(session_id)
         if record is None:

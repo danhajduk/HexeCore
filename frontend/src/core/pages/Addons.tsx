@@ -74,6 +74,7 @@ export default function Addons() {
   const [nodes, setNodes] = useState<NodeRegistration[]>([]);
   const [nodesErr, setNodesErr] = useState<string | null>(null);
   const [nodesBusy, setNodesBusy] = useState(false);
+  const [nodeDeleteBusy, setNodeDeleteBusy] = useState<string | null>(null);
   const [catalogBusy, setCatalogBusy] = useState(false);
   const [catalogMsg, setCatalogMsg] = useState<string | null>(null);
   const [uninstallStates, setUninstallStates] = useState<Record<string, UninstallViewState>>({});
@@ -147,6 +148,25 @@ export default function Addons() {
       setCatalogMsg(`Catalog update failed: ${e?.message ?? String(e)}`);
     } finally {
       setCatalogBusy(false);
+    }
+  }
+
+  async function deleteNode(nodeId: string) {
+    const target = String(nodeId || "").trim();
+    if (!target) return;
+    setNodesErr(null);
+    setNodeDeleteBusy(target);
+    try {
+      const res = await fetch(`/api/system/nodes/registrations/${encodeURIComponent(target)}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(await readError(res));
+      await refreshNodes();
+    } catch (e: any) {
+      setNodesErr(e?.message ?? String(e));
+    } finally {
+      setNodeDeleteBusy(null);
     }
   }
 
@@ -391,6 +411,17 @@ export default function Addons() {
                         session: {item.source_onboarding_session_id || "-"} • updated:{" "}
                         {item.updated_at ? new Date(item.updated_at).toLocaleString() : "-"}
                       </div>
+                      {isAdmin && (
+                        <div className="addon-actions">
+                          <button
+                            className="addon-btn addon-btn-danger"
+                            onClick={() => void deleteNode(item.node_id)}
+                            disabled={nodeDeleteBusy === item.node_id}
+                          >
+                            {nodeDeleteBusy === item.node_id ? "Removing..." : "Remove Node"}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
