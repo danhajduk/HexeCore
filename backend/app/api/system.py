@@ -62,7 +62,24 @@ def _supported_node_types() -> set[str]:
     values = {item.strip() for item in raw.split(",") if item.strip()}
     if not values:
         values = {"ai-node"}
-    return values
+    aliases: set[str] = set()
+    for value in values:
+        canonical = _canonical_node_type(value)
+        aliases.add(value)
+        aliases.add(canonical)
+        if value.endswith("-node"):
+            aliases.add(value[: -len("-node")])
+        else:
+            aliases.add(f"{value}-node")
+    return {item for item in aliases if item}
+
+
+def _canonical_node_type(node_type: str | None) -> str:
+    value = str(node_type or "").strip().lower()
+    if value.endswith("-node"):
+        trimmed = value[: -len("-node")].strip()
+        return trimmed or value
+    return value
 
 
 def _build_approval_url(request: Request, session_id: str, state: str) -> str:
@@ -173,6 +190,9 @@ def _apply_legacy_deprecation_headers(response: Response) -> None:
 
 
 def _session_payload(session) -> dict[str, object]:
+    requested_node_type = str((session.request_metadata or {}).get("requested_node_type") or "").strip()
+    if not requested_node_type:
+        requested_node_type = session.requested_node_type
     return {
         "session_id": session.session_id,
         "session_state": session.session_state,
@@ -180,7 +200,7 @@ def _session_payload(session) -> dict[str, object]:
         "node_type": session.requested_node_type,
         "node_software_version": session.requested_node_software_version,
         "requested_node_name": session.requested_node_name,
-        "requested_node_type": session.requested_node_type,
+        "requested_node_type": requested_node_type,
         "requested_node_software_version": session.requested_node_software_version,
         "requested_hostname": session.requested_hostname,
         "requested_from_ip": session.requested_from_ip,
@@ -250,6 +270,7 @@ def build_system_router(
                     f"unsupported node_type; allowed={','.join(sorted(_supported_node_types()))}",
                 ),
             )
+        canonical_node_type = _canonical_node_type(node_type)
         protocol_version = str(body.protocol_version or "").strip()
         if protocol_version not in _supported_protocol_versions():
             raise HTTPException(
@@ -272,13 +293,14 @@ def build_system_router(
         session = onboarding_sessions_store.start_session(
             node_nonce=node_nonce,
             requested_node_name=body.node_name,
-            requested_node_type=node_type,
+            requested_node_type=canonical_node_type,
             requested_node_software_version=body.node_software_version,
             requested_hostname=body.hostname,
             requested_from_ip=(source_ip if source_ip != "unknown" else None),
             request_metadata={
                 "protocol_version": protocol_version,
                 "approval_state": approval_state,
+                "requested_node_type": node_type,
             },
         )
         _record_audit(
@@ -297,7 +319,7 @@ def build_system_router(
                 "node_type": session.requested_node_type,
                 "node_software_version": session.requested_node_software_version,
                 "requested_node_name": session.requested_node_name,
-                "requested_node_type": session.requested_node_type,
+                "requested_node_type": str((session.request_metadata or {}).get("requested_node_type") or session.requested_node_type),
                 "requested_node_software_version": session.requested_node_software_version,
                 "approval_url": _build_approval_url(request, session.session_id, approval_state),
                 "expires_at": session.expires_at,
@@ -356,8 +378,8 @@ def build_system_router(
             raise HTTPException(status_code=503, detail="node_registrations_unavailable")
         entries = node_registrations_store.list()
         if node_type:
-            node_type_filter = str(node_type).strip()
-            entries = [item for item in entries if item.node_type == node_type_filter]
+            node_type_filter = _canonical_node_type(node_type)
+            entries = [item for item in entries if _canonical_node_type(item.node_type) == node_type_filter]
         if trust_status:
             trust_status_filter = str(trust_status).strip().lower()
             entries = [item for item in entries if str(item.trust_status).strip().lower() == trust_status_filter]

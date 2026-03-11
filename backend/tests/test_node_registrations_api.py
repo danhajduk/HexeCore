@@ -107,7 +107,7 @@ class TestNodeRegistrationsApi(unittest.TestCase):
         got = self.client.get(f"/api/system/nodes/registrations/{node_id}", headers={"X-Admin-Token": "test-token"})
         self.assertEqual(got.status_code, 200, got.text)
         registration = got.json()["registration"]
-        self.assertEqual(registration["node_type"], "ai-node")
+        self.assertEqual(registration["node_type"], "ai")
         self.assertEqual(registration["requested_node_type"], "ai-node")
 
     def test_finalize_marks_registration_trusted(self) -> None:
@@ -136,7 +136,7 @@ class TestNodeRegistrationsApi(unittest.TestCase):
         )
         self.assertEqual(finalized.status_code, 200, finalized.text)
         self.assertEqual(finalized.json()["onboarding_status"], "approved")
-        self.assertEqual(finalized.json()["activation"]["node_type"], "ai-node")
+        self.assertEqual(finalized.json()["activation"]["node_type"], "ai")
 
         got = self.client.get(f"/api/system/nodes/registrations/{node_id}", headers={"X-Admin-Token": "test-token"})
         self.assertEqual(got.status_code, 200, got.text)
@@ -153,7 +153,7 @@ class TestNodeRegistrationsApi(unittest.TestCase):
         self.assertEqual(filtered_type.status_code, 200, filtered_type.text)
         items = filtered_type.json()["items"]
         self.assertEqual(len(items), 1)
-        self.assertEqual(items[0]["node_type"], "sensor-node")
+        self.assertEqual(items[0]["node_type"], "sensor")
 
         filtered_status = self.client.get(
             "/api/system/nodes/registrations?trust_status=approved",

@@ -39,6 +39,7 @@ class NodeRegistrationRecord:
     node_type: str
     node_name: str
     node_software_version: str
+    requested_node_type: str | None
     capabilities_summary: list[str]
     trust_status: str
     source_onboarding_session_id: str | None
@@ -55,6 +56,7 @@ class NodeRegistrationRecord:
             "node_type": self.node_type,
             "node_name": self.node_name,
             "node_software_version": self.node_software_version,
+            "requested_node_type": self.requested_node_type,
             "capabilities_summary": list(self.capabilities_summary or []),
             "trust_status": self.trust_status,
             "source_onboarding_session_id": self.source_onboarding_session_id,
@@ -68,7 +70,7 @@ class NodeRegistrationRecord:
         payload = self.to_dict()
         # Compatibility aliases for legacy AI-node naming.
         payload["requested_node_name"] = self.node_name
-        payload["requested_node_type"] = self.node_type
+        payload["requested_node_type"] = str(self.requested_node_type or self.node_type)
         payload["requested_node_software_version"] = self.node_software_version
         return payload
 
@@ -119,6 +121,7 @@ class NodeRegistrationsStore:
                 node_type=node_type,
                 node_name=node_name,
                 node_software_version=node_software_version,
+                requested_node_type=str(item.get("requested_node_type") or "").strip() or None,
                 capabilities_summary=[v for v in capabilities if v],
                 trust_status=trust_status,
                 source_onboarding_session_id=str(item.get("source_onboarding_session_id") or "").strip() or None,
@@ -189,6 +192,8 @@ class NodeRegistrationsStore:
             node_type=str(session.requested_node_type or "").strip(),
             node_name=str(session.requested_node_name or "").strip(),
             node_software_version=str(session.requested_node_software_version or "").strip(),
+            requested_node_type=str((session.request_metadata or {}).get("requested_node_type") or "").strip()
+            or str(session.requested_node_type or "").strip(),
             capabilities_summary=[],
             trust_status=status,
             source_onboarding_session_id=session.session_id,

@@ -235,6 +235,7 @@ class TestMqttRuntimeIntegration(unittest.TestCase):
                 node_type="ai-node",
                 node_name="main-ai-node",
                 node_software_version="0.1.0",
+                requested_node_type="ai-node",
                 capabilities_summary=[],
                 trust_status="trusted",
                 source_onboarding_session_id="sess-xyz",

@@ -86,7 +86,7 @@ class TestNodeOnboardingStartApi(unittest.TestCase):
         session = body["session"]
         self.assertEqual(session["onboarding_status"], "pending_approval")
         self.assertEqual(session["node_name"], "office-node")
-        self.assertEqual(session["node_type"], "ai-node")
+        self.assertEqual(session["node_type"], "ai")
         self.assertEqual(session["node_software_version"], "0.1.0")
         self.assertEqual(session["requested_node_type"], "ai-node")
         self.assertIn("session_id", session)
@@ -134,7 +134,8 @@ class TestNodeOnboardingStartApi(unittest.TestCase):
         with patch.dict(os.environ, {"SYNTHIA_NODE_ONBOARDING_SUPPORTED_TYPES": "ai-node,sensor-node"}, clear=False):
             resp = self.client.post("/api/system/nodes/onboarding/sessions", json=payload)
         self.assertEqual(resp.status_code, 200, resp.text)
-        self.assertEqual(resp.json()["session"]["node_type"], "sensor-node")
+        self.assertEqual(resp.json()["session"]["node_type"], "sensor")
+        self.assertEqual(resp.json()["session"]["requested_node_type"], "sensor-node")
 
     def test_protocol_version_unsupported(self) -> None:
         payload = self._payload()
@@ -164,7 +165,8 @@ class TestNodeOnboardingStartApi(unittest.TestCase):
         self.assertEqual(approve.json()["session"]["session_state"], "approved")
         self.assertEqual(approve.json()["session"]["approved_by_user_id"], "admin_token")
         self.assertIn("registration", approve.json())
-        self.assertEqual(approve.json()["registration"]["node_type"], "ai-node")
+        self.assertEqual(approve.json()["registration"]["node_type"], "ai")
+        self.assertEqual(approve.json()["registration"]["requested_node_type"], "ai-node")
         linked_node_id = approve.json()["session"]["linked_node_id"]
         self.assertIsNotNone(self.registrations.get(linked_node_id))
 
@@ -236,7 +238,7 @@ class TestNodeOnboardingStartApi(unittest.TestCase):
         self.assertEqual(approved.status_code, 200, approved.text)
         self.assertEqual(approved.json()["onboarding_status"], "approved")
         self.assertIn("activation", approved.json())
-        self.assertEqual(approved.json()["activation"]["node_type"], "ai-node")
+        self.assertEqual(approved.json()["activation"]["node_type"], "ai")
 
         consumed = self.client.get(
             f"/api/system/nodes/onboarding/sessions/{session_id}/finalize?node_nonce=nonce-abc"
