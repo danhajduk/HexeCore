@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { useLocation } from "react-router-dom";
 import { apiGet } from "../api/client";
 import { useAdminSession } from "../auth/AdminSessionContext";
 import {
@@ -87,7 +86,6 @@ async function readError(res: Response): Promise<string> {
 }
 
 export default function Addons() {
-  const location = useLocation();
   const { authenticated: isAdmin } = useAdminSession();
   const [addons, setAddons] = useState<AddonInfo[]>([]);
   const [registryAddons, setRegistryAddons] = useState<RegistryAddon[]>([]);
@@ -390,7 +388,7 @@ export default function Addons() {
   return (
     <div>
       <div className="addons-head">
-        <h1 className="addons-title">{location.pathname.endsWith("/nodes") ? "Addons / Nodes" : "Addons"}</h1>
+        <h1 className="addons-title">Addons</h1>
         <div className="addons-head-actions">
           <button className="addon-btn" onClick={() => void updateCatalogNow()} disabled={catalogBusy}>
             {catalogBusy ? "Updating Catalog..." : "Update Catalog"}

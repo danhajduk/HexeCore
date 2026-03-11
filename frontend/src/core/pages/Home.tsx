@@ -498,7 +498,7 @@ export default function Home() {
         <article className="home-panel">
           <div className="home-panel-head">
             <h2>Installed Nodes</h2>
-            <Link to="/addons/nodes" className="home-link">Open Nodes</Link>
+            <Link to="/addons" className="home-link">Open Addons</Link>
           </div>
           {nodes.length === 0 ? (
             <div className="home-empty">No registered nodes yet.</div>
