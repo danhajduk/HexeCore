@@ -55,6 +55,23 @@ export default function OnboardingNodeApproval() {
     return q.toString();
   }, [state]);
 
+  function notifyParent(action: "approve" | "reject", sessionId: string) {
+    try {
+      if (window.opener && window.opener !== window) {
+        window.opener.postMessage(
+          {
+            type: "synthia.node_onboarding.decided",
+            action,
+            session_id: sessionId,
+          },
+          "*",
+        );
+      }
+    } catch {
+      // Ignore cross-window messaging issues; close path still proceeds.
+    }
+  }
+
   function closeApprovalWindow() {
     window.close();
     // If browser blocks self-close, navigate to a lightweight terminal route.
@@ -127,6 +144,7 @@ export default function OnboardingNodeApproval() {
         const detail = typeof body?.detail === "string" ? body.detail : body?.detail?.error || `HTTP ${res.status}`;
         throw new Error(detail);
       }
+      notifyParent(action, session.session_id);
       closeApprovalWindow();
     } catch (e: unknown) {
       setActionError(e instanceof Error ? e.message : String(e));

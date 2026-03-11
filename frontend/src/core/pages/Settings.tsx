@@ -223,6 +223,18 @@ export default function Settings() {
     setTheme(getTheme());
   }, []);
 
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      const payload = event.data;
+      if (!payload || typeof payload !== "object") return;
+      const eventType = String((payload as { type?: string }).type || "").trim();
+      if (eventType !== "synthia.node_onboarding.decided") return;
+      void loadOnboardingSessions(onboardingStateFilter);
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [onboardingStateFilter]);
+
   return (
     <div className="settings-page">
       <h1 className="settings-title">Settings / Control Plane</h1>

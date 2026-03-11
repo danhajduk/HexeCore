@@ -496,3 +496,4 @@
 2026-03-11 15:14 - Task 469: switched Addons/Home node data loading to `/api/system/nodes/registry` so UI consumes the normalized registry view model.
 2026-03-11 15:16 - Task 470: added Installed/Pending node tabs in Addons nodes panel while keeping a single `/addons` route model.
 2026-03-11 15:16 - Task 471: added Home nodes summary card showing trusted/pending/error counts sourced from registry state.
+2026-03-11 15:17 - Task 472: completed approval popup flow by posting decision events to opener and refreshing parent onboarding state before window close.
