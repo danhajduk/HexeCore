@@ -94,6 +94,7 @@ Status: Implemented
 Status: Planned
 
 - AI Node onboarding finalization/trust activation endpoints.
+- AI Node trust activation payload schema authority: [AI Node Trust Activation Payload Contract](./ai-node-trust-activation-payload-contract.md)
 - Formal OpenAPI-focused endpoint stability tiers.
 - Explicit deprecation lifecycle metadata per endpoint group.
 
@@ -104,3 +105,4 @@ Status: Planned
 - [Auth and Identity](./auth-and-identity.md)
 - [Runtime and Supervision](./runtime-and-supervision.md)
 - [AI Node Onboarding API Contract](./ai-node-onboarding-api-contract.md)
+- [AI Node Trust Activation Payload Contract](./ai-node-trust-activation-payload-contract.md)

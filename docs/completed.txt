@@ -461,3 +461,4 @@
 2026-03-11 - Task 434: defined onboarding approval URL + session binding rules including sid/state contract, server-side authority boundaries, expiry, and terminal decision semantics.
 2026-03-11 - Task 435: implemented authenticated Core onboarding approval page flow with session-detail view, admin-session login gating, and approval/reject action controls scaffolded against persisted onboarding sessions.
 2026-03-11 - Task 436: implemented durable onboarding approve/reject decision APIs with admin-auth enforcement, actor attribution, state-token validation, and terminal-state transition protection.
+2026-03-11 - Task 437: defined canonical trust activation payload schema for approved AI Node onboarding sessions and linked it as onboarding contract authority.
