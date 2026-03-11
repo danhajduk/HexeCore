@@ -8,6 +8,9 @@ import "./onboarding-node-approval.css";
 type ApprovalSession = {
   session_id: string;
   session_state: string;
+  node_name?: string;
+  node_type?: string;
+  node_software_version?: string;
   requested_node_name: string;
   requested_node_type: string;
   requested_node_software_version: string;
@@ -129,7 +132,7 @@ export default function OnboardingNodeApproval() {
   if (!sid || !state) {
     return (
       <section className="onboard-page">
-        <h1>Node Onboarding Approval</h1>
+        <h1>Node Registration Approval</h1>
         <div className="onboard-error">Missing required `sid` or `state` in URL.</div>
       </section>
     );
@@ -137,7 +140,7 @@ export default function OnboardingNodeApproval() {
 
   return (
     <section className="onboard-page">
-      <h1>Node Onboarding Approval</h1>
+      <h1>Node Registration Approval</h1>
       {!ready ? (
         <div className="onboard-meta">Checking admin session...</div>
       ) : !authenticated ? (
@@ -170,9 +173,9 @@ export default function OnboardingNodeApproval() {
           <div className="onboard-grid">
             <div><strong>Session</strong><span>{session.session_id}</span></div>
             <div><strong>State</strong><span>{session.session_state}</span></div>
-            <div><strong>Node Name</strong><span>{session.requested_node_name}</span></div>
-            <div><strong>Node Type</strong><span>{session.requested_node_type}</span></div>
-            <div><strong>Version</strong><span>{session.requested_node_software_version}</span></div>
+            <div><strong>Node Name</strong><span>{session.node_name || session.requested_node_name}</span></div>
+            <div><strong>Node Type</strong><span>{session.node_type || session.requested_node_type}</span></div>
+            <div><strong>Version</strong><span>{session.node_software_version || session.requested_node_software_version}</span></div>
             <div><strong>Hostname</strong><span>{session.requested_hostname || "-"}</span></div>
             <div><strong>Source IP</strong><span>{session.requested_from_ip || "-"}</span></div>
             <div><strong>Created</strong><span>{fmt(session.created_at)}</span></div>

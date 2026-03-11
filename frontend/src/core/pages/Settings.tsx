@@ -84,6 +84,9 @@ type MqttSetupSummary = {
 type NodeOnboardingSessionSummary = {
   session_id: string;
   session_state: string;
+  node_name?: string;
+  node_type?: string;
+  node_software_version?: string;
   requested_node_name: string;
   requested_node_type: string;
   requested_node_software_version: string;
@@ -418,8 +421,8 @@ export default function Settings() {
 
       <section className="settings-section">
         <div className="settings-section-head">
-          <h2>Node Onboarding Sessions</h2>
-          <p>Visibility into pending, approved, rejected, expired, and consumed node onboarding decisions.</p>
+          <h2>Node Onboarding Operations</h2>
+          <p>Visibility into pending, approved, rejected, expired, and consumed node registration sessions.</p>
         </div>
         <div className="settings-card">
           <div className="settings-row settings-onboarding-controls">
@@ -442,7 +445,7 @@ export default function Settings() {
               </select>
             </label>
             <button className="settings-btn" onClick={() => void loadOnboardingSessions()}>
-              Refresh onboarding sessions
+              Refresh node sessions
             </button>
           </div>
           {onboardingErr && <div className="settings-error">Onboarding sessions load failed: {onboardingErr}</div>}
@@ -454,7 +457,8 @@ export default function Settings() {
                   <span className="settings-pill">{displayState(item.session_state)}</span>
                 </div>
                 <div className="settings-help">
-                  {item.requested_node_name} ({item.requested_node_type}) • version {item.requested_node_software_version} • hostname{" "}
+                  {(item.node_name || item.requested_node_name)} ({(item.node_type || item.requested_node_type)}) • version{" "}
+                  {(item.node_software_version || item.requested_node_software_version)} • hostname{" "}
                   {item.requested_hostname || "-"}
                 </div>
                 <div className="settings-help">
