@@ -24,6 +24,7 @@ Synthia is a Core + Addons platform with an embedded MQTT control/data plane, sc
 - [Roadmap](./ROADMAP.md)
 - [Documentation Migration Map](./documentation-migration-map.md)
 - [AI Node Docs Mapping](./ai-node-docs-mapping.md)
+- [Node Onboarding And Registration Architecture](./node-onboarding-registration-architecture.md)
 - [AI Node Onboarding Approval Architecture](./ai-node-onboarding-approval-architecture.md)
 - [AI Node Onboarding API Contract](./ai-node-onboarding-api-contract.md)
 - [AI Node Onboarding Approval URL Contract](./ai-node-onboarding-approval-url-contract.md)
@@ -46,6 +47,7 @@ Status: Planned
 
 - Canonical source: `/home/dan/Projects/SynthiaAiNode/docs` (node-first ownership)
 - Mapping and sync policy: [AI Node Docs Mapping](./ai-node-docs-mapping.md)
+- Global onboarding authority: [Node Onboarding And Registration Architecture](./node-onboarding-registration-architecture.md)
 - Core-side onboarding authority: [AI Node Onboarding Approval Architecture](./ai-node-onboarding-approval-architecture.md)
 - Core-side onboarding API contract: [AI Node Onboarding API Contract](./ai-node-onboarding-api-contract.md)
 - Core-side approval URL/session binding contract: [AI Node Onboarding Approval URL Contract](./ai-node-onboarding-approval-url-contract.md)

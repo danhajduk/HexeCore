@@ -95,6 +95,7 @@ Status: Implemented
 
 Status: Planned
 
+- Global node onboarding/registration API normalization (node-type-aware contract and compatibility aliases during migration).
 - AI Node trust activation payload schema authority: [AI Node Trust Activation Payload Contract](./ai-node-trust-activation-payload-contract.md)
 - Formal OpenAPI-focused endpoint stability tiers.
 - Explicit deprecation lifecycle metadata per endpoint group.

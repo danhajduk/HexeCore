@@ -9,6 +9,10 @@ Last updated: 2026-03-11
 This document defines the canonical Core-side architecture for AI Node onboarding approval.
 It is the implementation authority for Tasks 431-440.
 
+Global architecture note:
+- This AI-node document is now a node-type profile reference.
+- Global onboarding authority is defined in [Node Onboarding And Registration Architecture](./node-onboarding-registration-architecture.md).
+
 The onboarding model is operator-mediated:
 
 1. AI Node requests onboarding session.
