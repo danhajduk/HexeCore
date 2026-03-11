@@ -39,6 +39,8 @@ Status: Implemented
 
 - Startup reconciliation ensures authority/runtime alignment and bootstrap publish state.
 - Bootstrap publish endpoints and summary status are exposed for operator control.
+- Published bootstrap payload includes `topic`, `bootstrap_version`, `core_id`, `core_name`, `core_version`, `api_base`, `mqtt_host`, `mqtt_port`, `onboarding_endpoints.register`, `onboarding_mode`, and `emitted_at`.
+- Current onboarding registration advertisement: `onboarding_endpoints.register=/api/system/nodes/onboarding/sessions`.
 
 ## Topics
 

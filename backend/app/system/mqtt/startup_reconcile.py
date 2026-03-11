@@ -239,7 +239,7 @@ class EmbeddedMqttStartupReconciler:
             mqtt_host=(mqtt_host or None),
             mqtt_port=(int(mqtt_status.get("port")) if mqtt_status and mqtt_status.get("port") is not None else None),
             onboarding_endpoints={
-                "register": "/api/system/mqtt/registrations/approve",
+                "register": "/api/system/nodes/onboarding/sessions",
             },
             onboarding_mode="api",
         ).model_dump(mode="json")
