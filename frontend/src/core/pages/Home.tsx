@@ -295,6 +295,22 @@ export default function Home() {
         .sort((a, b) => String(a.node_id || "").localeCompare(String(b.node_id || ""))),
     [nodes],
   );
+  const nodeSummary = useMemo(() => {
+    let trusted = 0;
+    let pending = 0;
+    let error = 0;
+    for (const item of nodes) {
+      const state = String(item.registry_state || item.trust_status || "").toLowerCase();
+      if (state === "trusted") {
+        trusted += 1;
+      } else if (state === "revoked" || state === "rejected") {
+        error += 1;
+      } else {
+        pending += 1;
+      }
+    }
+    return { trusted, pending, error };
+  }, [nodes]);
 
   const status = useMemo(() => {
     if (!stack) {
@@ -481,29 +497,15 @@ export default function Home() {
 
         <article className="home-panel">
           <div className="home-panel-head">
-            <h2>Installed Nodes</h2>
-            <Link to="/addons" className="home-link">Open Addons</Link>
+            <h2>Nodes Summary</h2>
+            <Link to="/addons" className="home-link">Open Nodes</Link>
           </div>
-          {nodes.length === 0 ? (
-            <div className="home-empty">No registered nodes yet.</div>
-          ) : (
-            <div className="home-addon-list">
-              {nodes.slice(0, 10).map((item) => {
-                const state = String(item.trust_status || "unknown").toLowerCase();
-                return (
-                  <div key={item.node_id} className="home-addon-item">
-                    <div>
-                      <div className="home-addon-name">{item.node_name || item.node_id}</div>
-                      <div className="home-addon-meta">
-                        {item.node_id} • {item.node_type || "unknown"}
-                      </div>
-                    </div>
-                    <span className={`home-chip state-${state}`}>{displayState(state)}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <div className="home-metrics">
+            <MetricRow label="Trusted" value={String(nodeSummary.trusted)} />
+            <MetricRow label="Pending" value={String(nodeSummary.pending)} />
+            <MetricRow label="Error" value={String(nodeSummary.error)} />
+          </div>
+          {nodes.length === 0 && <div className="home-empty">No registered nodes yet.</div>}
         </article>
 
         <article className="home-panel">
