@@ -121,6 +121,13 @@ export default function OnboardingNodeApproval() {
         const detail = typeof body?.detail === "string" ? body.detail : body?.detail?.error || `HTTP ${res.status}`;
         throw new Error(detail);
       }
+      if (action === "approve") {
+        // Try to close approval tab/window after successful operator approval.
+        window.close();
+        // If browser blocks self-close, navigate to a lightweight terminal route.
+        window.location.replace("/");
+        return;
+      }
       await loadSession();
     } catch (e: unknown) {
       setActionError(e instanceof Error ? e.message : String(e));

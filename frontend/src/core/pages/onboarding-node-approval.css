@@ -65,7 +65,7 @@
   border: 1px solid var(--border-color, #d1d5db);
   border-radius: 12px;
   padding: 14px;
-  background: var(--surface-1, #fff);
+  background: hsl(var(--sx-panel));
 }
 
 .onboard-grid {
