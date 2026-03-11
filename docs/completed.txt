@@ -467,3 +467,4 @@
 2026-03-11 - Task 440: enforced one-time trust payload consumption in finalize flow by marking approved sessions as consumed after first successful retrieval and returning terminal consumed status on replay.
 2026-03-11 - Task 441: enforced onboarding session expiry at API boundaries, added terminal-state protections for expired sessions, and implemented archive-prune handling for old terminal sessions.
 2026-03-11 - Task 442: updated MQTT bootstrap announcement to advertise onboarding session registration endpoint and aligned bootstrap payload fields with canonical onboarding metadata contract.
+2026-03-11 - Task 443: hardened onboarding security boundaries with required state-token validation on approval surfaces, nonce validation, CSRF protection for cookie-session approval actions, replay/invalid handling, rate limiting, and audit event recording for onboarding lifecycle/security events.

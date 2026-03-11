@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import asyncio
 import os
 import secrets
+import time
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from ..addons.registry import AddonRegistry, list_addons
+from ..system.audit import AuditLogStore
 from ..system.onboarding import NodeOnboardingSessionsStore, NodeTrustIssuanceService
 from ..system.runtime import StandaloneRuntimeService
 from .admin import require_admin_token
@@ -63,6 +66,62 @@ def _admin_actor(x_admin_token: str | None) -> str:
     return "admin_token" if (x_admin_token or "").strip() else "admin_session"
 
 
+_RATE_WINDOWS: dict[str, list[float]] = {}
+
+
+def _rate_limit(key: str, *, limit: int, window_seconds: int) -> bool:
+    now = time.time()
+    window_start = now - max(window_seconds, 1)
+    bucket = _RATE_WINDOWS.setdefault(key, [])
+    bucket[:] = [ts for ts in bucket if ts >= window_start]
+    if len(bucket) >= max(limit, 1):
+        return False
+    bucket.append(now)
+    return True
+
+
+def _validate_node_nonce(value: str | None) -> str:
+    nonce = str(value or "").strip()
+    if len(nonce) < 8 or len(nonce) > 256:
+        raise ValueError("node_nonce_invalid")
+    return nonce
+
+
+def _enforce_csrf_for_cookie_session(request: Request, x_admin_token: str | None) -> None:
+    if (x_admin_token or "").strip():
+        return
+    base = str(request.base_url).rstrip("/")
+    origin = str(request.headers.get("origin") or "").strip()
+    referer = str(request.headers.get("referer") or "").strip()
+    if origin and not origin.startswith(base):
+        raise HTTPException(status_code=403, detail="csrf_origin_mismatch")
+    if not origin and referer and not referer.startswith(base):
+        raise HTTPException(status_code=403, detail="csrf_referer_mismatch")
+
+
+def _record_audit(
+    audit_store: AuditLogStore | None,
+    *,
+    event_type: str,
+    actor_role: str,
+    actor_id: str,
+    details: dict[str, object],
+) -> None:
+    if audit_store is None:
+        return
+    try:
+        asyncio.run(
+            audit_store.record(
+                event_type=event_type,
+                actor_role=actor_role,
+                actor_id=actor_id,
+                details=details,
+            )
+        )
+    except Exception:
+        return
+
+
 def _expire_if_needed(store: NodeOnboardingSessionsStore | None) -> None:
     if store is None:
         return
@@ -75,6 +134,7 @@ def build_system_router(
     mqtt_approval_service=None,
     onboarding_sessions_store: NodeOnboardingSessionsStore | None = None,
     node_trust_issuance: NodeTrustIssuanceService | None = None,
+    audit_store: AuditLogStore | None = None,
 ) -> APIRouter:
     router = APIRouter()
     runtime = runtime_service or StandaloneRuntimeService()
@@ -110,6 +170,9 @@ def build_system_router(
                 status_code=503,
                 detail=_onboarding_error("registration_disabled", "node onboarding registration is disabled"),
             )
+        source_ip = str(request.client.host if request.client else "unknown")
+        if not _rate_limit(f"onboarding:create:{source_ip}", limit=20, window_seconds=60):
+            raise HTTPException(status_code=429, detail="rate_limited")
         node_type = str(body.node_type or "").strip()
         if node_type != "ai-node":
             raise HTTPException(
@@ -122,8 +185,12 @@ def build_system_router(
                 status_code=400,
                 detail=_onboarding_error("protocol_version_unsupported", "unsupported onboarding protocol version"),
             )
+        try:
+            node_nonce = _validate_node_nonce(body.node_nonce)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
 
-        active = onboarding_sessions_store.find_active_by_node_nonce(body.node_nonce)
+        active = onboarding_sessions_store.find_active_by_node_nonce(node_nonce)
         if active is not None:
             raise HTTPException(
                 status_code=409,
@@ -132,16 +199,23 @@ def build_system_router(
 
         approval_state = secrets.token_urlsafe(18)
         session = onboarding_sessions_store.start_session(
-            node_nonce=body.node_nonce,
+            node_nonce=node_nonce,
             requested_node_name=body.node_name,
             requested_node_type=node_type,
             requested_node_software_version=body.node_software_version,
             requested_hostname=body.hostname,
-            requested_from_ip=(request.client.host if request.client else None),
+            requested_from_ip=(source_ip if source_ip != "unknown" else None),
             request_metadata={
                 "protocol_version": protocol_version,
                 "approval_state": approval_state,
             },
+        )
+        _record_audit(
+            audit_store,
+            event_type="node_onboarding_session_created",
+            actor_role="node",
+            actor_id=str(session.requested_node_name or "unknown"),
+            details={"session_id": session.session_id, "source_ip": source_ip},
         )
         return {
             "ok": True,
@@ -161,7 +235,7 @@ def build_system_router(
     def get_node_onboarding_session(
         session_id: str,
         request: Request,
-        state: str | None = Query(default=None),
+        state: str = Query(...),
         x_admin_token: str | None = Header(default=None),
     ):
         require_admin_token(x_admin_token, request)
@@ -172,10 +246,9 @@ def build_system_router(
             session = onboarding_sessions_store.get(session_id)
         except KeyError:
             raise HTTPException(status_code=404, detail="session_not_found")
-        if state is not None:
-            expected = str((session.request_metadata or {}).get("approval_state") or "").strip()
-            if not expected or state.strip() != expected:
-                raise HTTPException(status_code=400, detail="approval_state_mismatch")
+        expected = str((session.request_metadata or {}).get("approval_state") or "").strip()
+        if not expected or state.strip() != expected:
+            raise HTTPException(status_code=400, detail="approval_state_mismatch")
         return {
             "ok": True,
             "session": {
@@ -201,10 +274,11 @@ def build_system_router(
     def approve_node_onboarding_session(
         session_id: str,
         request: Request,
-        state: str | None = Query(default=None),
+        state: str = Query(...),
         x_admin_token: str | None = Header(default=None),
     ):
         require_admin_token(x_admin_token, request)
+        _enforce_csrf_for_cookie_session(request, x_admin_token)
         _expire_if_needed(onboarding_sessions_store)
         if onboarding_sessions_store is None:
             raise HTTPException(status_code=503, detail="onboarding_sessions_unavailable")
@@ -212,10 +286,9 @@ def build_system_router(
             session = onboarding_sessions_store.get(session_id)
         except KeyError:
             raise HTTPException(status_code=404, detail="session_not_found")
-        if state is not None:
-            expected = str((session.request_metadata or {}).get("approval_state") or "").strip()
-            if not expected or state.strip() != expected:
-                raise HTTPException(status_code=400, detail="approval_state_mismatch")
+        expected = str((session.request_metadata or {}).get("approval_state") or "").strip()
+        if not expected or state.strip() != expected:
+            raise HTTPException(status_code=400, detail="approval_state_mismatch")
         if str(session.session_state) == "expired":
             raise HTTPException(status_code=409, detail="session_expired")
         linked_node_id = str(session.linked_node_id or "").strip() or f"node-{session.session_id[:12]}"
@@ -227,6 +300,13 @@ def build_system_router(
             )
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc))
+        _record_audit(
+            audit_store,
+            event_type="node_onboarding_session_approved",
+            actor_role="admin",
+            actor_id=_admin_actor(x_admin_token),
+            details={"session_id": decided.session_id, "linked_node_id": str(decided.linked_node_id or "")},
+        )
         return {"ok": True, "session": decided.to_dict()}
 
     @router.post("/system/nodes/onboarding/sessions/{session_id}/reject")
@@ -234,10 +314,11 @@ def build_system_router(
         session_id: str,
         body: NodeOnboardingRejectRequest,
         request: Request,
-        state: str | None = Query(default=None),
+        state: str = Query(...),
         x_admin_token: str | None = Header(default=None),
     ):
         require_admin_token(x_admin_token, request)
+        _enforce_csrf_for_cookie_session(request, x_admin_token)
         _expire_if_needed(onboarding_sessions_store)
         if onboarding_sessions_store is None:
             raise HTTPException(status_code=503, detail="onboarding_sessions_unavailable")
@@ -245,10 +326,9 @@ def build_system_router(
             session = onboarding_sessions_store.get(session_id)
         except KeyError:
             raise HTTPException(status_code=404, detail="session_not_found")
-        if state is not None:
-            expected = str((session.request_metadata or {}).get("approval_state") or "").strip()
-            if not expected or state.strip() != expected:
-                raise HTTPException(status_code=400, detail="approval_state_mismatch")
+        expected = str((session.request_metadata or {}).get("approval_state") or "").strip()
+        if not expected or state.strip() != expected:
+            raise HTTPException(status_code=400, detail="approval_state_mismatch")
         if str(session.session_state) == "expired":
             raise HTTPException(status_code=409, detail="session_expired")
         try:
@@ -259,6 +339,13 @@ def build_system_router(
             )
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc))
+        _record_audit(
+            audit_store,
+            event_type="node_onboarding_session_rejected",
+            actor_role="admin",
+            actor_id=_admin_actor(x_admin_token),
+            details={"session_id": decided.session_id, "rejection_reason": str(decided.rejection_reason or "")},
+        )
         return {"ok": True, "session": decided.to_dict()}
 
     @router.get("/system/nodes/onboarding/sessions/{session_id}/finalize")
@@ -269,15 +356,32 @@ def build_system_router(
         _expire_if_needed(onboarding_sessions_store)
         if onboarding_sessions_store is None:
             raise HTTPException(status_code=503, detail="onboarding_sessions_unavailable")
-        nonce = str(node_nonce or "").strip()
-        if not nonce:
-            raise HTTPException(status_code=400, detail="node_nonce_required")
+        try:
+            nonce = _validate_node_nonce(node_nonce)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        if not _rate_limit(f"onboarding:finalize:{session_id}:{nonce}", limit=60, window_seconds=60):
+            raise HTTPException(status_code=429, detail="rate_limited")
         try:
             session = onboarding_sessions_store.get(session_id)
         except KeyError:
+            _record_audit(
+                audit_store,
+                event_type="node_onboarding_finalize_invalid",
+                actor_role="node",
+                actor_id="unknown",
+                details={"session_id": session_id, "reason": "session_not_found"},
+            )
             return {"ok": True, "onboarding_status": "invalid"}
 
         if str(session.node_nonce).strip() != nonce:
+            _record_audit(
+                audit_store,
+                event_type="node_onboarding_finalize_invalid",
+                actor_role="node",
+                actor_id=str(session.requested_node_name or "unknown"),
+                details={"session_id": session_id, "reason": "node_nonce_mismatch"},
+            )
             return {"ok": True, "onboarding_status": "invalid"}
 
         state = str(session.session_state or "invalid").strip().lower()
@@ -294,12 +398,36 @@ def build_system_router(
         if state == "cancelled":
             return {"ok": True, "onboarding_status": "invalid"}
         if state == "consumed":
+            _record_audit(
+                audit_store,
+                event_type="node_onboarding_finalize_replay",
+                actor_role="node",
+                actor_id=str(session.requested_node_name or "unknown"),
+                details={"session_id": session_id},
+            )
             return {"ok": True, "onboarding_status": "consumed", "error": "already_consumed"}
         if state == "approved":
             if node_trust_issuance is None:
                 raise HTTPException(status_code=503, detail="trust_issuance_unavailable")
             issued = node_trust_issuance.issue_for_approved_session(session)
+            _record_audit(
+                audit_store,
+                event_type="node_onboarding_trust_issued",
+                actor_role="system",
+                actor_id="core",
+                details={
+                    "session_id": session_id,
+                    "node_id": str((issued.get("activation") or {}).get("node_id") or ""),
+                },
+            )
             onboarding_sessions_store.consume_final_payload(session_id, actor_id="node_finalize")
+            _record_audit(
+                audit_store,
+                event_type="node_onboarding_trust_consumed",
+                actor_role="node",
+                actor_id=str(session.requested_node_name or "unknown"),
+                details={"session_id": session_id},
+            )
             return {
                 "ok": True,
                 "onboarding_status": "approved",

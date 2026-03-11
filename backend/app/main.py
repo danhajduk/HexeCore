@@ -518,6 +518,7 @@ def create_app() -> FastAPI:
             mqtt_registration_approval,
             onboarding_sessions_store=node_onboarding_sessions_store,
             node_trust_issuance=node_trust_issuance,
+            audit_store=audit_store,
         ),
         prefix="/api",
     )

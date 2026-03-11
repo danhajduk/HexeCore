@@ -413,3 +413,4 @@
 2026-03-11 - Task 440: updated finalize endpoint to persist consumed state, added consumed replay expectation in onboarding API tests, and updated onboarding contract docs.
 2026-03-11 - Task 441: added onboarding session maintenance loop, archive+prune support with audit-preserving JSONL archive, and expanded expiry/cleanup regression tests.
 2026-03-11 - Task 442: switched bootstrap onboarding register advertisement to /api/system/nodes/onboarding/sessions, expanded bootstrap payload assertions, and updated MQTT platform docs.
+2026-03-11 - Task 443: added onboarding API security checks (state/nonce/CSRF/rate-limit), audit logging hooks, and approval URL contract status updates reflecting implemented protections.

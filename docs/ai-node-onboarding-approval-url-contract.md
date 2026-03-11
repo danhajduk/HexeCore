@@ -1,7 +1,7 @@
 # AI Node Onboarding Approval URL Contract
 
-Status: Planned
-Implementation status: Partial (generation shape implemented; full validation/finalization enforcement pending)
+Status: Partial
+Implementation status: Approval URL generation plus state validation and decision protections implemented; additional hardening/UX follow-ups pending
 Last updated: 2026-03-11
 
 ## Purpose
@@ -28,7 +28,7 @@ Query parameters:
 
 ## Server-Side Source Of Truth
 
-Status: Planned
+Status: Implemented
 
 - Core onboarding session store is authoritative.
 - URL parameters are lookup/binding hints; they are not authority state.
@@ -36,7 +36,7 @@ Status: Planned
 
 ## Embedded Vs Stored Data
 
-Status: Planned
+Status: Implemented
 
 Embedded in URL:
 - `sid`
@@ -57,7 +57,7 @@ Sensitive material must never be embedded in URL:
 
 ## Expiry Behavior
 
-Status: Planned
+Status: Implemented
 
 - Approval page must enforce session `expires_at`.
 - Expired sessions become terminal (`expired`) and cannot be approved.
@@ -65,7 +65,7 @@ Status: Planned
 
 ## Decision Semantics
 
-Status: Planned
+Status: Implemented (baseline)
 
 - Approval URL may be opened multiple times while session is pending.
 - Only one terminal decision is allowed:
@@ -75,14 +75,15 @@ Status: Planned
 
 ## Validation Rules
 
-Status: Planned
+Status: Implemented (baseline)
 
 Core approval handlers must validate:
 - session exists (`sid` resolves to persisted session)
 - session not expired
 - session still pending for decision actions
-- `state` token matches stored binding value
+- `state` token is required and matches stored binding value
 - operator is authenticated before decision action
+- decision actions pass CSRF checks for cookie-session admin requests
 
 ## Current Implementation Notes
 
@@ -91,11 +92,13 @@ Status: Partial
 Implemented:
 - Core onboarding start endpoint generates `approval_url` with `sid` and random `state`.
 - `state` and `protocol_version` are persisted in onboarding session metadata.
+- approval page + handler validation enforce required `state`.
+- approval/rejection actions enforce single terminal decision semantics.
+- decision actions apply CSRF checks for cookie-session admin flows.
 
 Pending:
-- approval page + handler validation of `state`
-- explicit invalid/expired URL UX and API error mapping
-- one-time/terminal enforcement in approval action routes
+- explicit invalid/expired URL UX polishing
+- additional rate-limit/CSRF tuning based on deployment topology
 
 ## See Also
 

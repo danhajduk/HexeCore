@@ -126,11 +126,11 @@ export default function OnboardingNodeApproval() {
     }
   }
 
-  if (!sid) {
+  if (!sid || !state) {
     return (
       <section className="onboard-page">
         <h1>Node Onboarding Approval</h1>
-        <div className="onboard-error">Missing required `sid` in URL.</div>
+        <div className="onboard-error">Missing required `sid` or `state` in URL.</div>
       </section>
     );
   }
