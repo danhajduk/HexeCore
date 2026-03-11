@@ -98,6 +98,8 @@ class MqttManager:
         ).strip()
         self._topic_scopes_by_principal: dict[str, list[str]] = {}
         self._topic_scopes_mtime: float | None = None
+        self._runtime_rate_last_count = 0
+        self._runtime_rate_last_at = 0.0
         self._error_count = 0
         self._stats_history: deque[dict[str, Any]] = deque(maxlen=50000)
         self._stats_retention_s = 24 * 60 * 60
@@ -487,6 +489,7 @@ class MqttManager:
     def _on_message(self, client: Any, userdata: Any, msg: Any) -> None:
         self._message_count += 1
         self._last_message_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        self._update_runtime_message_rate()
         payload: dict[str, Any] = {}
         decoded = ""
         try:
@@ -535,6 +538,21 @@ class MqttManager:
         if len(parts) >= 4 and parts[0] == "synthia" and parts[1] == "services" and parts[3] == "catalog":
             service_name = parts[2]
             self._dispatch_service_catalog_update(service_name, payload)
+
+    def _update_runtime_message_rate(self) -> None:
+        now = time.time()
+        if self._runtime_rate_last_at <= 0.0:
+            self._runtime_rate_last_at = now
+            self._runtime_rate_last_count = int(self._message_count)
+            return
+        dt = now - float(self._runtime_rate_last_at)
+        if dt < 1.0:
+            return
+        delta = max(0, int(self._message_count) - int(self._runtime_rate_last_count))
+        self._broker_metrics["message_rate"] = round(float(delta) / max(dt, 0.001), 3)
+        self._runtime_rate_last_at = now
+        self._runtime_rate_last_count = int(self._message_count)
+        self._record_stats_sample()
 
     @staticmethod
     def _topic_matches_filter(topic: str, topic_filter: str) -> bool:

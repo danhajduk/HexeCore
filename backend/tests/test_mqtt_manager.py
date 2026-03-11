@@ -251,6 +251,21 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(metrics["dropped_messages"], 2)
         self.assertEqual(metrics["retained_messages"], 5)
 
+    async def test_broker_message_rate_updates_from_runtime_traffic(self) -> None:
+        manager = MqttManager(
+            settings_store=_FakeSettingsStore(),
+            registry=_FakeRegistry(),
+            service_catalog_store=_FakeServiceCatalogStore(),
+            enabled=True,
+        )
+        manager._loop = asyncio.get_running_loop()
+        manager._on_message(None, None, _Msg("frigate/events", {"ok": True}))
+        await asyncio.sleep(1.05)
+        manager._on_message(None, None, _Msg("frigate/events", {"ok": True}))
+        metrics = await manager.broker_health_metrics()
+        self.assertIsNotNone(metrics["message_rate"])
+        self.assertGreater(float(metrics["message_rate"]), 0.0)
+
     async def test_principal_traffic_metrics_tracks_addon_topics(self) -> None:
         manager = MqttManager(
             settings_store=_FakeSettingsStore(),
