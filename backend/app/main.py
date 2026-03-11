@@ -36,6 +36,7 @@ from app.system.scheduler.engine import SchedulerEngine
 from app.system.scheduler.history import SchedulerHistoryStore
 from app.system.settings.store import SettingsStore
 from app.system.settings.router import build_settings_router
+from app.system.onboarding import NodeOnboardingSessionsStore
 from app.system.mqtt import (
     DockerMosquittoRuntimeBoundary,
     EmbeddedMqttStartupReconciler,
@@ -388,7 +389,9 @@ def create_app() -> FastAPI:
     app.state.store_sources_store = store_sources_store
     app.state.users_store = users_store
     install_sessions_store = InstallSessionsStore()
+    node_onboarding_sessions_store = NodeOnboardingSessionsStore()
     app.state.install_sessions_store = install_sessions_store
+    app.state.node_onboarding_sessions_store = node_onboarding_sessions_store
 
     app.include_router(build_settings_router(settings_store, audit_store), prefix="/api/system", tags=["settings"])
     app.include_router(build_users_router(users_store, audit_store), prefix="/api/admin", tags=["admin-users"])
@@ -485,7 +488,15 @@ def create_app() -> FastAPI:
     # System API using the registry
     runtime_service = StandaloneRuntimeService()
     app.state.standalone_runtime_service = runtime_service
-    app.include_router(build_system_router(registry, runtime_service, mqtt_registration_approval), prefix="/api")
+    app.include_router(
+        build_system_router(
+            registry,
+            runtime_service,
+            mqtt_registration_approval,
+            onboarding_sessions_store=node_onboarding_sessions_store,
+        ),
+        prefix="/api",
+    )
     app.include_router(build_addons_registry_router(registry), prefix="/api")
     app.include_router(build_addons_install_router(registry, install_sessions_store), prefix="/api")
     app.include_router(build_admin_registry_router(registry, mqtt_registration_approval), prefix="/api")
