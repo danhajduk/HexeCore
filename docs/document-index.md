@@ -26,6 +26,7 @@ Synthia is a Core + Addons platform with an embedded MQTT control/data plane, sc
 - [AI Node Docs Mapping](./ai-node-docs-mapping.md)
 - [Node Onboarding And Registration Architecture](./node-onboarding-registration-architecture.md)
 - [Node Onboarding API Contract](./node-onboarding-api-contract.md)
+- [Node Onboarding Phase 1 Contract](./node-onboarding-phase1-contract.md)
 - [Node Trust Activation Payload Contract](./node-trust-activation-payload-contract.md)
 - [Node Onboarding Migration Guide](./node-onboarding-migration-guide.md)
 - [AI Node Onboarding Approval Architecture](./ai-node-onboarding-approval-architecture.md)
