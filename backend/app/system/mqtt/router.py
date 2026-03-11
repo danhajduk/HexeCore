@@ -74,6 +74,11 @@ class MqttNoisyActionRequest(BaseModel):
     reason: str | None = None
 
 
+class MqttRuntimeMitigationRequest(BaseModel):
+    principal_id: str = Field(..., min_length=1)
+    reason: str | None = None
+
+
 class MqttSetupApplyRequest(BaseModel):
     mode: str = "local"
     host: str = Field(..., min_length=1)
@@ -708,6 +713,61 @@ def build_mqtt_router(
             "items": list(payload.get("items") or []),
             "broker_clients": dict(payload.get("broker_clients") or {"connected": None, "disconnected": None}),
         }
+
+    async def _runtime_mitigation_action(
+        *,
+        principal_id: str,
+        action: str,
+        reason: str | None,
+    ) -> dict[str, Any]:
+        result = await approval.apply_noisy_client_action(principal_id, action, reason=reason)
+        if not result.get("ok"):
+            raise HTTPException(status_code=400, detail=str(result.get("error") or "runtime_mitigation_failed"))
+        await _audit_runtime_action(
+            action=f"runtime_{action}",
+            status="ok",
+            payload={"principal_id": principal_id, "reason": reason},
+        )
+        return result
+
+    @router.post("/runtime/disconnect")
+    async def mqtt_runtime_disconnect(
+        body: MqttRuntimeMitigationRequest,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        return await _runtime_mitigation_action(
+            principal_id=body.principal_id,
+            action="quarantine",
+            reason=body.reason or "runtime_disconnect",
+        )
+
+    @router.post("/runtime/block")
+    async def mqtt_runtime_block(
+        body: MqttRuntimeMitigationRequest,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        return await _runtime_mitigation_action(
+            principal_id=body.principal_id,
+            action="block",
+            reason=body.reason or "runtime_block",
+        )
+
+    @router.post("/runtime/throttle")
+    async def mqtt_runtime_throttle(
+        body: MqttRuntimeMitigationRequest,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        return await _runtime_mitigation_action(
+            principal_id=body.principal_id,
+            action="throttle",
+            reason=body.reason or "runtime_throttle",
+        )
 
     @router.post("/mqtt/runtime/start")
     async def mqtt_runtime_start(request: Request, x_admin_token: str | None = Header(default=None)):

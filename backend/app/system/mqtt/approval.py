@@ -494,6 +494,10 @@ class MqttRegistrationApprovalService:
             else:
                 next_principal.status = "revoked"
                 next_principal.last_revoked_at = _utcnow_iso()
+        elif act in {"throttle"}:
+            next_principal.noisy_state = "noisy"
+            next_principal.status = "probation"
+            next_principal.probation_reason = reason or "throttled_by_admin"
         elif act in {"clear", "clear_noisy"}:
             next_principal.noisy_state = "normal"
             next_principal.noisy_inputs = {}

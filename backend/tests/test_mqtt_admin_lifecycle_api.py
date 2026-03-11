@@ -502,6 +502,43 @@ class TestMqttAdminLifecycleApi(unittest.TestCase):
         self.assertEqual(clear.status_code, 200, clear.text)
         self.assertEqual(clear.json()["principal"]["noisy_state"], "normal")
 
+    def test_runtime_noisy_mitigation_alias_endpoints(self) -> None:
+        created = asyncio.run(
+            self.approval.create_or_update_generic_user(
+                principal_id="user:guest4",
+                logical_identity="guest4",
+                username="guest4",
+                publish_topics=["devices/guest4/state"],
+                subscribe_topics=["devices/guest4/cmd"],
+            )
+        )
+        self.assertTrue(created["ok"])
+
+        throttled = self.client.post(
+            "/api/system/runtime/throttle",
+            headers={"X-Admin-Token": "test-token"},
+            json={"principal_id": "user:guest4", "reason": "rate_limit"},
+        )
+        self.assertEqual(throttled.status_code, 200, throttled.text)
+        self.assertEqual(throttled.json()["principal"]["noisy_state"], "noisy")
+        self.assertEqual(throttled.json()["principal"]["status"], "probation")
+
+        disconnected = self.client.post(
+            "/api/system/runtime/disconnect",
+            headers={"X-Admin-Token": "test-token"},
+            json={"principal_id": "user:guest4", "reason": "disconnect_test"},
+        )
+        self.assertEqual(disconnected.status_code, 200, disconnected.text)
+        self.assertEqual(disconnected.json()["principal"]["noisy_state"], "blocked")
+
+        blocked = self.client.post(
+            "/api/system/runtime/block",
+            headers={"X-Admin-Token": "test-token"},
+            json={"principal_id": "user:guest4", "reason": "block_test"},
+        )
+        self.assertEqual(blocked.status_code, 200, blocked.text)
+        self.assertEqual(blocked.json()["principal"]["status"], "revoked")
+
     def test_lifecycle_audit_events_emitted(self) -> None:
         created = self.client.post(
             "/api/system/mqtt/users",

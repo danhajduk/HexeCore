@@ -918,6 +918,30 @@ def addon_ui_root() -> str:
       }
     }
 
+    async function runRuntimeNoisyAction(action, principalId) {
+      const act = String(action || "").trim().toLowerCase();
+      const id = String(principalId || "").trim();
+      if (!act || !id) return;
+      if ((act === "disconnect" || act === "block") && !window.confirm(`${act} ${id}?`)) return;
+      setStatus(`Applying ${act} to ${id}...`, "");
+      try {
+        const res = await fetch(`/api/system/runtime/${encodeURIComponent(act)}`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ principal_id: id, reason: `ui_${act}` }),
+        });
+        const payload = await res.json();
+        if (!res.ok || !payload.ok) {
+          throw new Error(payload && payload.detail ? payload.detail : `${act}_failed`);
+        }
+        await loadStatus();
+        setStatus(`${act} applied to ${id}.`, "ok");
+      } catch (error) {
+        setStatus(`${act} failed for ${id}: ${error && error.message ? error.message : String(error)}`, "error");
+      }
+    }
+
     async function runRuntimeAction(action) {
       const endpoint = runtimeActionEndpoint(action);
       setRuntimeBusy(true);
@@ -1317,12 +1341,16 @@ def addon_ui_root() -> str:
               const payloadSize = escapeHtml(String(inputs.payload_size ?? "-"));
               const topicCount = escapeHtml(String(inputs.topic_count ?? "-"));
               const updated = escapeHtml(item.noisy_updated_at || item.updated_at || "-");
-              return `<tr><td>${principalId}</td><td>${noisyState}</td><td>${mps}</td><td>${payloadSize}</td><td>${topicCount}</td><td>${updated}</td></tr>`;
+              const actions =
+                `<button class='mini' data-noisy-action='disconnect' data-principal-id='${principalId}'>Disconnect</button>` +
+                `<button class='mini' data-noisy-action='block' data-principal-id='${principalId}'>Block</button>` +
+                `<button class='mini' data-noisy-action='throttle' data-principal-id='${principalId}'>Throttle</button>`;
+              return `<tr><td>${principalId}</td><td>${noisyState}</td><td>${mps}</td><td>${payloadSize}</td><td>${topicCount}</td><td>${updated}</td><td><div class='row-actions'>${actions}</div></td></tr>`;
             })
             .join("");
           sectionContent.innerHTML =
             toolbar +
-            `<table class='table'><thead><tr><th>Principal</th><th>Noisy State</th><th>msg/s</th><th>Payload Size</th><th>Topic Count</th><th>Updated</th></tr></thead><tbody>${rows}</tbody></table>`;
+            `<table class='table'><thead><tr><th>Principal</th><th>Noisy State</th><th>msg/s</th><th>Payload Size</th><th>Topic Count</th><th>Updated</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
           return;
         }
 
@@ -1582,6 +1610,13 @@ def addon_ui_root() -> str:
         const action = principalAction.getAttribute("data-principal-action");
         const principalId = principalAction.getAttribute("data-principal-id");
         if (action && principalId) void runPrincipalAction(action, principalId);
+        return;
+      }
+      const noisyAction = event.target.closest("[data-noisy-action]");
+      if (noisyAction) {
+        const action = noisyAction.getAttribute("data-noisy-action");
+        const principalId = noisyAction.getAttribute("data-principal-id");
+        if (action && principalId) void runRuntimeNoisyAction(action, principalId);
         return;
       }
       const principalInfo = event.target.closest("[data-principal-info]");
