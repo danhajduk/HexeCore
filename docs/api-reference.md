@@ -25,6 +25,8 @@ Status: Implemented
   - `GET /api/system/events`
   - `POST /api/system/nodes/onboarding/sessions`
   - `GET /api/system/nodes/onboarding/sessions/{session_id}` (admin session/token required)
+  - `POST /api/system/nodes/onboarding/sessions/{session_id}/approve` (admin session/token required)
+  - `POST /api/system/nodes/onboarding/sessions/{session_id}/reject` (admin session/token required)
   - `POST /api/services/register`
   - `GET /api/services/resolve`
 
@@ -91,7 +93,7 @@ Status: Implemented
 
 Status: Planned
 
-- AI Node onboarding approval/finalization decision endpoints.
+- AI Node onboarding finalization/trust activation endpoints.
 - Formal OpenAPI-focused endpoint stability tiers.
 - Explicit deprecation lifecycle metadata per endpoint group.
 

@@ -39,6 +39,8 @@ export default function OnboardingNodeApproval() {
   const [session, setSession] = useState<ApprovalSession | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionBusy, setActionBusy] = useState<"approve" | "reject" | null>(null);
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("");
   const [loginBusy, setLoginBusy] = useState(false);
@@ -50,31 +52,32 @@ export default function OnboardingNodeApproval() {
     return q.toString();
   }, [state]);
 
-  useEffect(() => {
-    async function load() {
-      if (!ready || !authenticated || !sid) return;
-      setLoading(true);
-      setError(null);
-      try {
-        const suffix = query ? `?${query}` : "";
-        const res = await fetch(`/api/system/nodes/onboarding/sessions/${encodeURIComponent(sid)}${suffix}`, {
-          credentials: "include",
-          cache: "no-store",
-        });
-        const payload = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          const detail = typeof payload?.detail === "string" ? payload.detail : payload?.detail?.error || `HTTP ${res.status}`;
-          throw new Error(detail);
-        }
-        setSession((payload as { session?: ApprovalSession }).session || null);
-      } catch (e: unknown) {
-        setError(e instanceof Error ? e.message : String(e));
-        setSession(null);
-      } finally {
-        setLoading(false);
+  async function loadSession() {
+    if (!ready || !authenticated || !sid) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const suffix = query ? `?${query}` : "";
+      const res = await fetch(`/api/system/nodes/onboarding/sessions/${encodeURIComponent(sid)}${suffix}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const detail = typeof payload?.detail === "string" ? payload.detail : payload?.detail?.error || `HTTP ${res.status}`;
+        throw new Error(detail);
       }
+      setSession((payload as { session?: ApprovalSession }).session || null);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e));
+      setSession(null);
+    } finally {
+      setLoading(false);
     }
-    void load();
+  }
+
+  useEffect(() => {
+    void loadSession();
   }, [authenticated, query, ready, sid]);
 
   async function submitLogin(e: FormEvent) {
@@ -91,6 +94,35 @@ export default function OnboardingNodeApproval() {
       setPassword("");
     } finally {
       setLoginBusy(false);
+    }
+  }
+
+  async function decide(action: "approve" | "reject") {
+    if (!session || actionBusy) return;
+    setActionBusy(action);
+    setActionError(null);
+    try {
+      const suffix = query ? `?${query}` : "";
+      const payload = action === "reject" ? { rejection_reason: "operator_rejected" } : undefined;
+      const res = await fetch(
+        `/api/system/nodes/onboarding/sessions/${encodeURIComponent(session.session_id)}/${action}${suffix}`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: payload ? { "Content-Type": "application/json" } : undefined,
+          body: payload ? JSON.stringify(payload) : undefined,
+        },
+      );
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const detail = typeof body?.detail === "string" ? body.detail : body?.detail?.error || `HTTP ${res.status}`;
+        throw new Error(detail);
+      }
+      await loadSession();
+    } catch (e: unknown) {
+      setActionError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setActionBusy(null);
     }
   }
 
@@ -147,9 +179,22 @@ export default function OnboardingNodeApproval() {
             <div><strong>Expires</strong><span>{fmt(session.expires_at)}</span></div>
           </div>
           <div className="onboard-actions">
-            <button type="button" disabled title="Decision endpoints are implemented in Task 436">Approve</button>
-            <button type="button" disabled title="Decision endpoints are implemented in Task 436">Reject</button>
+            <button
+              type="button"
+              disabled={session.session_state !== "pending" || actionBusy !== null}
+              onClick={() => void decide("approve")}
+            >
+              {actionBusy === "approve" ? "Approving..." : "Approve"}
+            </button>
+            <button
+              type="button"
+              disabled={session.session_state !== "pending" || actionBusy !== null}
+              onClick={() => void decide("reject")}
+            >
+              {actionBusy === "reject" ? "Rejecting..." : "Reject"}
+            </button>
           </div>
+          {actionError && <div className="onboard-error">{actionError}</div>}
         </div>
       )}
     </section>

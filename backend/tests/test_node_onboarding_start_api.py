@@ -49,6 +49,7 @@ class TestNodeOnboardingStartApi(unittest.TestCase):
             {
                 "SYNTHIA_AI_NODE_ONBOARDING_ENABLED": "true",
                 "SYNTHIA_AI_NODE_ONBOARDING_PROTOCOLS": "1.0",
+                "SYNTHIA_ADMIN_TOKEN": "test-token",
             },
             clear=False,
         )
@@ -100,6 +101,46 @@ class TestNodeOnboardingStartApi(unittest.TestCase):
             resp = self.client.post("/api/system/nodes/onboarding/sessions", json=self._payload())
         self.assertEqual(resp.status_code, 503, resp.text)
         self.assertEqual(resp.json()["detail"]["error"], "registration_disabled")
+
+    def test_admin_can_approve_and_terminal_transition_is_enforced(self) -> None:
+        started = self.client.post("/api/system/nodes/onboarding/sessions", json=self._payload())
+        self.assertEqual(started.status_code, 200, started.text)
+        session_id = started.json()["session"]["session_id"]
+        approval_url = started.json()["session"]["approval_url"]
+        state = approval_url.split("state=", 1)[1]
+
+        approve = self.client.post(
+            f"/api/system/nodes/onboarding/sessions/{session_id}/approve?state={state}",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(approve.status_code, 200, approve.text)
+        self.assertEqual(approve.json()["session"]["session_state"], "approved")
+        self.assertEqual(approve.json()["session"]["approved_by_user_id"], "admin_token")
+
+        reject_after_approve = self.client.post(
+            f"/api/system/nodes/onboarding/sessions/{session_id}/reject?state={state}",
+            headers={"X-Admin-Token": "test-token"},
+            json={"rejection_reason": "late decision"},
+        )
+        self.assertEqual(reject_after_approve.status_code, 409, reject_after_approve.text)
+
+    def test_admin_can_reject(self) -> None:
+        payload = self._payload()
+        payload["node_nonce"] = "nonce-xyz"
+        started = self.client.post("/api/system/nodes/onboarding/sessions", json=payload)
+        self.assertEqual(started.status_code, 200, started.text)
+        session_id = started.json()["session"]["session_id"]
+        approval_url = started.json()["session"]["approval_url"]
+        state = approval_url.split("state=", 1)[1]
+
+        reject = self.client.post(
+            f"/api/system/nodes/onboarding/sessions/{session_id}/reject?state={state}",
+            headers={"X-Admin-Token": "test-token"},
+            json={"rejection_reason": "Unrecognized node"},
+        )
+        self.assertEqual(reject.status_code, 200, reject.text)
+        self.assertEqual(reject.json()["session"]["session_state"], "rejected")
+        self.assertEqual(reject.json()["session"]["rejection_reason"], "Unrecognized node")
 
 
 if __name__ == "__main__":

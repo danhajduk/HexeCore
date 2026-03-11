@@ -460,3 +460,4 @@
 2026-03-11 - Task 433: implemented node onboarding session creation API endpoint with validation, duplicate-active-session prevention, persisted session creation, and approval URL response payload.
 2026-03-11 - Task 434: defined onboarding approval URL + session binding rules including sid/state contract, server-side authority boundaries, expiry, and terminal decision semantics.
 2026-03-11 - Task 435: implemented authenticated Core onboarding approval page flow with session-detail view, admin-session login gating, and approval/reject action controls scaffolded against persisted onboarding sessions.
+2026-03-11 - Task 436: implemented durable onboarding approve/reject decision APIs with admin-auth enforcement, actor attribution, state-token validation, and terminal-state transition protection.

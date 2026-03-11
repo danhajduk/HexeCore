@@ -26,6 +26,10 @@ class NodeOnboardingStartRequest(BaseModel):
     node_nonce: str
 
 
+class NodeOnboardingRejectRequest(BaseModel):
+    rejection_reason: str | None = None
+
+
 def _onboarding_error(error: str, message: str, *, retryable: bool = False) -> dict[str, object]:
     return {
         "error": error,
@@ -53,6 +57,10 @@ def _build_approval_url(request: Request, session_id: str, state: str) -> str:
             path = f"/{path}"
         base = f"{str(request.base_url).rstrip('/')}{path}"
     return f"{base}?{urlencode({'sid': session_id, 'state': state})}"
+
+
+def _admin_actor(x_admin_token: str | None) -> str:
+    return "admin_token" if (x_admin_token or "").strip() else "admin_session"
 
 
 def build_system_router(
@@ -179,6 +187,64 @@ def build_system_router(
                 "final_payload_consumed_at": session.final_payload_consumed_at,
             },
         }
+
+    @router.post("/system/nodes/onboarding/sessions/{session_id}/approve")
+    def approve_node_onboarding_session(
+        session_id: str,
+        request: Request,
+        state: str | None = Query(default=None),
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        if onboarding_sessions_store is None:
+            raise HTTPException(status_code=503, detail="onboarding_sessions_unavailable")
+        try:
+            session = onboarding_sessions_store.get(session_id)
+        except KeyError:
+            raise HTTPException(status_code=404, detail="session_not_found")
+        if state is not None:
+            expected = str((session.request_metadata or {}).get("approval_state") or "").strip()
+            if not expected or state.strip() != expected:
+                raise HTTPException(status_code=400, detail="approval_state_mismatch")
+        linked_node_id = str(session.linked_node_id or "").strip() or f"node-{session.session_id[:12]}"
+        try:
+            decided = onboarding_sessions_store.approve_session(
+                session_id,
+                approved_by_user_id=_admin_actor(x_admin_token),
+                linked_node_id=linked_node_id,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
+        return {"ok": True, "session": decided.to_dict()}
+
+    @router.post("/system/nodes/onboarding/sessions/{session_id}/reject")
+    def reject_node_onboarding_session(
+        session_id: str,
+        body: NodeOnboardingRejectRequest,
+        request: Request,
+        state: str | None = Query(default=None),
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        if onboarding_sessions_store is None:
+            raise HTTPException(status_code=503, detail="onboarding_sessions_unavailable")
+        try:
+            session = onboarding_sessions_store.get(session_id)
+        except KeyError:
+            raise HTTPException(status_code=404, detail="session_not_found")
+        if state is not None:
+            expected = str((session.request_metadata or {}).get("approval_state") or "").strip()
+            if not expected or state.strip() != expected:
+                raise HTTPException(status_code=400, detail="approval_state_mismatch")
+        try:
+            decided = onboarding_sessions_store.reject_session(
+                session_id,
+                rejected_by_user_id=_admin_actor(x_admin_token),
+                rejection_reason=body.rejection_reason,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
+        return {"ok": True, "session": decided.to_dict()}
 
     @router.get("/system/addons/runtime")
     def list_standalone_runtimes(

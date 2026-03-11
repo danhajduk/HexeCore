@@ -406,3 +406,4 @@
 2026-03-11 - Task 433: added backend onboarding start endpoint and app wiring, plus onboarding start API regression tests (env-skipped where FastAPI stack unavailable).
 2026-03-11 - Task 434: added AI Node onboarding approval URL contract doc and linked it from onboarding architecture/API mapping docs.
 2026-03-11 - Task 435: added onboarding approval UI route/page, admin-gated session details API, and docs updates for login-gated approval flow.
+2026-03-11 - Task 436: wired onboarding approval page actions to persisted approve/reject endpoints and added API docs + regression test coverage updates.
