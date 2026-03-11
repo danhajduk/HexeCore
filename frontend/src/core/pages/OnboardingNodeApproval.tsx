@@ -179,16 +179,47 @@ export default function OnboardingNodeApproval() {
         <div className="onboard-error">Session not found.</div>
       ) : (
         <div className="onboard-card">
-          <div className="onboard-grid">
-            <div><strong>Session</strong><span>{session.session_id}</span></div>
-            <div><strong>State</strong><span>{session.session_state}</span></div>
-            <div><strong>Node Name</strong><span>{session.node_name || session.requested_node_name}</span></div>
-            <div><strong>Node Type</strong><span>{session.node_type || session.requested_node_type}</span></div>
-            <div><strong>Version</strong><span>{session.node_software_version || session.requested_node_software_version}</span></div>
-            <div><strong>Hostname</strong><span>{session.requested_hostname || "-"}</span></div>
-            <div><strong>Source IP</strong><span>{session.requested_from_ip || "-"}</span></div>
-            <div><strong>Created</strong><span>{fmt(session.created_at)}</span></div>
-            <div><strong>Expires</strong><span>{fmt(session.expires_at)}</span></div>
+          <div className="onboard-row onboard-row-session">
+            <div className="onboard-field">
+              <strong>Session</strong>
+              <span>{session.session_id}</span>
+            </div>
+          </div>
+          <div className="onboard-row">
+            <div className="onboard-field">
+              <strong>State</strong>
+              <span>{session.session_state}</span>
+            </div>
+            <div className="onboard-field">
+              <strong>Node Name</strong>
+              <span>{session.node_name || session.requested_node_name}</span>
+            </div>
+            <div className="onboard-field">
+              <strong>Node Type</strong>
+              <span>{session.node_type || session.requested_node_type}</span>
+            </div>
+            <div className="onboard-field">
+              <strong>Version</strong>
+              <span>{session.node_software_version || session.requested_node_software_version}</span>
+            </div>
+            <div className="onboard-field">
+              <strong>Hostname</strong>
+              <span>{session.requested_hostname || "-"}</span>
+            </div>
+          </div>
+          <div className="onboard-row">
+            <div className="onboard-field">
+              <strong>IP</strong>
+              <span>{session.requested_from_ip || "-"}</span>
+            </div>
+            <div className="onboard-field">
+              <strong>Created</strong>
+              <span>{fmt(session.created_at)}</span>
+            </div>
+            <div className="onboard-field">
+              <strong>Expires</strong>
+              <span>{fmt(session.expires_at)}</span>
+            </div>
           </div>
           <div className="onboard-actions">
             <button

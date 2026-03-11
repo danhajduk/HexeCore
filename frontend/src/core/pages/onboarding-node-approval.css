@@ -54,20 +54,29 @@
   background: hsl(var(--sx-panel));
 }
 
-.onboard-grid {
+.onboard-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 10px 14px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
 }
 
-.onboard-grid > div {
+.onboard-row-session {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.onboard-field {
   display: grid;
   gap: 4px;
+  min-width: 0;
 }
 
-.onboard-grid strong {
+.onboard-field strong {
   font-size: 0.82rem;
   color: var(--text-muted, #6b7280);
+}
+
+.onboard-field span {
+  word-break: break-word;
 }
 
 .onboard-actions {

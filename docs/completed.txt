@@ -484,3 +484,4 @@
 2026-03-11 14:55 - Task 457: switched core frontend runtime defaults from port 5173 to port 80 across service template, Vite dev config, onboarding approval URL example, and bootstrap/dev operator output.
 2026-03-11 14:57 - Task 458: removed dedicated `/addons/nodes` UI route and links, keeping node access within the primary `/addons` surface.
 2026-03-11 14:59 - Task 459: removed the Addons install wizard UI and related client-side install-session controls from `/addons`.
+2026-03-11 15:00 - Task 460: updated onboarding approval card layout to row-based session/state/node/IP/timing fields with approve/reject controls matching the requested structure.
