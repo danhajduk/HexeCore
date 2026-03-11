@@ -418,65 +418,55 @@ export default function Home() {
             </ul>
           )}
         </div>
-        <div className="home-subsystems">
-          <span className={`home-subsystem ${pillTone(stack?.subsystems.core.state || "unknown")}`}>Core</span>
-          <span className={`home-subsystem ${pillTone(stack?.subsystems.supervisor.state || "unknown")}`}>Supervisor</span>
-          <span className={`home-subsystem ${pillTone(stack?.subsystems.ai?.state || "unknown")}`}>AI Node</span>
-          <span className={`home-subsystem ${pillTone(stack?.subsystems.mqtt.state || "unknown")}`}>MQTT</span>
-          <span className={`home-subsystem ${pillTone(stack?.subsystems.scheduler.state || "unknown")}`}>Scheduler</span>
-          <span className={`home-subsystem ${pillTone(stack?.subsystems.workers.state || "unknown")}`}>Workers</span>
-          <span className={`home-subsystem ${pillTone(stack?.subsystems.addons.state || "unknown")}`}>Addons</span>
-          <span className={`home-subsystem ${pillTone(stack?.connectivity.network.state || "unknown")}`}>Network</span>
-          <span className={`home-subsystem ${pillTone(stack?.connectivity.internet.state || "unknown")}`}>Internet</span>
+        <div className="home-status-tiles-wrap">
+          <section className="home-status-row">
+            <StatusMini
+              title="Core"
+              tone={pillTone(stack?.subsystems.core.state || "unknown")}
+              icon={Cpu}
+            />
+            <StatusMini
+              title="Supervisor"
+              tone={pillTone(stack?.subsystems.supervisor.state || "unknown")}
+              icon={ShieldCheck}
+            />
+            <StatusMini
+              title="Scheduler"
+              tone={pillTone(stack?.subsystems.scheduler.state || "unknown")}
+              icon={Clock3}
+            />
+            <StatusMini
+              title="MQTT"
+              tone={pillTone(stack?.subsystems.mqtt.state || "unknown")}
+              icon={Waypoints}
+            />
+            <StatusMini
+              title="AI Node"
+              tone={pillTone(stack?.subsystems.ai?.state || "unknown")}
+              icon={BrainCircuit}
+            />
+            <StatusMini
+              title="Workers"
+              tone={pillTone(stack?.subsystems.workers.state || "unknown")}
+              icon={Cog}
+            />
+            <StatusMini
+              title="Addons"
+              tone={pillTone(stack?.subsystems.addons.state || "unknown")}
+              icon={Puzzle}
+            />
+            <StatusMini
+              title="Network"
+              tone={pillTone(stack?.connectivity.network.state || "unknown")}
+              icon={Network}
+            />
+            <StatusMini
+              title="Internet"
+              tone={pillTone(stack?.connectivity.internet.state || "unknown")}
+              icon={Globe}
+            />
+          </section>
         </div>
-      </section>
-
-      <section className="home-status-row">
-        <StatusMini
-          title="Core"
-          tone={pillTone(stack?.subsystems.core.state || "unknown")}
-          icon={Cpu}
-        />
-        <StatusMini
-          title="Supervisor"
-          tone={pillTone(stack?.subsystems.supervisor.state || "unknown")}
-          icon={ShieldCheck}
-        />
-        <StatusMini
-          title="Scheduler"
-          tone={pillTone(stack?.subsystems.scheduler.state || "unknown")}
-          icon={Clock3}
-        />
-        <StatusMini
-          title="MQTT"
-          tone={pillTone(stack?.subsystems.mqtt.state || "unknown")}
-          icon={Waypoints}
-        />
-        <StatusMini
-          title="AI Node"
-          tone={pillTone(stack?.subsystems.ai?.state || "unknown")}
-          icon={BrainCircuit}
-        />
-        <StatusMini
-          title="Workers"
-          tone={pillTone(stack?.subsystems.workers.state || "unknown")}
-          icon={Cog}
-        />
-        <StatusMini
-          title="Addons"
-          tone={pillTone(stack?.subsystems.addons.state || "unknown")}
-          icon={Puzzle}
-        />
-        <StatusMini
-          title="Network"
-          tone={pillTone(stack?.connectivity.network.state || "unknown")}
-          icon={Network}
-        />
-        <StatusMini
-          title="Internet"
-          tone={pillTone(stack?.connectivity.internet.state || "unknown")}
-          icon={Globe}
-        />
       </section>
 
       {dataErr && <div className="home-data-err">Dashboard data load failed: {dataErr}</div>}

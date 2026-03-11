@@ -44,10 +44,8 @@
   border-radius: var(--sx-radius-md);
   background: hsl(var(--sx-panel));
   padding: calc(var(--sx-space-3) + 2px);
-  display: flex;
-  justify-content: space-between;
+  display: grid;
   gap: calc(var(--sx-space-3) + 2px);
-  align-items: center;
 }
 
 .home-status-card.tone-ok {
@@ -72,10 +70,8 @@
   font-size: 13px;
 }
 
-.home-subsystems {
-  display: flex;
-  gap: var(--sx-space-2);
-  flex-wrap: wrap;
+.home-status-tiles-wrap {
+  overflow-x: auto;
 }
 
 .home-subsystem {
@@ -341,6 +337,9 @@
 @media (max-width: 920px) {
   .home-head {
     flex-direction: column;
+  }
+  .home-status-card {
+    padding: var(--sx-space-3);
   }
   .home-status-row {
     grid-template-columns: repeat(4, 96px);
