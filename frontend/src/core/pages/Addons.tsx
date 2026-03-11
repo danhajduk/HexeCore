@@ -76,6 +76,7 @@ export default function Addons() {
   const [nodesErr, setNodesErr] = useState<string | null>(null);
   const [nodesBusy, setNodesBusy] = useState(false);
   const [nodeDeleteBusy, setNodeDeleteBusy] = useState<string | null>(null);
+  const [nodeRevokeBusy, setNodeRevokeBusy] = useState<string | null>(null);
   const [nodesTab, setNodesTab] = useState<"installed" | "pending">("installed");
   const [catalogBusy, setCatalogBusy] = useState(false);
   const [catalogMsg, setCatalogMsg] = useState<string | null>(null);
@@ -169,6 +170,25 @@ export default function Addons() {
       setNodesErr(e?.message ?? String(e));
     } finally {
       setNodeDeleteBusy(null);
+    }
+  }
+
+  async function revokeNode(nodeId: string) {
+    const target = String(nodeId || "").trim();
+    if (!target) return;
+    setNodesErr(null);
+    setNodeRevokeBusy(target);
+    try {
+      const res = await fetch(`/api/system/nodes/registrations/${encodeURIComponent(target)}/revoke`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(await readError(res));
+      await refreshNodes();
+    } catch (e: any) {
+      setNodesErr(e?.message ?? String(e));
+    } finally {
+      setNodeRevokeBusy(null);
     }
   }
 
@@ -441,6 +461,15 @@ export default function Addons() {
                       </div>
                       {isAdmin && (
                         <div className="addon-actions">
+                          {String(item.registry_state || item.trust_status || "").toLowerCase() !== "revoked" && (
+                            <button
+                              className="addon-btn addon-btn-danger"
+                              onClick={() => void revokeNode(item.node_id)}
+                              disabled={nodeRevokeBusy === item.node_id}
+                            >
+                              {nodeRevokeBusy === item.node_id ? "Revoking..." : "Revoke Trust"}
+                            </button>
+                          )}
                           <button
                             className="addon-btn addon-btn-danger"
                             onClick={() => void deleteNode(item.node_id)}

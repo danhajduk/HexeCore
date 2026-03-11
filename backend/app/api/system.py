@@ -482,6 +482,44 @@ def build_system_router(
             "removed_trust_record": trust_removed,
         }
 
+    @router.post("/system/nodes/registrations/{node_id}/revoke")
+    @router.post("/system/nodes/registrations/{node_id}/untrust", include_in_schema=False)
+    def revoke_node_registration(
+        node_id: str,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        if node_registrations_store is None:
+            raise HTTPException(status_code=503, detail="node_registrations_unavailable")
+        existing = node_registrations_store.get(node_id)
+        if existing is None:
+            raise HTTPException(status_code=404, detail="node_registration_not_found")
+        try:
+            updated = node_registrations_store.set_trust_status(node_id, trust_status="revoked")
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        if updated is None:
+            raise HTTPException(status_code=404, detail="node_registration_not_found")
+        trust_removed = False
+        if node_trust_issuance is not None:
+            try:
+                trust_removed = bool(node_trust_issuance.revoke_node(node_id))
+            except Exception:
+                trust_removed = False
+        _record_audit(
+            audit_store,
+            event_type="node_registration_revoked",
+            actor_role="admin",
+            actor_id=_admin_actor(x_admin_token),
+            details={"node_id": str(node_id or ""), "removed_trust_record": trust_removed},
+        )
+        return {
+            "ok": True,
+            "registration": _node_registry_payload(updated),
+            "removed_trust_record": trust_removed,
+        }
+
     @router.post("/system/nodes/onboarding/sessions/{session_id}/approve")
     def approve_node_onboarding_session(
         session_id: str,
