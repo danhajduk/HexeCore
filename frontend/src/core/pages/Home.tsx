@@ -409,7 +409,7 @@ export default function Home() {
         <div className="home-subsystems">
           <span className={`home-subsystem ${pillTone(stack?.subsystems.core.state || "unknown")}`}>Core</span>
           <span className={`home-subsystem ${pillTone(stack?.subsystems.supervisor.state || "unknown")}`}>Supervisor</span>
-          <span className={`home-subsystem ${pillTone(stack?.subsystems.ai?.state || "unknown")}`}>AI</span>
+          <span className={`home-subsystem ${pillTone(stack?.subsystems.ai?.state || "unknown")}`}>AI Node</span>
           <span className={`home-subsystem ${pillTone(stack?.subsystems.mqtt.state || "unknown")}`}>MQTT</span>
           <span className={`home-subsystem ${pillTone(stack?.subsystems.scheduler.state || "unknown")}`}>Scheduler</span>
           <span className={`home-subsystem ${pillTone(stack?.subsystems.workers.state || "unknown")}`}>Workers</span>
@@ -441,7 +441,7 @@ export default function Home() {
           icon={Waypoints}
         />
         <StatusMini
-          title="AI"
+          title="AI Node"
           tone={pillTone(stack?.subsystems.ai?.state || "unknown")}
           icon={BrainCircuit}
         />
