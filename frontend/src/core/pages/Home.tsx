@@ -85,6 +85,7 @@ type NodeRegistrationSummary = {
   node_name?: string;
   node_type?: string;
   trust_status?: string;
+  registry_state?: string;
 };
 
 function fmtUptime(sec: number): string {
@@ -220,7 +221,7 @@ export default function Home() {
         fetch("/api/system/stats/current", { cache: "no-store" }),
         fetch("/api/system/repo/status", { cache: "no-store" }),
         fetch("/api/system/stack/summary", { cache: "no-store" }),
-        fetch("/api/system/nodes/registrations", { cache: "no-store", credentials: "include" }),
+        fetch("/api/system/nodes/registry", { cache: "no-store", credentials: "include" }),
       ]);
       if (addonsRes.ok) setAddons((await addonsRes.json()) as AddonSummary[]);
       if (statsRes.ok) setStats((await statsRes.json()) as SystemStats);
@@ -290,7 +291,7 @@ export default function Home() {
   const installedNodes = useMemo(
     () =>
       nodes
-        .filter((item) => String(item.trust_status || "").toLowerCase() === "trusted")
+        .filter((item) => String(item.registry_state || item.trust_status || "").toLowerCase() === "trusted")
         .sort((a, b) => String(a.node_id || "").localeCompare(String(b.node_id || ""))),
     [nodes],
   );

@@ -53,6 +53,7 @@ type NodeRegistration = {
   node_type?: string;
   node_software_version?: string;
   trust_status?: string;
+  registry_state?: string;
   approved_by_user_id?: string | null;
   source_onboarding_session_id?: string | null;
   updated_at?: string | null;
@@ -117,7 +118,7 @@ export default function Addons() {
     setNodesBusy(true);
     setNodesErr(null);
     try {
-      const res = await fetch("/api/system/nodes/registrations", {
+      const res = await fetch("/api/system/nodes/registry", {
         credentials: "include",
         cache: "no-store",
       });
@@ -399,7 +400,7 @@ export default function Addons() {
                     <div key={item.node_id} className="addon-runtime-card">
                       <div className="addon-card-header">
                         <div className="addon-name">{item.node_name || item.node_id}</div>
-                        <div className="addon-status">trust: {item.trust_status || "unknown"}</div>
+                        <div className="addon-status">state: {item.registry_state || item.trust_status || "unknown"}</div>
                       </div>
                       <div className="addon-meta">
                         node id: {item.node_id} • type: {item.node_type || "unknown"}
