@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
 from app.addons.models import AddonMeta, BackendAddon
@@ -2056,6 +2056,24 @@ def addon_config_update(body: dict[str, Any]) -> dict[str, Any]:
         "updated_at": _utcnow_iso(),
         "config": dict(_config),
     }
+
+
+@router.get("/topics")
+async def addon_topics(request: Request, limit: int = 500, format: str | None = None) -> Any:
+    # Keep /topics as a UI route by default, but allow JSON for API callers.
+    wants_json = str(format or "").strip().lower() == "json" or (
+        "application/json" in str(request.headers.get("accept") or "").lower()
+    )
+    if not wants_json:
+        return HTMLResponse(addon_ui_root())
+    manager = getattr(request.app.state, "mqtt_manager", None)
+    topic_fn = getattr(manager, "topic_activity", None) if manager is not None else None
+    if not callable(topic_fn):
+        return {"ok": True, "items": []}
+    payload = await topic_fn(limit=limit)
+    if not isinstance(payload, dict):
+        return {"ok": True, "items": []}
+    return {"ok": bool(payload.get("ok", True)), "items": list(payload.get("items") or [])}
 
 
 @router.get("/{path:path}", response_class=HTMLResponse)

@@ -72,6 +72,19 @@ class TestMqttEmbeddedUiRoutes(unittest.TestCase):
         self.assertIn("Synthia MQTT Setup", res.text)
         self.assertIn("data-section=\"principals\"", res.text)
 
+    def test_topics_subroute_defaults_to_ui_shell(self) -> None:
+        res = self.client.get("/api/addons/mqtt/topics")
+        self.assertEqual(res.status_code, 200, res.text)
+        self.assertIn("Synthia MQTT Setup", res.text)
+        self.assertIn("data-section=\"topics\"", res.text)
+
+    def test_topics_subroute_returns_json_when_requested(self) -> None:
+        res = self.client.get("/api/addons/mqtt/topics?format=json")
+        self.assertEqual(res.status_code, 200, res.text)
+        payload = res.json()
+        self.assertTrue(payload["ok"])
+        self.assertIsInstance(payload["items"], list)
+
 
 if __name__ == "__main__":
     unittest.main()
