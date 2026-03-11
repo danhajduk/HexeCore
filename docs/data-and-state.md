@@ -26,6 +26,7 @@ Observed JSON-backed state includes:
 - MQTT integration state (`var/mqtt_integration_state.json`)
 - MQTT credential store (`var/mqtt_credentials.json`)
 - AI Node onboarding session state (`data/node_onboarding_sessions.json`)
+- AI Node onboarding archived terminal sessions (`data/node_onboarding_sessions.json.archive.jsonl`)
 - AI Node trust issuance records (`data/node_trust_records.json`)
 - policy grants/revocations (`var/policy_*.json`)
 - service catalog and store source state

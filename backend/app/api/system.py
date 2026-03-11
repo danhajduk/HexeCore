@@ -63,6 +63,12 @@ def _admin_actor(x_admin_token: str | None) -> str:
     return "admin_token" if (x_admin_token or "").strip() else "admin_session"
 
 
+def _expire_if_needed(store: NodeOnboardingSessionsStore | None) -> None:
+    if store is None:
+        return
+    store.expire_stale_sessions()
+
+
 def build_system_router(
     registry: AddonRegistry,
     runtime_service: StandaloneRuntimeService | None = None,
@@ -98,6 +104,7 @@ def build_system_router(
 
     @router.post("/system/nodes/onboarding/sessions")
     def start_node_onboarding_session(body: NodeOnboardingStartRequest, request: Request):
+        _expire_if_needed(onboarding_sessions_store)
         if onboarding_sessions_store is None or not _onboarding_enabled():
             raise HTTPException(
                 status_code=503,
@@ -158,6 +165,7 @@ def build_system_router(
         x_admin_token: str | None = Header(default=None),
     ):
         require_admin_token(x_admin_token, request)
+        _expire_if_needed(onboarding_sessions_store)
         if onboarding_sessions_store is None:
             raise HTTPException(status_code=503, detail="onboarding_sessions_unavailable")
         try:
@@ -197,6 +205,7 @@ def build_system_router(
         x_admin_token: str | None = Header(default=None),
     ):
         require_admin_token(x_admin_token, request)
+        _expire_if_needed(onboarding_sessions_store)
         if onboarding_sessions_store is None:
             raise HTTPException(status_code=503, detail="onboarding_sessions_unavailable")
         try:
@@ -207,6 +216,8 @@ def build_system_router(
             expected = str((session.request_metadata or {}).get("approval_state") or "").strip()
             if not expected or state.strip() != expected:
                 raise HTTPException(status_code=400, detail="approval_state_mismatch")
+        if str(session.session_state) == "expired":
+            raise HTTPException(status_code=409, detail="session_expired")
         linked_node_id = str(session.linked_node_id or "").strip() or f"node-{session.session_id[:12]}"
         try:
             decided = onboarding_sessions_store.approve_session(
@@ -227,6 +238,7 @@ def build_system_router(
         x_admin_token: str | None = Header(default=None),
     ):
         require_admin_token(x_admin_token, request)
+        _expire_if_needed(onboarding_sessions_store)
         if onboarding_sessions_store is None:
             raise HTTPException(status_code=503, detail="onboarding_sessions_unavailable")
         try:
@@ -237,6 +249,8 @@ def build_system_router(
             expected = str((session.request_metadata or {}).get("approval_state") or "").strip()
             if not expected or state.strip() != expected:
                 raise HTTPException(status_code=400, detail="approval_state_mismatch")
+        if str(session.session_state) == "expired":
+            raise HTTPException(status_code=409, detail="session_expired")
         try:
             decided = onboarding_sessions_store.reject_session(
                 session_id,
@@ -252,6 +266,7 @@ def build_system_router(
         session_id: str,
         node_nonce: str = Query(...),
     ):
+        _expire_if_needed(onboarding_sessions_store)
         if onboarding_sessions_store is None:
             raise HTTPException(status_code=503, detail="onboarding_sessions_unavailable")
         nonce = str(node_nonce or "").strip()

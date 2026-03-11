@@ -119,6 +119,25 @@ def create_app() -> FastAPI:
 
         asyncio.create_task(history_cleanup_loop())
 
+        async def onboarding_session_maintenance_loop() -> None:
+            while True:
+                try:
+                    sessions_store = getattr(app.state, "node_onboarding_sessions_store", None)
+                    if sessions_store is not None:
+                        sessions_store.expire_stale_sessions()
+                        retention_days_raw = str(os.getenv("SYNTHIA_NODE_ONBOARDING_ARCHIVE_RETAIN_DAYS", "30")).strip()
+                        try:
+                            retention_days = int(retention_days_raw)
+                        except Exception:
+                            retention_days = 30
+                        if retention_days > 0:
+                            sessions_store.archive_and_prune_terminal_sessions(retain_days=retention_days)
+                except Exception:
+                    log.exception("Node onboarding session maintenance loop failed")
+                await asyncio.sleep(3600.0)
+
+        asyncio.create_task(onboarding_session_maintenance_loop())
+
         async def addon_health_poll_loop() -> None:
             while True:
                 try:

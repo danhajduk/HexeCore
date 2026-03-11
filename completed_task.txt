@@ -411,3 +411,4 @@
 2026-03-11 - Task 438: added onboarding trust store/issuance service, app wiring, trust-issuance tests, and state docs update for node trust records.
 2026-03-11 - Task 439: added finalize API wiring to trust issuance service, expanded onboarding API tests, and updated onboarding/API contract docs.
 2026-03-11 - Task 440: updated finalize endpoint to persist consumed state, added consumed replay expectation in onboarding API tests, and updated onboarding contract docs.
+2026-03-11 - Task 441: added onboarding session maintenance loop, archive+prune support with audit-preserving JSONL archive, and expanded expiry/cleanup regression tests.

@@ -90,6 +90,7 @@ class NodeOnboardingSession:
 class NodeOnboardingSessionsStore:
     def __init__(self, path: Path | None = None) -> None:
         self._path = path or (_repo_root() / "data" / "node_onboarding_sessions.json")
+        self._archive_path = self._path.with_suffix(self._path.suffix + ".archive.jsonl")
         self._sessions: dict[str, NodeOnboardingSession] = {}
         self._load()
 
@@ -353,3 +354,40 @@ class NodeOnboardingSessionsStore:
         self._transition(session, next_state="cancelled", actor_id=actor, reason="session_cancelled")
         self._save()
         return session
+
+    def archive_and_prune_terminal_sessions(self, *, retain_days: int = 30, now: datetime | None = None) -> int:
+        keep_days = max(int(retain_days), 1)
+        cutoff = (now or _utcnow()) - timedelta(days=keep_days)
+        terminal_states = {"rejected", "expired", "consumed", "cancelled"}
+        remove_ids: list[str] = []
+        archived_count = 0
+        for session in self._sessions.values():
+            if session.session_state not in terminal_states:
+                continue
+            refs = [
+                session.final_payload_consumed_at,
+                session.rejected_at,
+                session.approved_at,
+                session.expires_at,
+                session.created_at,
+            ]
+            last_ts = None
+            for item in refs:
+                parsed = _parse_iso(item)
+                if parsed is not None:
+                    last_ts = parsed
+                    break
+            if last_ts is None or last_ts > cutoff:
+                continue
+            self._archive_path.parent.mkdir(parents=True, exist_ok=True)
+            with self._archive_path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(session.to_dict(), sort_keys=True))
+                handle.write("\n")
+            remove_ids.append(session.session_id)
+            archived_count += 1
+        if not remove_ids:
+            return 0
+        for sid in remove_ids:
+            self._sessions.pop(sid, None)
+        self._save()
+        return archived_count

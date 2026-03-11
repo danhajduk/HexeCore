@@ -162,6 +162,42 @@ class TestNodeOnboardingSessionsStore(unittest.TestCase):
         self.store.consume_final_payload(pending.session_id)
         self.assertIsNone(self.store.find_active_by_node_nonce("nonce-8"))
 
+    def test_approve_reject_blocked_after_expiry(self) -> None:
+        session = self.store.start_session(
+            node_nonce="nonce-9",
+            requested_node_name="deck-node",
+            requested_node_type="ai-node",
+            requested_node_software_version="0.9.0",
+            ttl_seconds=1,
+        )
+        future_now = datetime.now(timezone.utc) + timedelta(seconds=5)
+        self.store.expire_stale_sessions(now=future_now)
+        with self.assertRaisesRegex(ValueError, "invalid_state_transition"):
+            self.store.approve_session(
+                session.session_id,
+                approved_by_user_id="admin:alice",
+                linked_node_id="node-009",
+            )
+        with self.assertRaisesRegex(ValueError, "invalid_state_transition"):
+            self.store.reject_session(
+                session.session_id,
+                rejected_by_user_id="admin:bob",
+            )
+
+    def test_archive_and_prune_terminal_sessions(self) -> None:
+        session = self.store.start_session(
+            node_nonce="nonce-10",
+            requested_node_name="shed-node",
+            requested_node_type="ai-node",
+            requested_node_software_version="1.0.0",
+        )
+        self.store.reject_session(session.session_id, rejected_by_user_id="admin:bob", rejection_reason="test")
+        now = datetime.now(timezone.utc) + timedelta(days=35)
+        archived = self.store.archive_and_prune_terminal_sessions(retain_days=30, now=now)
+        self.assertEqual(archived, 1)
+        with self.assertRaisesRegex(KeyError, "session_not_found"):
+            self.store.get(session.session_id)
+
 
 if __name__ == "__main__":
     unittest.main()
