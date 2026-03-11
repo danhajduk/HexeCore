@@ -61,6 +61,34 @@ Status: Archived Legacy
 
 - Earlier split MQTT Phase 1/2 runbooks were consolidated into this guide and moved to archive.
 
+## 8) AI Node Onboarding Runbook
+
+Status: Implemented (baseline)
+
+Core onboarding flow:
+1. Node starts onboarding via `POST /api/system/nodes/onboarding/sessions`.
+2. Node receives `approval_url` and shows it to operator.
+3. Operator opens approval URL and signs into Core admin session if required.
+4. Operator approves or rejects onboarding.
+5. Node polls finalize endpoint:
+   - `GET /api/system/nodes/onboarding/sessions/{session_id}/finalize?node_nonce=...`
+
+Finalization outcomes:
+- `pending`: waiting for operator decision
+- `approved`: trust activation payload returned on first successful retrieval
+- `rejected`: onboarding denied by operator
+- `expired`: session expired before decision/finalization
+- `consumed`: trust payload already consumed (replay attempt)
+- `invalid`: session or binding token mismatch
+
+Troubleshooting checklist:
+1. Verify session exists and current state in Settings -> Node Onboarding Sessions.
+2. Confirm approval URL includes both `sid` and `state`.
+3. Confirm node uses matching `node_nonce` during finalize.
+4. If operator action fails with CSRF mismatch, ensure request origin/referer aligns with Core base URL.
+5. If API returns `rate_limited`, retry after window cooldown.
+6. For expired sessions, restart onboarding from session creation.
+
 ## See Also
 
 - [MQTT Platform](./mqtt-platform.md)

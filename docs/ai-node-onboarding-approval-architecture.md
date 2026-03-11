@@ -1,7 +1,7 @@
 # AI Node Onboarding Approval Architecture
 
-Status: Planned
-Implementation status: Not developed
+Status: Partial
+Implementation status: Core onboarding session/approval/finalization baseline implemented; additional polish and follow-up hardening remain
 Last updated: 2026-03-11
 
 ## Purpose
@@ -23,7 +23,7 @@ This is not a generic OAuth redirect flow.
 
 ## Architecture Principles
 
-Status: Planned
+Status: Partial
 
 - Core remains trust authority.
 - Onboarding is session-based and auditable.
@@ -33,7 +33,7 @@ Status: Planned
 
 ## Participating Surfaces
 
-Status: Planned
+Status: Partial
 
 - Bootstrap payload surface:
   - Advertises onboarding capabilities and API entry points.
@@ -48,7 +48,7 @@ Status: Planned
 
 ## Canonical Flow
 
-Status: Planned
+Status: Partial
 
 ### 1) Node Starts Onboarding
 
@@ -82,7 +82,7 @@ Status: Planned
 
 ## Headless Compatibility
 
-Status: Planned
+Status: Implemented (baseline)
 
 - Node does not require embedded browser capability.
 - Node only needs to surface approval URL to operator.
@@ -90,7 +90,7 @@ Status: Planned
 
 ## Security Boundaries
 
-Status: Planned
+Status: Implemented (baseline)
 
 - Approval URL references a persisted onboarding session.
 - Session expiry gates decisions and finalization.
@@ -100,7 +100,7 @@ Status: Planned
 
 ## Out of Scope
 
-Status: Planned
+Status: Partial
 
 - Generic third-party OAuth provider integration.
 - Browser redirect-back requirement from Core to AI Node.

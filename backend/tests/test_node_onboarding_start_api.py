@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -96,6 +97,13 @@ class TestNodeOnboardingStartApi(unittest.TestCase):
         self.assertEqual(resp.status_code, 400, resp.text)
         self.assertEqual(resp.json()["detail"]["error"], "node_type_unsupported")
 
+    def test_protocol_version_unsupported(self) -> None:
+        payload = self._payload()
+        payload["protocol_version"] = "99.9"
+        resp = self.client.post("/api/system/nodes/onboarding/sessions", json=payload)
+        self.assertEqual(resp.status_code, 400, resp.text)
+        self.assertEqual(resp.json()["detail"]["error"], "protocol_version_unsupported")
+
     def test_registration_disabled(self) -> None:
         with patch.dict(os.environ, {"SYNTHIA_AI_NODE_ONBOARDING_ENABLED": "false"}, clear=False):
             resp = self.client.post("/api/system/nodes/onboarding/sessions", json=self._payload())
@@ -123,6 +131,18 @@ class TestNodeOnboardingStartApi(unittest.TestCase):
             json={"rejection_reason": "late decision"},
         )
         self.assertEqual(reject_after_approve.status_code, 409, reject_after_approve.text)
+
+    def test_approve_reject_state_tamper_rejected(self) -> None:
+        started = self.client.post("/api/system/nodes/onboarding/sessions", json=self._payload())
+        self.assertEqual(started.status_code, 200, started.text)
+        session_id = started.json()["session"]["session_id"]
+
+        tampered = self.client.post(
+            f"/api/system/nodes/onboarding/sessions/{session_id}/approve?state=tampered",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(tampered.status_code, 400, tampered.text)
+        self.assertEqual(tampered.json()["detail"], "approval_state_mismatch")
 
     def test_admin_can_reject(self) -> None:
         payload = self._payload()
@@ -179,6 +199,25 @@ class TestNodeOnboardingStartApi(unittest.TestCase):
         )
         self.assertEqual(consumed.status_code, 200, consumed.text)
         self.assertEqual(consumed.json()["onboarding_status"], "consumed")
+
+    def test_finalize_returns_invalid_for_unknown_session(self) -> None:
+        resp = self.client.get("/api/system/nodes/onboarding/sessions/does-not-exist/finalize?node_nonce=nonce-abc")
+        self.assertEqual(resp.status_code, 200, resp.text)
+        self.assertEqual(resp.json()["onboarding_status"], "invalid")
+
+    def test_finalize_expired_session(self) -> None:
+        started = self.client.post("/api/system/nodes/onboarding/sessions", json=self._payload())
+        self.assertEqual(started.status_code, 200, started.text)
+        session_id = started.json()["session"]["session_id"]
+        session = self.store.get(session_id)
+        session.expires_at = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
+        self.store.expire_stale_sessions()
+
+        resp = self.client.get(
+            f"/api/system/nodes/onboarding/sessions/{session_id}/finalize?node_nonce=nonce-abc"
+        )
+        self.assertEqual(resp.status_code, 200, resp.text)
+        self.assertEqual(resp.json()["onboarding_status"], "expired")
 
 
 if __name__ == "__main__":
