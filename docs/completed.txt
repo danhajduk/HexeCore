@@ -392,3 +392,4 @@
 327. Task 356: Enforce reserved topic protections for generic users in ACL/effective access - Completed on 03/10/2026 07:18
 328. Task 357: Reserve future federation/import topic families (remote/bridges/import) - Completed on 03/10/2026 07:18
 329. Task 358: Refine system topic families and bootstrap payload contract fields - Completed on 03/10/2026 07:18
+330. Task 359: Fix local embedded MQTT manager auth mismatch causing disconnected runtime and bootstrap publish failure. - Completed on 03/10/2026 23:24

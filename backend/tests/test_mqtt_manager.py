@@ -1,5 +1,7 @@
 import asyncio
 import json
+import os
+import tempfile
 import unittest
 
 import paho.mqtt.client as mqtt
@@ -127,7 +129,7 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
             host="10.0.0.100",
             port=1883,
             username="broker-user",
-            password="secret-password",
+            password=None,
             keepalive_s=30,
             tls_enabled=False,
             client_id="synthia-core",
@@ -221,13 +223,65 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
             service_catalog_store=_FakeServiceCatalogStore(),
             enabled=True,
         )
-        cfg = await manager._load_config()
+        old = os.environ.get("MQTT_CREDENTIAL_STORE_PATH")
+        os.environ["MQTT_CREDENTIAL_STORE_PATH"] = "/tmp/does-not-exist-mqtt-credentials.json"
+        try:
+            cfg = await manager._load_config()
+        finally:
+            if old is None:
+                del os.environ["MQTT_CREDENTIAL_STORE_PATH"]
+            else:
+                os.environ["MQTT_CREDENTIAL_STORE_PATH"] = old
         self.assertEqual(cfg.mode, "local")
         self.assertEqual(cfg.host, "127.0.0.1")
         self.assertEqual(cfg.port, 1883)
-        self.assertIsNone(cfg.username)
-        self.assertIsNone(cfg.password)
+        self.assertEqual(cfg.username, "admin")
+        self.assertEqual(cfg.password, "bad")
         self.assertFalse(cfg.tls_enabled)
+
+    async def test_load_config_local_prefers_runtime_credential_store(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            cred_path = os.path.join(tmp, "mqtt_credentials.json")
+            with open(cred_path, "w", encoding="utf-8") as handle:
+                json.dump(
+                    {
+                        "credentials": {
+                            "addon:mqtt": {
+                                "username": "sx_mqtt",
+                                "password": "runtime-secret",
+                            }
+                        }
+                    },
+                    handle,
+                )
+            manager = MqttManager(
+                settings_store=_MapSettingsStore(
+                    {
+                        "mqtt.mode": "local",
+                        "mqtt.local.host": "10.0.0.100",
+                        "mqtt.local.port": 1883,
+                        "mqtt.local.username": "admin",
+                        "mqtt.local.password": "stale-password",
+                        "mqtt.local.tls_enabled": True,
+                        "mqtt.client_id": "synthia-core",
+                    }
+                ),
+                registry=_FakeRegistry(),
+                service_catalog_store=_FakeServiceCatalogStore(),
+                enabled=True,
+            )
+            old = os.environ.get("MQTT_CREDENTIAL_STORE_PATH")
+            os.environ["MQTT_CREDENTIAL_STORE_PATH"] = cred_path
+            try:
+                cfg = await manager._load_config()
+            finally:
+                if old is None:
+                    del os.environ["MQTT_CREDENTIAL_STORE_PATH"]
+                else:
+                    os.environ["MQTT_CREDENTIAL_STORE_PATH"] = old
+            self.assertEqual(cfg.mode, "local")
+            self.assertEqual(cfg.username, "sx_mqtt")
+            self.assertEqual(cfg.password, "runtime-secret")
 
     async def test_load_config_external_keeps_auth_settings(self) -> None:
         manager = MqttManager(

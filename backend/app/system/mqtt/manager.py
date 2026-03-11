@@ -206,8 +206,13 @@ class MqttManager:
             # Local embedded runtime is broker-authoritative; avoid stale external settings causing auth/connect drift.
             host = str(os.getenv("SYNTHIA_MQTT_HOST", "127.0.0.1")).strip() or "127.0.0.1"
             port = int(os.getenv("SYNTHIA_MQTT_PORT", str(port)))
-            username = None
-            password = None
+            username = str((await self._settings.get("mqtt.local.username")) or "").strip() or None
+            password = str((await self._settings.get("mqtt.local.password")) or "")
+            password = password if password else None
+            local_credential = self._load_local_broker_credential()
+            if local_credential is not None:
+                username = local_credential.get("username") or username
+                password = local_credential.get("password") or password
             tls_enabled = False
         return MqttConfig(
             mode=mode,
@@ -219,6 +224,31 @@ class MqttManager:
             tls_enabled=tls_enabled,
             client_id=client_id,
         )
+
+    @staticmethod
+    def _load_local_broker_credential() -> dict[str, str] | None:
+        credential_path = str(
+            os.getenv("MQTT_CREDENTIAL_STORE_PATH", os.path.join(os.getcwd(), "var", "mqtt_credentials.json"))
+        ).strip()
+        if not credential_path:
+            return None
+        try:
+            with open(credential_path, "r", encoding="utf-8") as handle:
+                payload = json.load(handle)
+        except Exception:
+            return None
+        credentials = payload.get("credentials") if isinstance(payload, dict) else None
+        if not isinstance(credentials, dict):
+            return None
+        for principal_id in ("addon:mqtt", "core.runtime", "core.bootstrap"):
+            item = credentials.get(principal_id)
+            if not isinstance(item, dict):
+                continue
+            username = str(item.get("username") or "").strip()
+            password = str(item.get("password") or "")
+            if username and password:
+                return {"username": username, "password": password}
+        return None
 
     def _build_and_connect_client(self, cfg: MqttConfig) -> Any:
         import paho.mqtt.client as mqtt
