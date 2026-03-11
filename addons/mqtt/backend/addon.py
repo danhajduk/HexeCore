@@ -290,6 +290,16 @@ def addon_ui_root() -> str:
       text-transform: uppercase;
       letter-spacing: 0.04em;
     }
+    .tree {
+      margin: 8px 0;
+      padding-left: 18px;
+    }
+    .tree li {
+      margin: 4px 0;
+    }
+    .tree summary {
+      cursor: pointer;
+    }
     .row-actions {
       display: flex;
       flex-wrap: wrap;
@@ -352,6 +362,7 @@ def addon_ui_root() -> str:
         <button class="tab" data-section="principals">Principals</button>
         <button class="tab" data-section="users">Generic Users</button>
         <button class="tab" data-section="runtime">Runtime</button>
+        <button class="tab" data-section="topics">Topics</button>
         <button class="tab" data-section="audit">Audit</button>
         <button class="tab" data-section="noisy-clients">Noisy Clients</button>
       </div>
@@ -457,7 +468,7 @@ def addon_ui_root() -> str:
     const preflight = document.getElementById("preflight");
     const actionStatus = document.getElementById("action-status");
     const runtimeStatus = document.getElementById("runtime-status");
-    const sections = ["setup", "overview", "principals", "users", "runtime", "audit", "noisy-clients"];
+    const sections = ["setup", "overview", "principals", "users", "runtime", "topics", "audit", "noisy-clients"];
     const state = {
       currentSection: "overview",
       gateActive: false,
@@ -474,6 +485,7 @@ def addon_ui_root() -> str:
       filters: {
         principals: { q: "", type: "", status: "" },
         users: { q: "", status: "" },
+        topics: { q: "" },
         audit: { q: "", status: "", principal: "", action: "" },
         noisyClients: { q: "", state: "" },
       },
@@ -1204,6 +1216,40 @@ def addon_ui_root() -> str:
       });
     }
 
+    function buildTopicTree(items) {
+      const root = {};
+      (Array.isArray(items) ? items : []).forEach((item) => {
+        const topic = String(item && item.topic ? item.topic : "").trim();
+        if (!topic) return;
+        const parts = topic.split("/").filter((part) => part.length > 0);
+        if (parts.length === 0) return;
+        let cursor = root;
+        parts.forEach((part) => {
+          if (!cursor[part]) cursor[part] = {};
+          cursor = cursor[part];
+        });
+      });
+      return root;
+    }
+
+    function renderTopicTreeNode(name, node, prefix) {
+      const path = prefix ? `${prefix}/${name}` : name;
+      const children = Object.keys(node || {}).sort();
+      if (children.length === 0) {
+        return `<li><span class='mono'>${escapeHtml(path)}</span></li>`;
+      }
+      const childHtml = children.map((child) => renderTopicTreeNode(child, node[child], path)).join("");
+      return `<li><details><summary class='mono'>${escapeHtml(path)}</summary><ul class='tree'>${childHtml}</ul></details></li>`;
+    }
+
+    function renderTopicTree(items) {
+      const root = buildTopicTree(items);
+      const keys = Object.keys(root).sort();
+      if (keys.length === 0) return "<div class='empty'>No topics observed yet.</div>";
+      const html = keys.map((key) => renderTopicTreeNode(key, root[key], "")).join("");
+      return `<ul class='tree'>${html}</ul>`;
+    }
+
     function createUserModalMarkup() {
       return (
         `<div id='create-user-modal' class='modal-backdrop hidden'>` +
@@ -1244,6 +1290,10 @@ def addon_ui_root() -> str:
       if (section === "noisy-clients") {
         const noisy = await fetchJson("/api/system/mqtt/noisy-clients");
         return Array.isArray(noisy.items) ? noisy.items : [];
+      }
+      if (section === "topics") {
+        const topics = await fetchJson("/api/system/runtime/topics?limit=1000");
+        return Array.isArray(topics.items) ? topics.items : [];
       }
       if (section === "audit") {
         const params = new URLSearchParams();
@@ -1359,7 +1409,10 @@ def addon_ui_root() -> str:
       }
 
       sectionTitle.textContent =
-        section === "principals" ? "Principals" : section === "users" ? "Generic Users" : section === "audit" ? "Audit" : "Noisy Clients";
+        section === "principals" ? "Principals" :
+        section === "users" ? "Generic Users" :
+        section === "topics" ? "Topic Explorer" :
+        section === "audit" ? "Audit" : "Noisy Clients";
       sectionContent.innerHTML = "<div class='status'>Loading...</div>";
       try {
         const items = await loadSectionPayload(section);
@@ -1400,6 +1453,16 @@ def addon_ui_root() -> str:
             `<select data-filter='audit-status'><option value='' ${state.filters.audit.status === "" ? "selected" : ""}>All results</option><option value='ok' ${state.filters.audit.status === "ok" ? "selected" : ""}>Success</option><option value='error' ${state.filters.audit.status === "error" ? "selected" : ""}>Failure</option><option value='degraded' ${state.filters.audit.status === "degraded" ? "selected" : ""}>Degraded</option><option value='warn' ${state.filters.audit.status === "warn" ? "selected" : ""}>Warning</option></select>` +
             `</div>`;
           visible = filteredAudit(items);
+        } else if (section === "topics") {
+          toolbar =
+            `<div class='toolbar'>` +
+            `<input data-filter='topics-q' placeholder='Filter topic path' value='${escapeHtml(String(state.filters.topics && state.filters.topics.q || ""))}' />` +
+            `</div>`;
+          const topicQuery = String(state.filters.topics && state.filters.topics.q || "").trim().toLowerCase();
+          visible = items.filter((item) => {
+            const topic = String(item && item.topic ? item.topic : "").toLowerCase();
+            return !topicQuery || topic.includes(topicQuery);
+          });
         } else if (section === "noisy-clients") {
           toolbar =
             `<div class='toolbar'>` +
@@ -1502,6 +1565,26 @@ def addon_ui_root() -> str:
           return;
         }
 
+        if (section === "topics") {
+          const rows = visible
+            .slice(0, 1000)
+            .map((item) => {
+              const topic = escapeHtml(String(item.topic || "-"));
+              const count = escapeHtml(String(item.message_count ?? "-"));
+              const retained = escapeHtml(String(item.retained_seen ? "yes" : "no"));
+              const lastSeen = escapeHtml(String(item.last_seen || "-"));
+              return `<tr><td>${topic}</td><td>${count}</td><td>${retained}</td><td>${lastSeen}</td></tr>`;
+            })
+            .join("");
+          sectionContent.innerHTML =
+            toolbar +
+            `<div class='group-title'>Hierarchy</div>` +
+            renderTopicTree(visible) +
+            `<div class='group-title'>Observed Topics</div>` +
+            `<table class='table'><thead><tr><th>Topic</th><th>Messages</th><th>Retained</th><th>Last Seen</th></tr></thead><tbody>${rows}</tbody></table>`;
+          return;
+        }
+
         if (section === "audit") {
           const rows = visible
             .slice(0, 50)
@@ -1546,7 +1629,7 @@ def addon_ui_root() -> str:
       }
       const desiredOrder = state.gateActive
         ? ["setup"]
-        : ["overview", "principals", "users", "runtime", "audit", "noisy-clients", "setup"];
+        : ["overview", "principals", "users", "runtime", "topics", "audit", "noisy-clients", "setup"];
       const buttonBySection = {};
       tabs.querySelectorAll(".tab").forEach((node) => {
         const section = String(node.getAttribute("data-section") || "");
@@ -1828,6 +1911,10 @@ def addon_ui_root() -> str:
       if (name === "principals-q") state.filters.principals.q = value;
       if (name === "users-q") state.filters.users.q = value;
       if (name === "audit-q") state.filters.audit.q = value;
+      if (name === "topics-q") {
+        if (!state.filters.topics) state.filters.topics = { q: "" };
+        state.filters.topics.q = value;
+      }
       if (name === "audit-principal") state.filters.audit.principal = value;
       if (name === "audit-action") state.filters.audit.action = value;
       if (name === "noisy-q") state.filters.noisyClients.q = value;
