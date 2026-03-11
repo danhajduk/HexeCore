@@ -424,3 +424,24 @@
 2026-03-11 - Task 387: added ACL regression tests for anonymous deny dedupe, duplicate `synthia/#` removal, child-deny collapse, `readwrite` merge, and non_reserved/admin semantics.
 2026-03-11 - Task 389: extended permissions API payloads with normalized permission summary fields (`publish_scopes`, `subscribe_scopes`, `reserved_denies`, `normalization_notes`).
 2026-03-11 - Task 388: updated `docs/mqtt-phase2-runbook.md` with normalized ACL examples (anonymous/addon/generic), normalization notes, and rebuild force-override behavior.
+2026-03-11 - Task 400: audited top-level docs inventory, classified each item, and created `docs/documentation-migration-map.md` with overlap and action mapping.
+2026-03-11 - Task 401: defined canonical documentation ownership model and source-feed mapping for the new top-level canonical doc set.
+2026-03-11 - Task 402: created `docs/document-index.md` as the primary docs entrypoint for operators and developers.
+2026-03-11 - Task 403: authored `docs/overview.md` with concise platform summary and Core/MQTT role framing.
+2026-03-11 - Task 404: authored `docs/platform-architecture.md` as the consolidated architecture reference.
+2026-03-11 - Task 405: authored `docs/core-platform.md` for Core responsibilities, authority boundaries, and runtime interactions.
+2026-03-11 - Task 406: authored `docs/addon-platform.md` for embedded/standalone contracts, discovery, lifecycle, and store relationship.
+2026-03-11 - Task 407: authored `docs/mqtt-platform.md` as the canonical MQTT authority/runtime/API reference with implemented/partial/planned markers.
+2026-03-11 - Task 408: authored `docs/auth-and-identity.md` for user/role/principal identity boundaries.
+2026-03-11 - Task 409: authored `docs/data-and-state.md` consolidating persistence/state/schema ownership references.
+2026-03-11 - Task 410: authored `docs/api-reference.md` grouped by subsystem and including compatibility/deprecated endpoint notes.
+2026-03-11 - Task 411: authored `docs/frontend-and-ui.md` consolidating frontend architecture, addon UI conventions, and theming guidance.
+2026-03-11 - Task 412: authored `docs/runtime-and-supervision.md` for runtime ownership, startup/supervision, and scheduler/worker flow.
+2026-03-11 - Task 413: authored `docs/operators-guide.md` as the canonical operator runbook.
+2026-03-11 - Task 414: authored `docs/development-guide.md` with contributor workflow and docs-maintenance rules.
+2026-03-11 - Task 415: added cross-links and see-also navigation across the new canonical documentation set.
+2026-03-11 - Task 416: verified canonical docs against current backend/frontend route and wiring code, with explicit implementation status labels.
+2026-03-11 - Task 417: archived superseded legacy top-level docs into `docs/archive/` with archive headers.
+2026-03-11 - Task 418: finalized `docs/document-index.md` to prioritize canonical docs and route legacy references to archive.
+2026-03-11 - Task 419: added documentation maintenance note in canonical docs to prevent future doc sprawl.
+2026-03-11 - Task 420: completed final migration verification and added `docs/documentation-migration-summary.md`.

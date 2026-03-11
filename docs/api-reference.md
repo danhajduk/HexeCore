@@ -1,0 +1,100 @@
+# API Reference
+
+All routes are mounted by `backend/app/main.py`.
+
+## Conventions
+
+- Admin-protected endpoints require admin authentication/session.
+- Some route families include compatibility aliases for legacy clients.
+- MQTT routes are mounted under `/api/system`.
+
+## Core System APIs
+
+Status: Implemented
+
+- Health and stats:
+  - `GET /api/health`
+  - `GET /api/system/stats/current`
+  - `GET /api/system-stats/current`
+  - `GET /api/system/stack/summary`
+- Settings and repo/system status:
+  - `GET /api/system/settings`
+  - `PUT /api/system/settings/{key}`
+  - `GET /api/system/repo/status`
+- Events/services:
+  - `GET /api/system/events`
+  - `POST /api/services/register`
+  - `GET /api/services/resolve`
+
+## Addon APIs
+
+Status: Implemented
+
+- Addon inventory/runtime:
+  - `GET /api/addons`
+  - `GET /api/addons/errors`
+  - `GET /api/system/addons/runtime`
+- Registry/admin:
+  - `GET /api/addons/registry`
+  - `POST /api/addons/registry/{addon_id}/register`
+  - `GET /api/admin/addons/registry`
+- Install sessions:
+  - `POST /api/addons/install/start`
+  - `POST /api/addons/install/{session_id}/permissions/approve`
+  - `POST /api/addons/install/{session_id}/deployment/select`
+  - `POST /api/addons/install/{session_id}/configure`
+  - `POST /api/addons/install/{session_id}/verify`
+
+## MQTT APIs
+
+Status: Implemented (broad), Partial (future phases)
+
+Representative routes under `/api/system`:
+- setup/control: `/mqtt/status`, `/mqtt/setup-summary`, `/mqtt/setup/apply`, `/mqtt/setup/test-connection`, `/mqtt/setup-state`
+- runtime: `/mqtt/runtime/health`, `/mqtt/runtime/start`, `/mqtt/runtime/stop`, `/mqtt/runtime/init`, `/mqtt/runtime/rebuild`, `/mqtt/runtime/config`
+- approvals/principals/users: `/mqtt/registrations/*`, `/mqtt/principals*`, `/mqtt/users*`, `/mqtt/generic-users*`
+- observability/audit: `/mqtt/noisy-clients*`, `/mqtt/observability`, `/mqtt/audit`
+- debug: `/mqtt/debug/*`
+
+Deprecated/legacy compatibility endpoints:
+- `/api/system/runtime/*` aliases mirror `/api/system/mqtt/runtime/*` for compatibility.
+- mixed snake/camel compatibility aliases are preserved in selected principal endpoints.
+
+## Auth and User APIs
+
+Status: Implemented
+
+- Admin session:
+  - `POST /api/admin/session/login`
+  - `POST /api/admin/session/login-user`
+  - `GET /api/admin/session/status`
+  - `POST /api/admin/session/logout`
+- Admin users:
+  - `GET /api/admin/users`
+  - `POST /api/admin/users`
+  - `DELETE /api/admin/users/{username}`
+- Service token:
+  - `POST /api/auth/service-token`
+  - `POST /api/auth/service-token/rotate`
+
+## Runtime, Scheduler, Health APIs
+
+Status: Implemented
+
+- Scheduler queue/lease/history routes under `/api/system/scheduler/*`.
+- Stack/system health and metrics endpoints under `/api/system/*` and `/api/system-stats/*`.
+- Store lifecycle and status routes under `/api/store/*`.
+
+## Planned
+
+Status: Planned
+
+- Formal OpenAPI-focused endpoint stability tiers.
+- Explicit deprecation lifecycle metadata per endpoint group.
+
+## See Also
+
+- [Core Platform](./core-platform.md)
+- [MQTT Platform](./mqtt-platform.md)
+- [Auth and Identity](./auth-and-identity.md)
+- [Runtime and Supervision](./runtime-and-supervision.md)
