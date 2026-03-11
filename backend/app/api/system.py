@@ -4,6 +4,7 @@ import asyncio
 import os
 import secrets
 import time
+from urllib.parse import urlsplit
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request, Response
@@ -99,12 +100,23 @@ def _validate_node_nonce(value: str | None) -> str:
 def _enforce_csrf_for_cookie_session(request: Request, x_admin_token: str | None) -> None:
     if (x_admin_token or "").strip():
         return
-    base = str(request.base_url).rstrip("/")
+    trusted_origins: set[str] = {str(request.base_url).rstrip("/")}
+    configured_origins = str(os.getenv("SYNTHIA_CSRF_TRUSTED_ORIGINS", "")).strip()
+    for item in configured_origins.split(","):
+        value = str(item or "").strip().rstrip("/")
+        if value.startswith(("http://", "https://")):
+            trusted_origins.add(value)
+    approval_base = str(os.getenv("SYNTHIA_AI_NODE_ONBOARDING_APPROVAL_URL_BASE", "")).strip()
+    if approval_base.startswith(("http://", "https://")):
+        parts = urlsplit(approval_base)
+        if parts.scheme and parts.netloc:
+            trusted_origins.add(f"{parts.scheme}://{parts.netloc}")
+
     origin = str(request.headers.get("origin") or "").strip()
     referer = str(request.headers.get("referer") or "").strip()
-    if origin and not origin.startswith(base):
+    if origin and origin.rstrip("/") not in trusted_origins:
         raise HTTPException(status_code=403, detail="csrf_origin_mismatch")
-    if not origin and referer and not referer.startswith(base):
+    if not origin and referer and not any(referer.startswith(item) for item in trusted_origins):
         raise HTTPException(status_code=403, detail="csrf_referer_mismatch")
 
 
