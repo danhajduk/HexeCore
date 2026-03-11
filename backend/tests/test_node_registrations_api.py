@@ -206,6 +206,24 @@ class TestNodeRegistrationsApi(unittest.TestCase):
         self.assertEqual(gone.status_code, 404, gone.text)
         self.assertIsNone(self.trust_store.get_by_node(node_id))
 
+    def test_repeated_onboarding_same_nonce_reuses_node_id(self) -> None:
+        first = self._start_and_approve("sticky-node", "ai-node", "nonce-sticky-1")
+        first_session_id = first["source_onboarding_session_id"]
+        finalized = self.client.get(
+            f"/api/system/nodes/onboarding/sessions/{first_session_id}/finalize?node_nonce=nonce-sticky-1"
+        )
+        self.assertEqual(finalized.status_code, 200, finalized.text)
+        self.assertEqual(finalized.json()["onboarding_status"], "approved")
+        second = self._start_and_approve("sticky-node-renamed", "ai-node", "nonce-sticky-1")
+
+        self.assertEqual(first["node_id"], second["node_id"])
+
+        listed = self.client.get("/api/system/nodes/registrations", headers={"X-Admin-Token": "test-token"})
+        self.assertEqual(listed.status_code, 200, listed.text)
+        items = listed.json()["items"]
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]["node_id"], first["node_id"])
+
 
 if __name__ == "__main__":
     unittest.main()

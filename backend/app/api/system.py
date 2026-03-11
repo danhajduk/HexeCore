@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import os
 import secrets
 import time
@@ -95,6 +96,11 @@ def _validate_node_nonce(value: str | None) -> str:
     if len(nonce) < 8 or len(nonce) > 256:
         raise ValueError("node_nonce_invalid")
     return nonce
+
+
+def _stable_node_id_from_nonce(node_nonce: str) -> str:
+    digest = hashlib.sha256(str(node_nonce or "").encode("utf-8")).hexdigest()[:16]
+    return f"node-{digest}"
 
 
 def _enforce_csrf_for_cookie_session(request: Request, x_admin_token: str | None) -> None:
@@ -416,7 +422,7 @@ def build_system_router(
             raise HTTPException(status_code=400, detail="approval_state_mismatch")
         if str(session.session_state) == "expired":
             raise HTTPException(status_code=409, detail="session_expired")
-        linked_node_id = str(session.linked_node_id or "").strip() or f"node-{session.session_id[:12]}"
+        linked_node_id = str(session.linked_node_id or "").strip() or _stable_node_id_from_nonce(session.node_nonce)
         try:
             decided = onboarding_sessions_store.approve_session(
                 session_id,
