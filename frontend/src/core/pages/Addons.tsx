@@ -469,7 +469,8 @@ export default function Addons() {
                 </button>
               </div>
               <div className="addon-meta">
-                Canonical runtime view from desired state, runtime state, and container metadata.
+                Runtime status for standalone-service addons managed by the supervisor (desired state + runtime state +
+                container metadata). Embedded addons like MQTT are not listed here.
               </div>
               {runtimeErr && <pre className="addons-error">{runtimeErr}</pre>}
               {runtimeItems.length === 0 ? (

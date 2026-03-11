@@ -201,6 +201,13 @@ function displayState(value: string): string {
   return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
+function addonHealthState(item: AddonSummary, stack: StackSummary | null): string {
+  const raw = String(item.health_status || "").trim().toLowerCase();
+  if (raw && raw !== "unknown") return raw;
+  if (item.id === "mqtt") return String(stack?.subsystems.mqtt.state || "unknown").toLowerCase();
+  return raw || "unknown";
+}
+
 export default function Home() {
   const { authenticated, login, logout, ready } = useAdminSession();
   const [username, setUsername] = useState("admin");
@@ -442,17 +449,20 @@ export default function Home() {
             <div className="home-empty">No installed addons yet.</div>
           ) : (
             <div className="home-addon-list">
-              {installedAddons.slice(0, 10).map((item) => (
+              {installedAddons.slice(0, 10).map((item) => {
+                const healthState = addonHealthState(item, stack);
+                return (
                 <div key={item.id} className="home-addon-item">
                   <div>
                     <div className="home-addon-name">{item.name || item.id}</div>
                     <div className="home-addon-meta">{item.id} • {item.version || "unknown"}</div>
                   </div>
-                  <span className={`home-chip state-${String(item.health_status || "unknown").toLowerCase()}`}>
-                    {item.health_status || "unknown"}
+                  <span className={`home-chip state-${healthState}`}>
+                    {displayState(healthState)}
                   </span>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </article>
