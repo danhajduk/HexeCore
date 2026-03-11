@@ -97,6 +97,10 @@ class MqttRuntimeMitigationRequest(BaseModel):
     reason: str | None = None
 
 
+class MqttRuntimeRebuildRequest(BaseModel):
+    force: bool = False
+
+
 class MqttSetupApplyRequest(BaseModel):
     mode: str = "local"
     host: str = Field(..., min_length=1)
@@ -1003,9 +1007,63 @@ def build_mqtt_router(
         return result
 
     @router.post("/mqtt/runtime/rebuild")
-    async def mqtt_runtime_rebuild(request: Request, x_admin_token: str | None = Header(default=None)):
+    async def mqtt_runtime_rebuild(
+        request: Request,
+        body: MqttRuntimeRebuildRequest | None = None,
+        x_admin_token: str | None = Header(default=None),
+    ):
         require_admin_token(x_admin_token, request)
         runtime = _runtime_required()
+        force = bool(getattr(body, "force", False))
+        sessions_fn = getattr(manager, "runtime_sessions", None)
+        active_clients: list[str] = []
+        broker_connected: int | None = None
+        if callable(sessions_fn):
+            try:
+                sessions_payload = await sessions_fn()
+                if isinstance(sessions_payload, dict):
+                    broker_clients = sessions_payload.get("broker_clients")
+                    if isinstance(broker_clients, dict):
+                        raw_connected = broker_clients.get("connected")
+                        if raw_connected is not None:
+                            try:
+                                broker_connected = int(raw_connected)
+                            except Exception:
+                                broker_connected = None
+                    for item in list(sessions_payload.get("items") or []):
+                        if not isinstance(item, dict):
+                            continue
+                        if not bool(item.get("connected")):
+                            continue
+                        principal_id = str(item.get("principal_id") or "").strip()
+                        if not principal_id or principal_id == "core.runtime":
+                            continue
+                        active_clients.append(principal_id)
+            except Exception:
+                active_clients = []
+                broker_connected = None
+        estimated_active_count = len(set(active_clients))
+        if broker_connected is not None:
+            estimated_active_count = max(estimated_active_count, max(0, int(broker_connected) - 1))
+        if estimated_active_count > 0 and not force:
+            await _audit_runtime_action(
+                action="rebuild_blocked",
+                status="warn",
+                message="active_clients_detected",
+                payload={
+                    "active_clients": sorted(set(active_clients)),
+                    "estimated_active_count": estimated_active_count,
+                },
+            )
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "error": "runtime_rebuild_blocked_active_clients",
+                    "active_clients": sorted(set(active_clients)),
+                    "estimated_active_count": estimated_active_count,
+                    "suggestion": "retry_with_force_true",
+                },
+            )
         reconcile_result = None
         if runtime_reconciler is not None and hasattr(runtime_reconciler, "reconcile_authority"):
             reconcile_result = await runtime_reconciler.reconcile_authority(reason="api_runtime_rebuild")
@@ -1030,6 +1088,9 @@ def build_mqtt_router(
                 "runtime": result["runtime"],
                 "reconciliation": result["reconciliation"],
                 "health_connected": bool(health.get("connected")),
+                "force": force,
+                "active_clients": sorted(set(active_clients)),
+                "estimated_active_count": estimated_active_count,
             },
         )
         return result

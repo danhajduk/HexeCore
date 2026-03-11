@@ -32,6 +32,7 @@ class _FakeMqttManager:
         self.connected = False
         self.restart_calls = 0
         self.stop_calls = 0
+        self._sessions_payload = {"ok": True, "items": [], "broker_clients": {"connected": 1, "disconnected": 0}}
 
     async def status(self):
         return {"ok": True, "connected": self.connected, "restart_calls": self.restart_calls, "stop_calls": self.stop_calls}
@@ -48,6 +49,9 @@ class _FakeMqttManager:
 
     async def publish_test(self, topic: str | None = None, payload: dict | None = None):
         return {"ok": True, "topic": topic or "synthia/core/mqtt/info", "payload": payload or {}}
+
+    async def runtime_sessions(self):
+        return self._sessions_payload
 
 
 class _FakeRuntimeBoundary:
@@ -251,6 +255,38 @@ class TestMqttRuntimeControlApi(unittest.TestCase):
         self.assertFalse(bool(init_call["update_setup_state"]))
         self.assertFalse(bool(init_call["publish_bootstrap"]))
         self.assertGreaterEqual(reconciler.bootstrap_publish_calls, 1)
+
+    def test_runtime_rebuild_requires_force_when_active_clients_present(self) -> None:
+        manager = _FakeMqttManager()
+        manager._sessions_payload = {
+            "ok": True,
+            "items": [
+                {"client_id": "c1", "principal_id": "user:guest1", "connected": True},
+                {"client_id": "core", "principal_id": "core.runtime", "connected": True},
+            ],
+            "broker_clients": {"connected": 2, "disconnected": 0},
+        }
+        runtime = _FakeRuntimeBoundary()
+        reconciler = _FakeRuntimeReconciler()
+        client = self._client(
+            manager=manager,
+            runtime_boundary=runtime,
+            runtime_reconciler=reconciler,
+            audit_store=_FakeAuditStore(),
+        )
+
+        blocked = client.post("/api/system/mqtt/runtime/rebuild", headers={"X-Admin-Token": "test-token"})
+        self.assertEqual(blocked.status_code, 409, blocked.text)
+        detail = blocked.json()["detail"]
+        self.assertEqual(detail["error"], "runtime_rebuild_blocked_active_clients")
+
+        forced = client.post(
+            "/api/system/mqtt/runtime/rebuild",
+            headers={"X-Admin-Token": "test-token"},
+            json={"force": True},
+        )
+        self.assertEqual(forced.status_code, 200, forced.text)
+        self.assertEqual(forced.json()["action"], "rebuild")
 
     def test_bootstrap_publish_endpoint_forces_republish(self) -> None:
         manager = _FakeMqttManager()

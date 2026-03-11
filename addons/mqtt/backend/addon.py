@@ -1069,9 +1069,34 @@ def addon_ui_root() -> str:
       setStatus(`Running runtime action: ${action}...`, "");
       setRuntimeActionStatus("Running...", "");
       try {
-        const res = await fetch(endpoint.url, { method: endpoint.method, credentials: "include" });
-        const payload = await res.json();
-        if (!res.ok) throw new Error(payload && payload.detail ? payload.detail : `${endpoint.url}_http_${res.status}`);
+        const options = { method: endpoint.method, credentials: "include" };
+        if (String(action || "").toLowerCase() === "rebuild") {
+          options.headers = { "Content-Type": "application/json" };
+          options.body = JSON.stringify({ force: false });
+        }
+        let res = await fetch(endpoint.url, options);
+        let payload = await res.json();
+        if (String(action || "").toLowerCase() === "rebuild" && res.status === 409) {
+          const detail = payload && payload.detail && typeof payload.detail === "object" ? payload.detail : {};
+          const estimated = Number(detail.estimated_active_count || 0);
+          const clientList = Array.isArray(detail.active_clients) ? detail.active_clients.join(", ") : "";
+          const confirmed = window.confirm(
+            `Active clients detected (${estimated}).${clientList ? `\\n${clientList}` : ""}\\nForce rebuild anyway?`
+          );
+          if (!confirmed) {
+            setRuntimeActionStatus("Rebuild cancelled.", "warn");
+            setStatus("Rebuild cancelled.", "warn");
+            return;
+          }
+          res = await fetch(endpoint.url, {
+            method: endpoint.method,
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ force: true }),
+          });
+          payload = await res.json();
+        }
+        if (!res.ok) throw new Error(payload && payload.detail ? JSON.stringify(payload.detail) : `${endpoint.url}_http_${res.status}`);
         await loadStatus();
         const runtime = payload && payload.runtime ? payload.runtime : {};
         const health = payload && payload.health ? payload.health : {};
