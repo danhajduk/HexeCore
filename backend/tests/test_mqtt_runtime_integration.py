@@ -85,6 +85,15 @@ class _FakeMqttManager:
             "broker_clients": {"connected": 1, "disconnected": 0},
         }
 
+    async def broker_health_metrics(self):
+        return {
+            "broker_uptime": "12 seconds",
+            "connected_clients": 1,
+            "message_rate": 0.5,
+            "dropped_messages": 0,
+            "retained_messages": 1,
+        }
+
 
 class TestMqttRuntimeIntegration(unittest.TestCase):
     def setUp(self) -> None:
@@ -220,6 +229,10 @@ class TestMqttRuntimeIntegration(unittest.TestCase):
         self.assertEqual(sessions.status_code, 200, sessions.text)
         self.assertTrue(sessions.json()["ok"])
         self.assertEqual(sessions.json()["items"][0]["principal_id"], "core.runtime")
+
+        runtime_health = self.client.get("/api/system/runtime/health", headers={"X-Admin-Token": "test-token"})
+        self.assertEqual(runtime_health.status_code, 200, runtime_health.text)
+        self.assertEqual(runtime_health.json()["broker_metrics"]["connected_clients"], 1)
 
     def test_setup_apply_local_creates_staged_and_live_runtime_artifacts(self) -> None:
         resp = self.client.post(

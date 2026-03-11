@@ -25,6 +25,7 @@ MQTT_SUBSCRIPTIONS = [
     ("synthia/services/+/catalog", 1),
     ("synthia/policy/grants/+", 1),
     ("synthia/policy/revocations/+", 1),
+    ("$SYS/broker/#", 0),
     ("$SYS/broker/clients/connected", 0),
     ("$SYS/broker/clients/disconnected", 0),
 ]
@@ -76,6 +77,15 @@ class MqttManager:
         self._sys_clients_connected: int | None = None
         self._sys_clients_disconnected: int | None = None
         self._session_idle_timeout_s = int(os.getenv("SYNTHIA_MQTT_SESSION_IDLE_TIMEOUT_S", "300"))
+        self._broker_metrics: dict[str, Any] = {
+            "broker_uptime": None,
+            "connected_clients": None,
+            "message_rate": None,
+            "dropped_messages": None,
+            "retained_messages": None,
+            "_counter_total": None,
+            "_counter_at": None,
+        }
 
     async def start(self) -> None:
         if not self._enabled:
@@ -220,6 +230,15 @@ class MqttManager:
             "password": cfg.password,
             "tls_enabled": bool(cfg.tls_enabled),
             "keepalive_s": int(cfg.keepalive_s),
+        }
+
+    async def broker_health_metrics(self) -> dict[str, Any]:
+        return {
+            "broker_uptime": self._broker_metrics.get("broker_uptime"),
+            "connected_clients": self._broker_metrics.get("connected_clients"),
+            "message_rate": self._broker_metrics.get("message_rate"),
+            "dropped_messages": self._broker_metrics.get("dropped_messages"),
+            "retained_messages": self._broker_metrics.get("retained_messages"),
         }
 
     def _core_info_payload(self) -> dict[str, Any]:
@@ -392,11 +411,8 @@ class MqttManager:
         except Exception:
             payload = {}
         topic = str(msg.topic)
-        if topic == "$SYS/broker/clients/connected":
-            self._sys_clients_connected = self._parse_int_payload(payload, decoded)
-            return
-        if topic == "$SYS/broker/clients/disconnected":
-            self._sys_clients_disconnected = self._parse_int_payload(payload, decoded)
+        if topic.startswith("$SYS/broker/"):
+            self._update_broker_metrics(topic=topic, payload=payload, decoded=decoded)
             return
         parts = topic.split("/")
         if len(parts) >= 4 and parts[0] == "synthia" and parts[1] == "addons":
@@ -493,6 +509,45 @@ class MqttManager:
             updated = dict(session)
             updated["connected"] = False
             self._runtime_sessions[client_id] = updated
+
+    def _update_broker_metrics(self, *, topic: str, payload: dict[str, Any], decoded: str) -> None:
+        value_int = self._parse_int_payload(payload, decoded)
+        value_raw = str(decoded or "").strip()
+        if topic == "$SYS/broker/clients/connected":
+            self._sys_clients_connected = value_int
+            self._broker_metrics["connected_clients"] = value_int
+            return
+        if topic == "$SYS/broker/clients/disconnected":
+            self._sys_clients_disconnected = value_int
+            return
+        if topic == "$SYS/broker/uptime":
+            self._broker_metrics["broker_uptime"] = value_raw or None
+            return
+        lowered = topic.lower()
+        if "dropped" in lowered and value_int is not None:
+            self._broker_metrics["dropped_messages"] = value_int
+        if "retained" in lowered and ("count" in lowered or "messages" in lowered) and value_int is not None:
+            self._broker_metrics["retained_messages"] = value_int
+        if lowered.endswith("/messages/received") or lowered.endswith("/messages/sent"):
+            current_total = int(self._broker_metrics.get("_counter_total") or 0)
+            next_total = (value_int if value_int is not None else 0)
+            if lowered.endswith("/messages/sent"):
+                received_total = int(self._broker_metrics.get("_messages_received") or 0)
+                current_total = received_total + next_total
+                self._broker_metrics["_messages_sent"] = next_total
+            else:
+                sent_total = int(self._broker_metrics.get("_messages_sent") or 0)
+                current_total = sent_total + next_total
+                self._broker_metrics["_messages_received"] = next_total
+            prev_total = self._broker_metrics.get("_counter_total")
+            prev_at = self._broker_metrics.get("_counter_at")
+            now = time.time()
+            if isinstance(prev_total, (int, float)) and isinstance(prev_at, (int, float)):
+                delta = max(0.0, float(current_total) - float(prev_total))
+                dt = max(0.001, now - float(prev_at))
+                self._broker_metrics["message_rate"] = round(delta / dt, 3)
+            self._broker_metrics["_counter_total"] = current_total
+            self._broker_metrics["_counter_at"] = now
 
     def _dispatch_registry_update(self, addon_id: str, payload: dict[str, Any], announce: bool) -> None:
         loop = self._loop

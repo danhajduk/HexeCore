@@ -677,16 +677,20 @@ def build_mqtt_router(
         }
 
     @router.get("/mqtt/runtime/health")
+    @router.get("/runtime/health")
     async def mqtt_runtime_health(request: Request, x_admin_token: str | None = Header(default=None)):
         require_admin_token(x_admin_token, request)
         runtime = _runtime_required()
         runtime_status = await runtime.health_check()
         health = await _manager_status_safe()
+        metrics_fn = getattr(manager, "broker_health_metrics", None)
+        broker_metrics = await metrics_fn() if callable(metrics_fn) else {}
         return {
             "ok": True,
             "action": "health",
             "runtime": _runtime_status_payload(runtime_status),
             "health": health,
+            "broker_metrics": broker_metrics if isinstance(broker_metrics, dict) else {},
         }
 
     @router.get("/mqtt/runtime/sessions")

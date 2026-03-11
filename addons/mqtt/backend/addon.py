@@ -974,15 +974,17 @@ def addon_ui_root() -> str:
     }
 
     async function loadOverviewPayload() {
-      const [principals, noisy, audit] = await Promise.all([
+      const [principals, noisy, audit, runtimeHealth] = await Promise.all([
         fetchJson("/api/system/mqtt/principals"),
         fetchJson("/api/system/mqtt/noisy-clients"),
         fetchJson("/api/system/mqtt/audit?limit=20"),
+        fetchJson("/api/system/runtime/health"),
       ]);
       return {
         principals: Array.isArray(principals.items) ? principals.items : [],
         noisy: Array.isArray(noisy.items) ? noisy.items : [],
         audit: Array.isArray(audit.items) ? audit.items : [],
+        brokerMetrics: runtimeHealth && runtimeHealth.broker_metrics ? runtimeHealth.broker_metrics : {},
       };
     }
 
@@ -1126,6 +1128,7 @@ def addon_ui_root() -> str:
         const noisy = Array.isArray(overview.noisy) ? overview.noisy : [];
         const blocked = noisy.filter((item) => String(item.noisy_state || "").toLowerCase() === "blocked");
         const auditItems = Array.isArray(overview.audit) ? overview.audit : [];
+        const brokerMetrics = overview && overview.brokerMetrics ? overview.brokerMetrics : {};
         const degraded = String(effective.status || "").toLowerCase() === "degraded";
         sectionContent.innerHTML =
           (degraded ? `<div class='status error'>MQTT is degraded: ${(effective.reasons || []).map((x) => escapeHtml(x)).join(", ") || "unknown reason"}</div>` : "") +
@@ -1139,6 +1142,11 @@ def addon_ui_root() -> str:
             { k: "Noisy", v: noisy.length },
             { k: "Blocked", v: blocked.length },
             { k: "Recent Audit", v: auditItems.length },
+            { k: "Connected Clients", v: brokerMetrics.connected_clients ?? "-" },
+            { k: "Message Rate", v: brokerMetrics.message_rate ?? "-" },
+            { k: "Dropped Messages", v: brokerMetrics.dropped_messages ?? "-" },
+            { k: "Retained Messages", v: brokerMetrics.retained_messages ?? "-" },
+            { k: "Broker Uptime", v: brokerMetrics.broker_uptime || "-" },
           ]) +
           `<div class='mono'>` +
           `mode: ${escapeHtml(state.statusPayload && state.statusPayload.mode ? state.statusPayload.mode : "unknown")}\\n` +

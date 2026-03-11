@@ -229,6 +229,26 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(sessions["broker_clients"]["connected"], 7)
         self.assertEqual(sessions["broker_clients"]["disconnected"], 3)
 
+    async def test_broker_health_metrics_from_sys_topics(self) -> None:
+        manager = MqttManager(
+            settings_store=_FakeSettingsStore(),
+            registry=_FakeRegistry(),
+            service_catalog_store=_FakeServiceCatalogStore(),
+            enabled=True,
+        )
+        manager._loop = asyncio.get_running_loop()
+        manager._on_message(None, None, _Msg("$SYS/broker/uptime", "17 seconds"))
+        manager._on_message(None, None, _Msg("$SYS/broker/clients/connected", 4))
+        manager._on_message(None, None, _Msg("$SYS/broker/messages/sent", 120))
+        manager._on_message(None, None, _Msg("$SYS/broker/messages/received", 80))
+        manager._on_message(None, None, _Msg("$SYS/broker/publish/messages/dropped", 2))
+        manager._on_message(None, None, _Msg("$SYS/broker/retained messages/count", 5))
+        metrics = await manager.broker_health_metrics()
+        self.assertEqual(metrics["broker_uptime"], "17 seconds")
+        self.assertEqual(metrics["connected_clients"], 4)
+        self.assertEqual(metrics["dropped_messages"], 2)
+        self.assertEqual(metrics["retained_messages"], 5)
+
     async def test_on_connect_accepts_reason_code_object(self) -> None:
         manager = MqttManager(
             settings_store=_FakeSettingsStore(),
