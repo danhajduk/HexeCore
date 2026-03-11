@@ -423,3 +423,4 @@
 2026-03-11 - Task 386: added normalized effective-access debug surface (`/api/system/mqtt/debug/effective-access-normalized/{principal_id}`) and normalized payloads on existing effective-access endpoints.
 2026-03-11 - Task 387: added ACL regression tests for anonymous deny dedupe, duplicate `synthia/#` removal, child-deny collapse, `readwrite` merge, and non_reserved/admin semantics.
 2026-03-11 - Task 389: extended permissions API payloads with normalized permission summary fields (`publish_scopes`, `subscribe_scopes`, `reserved_denies`, `normalization_notes`).
+2026-03-11 - Task 388: updated `docs/mqtt-phase2-runbook.md` with normalized ACL examples (anonymous/addon/generic), normalization notes, and rebuild force-override behavior.

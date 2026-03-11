@@ -397,3 +397,4 @@
 2026-03-11 - Task 386: added normalized effective-access inspection endpoint and payload fields for debugging.
 2026-03-11 - Task 387: expanded ACL regression coverage for anonymous dedupe, deny collapse, readwrite merge, and mode semantics.
 2026-03-11 - Task 389: exposed normalized permission summary fields (publish/subscribe scopes, reserved denies, access mode, notes) on principal permissions APIs.
+2026-03-11 - Task 388: updated runbook ACL output examples to reflect normalized anonymous/addon/generic blocks and rebuild-force behavior.

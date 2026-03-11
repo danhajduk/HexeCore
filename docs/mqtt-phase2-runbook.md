@@ -1,6 +1,6 @@
 # MQTT Embedded Phase 2 Runbook
 
-Last Updated: 2026-03-10 07:18 US/Pacific
+Last Updated: 2026-03-11 00:15 US/Pacific
 
 ## Scope
 
@@ -55,6 +55,7 @@ Core UI surface:
 
 Inspect one principal:
 - `GET /api/system/mqtt/debug/effective-access/{principal_id}`
+- `GET /api/system/mqtt/debug/effective-access-normalized/{principal_id}`
 
 Generic-user scoped view:
 - `GET /api/system/mqtt/generic-users/{principal_id}/effective-access`
@@ -64,6 +65,38 @@ Implemented behavior:
 - `noisy_state=blocked` returns empty publish/subscribe scopes with deny-all behavior
 - generic users are filtered to non-reserved topics and include reserved deny families
 - anonymous principal is bootstrap-only subscribe
+
+## Compiled ACL Examples (Normalized)
+
+Anonymous/default bootstrap block (minimal):
+
+```conf
+topic read synthia/bootstrap/core
+topic deny #
+```
+
+Addon principal example:
+
+```conf
+user sx_vision
+topic write synthia/addons/vision/event/#
+topic read synthia/system/health
+```
+
+Generic user (`non_reserved`) example:
+
+```conf
+user guest
+topic readwrite #
+topic deny $SYS/#
+topic deny synthia/#
+```
+
+Normalization behavior (implemented):
+- duplicate default/anonymous deny rules are collapsed
+- duplicate reserved-topic denies for generic users are collapsed
+- redundant child denies are removed when a parent deny already covers them
+- identical publish+subscribe allows are rendered as `topic readwrite <scope>`
 
 ## Principal Lifecycle Actions
 
@@ -122,7 +155,7 @@ Implemented policy boundary:
 - `private`: scope locked to `external/<username>/#`
 - `custom`: scope from `allowed_topics` (reserved topics denied)
 - `non_reserved`: broad `#` allow with reserved-prefix denies
-- `admin`: broad `#` allow with reserved-prefix denies
+- `admin`: broad `#` allow without reserved-prefix deny overlays
 - deny scope for generic users includes reserved families:
   - `synthia/#`
   - `synthia/runtime/#`
@@ -187,7 +220,7 @@ Implemented semantics:
 - `init`: triggers authority reconcile (`reason=api_runtime_init`), ensures runtime is running, and if runtime reports `degraded_reason=config_missing` performs one reconcile+retry (`reason=api_runtime_init_config_missing`) before restarting Core MQTT client connection.
 - `start`: ensures broker runtime process is running, and if runtime reports `degraded_reason=config_missing` performs one reconcile+retry (`reason=api_runtime_start_config_missing`) before restarting Core MQTT client connection.
 - `stop`: stops broker runtime process and stops Core MQTT client connection.
-- `rebuild`: triggers authority reconcile (`reason=api_runtime_rebuild`) and validates runtime health.
+- `rebuild`: blocks with `409 runtime_rebuild_blocked_active_clients` when active non-core clients are connected unless request body sets `{"force": true}`; then triggers authority reconcile (`reason=api_runtime_rebuild`) and validates runtime health.
 - `bootstrap/publish`: forces retained bootstrap republish from Core (`synthia/bootstrap/core`).
 - `health`: returns runtime provider state/health and current MQTT manager connection status.
 - `setup/apply`: persists selected MQTT mode/settings, initializes local runtime through reconcile/ensure-running path, retries once on `config_missing` (`reason=api_setup_apply_local_config_missing`), or validates external endpoint reachability and updates setup state.
