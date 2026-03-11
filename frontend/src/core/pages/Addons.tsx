@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { apiGet } from "../api/client";
 import { useAdminSession } from "../auth/AdminSessionContext";
 import {
@@ -67,6 +68,17 @@ type StandaloneAddonRuntime = {
   last_error: string | null;
 };
 
+type NodeRegistration = {
+  node_id: string;
+  node_name?: string;
+  node_type?: string;
+  node_software_version?: string;
+  trust_status?: string;
+  approved_by_user_id?: string | null;
+  source_onboarding_session_id?: string | null;
+  updated_at?: string | null;
+};
+
 const POLLABLE_STATES = new Set(["pending_deployment", "discovered", "configured"]);
 
 async function readError(res: Response): Promise<string> {
@@ -75,6 +87,7 @@ async function readError(res: Response): Promise<string> {
 }
 
 export default function Addons() {
+  const location = useLocation();
   const { authenticated: isAdmin } = useAdminSession();
   const [addons, setAddons] = useState<AddonInfo[]>([]);
   const [registryAddons, setRegistryAddons] = useState<RegistryAddon[]>([]);
@@ -94,6 +107,9 @@ export default function Addons() {
   const [runtimeItems, setRuntimeItems] = useState<StandaloneAddonRuntime[]>([]);
   const [runtimeErr, setRuntimeErr] = useState<string | null>(null);
   const [runtimeBusy, setRuntimeBusy] = useState(false);
+  const [nodes, setNodes] = useState<NodeRegistration[]>([]);
+  const [nodesErr, setNodesErr] = useState<string | null>(null);
+  const [nodesBusy, setNodesBusy] = useState(false);
   const [catalogBusy, setCatalogBusy] = useState(false);
   const [catalogMsg, setCatalogMsg] = useState<string | null>(null);
   const [uninstallStates, setUninstallStates] = useState<Record<string, UninstallViewState>>({});
@@ -141,6 +157,26 @@ export default function Addons() {
     }
   }
 
+  async function refreshNodes() {
+    setNodesBusy(true);
+    setNodesErr(null);
+    try {
+      const res = await fetch("/api/system/nodes/registrations", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!res.ok) throw new Error(await readError(res));
+      const payload = (await res.json()) as { items?: NodeRegistration[] };
+      const items = Array.isArray(payload.items) ? payload.items : [];
+      setNodes(items.sort((a, b) => String(a.node_id || "").localeCompare(String(b.node_id || ""))));
+    } catch (e: any) {
+      setNodesErr(e?.message ?? String(e));
+      setNodes([]);
+    } finally {
+      setNodesBusy(false);
+    }
+  }
+
   async function updateCatalogNow() {
     setCatalogBusy(true);
     setCatalogMsg(null);
@@ -163,6 +199,7 @@ export default function Addons() {
     refreshInventory()
       .catch((e) => setErr(String(e)));
     void refreshRuntime();
+    void refreshNodes();
   }, []);
 
   useEffect(() => {
@@ -353,13 +390,16 @@ export default function Addons() {
   return (
     <div>
       <div className="addons-head">
-        <h1 className="addons-title">Addons</h1>
+        <h1 className="addons-title">{location.pathname.endsWith("/nodes") ? "Addons / Nodes" : "Addons"}</h1>
         <div className="addons-head-actions">
           <button className="addon-btn" onClick={() => void updateCatalogNow()} disabled={catalogBusy}>
             {catalogBusy ? "Updating Catalog..." : "Update Catalog"}
           </button>
           <button className="addon-btn" onClick={() => void refreshInventory()} disabled={busy !== null}>
             Refresh List
+          </button>
+          <button className="addon-btn" onClick={() => void refreshNodes()} disabled={nodesBusy}>
+            {nodesBusy ? "Refreshing Nodes..." : "Refresh Nodes"}
           </button>
         </div>
       </div>
@@ -501,6 +541,42 @@ export default function Addons() {
                       )}
                       {item.health_detail && <div className="addon-desc">health detail: {item.health_detail}</div>}
                       {item.last_error && <div className="addons-error">last error: {item.last_error}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="addon-runtime-panel">
+              <div className="addon-runtime-header">
+                <div className="addon-installer-title">Installed Nodes</div>
+                <button className="addon-btn" onClick={() => void refreshNodes()} disabled={nodesBusy}>
+                  {nodesBusy ? "Refreshing..." : "Refresh Nodes"}
+                </button>
+              </div>
+              <div className="addon-meta">
+                Registered nodes from global node onboarding and trust lifecycle.
+              </div>
+              {nodesErr && <pre className="addons-error">{nodesErr}</pre>}
+              {nodes.length === 0 ? (
+                <div className="addon-meta">No registered nodes found.</div>
+              ) : (
+                <div className="addon-runtime-list">
+                  {nodes.map((item) => (
+                    <div key={item.node_id} className="addon-runtime-card">
+                      <div className="addon-card-header">
+                        <div className="addon-name">{item.node_name || item.node_id}</div>
+                        <div className="addon-status">trust: {item.trust_status || "unknown"}</div>
+                      </div>
+                      <div className="addon-meta">
+                        node id: {item.node_id} • type: {item.node_type || "unknown"}
+                      </div>
+                      <div className="addon-meta">
+                        version: {item.node_software_version || "unknown"} • approved by: {item.approved_by_user_id || "-"}
+                      </div>
+                      <div className="addon-meta">
+                        session: {item.source_onboarding_session_id || "-"} • updated:{" "}
+                        {item.updated_at ? new Date(item.updated_at).toLocaleString() : "-"}
+                      </div>
                     </div>
                   ))}
                 </div>

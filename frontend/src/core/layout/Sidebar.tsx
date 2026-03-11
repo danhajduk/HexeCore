@@ -22,7 +22,10 @@ type NavSection = {
 };
 
 const homeItems: NavItem[] = [{ label: "Home", path: "/" }];
-const addonItemsCore: NavItem[] = [{ label: "Addons", path: "/addons" }];
+const addonItemsCore: NavItem[] = [
+  { label: "Addons", path: "/addons" },
+  { label: "Nodes", path: "/addons/nodes" },
+];
 const storeItems: NavItem[] = [{ label: "Store", path: "/store" }];
 const systemItems: NavItem[] = [
   { label: "Settings", path: "/settings" },

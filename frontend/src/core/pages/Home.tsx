@@ -87,6 +87,13 @@ type StackSummary = {
   };
 };
 
+type NodeRegistrationSummary = {
+  node_id: string;
+  node_name?: string;
+  node_type?: string;
+  trust_status?: string;
+};
+
 function fmtUptime(sec: number): string {
   const h = sec / 3600;
   if (h < 48) return `${h.toFixed(1)}h`;
@@ -219,18 +226,20 @@ export default function Home() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [repoStatus, setRepoStatus] = useState<RepoStatus | null>(null);
   const [stack, setStack] = useState<StackSummary | null>(null);
+  const [nodes, setNodes] = useState<NodeRegistrationSummary[]>([]);
   const [dataErr, setDataErr] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [showReasons, setShowReasons] = useState(false);
 
   async function loadDashboardData() {
     try {
-      const [addonsRes, statsRes, eventsRes, repoRes, stackRes] = await Promise.all([
+      const [addonsRes, statsRes, eventsRes, repoRes, stackRes, nodesRes] = await Promise.all([
         fetch("/api/addons", { cache: "no-store" }),
         fetch("/api/system/stats/current", { cache: "no-store" }),
         fetch("/api/system/events?limit=8", { cache: "no-store" }),
         fetch("/api/system/repo/status", { cache: "no-store" }),
         fetch("/api/system/stack/summary", { cache: "no-store" }),
+        fetch("/api/system/nodes/registrations", { cache: "no-store", credentials: "include" }),
       ]);
       if (addonsRes.ok) setAddons((await addonsRes.json()) as AddonSummary[]);
       if (statsRes.ok) setStats((await statsRes.json()) as SystemStats);
@@ -240,6 +249,12 @@ export default function Home() {
       }
       if (repoRes.ok) setRepoStatus((await repoRes.json()) as RepoStatus);
       if (stackRes.ok) setStack((await stackRes.json()) as StackSummary);
+      if (nodesRes.ok) {
+        const payload = (await nodesRes.json()) as { items?: NodeRegistrationSummary[] };
+        setNodes(Array.isArray(payload.items) ? payload.items : []);
+      } else {
+        setNodes([]);
+      }
       setDataErr(null);
       setLastUpdated(
         new Date().toLocaleTimeString([], {
@@ -294,6 +309,13 @@ export default function Home() {
   const installedAddons = useMemo(
     () => addons.filter((item) => item.enabled !== false).sort((a, b) => a.id.localeCompare(b.id)),
     [addons],
+  );
+  const installedNodes = useMemo(
+    () =>
+      nodes
+        .filter((item) => String(item.trust_status || "").toLowerCase() === "trusted")
+        .sort((a, b) => String(a.node_id || "").localeCompare(String(b.node_id || ""))),
+    [nodes],
   );
 
   const status = useMemo(() => {
@@ -425,6 +447,12 @@ export default function Home() {
           tone={pillTone(stack?.subsystems.addons.state || "unknown")}
         />
         <StatusMini
+          title="Nodes"
+          value={String(installedNodes.length)}
+          sub={`${Math.max(0, nodes.length - installedNodes.length)} pending/non-trusted`}
+          tone={installedNodes.length > 0 ? "ok" : "neutral"}
+        />
+        <StatusMini
           title="Network"
           value={stack?.connectivity.network.state || "unknown"}
           tone={pillTone(stack?.connectivity.network.state || "unknown")}
@@ -461,6 +489,33 @@ export default function Home() {
                     {displayState(healthState)}
                   </span>
                 </div>
+                );
+              })}
+            </div>
+          )}
+        </article>
+
+        <article className="home-panel">
+          <div className="home-panel-head">
+            <h2>Installed Nodes</h2>
+            <Link to="/addons/nodes" className="home-link">Open Nodes</Link>
+          </div>
+          {nodes.length === 0 ? (
+            <div className="home-empty">No registered nodes yet.</div>
+          ) : (
+            <div className="home-addon-list">
+              {nodes.slice(0, 10).map((item) => {
+                const state = String(item.trust_status || "unknown").toLowerCase();
+                return (
+                  <div key={item.node_id} className="home-addon-item">
+                    <div>
+                      <div className="home-addon-name">{item.node_name || item.node_id}</div>
+                      <div className="home-addon-meta">
+                        {item.node_id} • {item.node_type || "unknown"}
+                      </div>
+                    </div>
+                    <span className={`home-chip state-${state}`}>{displayState(state)}</span>
+                  </div>
                 );
               })}
             </div>

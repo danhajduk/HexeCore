@@ -25,6 +25,7 @@ export function buildRoutes(isAdmin: boolean, ready: boolean): RouteObject[] {
     { path: "/", element: <Home /> },
     { path: "/store", element: protectedRoute(<AddonStorePage />) },
     { path: "/addons", element: protectedRoute(<Addons />) },
+    { path: "/addons/nodes", element: protectedRoute(<Addons />) },
     { path: "/addons/:addonId/:section", element: protectedRoute(<AddonFrame />) },
     { path: "/addons/:addonId", element: protectedRoute(<AddonFrame />) },
     { path: "/onboarding/registrations/approve", element: <OnboardingNodeApproval /> },
