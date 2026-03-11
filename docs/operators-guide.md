@@ -61,9 +61,9 @@ Status: Archived Legacy
 
 - Earlier split MQTT Phase 1/2 runbooks were consolidated into this guide and moved to archive.
 
-## 8) AI Node Onboarding Runbook
+## 8) Node Onboarding And Registration Runbook
 
-Status: Implemented (baseline)
+Status: Implemented (baseline), Partial (multi-node-type rollout)
 
 Core onboarding flow:
 1. Node starts onboarding via `POST /api/system/nodes/onboarding/sessions`.
@@ -72,6 +72,9 @@ Core onboarding flow:
 4. Operator approves or rejects onboarding.
 5. Node polls finalize endpoint:
    - `GET /api/system/nodes/onboarding/sessions/{session_id}/finalize?node_nonce=...`
+6. Operators can inspect node registry status:
+   - `GET /api/system/nodes/registrations`
+   - `GET /api/system/nodes/registrations/{node_id}`
 
 Finalization outcomes:
 - `pending`: waiting for operator decision
@@ -88,10 +91,13 @@ Troubleshooting checklist:
 4. If operator action fails with CSRF mismatch, ensure request origin/referer aligns with Core base URL.
 5. If API returns `rate_limited`, retry after window cooldown.
 6. For expired sessions, restart onboarding from session creation.
+7. If legacy clients call `/api/system/ai-nodes/onboarding/sessions*`, treat `Deprecation` and `Sunset` headers as migration urgency signals.
 
 ## See Also
 
 - [MQTT Platform](./mqtt-platform.md)
 - [Runtime and Supervision](./runtime-and-supervision.md)
 - [API Reference](./api-reference.md)
+- [Node Onboarding API Contract](./node-onboarding-api-contract.md)
+- [Node Onboarding Migration Guide](./node-onboarding-migration-guide.md)
 - [Document Index](./document-index.md)

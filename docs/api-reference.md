@@ -29,6 +29,8 @@ Status: Implemented
   - `POST /api/system/nodes/onboarding/sessions/{session_id}/approve` (admin session/token required)
   - `POST /api/system/nodes/onboarding/sessions/{session_id}/reject` (admin session/token required)
   - `GET /api/system/nodes/onboarding/sessions/{session_id}/finalize?node_nonce=...`
+  - `GET /api/system/nodes/registrations` (admin session/token required)
+  - `GET /api/system/nodes/registrations/{node_id}` (admin session/token required)
   - `POST /api/services/register`
   - `GET /api/services/resolve`
 
@@ -65,6 +67,7 @@ Representative routes under `/api/system`:
 Deprecated/legacy compatibility endpoints:
 - `/api/system/runtime/*` aliases mirror `/api/system/mqtt/runtime/*` for compatibility.
 - mixed snake/camel compatibility aliases are preserved in selected principal endpoints.
+- `/api/system/ai-nodes/onboarding/sessions*` aliases mirror global node onboarding routes and emit `Deprecation` + `Sunset` headers.
 
 ## Auth and User APIs
 
@@ -95,8 +98,6 @@ Status: Implemented
 
 Status: Planned
 
-- Global node onboarding/registration API normalization (node-type-aware contract and compatibility aliases during migration).
-- AI Node trust activation payload schema authority: [AI Node Trust Activation Payload Contract](./ai-node-trust-activation-payload-contract.md)
 - Formal OpenAPI-focused endpoint stability tiers.
 - Explicit deprecation lifecycle metadata per endpoint group.
 
@@ -106,5 +107,6 @@ Status: Planned
 - [MQTT Platform](./mqtt-platform.md)
 - [Auth and Identity](./auth-and-identity.md)
 - [Runtime and Supervision](./runtime-and-supervision.md)
-- [AI Node Onboarding API Contract](./ai-node-onboarding-api-contract.md)
-- [AI Node Trust Activation Payload Contract](./ai-node-trust-activation-payload-contract.md)
+- [Node Onboarding API Contract](./node-onboarding-api-contract.md)
+- [Node Trust Activation Payload Contract](./node-trust-activation-payload-contract.md)
+- [Node Onboarding Migration Guide](./node-onboarding-migration-guide.md)

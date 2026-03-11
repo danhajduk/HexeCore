@@ -101,10 +101,15 @@ Status: Planned
 - Trust activation payload
 - Global node registration APIs
 
+Current contract references:
+- [Node Onboarding API Contract](./node-onboarding-api-contract.md)
+- [Node Trust Activation Payload Contract](./node-trust-activation-payload-contract.md)
+- [Node Onboarding Migration Guide](./node-onboarding-migration-guide.md)
+
 ## See Also
 
 - [AI Node Onboarding Approval Architecture](./ai-node-onboarding-approval-architecture.md)
-- [AI Node Onboarding API Contract](./ai-node-onboarding-api-contract.md)
-- [AI Node Trust Activation Payload Contract](./ai-node-trust-activation-payload-contract.md)
+- [Node Onboarding API Contract](./node-onboarding-api-contract.md)
+- [Node Trust Activation Payload Contract](./node-trust-activation-payload-contract.md)
 - [API Reference](./api-reference.md)
 - [Operators Guide](./operators-guide.md)

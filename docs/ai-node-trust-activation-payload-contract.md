@@ -1,14 +1,15 @@
 # AI Node Trust Activation Payload Contract
 
-Status: Planned
-Implementation status: Not developed
+Status: Partial
+Implementation status: Profile compatibility reference; canonical trust activation contract moved to global node model
 Last updated: 2026-03-11
 
 ## Purpose
 
-This document defines the canonical Core response payload returned to an approved AI Node when trust activation is finalized.
+This document defines the AI-node profile compatibility view of trust activation payloads.
 
-This schema is authoritative for Core and AI Node alignment and must not drift.
+Canonical global contract:
+- [Node Trust Activation Payload Contract](./node-trust-activation-payload-contract.md)
 
 ## Canonical Response Shape
 

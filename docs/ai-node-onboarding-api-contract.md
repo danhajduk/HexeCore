@@ -1,14 +1,17 @@
 # AI Node Onboarding API Contract
 
 Status: Partial
-Implementation status: Session creation and finalize/poll endpoints implemented; one-time trust consumption flow pending
+Implementation status: Profile-specific compatibility reference; canonical contract moved to global node onboarding API
 Last updated: 2026-03-11
 
 ## Purpose
 
-This document defines the canonical API contract for node-initiated onboarding:
+This document defines the AI-node profile compatibility view for node-initiated onboarding:
 - session creation
 - finalization/polling
+
+Canonical global contract:
+- [Node Onboarding API Contract](./node-onboarding-api-contract.md)
 
 Session creation creates onboarding intent only and does not issue trust credentials.
 
