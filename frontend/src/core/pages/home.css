@@ -133,6 +133,11 @@
   color: hsl(var(--sx-text-muted));
 }
 
+.home-mini-icon {
+  width: 24px;
+  height: 24px;
+}
+
 .home-mini-value {
   margin-top: var(--sx-space-1);
   font-size: 18px;
