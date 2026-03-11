@@ -1237,6 +1237,10 @@ def addon_ui_root() -> str:
         const noisy = Array.isArray(overview.noisy) ? overview.noisy : [];
         const blocked = noisy.filter((item) => String(item.noisy_state || "").toLowerCase() === "blocked");
         const auditItems = Array.isArray(overview.audit) ? overview.audit : [];
+        const recentErrors = auditItems.filter((item) => {
+          const status = String(item.result || item.status || "").toLowerCase();
+          return status === "error" || status === "degraded" || status === "warn";
+        });
         const brokerMetrics = overview && overview.brokerMetrics ? overview.brokerMetrics : {};
         const degraded = String(effective.status || "").toLowerCase() === "degraded";
         sectionContent.innerHTML =
@@ -1246,11 +1250,12 @@ def addon_ui_root() -> str:
           `${healthPill(`Bootstrap ${(state.setupSummary && state.setupSummary.bootstrap_publish && state.setupSummary.bootstrap_publish.published) ? "published" : "pending"}`, (state.setupSummary && state.setupSummary.bootstrap_publish && state.setupSummary.bootstrap_publish.published) ? "ok" : "warn")}` +
           `${healthPill(`Setup ${setup.setup_status || "unknown"}`, statusTone(setup.setup_status || "unknown"))}</div>` +
           renderStats([
-            { k: "Principals", v: principals.length },
+            { k: "Total Principals", v: principals.length },
             { k: "Generic Users", v: genericUsers.length },
             { k: "Noisy", v: noisy.length },
             { k: "Blocked", v: blocked.length },
             { k: "Recent Audit", v: auditItems.length },
+            { k: "Recent Errors", v: recentErrors.length },
             { k: "Connected Clients", v: brokerMetrics.connected_clients ?? "-" },
             { k: "Message Rate", v: brokerMetrics.message_rate ?? "-" },
             { k: "Dropped Messages", v: brokerMetrics.dropped_messages ?? "-" },

@@ -34,6 +34,8 @@ class TestMqttEmbeddedUiRoutes(unittest.TestCase):
         self.assertIn("data-section=\"noisy-clients\"", res.text)
         self.assertIn(".pill {", res.text)
         self.assertIn(".stats {", res.text)
+        self.assertIn("Total Principals", res.text)
+        self.assertIn("Recent Errors", res.text)
         self.assertIn("data-filter='principals-q'", res.text)
         self.assertIn("data-filter='principals-type'", res.text)
         self.assertIn(">System</option>", res.text)
