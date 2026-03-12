@@ -1,16 +1,18 @@
 [Unit]
 Description=Synthia Dashboard Browser
-After=graphical-session.target synthia-backend.service synthia-frontend-dev.service
-Wants=graphical-session.target
-PartOf=graphical-session.target
+After=graphical-session.target synthia-backend.service synthia-frontend-dev.service network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
 Environment=DISPLAY=:0
-Environment=XAUTHORITY=%h/.Xauthority
+Environment=XAUTHORITY=/home/dan/.Xauthority
+Environment=HOME=/home/dan
 Environment=CHROME_BIN=/usr/bin/google-chrome-stable
-Environment=SYNTHIA_DASHBOARD_URL=http://10.0.0.100:8080/
-ExecStartPre=/usr/bin/sleep 3
+Environment=SYNTHIA_DASHBOARD_URL=http://127.0.0.1/
+
+ExecStartPre=/usr/bin/sleep 5
+ExecStartPre=/usr/bin/bash -lc 'DISPLAY=:0 xset s off -dpms s noblank || true'
 ExecStart=/usr/bin/bash -lc '"${CHROME_BIN}" \
   --new-window \
   --kiosk "${SYNTHIA_DASHBOARD_URL}" \
@@ -18,8 +20,11 @@ ExecStart=/usr/bin/bash -lc '"${CHROME_BIN}" \
   --disable-session-crashed-bubble \
   --disable-infobars \
   --no-first-run \
-  --no-default-browser-check'
-Restart=on-failure
+  --no-default-browser-check \
+  --disable-gpu \
+  --disable-software-rasterizer'
+
+Restart=always
 RestartSec=5
 
 [Install]
