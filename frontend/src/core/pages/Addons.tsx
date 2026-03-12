@@ -66,6 +66,26 @@ type NodeRegistration = {
   updated_at?: string | null;
 };
 
+type RoutingModelMetadata = {
+  model_id: string;
+  normalized_model_id: string;
+  pricing?: Record<string, number>;
+  latency_metrics?: Record<string, number>;
+  node_available: boolean;
+  source: string;
+};
+
+type RoutingProviderGroup = {
+  provider: string;
+  models: RoutingModelMetadata[];
+};
+
+type RoutingNodeGroup = {
+  node_id: string;
+  node_available: boolean;
+  providers: RoutingProviderGroup[];
+};
+
 async function readError(res: Response): Promise<string> {
   const text = await res.text();
   return text || `HTTP ${res.status}`;
@@ -84,6 +104,8 @@ export default function Addons() {
   const [nodesBusy, setNodesBusy] = useState(false);
   const [nodeDeleteBusy, setNodeDeleteBusy] = useState<string | null>(null);
   const [nodeRevokeBusy, setNodeRevokeBusy] = useState<string | null>(null);
+  const [routingByNode, setRoutingByNode] = useState<Record<string, RoutingNodeGroup>>({});
+  const [routingBusy, setRoutingBusy] = useState(false);
   const [nodesTab, setNodesTab] = useState<"installed" | "pending">("installed");
   const [nodeTypeFilter, setNodeTypeFilter] = useState<string>("all");
   const [nodeCapabilityFilter, setNodeCapabilityFilter] = useState<string>("all");
@@ -145,6 +167,31 @@ export default function Addons() {
     }
   }
 
+  async function refreshRoutingMetadata() {
+    setRoutingBusy(true);
+    try {
+      const res = await fetch("/api/system/nodes/providers/routing-metadata", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!res.ok) throw new Error(await readError(res));
+      const payload = (await res.json()) as { nodes?: RoutingNodeGroup[] };
+      const items = Array.isArray(payload.nodes) ? payload.nodes : [];
+      const mapped: Record<string, RoutingNodeGroup> = {};
+      for (const item of items) {
+        const key = String(item?.node_id || "").trim();
+        if (!key) continue;
+        mapped[key] = item;
+      }
+      setRoutingByNode(mapped);
+    } catch (e: any) {
+      setNodesErr(e?.message ?? String(e));
+      setRoutingByNode({});
+    } finally {
+      setRoutingBusy(false);
+    }
+  }
+
   async function updateCatalogNow() {
     setCatalogBusy(true);
     setCatalogMsg(null);
@@ -175,6 +222,7 @@ export default function Addons() {
       });
       if (!res.ok) throw new Error(await readError(res));
       await refreshNodes();
+      await refreshRoutingMetadata();
     } catch (e: any) {
       setNodesErr(e?.message ?? String(e));
     } finally {
@@ -194,6 +242,7 @@ export default function Addons() {
       });
       if (!res.ok) throw new Error(await readError(res));
       await refreshNodes();
+      await refreshRoutingMetadata();
     } catch (e: any) {
       setNodesErr(e?.message ?? String(e));
     } finally {
@@ -206,6 +255,7 @@ export default function Addons() {
       .catch((e) => setErr(String(e)));
     void refreshRuntime();
     void refreshNodes();
+    void refreshRoutingMetadata();
   }, []);
 
   const trustedNodes = useMemo(
@@ -291,9 +341,9 @@ export default function Addons() {
           <button className="addon-btn" onClick={() => void refreshInventory()} disabled={busy !== null}>
             Refresh List
           </button>
-          <button className="addon-btn" onClick={() => void refreshNodes()} disabled={nodesBusy}>
-            {nodesBusy ? "Refreshing Nodes..." : "Refresh Nodes"}
-          </button>
+                  <button className="addon-btn" onClick={() => void refreshNodes()} disabled={nodesBusy}>
+                    {nodesBusy || routingBusy ? "Refreshing Nodes..." : "Refresh Nodes"}
+                  </button>
         </div>
       </div>
       {catalogMsg && <div className="addon-meta">{catalogMsg}</div>}
@@ -456,8 +506,15 @@ export default function Addons() {
                   >
                     Pending ({pendingNodes.length})
                   </button>
-                  <button className="addon-btn" onClick={() => void refreshNodes()} disabled={nodesBusy}>
-                    {nodesBusy ? "Refreshing..." : "Refresh Nodes"}
+                  <button
+                    className="addon-btn"
+                    onClick={() => {
+                      void refreshNodes();
+                      void refreshRoutingMetadata();
+                    }}
+                    disabled={nodesBusy || routingBusy}
+                  >
+                    {nodesBusy || routingBusy ? "Refreshing..." : "Refresh Nodes"}
                   </button>
                   <label className="addon-input-label">
                     Node type
@@ -499,7 +556,9 @@ export default function Addons() {
                 <div className="addon-meta">No registered nodes found.</div>
               ) : (
                 <div className="addon-runtime-list">
-                  {visibleNodes.map((item) => (
+                  {visibleNodes.map((item) => {
+                    const routing = routingByNode[item.node_id];
+                    return (
                     <div key={item.node_id} className="addon-runtime-card">
                       <div className="addon-card-header">
                         <div className="addon-name">{item.node_name || item.node_id}</div>
@@ -524,6 +583,38 @@ export default function Addons() {
                       <div className="addon-meta">
                         providers: {Array.isArray(item.enabled_providers) && item.enabled_providers.length > 0 ? item.enabled_providers.join(", ") : "-"}
                       </div>
+                      {routing && routing.providers.length > 0 && (
+                        <div className="addon-routing-visual">
+                          <div className="addon-meta">
+                            routing availability: {routing.node_available ? "available" : "unavailable"}
+                          </div>
+                          {routing.providers.map((provider) => (
+                            <div key={`${item.node_id}-${provider.provider}`} className="addon-routing-provider">
+                              <div className="addon-meta">
+                                provider: {provider.provider} • models: {provider.models.length}
+                              </div>
+                              <div className="addon-routing-models">
+                                {provider.models.map((model) => {
+                                  const pricing = Object.entries(model.pricing || {})
+                                    .map(([k, v]) => `${k}=${v}`)
+                                    .join(", ");
+                                  const latency = Object.entries(model.latency_metrics || {})
+                                    .map(([k, v]) => `${k}=${v}ms`)
+                                    .join(", ");
+                                  return (
+                                    <div
+                                      key={`${item.node_id}-${provider.provider}-${model.normalized_model_id}`}
+                                      className="addon-routing-model"
+                                    >
+                                      model: {model.model_id} • latency: {latency || "-"} • pricing: {pricing || "-"}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       <div className="addon-meta">
                         governance version: {item.active_governance_version || "-"}
                       </div>
@@ -552,7 +643,7 @@ export default function Addons() {
                         </div>
                       )}
                     </div>
-                  ))}
+                  )})}
                 </div>
               )}
             </div>

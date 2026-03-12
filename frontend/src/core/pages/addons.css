@@ -217,3 +217,26 @@
   display: grid;
   gap: calc(var(--sx-space-1) + 2px);
 }
+
+.addon-routing-visual {
+  display: grid;
+  gap: var(--sx-space-1);
+  margin-top: calc(var(--sx-space-1) + 2px);
+}
+
+.addon-routing-provider {
+  border-left: 2px solid hsl(var(--sx-primary) / 0.4);
+  padding-left: var(--sx-space-2);
+  display: grid;
+  gap: var(--sx-space-1);
+}
+
+.addon-routing-models {
+  display: grid;
+  gap: var(--sx-space-1);
+}
+
+.addon-routing-model {
+  font-size: 12px;
+  opacity: 0.85;
+}
