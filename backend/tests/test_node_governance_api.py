@@ -198,6 +198,49 @@ class TestNodeGovernanceApi(unittest.TestCase):
         self.assertTrue(bool(node["operational_ready"]))
         self.assertEqual(node["active_governance_version"], governance_version)
 
+    def test_governance_refresh_returns_updated_bundle_when_version_changes(self) -> None:
+        node_id, trust_token = self._trusted_node()
+        declared = self.client.post(
+            "/api/system/nodes/capabilities/declaration",
+            json={"manifest": self._manifest(node_id)},
+            headers={"X-Node-Trust-Token": trust_token},
+        )
+        self.assertEqual(declared.status_code, 200, declared.text)
+        governance_version = declared.json()["governance_version"]
+
+        refreshed = self.client.post(
+            "/api/system/nodes/governance/refresh",
+            json={"node_id": node_id, "current_governance_version": "gov-v0"},
+            headers={"X-Node-Trust-Token": trust_token},
+        )
+        self.assertEqual(refreshed.status_code, 200, refreshed.text)
+        payload = refreshed.json()
+        self.assertTrue(bool(payload["updated"]))
+        self.assertEqual(payload["governance_version"], governance_version)
+        self.assertIn("governance_bundle", payload)
+        self.assertIn("private, max-age=5", refreshed.headers.get("cache-control", ""))
+
+    def test_governance_refresh_returns_not_updated_when_version_matches(self) -> None:
+        node_id, trust_token = self._trusted_node()
+        declared = self.client.post(
+            "/api/system/nodes/capabilities/declaration",
+            json={"manifest": self._manifest(node_id)},
+            headers={"X-Node-Trust-Token": trust_token},
+        )
+        self.assertEqual(declared.status_code, 200, declared.text)
+        governance_version = declared.json()["governance_version"]
+
+        refreshed = self.client.post(
+            "/api/system/nodes/governance/refresh",
+            json={"node_id": node_id, "current_governance_version": governance_version},
+            headers={"X-Node-Trust-Token": trust_token},
+        )
+        self.assertEqual(refreshed.status_code, 200, refreshed.text)
+        payload = refreshed.json()
+        self.assertFalse(bool(payload["updated"]))
+        self.assertEqual(payload["governance_version"], governance_version)
+        self.assertNotIn("governance_bundle", payload)
+
 
 if __name__ == "__main__":
     unittest.main()

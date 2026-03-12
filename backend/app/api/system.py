@@ -50,6 +50,11 @@ class NodeCapabilityDeclarationRequest(BaseModel):
     manifest: dict
 
 
+class NodeGovernanceRefreshRequest(BaseModel):
+    node_id: str
+    current_governance_version: str | None = None
+
+
 def _onboarding_error(error: str, message: str, *, retryable: bool = False) -> dict[str, object]:
     return {
         "error": error,
@@ -745,6 +750,80 @@ def build_system_router(
             "capability_profile_id": profile_id,
             "governance_version": bundle.governance_version,
             "issued_timestamp": bundle.issued_timestamp,
+            "refresh_interval_s": refresh_interval,
+            "governance_bundle": bundle.to_dict(),
+        }
+
+    @router.post("/system/nodes/governance/refresh")
+    def refresh_node_governance_bundle(
+        body: NodeGovernanceRefreshRequest,
+        response: Response,
+        x_node_trust_token: str | None = Header(default=None),
+    ):
+        node_key = str(body.node_id or "").strip()
+        node_token = str(x_node_trust_token or "").strip()
+        if not node_key:
+            raise HTTPException(status_code=400, detail={"error": "node_id_required", "message": "node_id is required"})
+        if not node_token:
+            raise HTTPException(status_code=401, detail="node_trust_token_required")
+        if node_registrations_store is None:
+            raise HTTPException(status_code=503, detail="node_registrations_unavailable")
+        if node_trust_issuance is None:
+            raise HTTPException(status_code=503, detail="trust_issuance_unavailable")
+        if node_governance_service is None:
+            raise HTTPException(status_code=503, detail="node_governance_unavailable")
+
+        trust_record = node_trust_issuance.authenticate_node(node_key, node_token)
+        if trust_record is None:
+            raise HTTPException(status_code=403, detail={"error": "untrusted_node", "message": "node not trusted"})
+
+        registration = node_registrations_store.get(node_key)
+        if registration is None:
+            raise HTTPException(status_code=403, detail={"error": "untrusted_node", "message": "node not registered"})
+        if str(registration.trust_status or "").strip().lower() != "trusted":
+            raise HTTPException(
+                status_code=403,
+                detail={"error": "untrusted_node", "message": f"node trust_status is {registration.trust_status}"},
+            )
+        profile_id = str(registration.capability_profile_id or "").strip()
+        if not profile_id:
+            raise HTTPException(
+                status_code=409,
+                detail={"error": "capability_declaration_required", "message": "node capability declaration required"},
+            )
+
+        bundle = node_governance_service.get_current_for_node(node_id=node_key, capability_profile_id=profile_id)
+        if bundle is None:
+            raise HTTPException(
+                status_code=404,
+                detail={"error": "governance_not_issued", "message": "governance bundle has not been issued yet"},
+            )
+        if node_governance_status_service is not None:
+            node_governance_status_service.mark_refresh_request(node_id=node_key)
+
+        refresh_interval = 120
+        try:
+            refresh_interval = max(30, int(str(os.getenv("SYNTHIA_NODE_GOVERNANCE_REFRESH_INTERVAL_S", "120")).strip()))
+        except Exception:
+            refresh_interval = 120
+        response.headers["Cache-Control"] = "private, max-age=5"
+
+        current_version = str(body.current_governance_version or "").strip()
+        if current_version and current_version == str(bundle.governance_version or "").strip():
+            return {
+                "ok": True,
+                "node_id": node_key,
+                "capability_profile_id": profile_id,
+                "governance_version": bundle.governance_version,
+                "updated": False,
+                "refresh_interval_s": refresh_interval,
+            }
+        return {
+            "ok": True,
+            "node_id": node_key,
+            "capability_profile_id": profile_id,
+            "governance_version": bundle.governance_version,
+            "updated": True,
             "refresh_interval_s": refresh_interval,
             "governance_bundle": bundle.to_dict(),
         }
