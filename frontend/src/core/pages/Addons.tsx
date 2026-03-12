@@ -54,6 +54,9 @@ type NodeRegistration = {
   node_software_version?: string;
   trust_status?: string;
   registry_state?: string;
+  declared_capabilities?: string[];
+  enabled_providers?: string[];
+  capability_profile_id?: string | null;
   capability_status?: string;
   governance_sync_status?: string;
   operational_ready?: boolean;
@@ -82,6 +85,8 @@ export default function Addons() {
   const [nodeDeleteBusy, setNodeDeleteBusy] = useState<string | null>(null);
   const [nodeRevokeBusy, setNodeRevokeBusy] = useState<string | null>(null);
   const [nodesTab, setNodesTab] = useState<"installed" | "pending">("installed");
+  const [nodeTypeFilter, setNodeTypeFilter] = useState<string>("all");
+  const [nodeCapabilityFilter, setNodeCapabilityFilter] = useState<string>("all");
   const [catalogBusy, setCatalogBusy] = useState(false);
   const [catalogMsg, setCatalogMsg] = useState<string | null>(null);
   const [uninstallStates, setUninstallStates] = useState<Record<string, UninstallViewState>>({});
@@ -211,7 +216,24 @@ export default function Addons() {
     () => nodes.filter((item) => String(item.registry_state || item.trust_status || "").toLowerCase() !== "trusted"),
     [nodes],
   );
-  const visibleNodes = nodesTab === "installed" ? trustedNodes : pendingNodes;
+  const nodeTypeOptions = useMemo(() => {
+    return Array.from(new Set(nodes.map((item) => String(item.node_type || "").trim()).filter(Boolean))).sort();
+  }, [nodes]);
+  const nodeCapabilityOptions = useMemo(() => {
+    const allCapabilities = nodes.flatMap((item) =>
+      Array.isArray(item.declared_capabilities) ? item.declared_capabilities.map((value) => String(value || "").trim()) : [],
+    );
+    return Array.from(new Set(allCapabilities.filter(Boolean))).sort();
+  }, [nodes]);
+  const visibleNodes = useMemo(() => {
+    const base = nodesTab === "installed" ? trustedNodes : pendingNodes;
+    return base.filter((item) => {
+      const typeMatch = nodeTypeFilter === "all" || String(item.node_type || "").trim() === nodeTypeFilter;
+      const capabilities = Array.isArray(item.declared_capabilities) ? item.declared_capabilities : [];
+      const capabilityMatch = nodeCapabilityFilter === "all" || capabilities.includes(nodeCapabilityFilter);
+      return typeMatch && capabilityMatch;
+    });
+  }, [nodesTab, trustedNodes, pendingNodes, nodeTypeFilter, nodeCapabilityFilter]);
 
   async function setEnabled(addonId: string, enabled: boolean) {
     setErr(null);
@@ -437,6 +459,36 @@ export default function Addons() {
                   <button className="addon-btn" onClick={() => void refreshNodes()} disabled={nodesBusy}>
                     {nodesBusy ? "Refreshing..." : "Refresh Nodes"}
                   </button>
+                  <label className="addon-input-label">
+                    Node type
+                    <select
+                      className="addon-input"
+                      value={nodeTypeFilter}
+                      onChange={(e) => setNodeTypeFilter(e.target.value)}
+                    >
+                      <option value="all">All</option>
+                      {nodeTypeOptions.map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="addon-input-label">
+                    Capability
+                    <select
+                      className="addon-input"
+                      value={nodeCapabilityFilter}
+                      onChange={(e) => setNodeCapabilityFilter(e.target.value)}
+                    >
+                      <option value="all">All</option>
+                      {nodeCapabilityOptions.map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
               </div>
               <div className="addon-meta">
@@ -462,6 +514,15 @@ export default function Addons() {
                       <div className="addon-meta">
                         capability: {item.capability_status || "missing"} • governance: {item.governance_sync_status || "pending"} •
                         readiness: {item.operational_ready ? "operational" : "not_ready"}
+                      </div>
+                      <div className="addon-meta">
+                        capability profile: {item.capability_profile_id || "-"}
+                      </div>
+                      <div className="addon-meta">
+                        task families: {Array.isArray(item.declared_capabilities) && item.declared_capabilities.length > 0 ? item.declared_capabilities.join(", ") : "-"}
+                      </div>
+                      <div className="addon-meta">
+                        providers: {Array.isArray(item.enabled_providers) && item.enabled_providers.length > 0 ? item.enabled_providers.join(", ") : "-"}
                       </div>
                       <div className="addon-meta">
                         governance version: {item.active_governance_version || "-"}
