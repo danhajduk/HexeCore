@@ -51,6 +51,27 @@ class TestNodeCapabilityAcceptance(unittest.TestCase):
         assert result.profile is not None
         self.assertTrue(result.profile.profile_id.startswith("cap-node-abc123-v"))
         self.assertEqual(result.profile.provider_intelligence[0]["provider"], "openai")
+        self.assertEqual(result.profile.provider_intelligence[0]["available_models"][0]["normalized_model_id"], "gpt-4o-mini")
+        self.assertEqual(result.profile.unified_model_descriptors[0]["normalized_model_id"], "gpt-4o-mini")
+
+    def test_normalizes_provider_model_duplicates_into_single_descriptor(self) -> None:
+        manifest = self._manifest()
+        manifest["provider_intelligence"] = [
+            {
+                "provider": "OpenAI",
+                "available_models": [
+                    {"model_id": " GPT-4O-Mini ", "pricing": {"input_per_1k": 0.001}, "latency_metrics": {"p50_ms": 120}},
+                    {"model_id": "gpt-4o-mini", "pricing": {"input_per_1k": 0.002}, "latency_metrics": {"p50_ms": 100}},
+                ],
+            }
+        ]
+        result = self.service.evaluate(node_id="node-abc123", manifest=manifest)
+        self.assertTrue(result.accepted)
+        assert result.profile is not None
+        models = result.profile.provider_intelligence[0]["available_models"]
+        self.assertEqual(len(models), 1)
+        self.assertEqual(models[0]["normalized_model_id"], "gpt-4o-mini")
+        self.assertEqual(len(result.profile.unified_model_descriptors), 1)
 
     def test_rejects_unsupported_task_family(self) -> None:
         manifest = self._manifest()

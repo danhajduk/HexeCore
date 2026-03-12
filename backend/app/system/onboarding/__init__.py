@@ -22,6 +22,7 @@ from .capability_manifest import (
     SUPPORTED_CAPABILITY_DECLARATION_VERSIONS,
     validate_capability_declaration,
 )
+from .provider_capability_normalization import normalize_provider_capability_report
 
 __all__ = [
     "NodeOnboardingSession",
@@ -53,4 +54,5 @@ __all__ = [
     "SUPPORTED_CAPABILITY_DECLARATION_VERSIONS",
     "CapabilityManifestValidationError",
     "validate_capability_declaration",
+    "normalize_provider_capability_report",
 ]

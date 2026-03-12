@@ -709,6 +709,8 @@ def build_system_router(
                 },
             )
         profile = accepted.profile
+        if profile is not None:
+            registration.provider_intelligence = [dict(item) for item in list(profile.provider_intelligence or []) if isinstance(item, dict)]
         registration.capability_profile_id = profile.profile_id if profile is not None else None
         node_registrations_store.upsert(registration)
         issued_governance = None
@@ -751,6 +753,11 @@ def build_system_router(
             "declared_capabilities": list(registration.declared_capabilities),
             "enabled_providers": list(registration.enabled_providers),
             "provider_intelligence": [dict(item) for item in list(registration.provider_intelligence or []) if isinstance(item, dict)],
+            "unified_model_descriptors": (
+                [dict(item) for item in list(profile.unified_model_descriptors or []) if isinstance(item, dict)]
+                if profile is not None
+                else []
+            ),
             "capability_profile_id": registration.capability_profile_id,
         }
         if issued_governance is not None:

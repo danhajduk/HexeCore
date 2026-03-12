@@ -6,6 +6,7 @@ from typing import Any
 
 from .capability_manifest import SUPPORTED_CAPABILITY_DECLARATION_VERSIONS
 from .capability_profiles import NodeCapabilityProfileRecord, NodeCapabilityProfilesStore
+from .provider_capability_normalization import normalize_provider_capability_report
 from .provider_model_policy import ProviderModelApprovalPolicyService
 
 
@@ -58,6 +59,14 @@ class NodeCapabilityAcceptanceService:
         provider_intelligence = [
             dict(item) for item in list(manifest.get("provider_intelligence") or []) if isinstance(item, dict)
         ]
+        try:
+            provider_intelligence, unified_model_descriptors = normalize_provider_capability_report(provider_intelligence)
+        except ValueError as exc:
+            return CapabilityAcceptanceResult(
+                accepted=False,
+                error_code=str(exc) or "provider_capability_report_invalid",
+                message="provider capability metadata invalid",
+            )
 
         allowed_families = _allowed_task_families()
         if allowed_families:
@@ -122,6 +131,7 @@ class NodeCapabilityAcceptanceService:
             declared_task_families=families,
             enabled_providers=providers_enabled,
             provider_intelligence=provider_intelligence,
+            unified_model_descriptors=unified_model_descriptors,
             feature_flags=normalized_features,
             manifest_version=version,
         )
