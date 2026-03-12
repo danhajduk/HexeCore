@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import secrets
+import socket
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,6 +19,54 @@ def _utcnow_iso() -> str:
 def _repo_root() -> Path:
     # backend/app/system/onboarding/trust.py -> onboarding(0), system(1), app(2), backend(3), repo(4)
     return Path(__file__).resolve().parents[4]
+
+
+def _is_loopback_host(value: str | None) -> bool:
+    host = str(value or "").strip().lower()
+    if not host:
+        return True
+    return host in {"127.0.0.1", "localhost", "::1", "0.0.0.0"}
+
+
+def _detect_advertise_host() -> str:
+    sock: socket.socket | None = None
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.connect(("8.8.8.8", 80))
+        host = str(sock.getsockname()[0] or "").strip()
+        if host and not _is_loopback_host(host):
+            return host
+    except Exception:
+        pass
+    finally:
+        try:
+            if sock is not None:
+                sock.close()
+        except Exception:
+            pass
+    try:
+        resolved = socket.gethostbyname(socket.gethostname())
+        if resolved and not _is_loopback_host(resolved):
+            return resolved
+    except Exception:
+        pass
+    hostname = str(socket.gethostname() or "").strip()
+    if hostname and not _is_loopback_host(hostname):
+        return hostname
+    return "synthia-core"
+
+
+def _resolve_operational_mqtt_host() -> str:
+    preferred = str(os.getenv("SYNTHIA_NODE_OPERATIONAL_MQTT_HOST", "")).strip()
+    if preferred and not _is_loopback_host(preferred):
+        return preferred
+    advertise = str(os.getenv("SYNTHIA_BOOTSTRAP_ADVERTISE_HOST", "")).strip()
+    if advertise and not _is_loopback_host(advertise):
+        return advertise
+    mqtt_host = str(os.getenv("SYNTHIA_MQTT_HOST", "")).strip()
+    if mqtt_host and not _is_loopback_host(mqtt_host):
+        return mqtt_host
+    return _detect_advertise_host()
 
 
 @dataclass
@@ -152,11 +201,7 @@ class NodeTrustIssuanceService:
     def __init__(self, store: NodeTrustStore) -> None:
         self._store = store
         self._core_id = str(os.getenv("SYNTHIA_CORE_ID", "synthia-core")).strip() or "synthia-core"
-        self._mqtt_host = (
-            str(os.getenv("SYNTHIA_NODE_OPERATIONAL_MQTT_HOST", "")).strip()
-            or str(os.getenv("SYNTHIA_MQTT_HOST", "127.0.0.1")).strip()
-            or "127.0.0.1"
-        )
+        self._mqtt_host = _resolve_operational_mqtt_host()
         try:
             self._mqtt_port = int(str(os.getenv("SYNTHIA_NODE_OPERATIONAL_MQTT_PORT", "")).strip() or 1883)
         except Exception:
@@ -168,6 +213,9 @@ class NodeTrustIssuanceService:
 
         existing = self._store.get_by_session(session.session_id)
         if existing is not None:
+            if _is_loopback_host(existing.operational_mqtt_host):
+                existing.operational_mqtt_host = self._mqtt_host
+                self._store.upsert(existing)
             return {"ok": True, "activation": existing.to_dict()}
 
         node_id = str(session.linked_node_id or "").strip() or f"node-{session.session_id[:12]}"

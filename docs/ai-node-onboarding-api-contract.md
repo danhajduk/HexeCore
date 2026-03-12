@@ -139,7 +139,7 @@ Status: Implemented
     "baseline_policy_version": "1",
     "operational_mqtt_identity": "node:node-abc123",
     "operational_mqtt_token": "<opaque_token>",
-    "operational_mqtt_host": "127.0.0.1",
+    "operational_mqtt_host": "10.0.0.100",
     "operational_mqtt_port": 1883,
     "issued_at": "2026-03-11T17:00:00+00:00",
     "source_session_id": "sx_onb_8Fjlx7..."

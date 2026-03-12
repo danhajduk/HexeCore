@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from app.system.onboarding import NodeOnboardingSessionsStore, NodeTrustIssuanceService, NodeTrustStore
 
@@ -50,6 +51,7 @@ class TestNodeTrustIssuanceService(unittest.TestCase):
         self.assertEqual(first["activation"]["node_trust_token"], second["activation"]["node_trust_token"])
         self.assertEqual(first["activation"]["operational_mqtt_token"], second["activation"]["operational_mqtt_token"])
         self.assertEqual(first["activation"]["source_session_id"], approved.session_id)
+        self.assertNotIn(first["activation"]["operational_mqtt_host"], {"127.0.0.1", "localhost", "0.0.0.0", "::1"})
 
     def test_persists_trust_record(self) -> None:
         session = self.sessions.start_session(
@@ -87,6 +89,30 @@ class TestNodeTrustIssuanceService(unittest.TestCase):
         issued = self.service.issue_for_approved_session(approved)["activation"]
         self.assertEqual(issued["node_type"], "sensor-node")
         self.assertEqual(issued["activation_profile"]["node_type"], "sensor-node")
+
+    def test_loopback_env_value_falls_back_to_advertise_host(self) -> None:
+        with patch.dict(
+            "os.environ",
+            {
+                "SYNTHIA_NODE_OPERATIONAL_MQTT_HOST": "127.0.0.1",
+                "SYNTHIA_BOOTSTRAP_ADVERTISE_HOST": "10.0.0.100",
+            },
+            clear=False,
+        ):
+            service = NodeTrustIssuanceService(self.trust_store)
+        session = self.sessions.start_session(
+            node_nonce="nonce-e",
+            requested_node_name="node-e",
+            requested_node_type="ai-node",
+            requested_node_software_version="0.1.0",
+        )
+        approved = self.sessions.approve_session(
+            session.session_id,
+            approved_by_user_id="admin_session",
+            linked_node_id="node-fixed-3",
+        )
+        issued = service.issue_for_approved_session(approved)["activation"]
+        self.assertEqual(issued["operational_mqtt_host"], "10.0.0.100")
 
 
 if __name__ == "__main__":

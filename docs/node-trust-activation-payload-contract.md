@@ -20,7 +20,7 @@ Returned under `activation`:
 - `activation_profile`
 - `operational_mqtt_identity`
 - `operational_mqtt_token`
-- `operational_mqtt_host`
+- `operational_mqtt_host` (non-loopback reachable Core host/IP for node connectivity)
 - `operational_mqtt_port`
 - `issued_at`
 - `source_session_id`
