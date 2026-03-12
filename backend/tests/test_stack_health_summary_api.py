@@ -232,6 +232,29 @@ class TestStackHealthSummaryApi(unittest.TestCase):
         self.assertEqual(payload["samples"]["network_throughput"]["state"], "warming_up")
         self.assertEqual(payload["samples"]["network_metrics"]["state"], "ok")
 
+    def test_stack_summary_accepts_legacy_ai_node_type_label(self) -> None:
+        app = FastAPI()
+        app.include_router(build_stack_health_router(), prefix="/api/system")
+        app.state.scheduler_engine = _FakeScheduler()
+        app.state.mqtt_manager = _FakeMqtt()
+        app.state.mqtt_runtime_boundary = _FakeMqttRuntime()
+        app.state.mqtt_integration_state_store = _FakeMqttStateStore()
+        app.state.mqtt_startup_reconciler = _FakeMqttStartupReconciler()
+        app.state.addon_registry = _FakeRegistry()
+        app.state.node_registrations_store = _FakeNodeRegistrationsStore(
+            [_FakeNodeRegistration(node_type="ai", trust_status="trusted")]
+        )
+        app.state.latest_stats = _FakeStats()
+
+        client = TestClient(app)
+        res = client.get("/api/system/stack/summary")
+        self.assertEqual(res.status_code, 200, res.text)
+        payload = res.json()
+
+        self.assertEqual(payload["subsystems"]["ai"]["state"], "connected")
+        self.assertEqual(payload["subsystems"]["ai"]["trusted_nodes"], 1)
+        self.assertEqual(payload["subsystems"]["ai"]["total_nodes"], 1)
+
     def test_no_workers_active_reason_does_not_degrade_overall_status(self) -> None:
         payload = stack_health._derive_overall_status(
             {

@@ -603,11 +603,12 @@ def build_stack_health_router() -> APIRouter:
         if node_registrations_store is not None:
             try:
                 registrations = list(node_registrations_store.list())
-                ai_nodes = [
-                    item
-                    for item in registrations
-                    if str(getattr(item, "node_type", "") or "").strip().lower() == "ai-node"
-                ]
+                ai_nodes = []
+                for item in registrations:
+                    node_type = str(getattr(item, "node_type", "") or "").strip().lower()
+                    # Accept legacy "ai" and canonical "ai-node" labels.
+                    if node_type in {"ai", "ai-node"}:
+                        ai_nodes.append(item)
                 ai_total_nodes = len(ai_nodes)
                 ai_trusted_nodes = sum(
                     1 for item in ai_nodes if str(getattr(item, "trust_status", "") or "").strip().lower() == "trusted"
