@@ -6,13 +6,16 @@ from unittest.mock import patch
 
 from app.system.onboarding.capability_acceptance import NodeCapabilityAcceptanceService
 from app.system.onboarding.capability_profiles import NodeCapabilityProfilesStore
+from app.system.onboarding.provider_model_policy import ProviderModelApprovalPolicyService, ProviderModelPolicyStore
 
 
 class TestNodeCapabilityAcceptance(unittest.TestCase):
     def setUp(self) -> None:
         self.tmpdir = tempfile.TemporaryDirectory()
         self.profiles = NodeCapabilityProfilesStore(path=Path(self.tmpdir.name) / "profiles.json")
-        self.service = NodeCapabilityAcceptanceService(self.profiles)
+        self.provider_policy_store = ProviderModelPolicyStore(path=Path(self.tmpdir.name) / "provider_policy.json")
+        self.provider_policy = ProviderModelApprovalPolicyService(self.provider_policy_store)
+        self.service = NodeCapabilityAcceptanceService(self.profiles, provider_model_policy=self.provider_policy)
 
     def tearDown(self) -> None:
         self.tmpdir.cleanup()
@@ -64,6 +67,13 @@ class TestNodeCapabilityAcceptance(unittest.TestCase):
             result = self.service.evaluate(node_id="node-abc123", manifest=manifest)
         self.assertFalse(result.accepted)
         self.assertEqual(result.error_code, "unsupported_provider_identifier")
+
+    def test_rejects_unapproved_models_when_provider_policy_exists(self) -> None:
+        manifest = self._manifest()
+        self.provider_policy.set_allowlist(provider="openai", allowed_models=["gpt-4.1-mini"], updated_by="admin")
+        result = self.service.evaluate(node_id="node-abc123", manifest=manifest)
+        self.assertFalse(result.accepted)
+        self.assertEqual(result.error_code, "provider_model_not_approved")
 
 
 if __name__ == "__main__":

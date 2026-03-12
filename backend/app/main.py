@@ -46,6 +46,8 @@ from app.system.onboarding import (
     NodeTelemetryService,
     NodeTelemetryStore,
     NodeOnboardingSessionsStore,
+    ProviderModelApprovalPolicyService,
+    ProviderModelPolicyStore,
     NodeRegistrationsStore,
     NodeTrustIssuanceService,
     NodeTrustStore,
@@ -432,7 +434,12 @@ def create_app() -> FastAPI:
     node_trust_store = NodeTrustStore()
     node_trust_issuance = NodeTrustIssuanceService(node_trust_store)
     node_capability_profiles_store = NodeCapabilityProfilesStore()
-    node_capability_acceptance = NodeCapabilityAcceptanceService(node_capability_profiles_store)
+    provider_model_policy_store = ProviderModelPolicyStore()
+    provider_model_policy_service = ProviderModelApprovalPolicyService(provider_model_policy_store)
+    node_capability_acceptance = NodeCapabilityAcceptanceService(
+        node_capability_profiles_store,
+        provider_model_policy=provider_model_policy_service,
+    )
     node_governance_store = NodeGovernanceStore()
     node_governance_service = NodeGovernanceService(node_governance_store)
     node_governance_status_store = NodeGovernanceStatusStore()
@@ -563,6 +570,7 @@ def create_app() -> FastAPI:
             node_governance_service=node_governance_service,
             node_governance_status_service=node_governance_status_service,
             node_telemetry_service=node_telemetry_service,
+            provider_model_policy_service=provider_model_policy_service,
             audit_store=audit_store,
         ),
         prefix="/api",

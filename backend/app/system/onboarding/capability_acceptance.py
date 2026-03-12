@@ -6,6 +6,7 @@ from typing import Any
 
 from .capability_manifest import SUPPORTED_CAPABILITY_DECLARATION_VERSIONS
 from .capability_profiles import NodeCapabilityProfileRecord, NodeCapabilityProfilesStore
+from .provider_model_policy import ProviderModelApprovalPolicyService
 
 
 def _normalized_set(raw: str) -> set[str]:
@@ -32,8 +33,13 @@ class CapabilityAcceptanceResult:
 
 
 class NodeCapabilityAcceptanceService:
-    def __init__(self, profile_store: NodeCapabilityProfilesStore) -> None:
+    def __init__(
+        self,
+        profile_store: NodeCapabilityProfilesStore,
+        provider_model_policy: ProviderModelApprovalPolicyService | None = None,
+    ) -> None:
         self._profiles = profile_store
+        self._provider_model_policy = provider_model_policy
 
     def evaluate(self, *, node_id: str, manifest: dict[str, Any]) -> CapabilityAcceptanceResult:
         version = str(manifest.get("manifest_version") or "").strip()
@@ -78,6 +84,33 @@ class NodeCapabilityAcceptanceService:
                 error_code="enabled_provider_not_supported",
                 message="enabled providers must be subset of supported providers",
             )
+
+        if self._provider_model_policy is not None:
+            for provider_info in provider_intelligence:
+                provider_id = str(provider_info.get("provider") or "").strip().lower()
+                models = provider_info.get("available_models")
+                if not provider_id or not isinstance(models, list):
+                    continue
+                if not self._provider_model_policy.has_explicit_policy(provider_id):
+                    continue
+                unapproved_models = sorted(
+                    {
+                        str(item.get("model_id") or "").strip()
+                        for item in models
+                        if isinstance(item, dict)
+                        and str(item.get("model_id") or "").strip()
+                        and not self._provider_model_policy.is_model_allowed(
+                            provider=provider_id,
+                            model_id=str(item.get("model_id") or "").strip(),
+                        )
+                    }
+                )
+                if unapproved_models:
+                    return CapabilityAcceptanceResult(
+                        accepted=False,
+                        error_code="provider_model_not_approved",
+                        message=f"{provider_id}:{','.join(unapproved_models)}",
+                    )
 
         feature_raw = manifest.get("node_features")
         feature_flags = feature_raw if isinstance(feature_raw, dict) else {}

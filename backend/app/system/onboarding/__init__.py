@@ -5,6 +5,11 @@ from .capability_profiles import NodeCapabilityProfileRecord, NodeCapabilityProf
 from .capability_acceptance import CapabilityAcceptanceResult, NodeCapabilityAcceptanceService
 from .governance import NodeGovernanceBundleRecord, NodeGovernanceService, NodeGovernanceStore
 from .governance_status import NodeGovernanceStatusRecord, NodeGovernanceStatusService, NodeGovernanceStatusStore
+from .provider_model_policy import (
+    ProviderModelApprovalPolicyService,
+    ProviderModelPolicyRecord,
+    ProviderModelPolicyStore,
+)
 from .node_telemetry import (
     ALLOWED_NODE_TELEMETRY_EVENTS,
     NodeTelemetryRecord,
@@ -37,6 +42,9 @@ __all__ = [
     "NodeGovernanceStatusRecord",
     "NodeGovernanceStatusStore",
     "NodeGovernanceStatusService",
+    "ProviderModelPolicyRecord",
+    "ProviderModelPolicyStore",
+    "ProviderModelApprovalPolicyService",
     "NodeTelemetryRecord",
     "NodeTelemetryStore",
     "NodeTelemetryService",

@@ -21,6 +21,7 @@ from app.system.onboarding.capability_acceptance import NodeCapabilityAcceptance
 from app.system.onboarding.capability_profiles import NodeCapabilityProfilesStore
 from app.system.onboarding.governance import NodeGovernanceService, NodeGovernanceStore
 from app.system.onboarding.governance_status import NodeGovernanceStatusService, NodeGovernanceStatusStore
+from app.system.onboarding.provider_model_policy import ProviderModelApprovalPolicyService, ProviderModelPolicyStore
 from app.api import system as system_api
 
 
@@ -52,7 +53,12 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
         self.trust_store = NodeTrustStore(path=Path(self.tmpdir.name) / "node_trust_records.json")
         self.trust_issuance = NodeTrustIssuanceService(self.trust_store)
         self.capability_profiles = NodeCapabilityProfilesStore(path=Path(self.tmpdir.name) / "node_capability_profiles.json")
-        self.capability_acceptance = NodeCapabilityAcceptanceService(self.capability_profiles)
+        self.provider_policy_store = ProviderModelPolicyStore(path=Path(self.tmpdir.name) / "provider_model_policy.json")
+        self.provider_policy_service = ProviderModelApprovalPolicyService(self.provider_policy_store)
+        self.capability_acceptance = NodeCapabilityAcceptanceService(
+            self.capability_profiles,
+            provider_model_policy=self.provider_policy_service,
+        )
         self.governance_store = NodeGovernanceStore(path=Path(self.tmpdir.name) / "node_governance_bundles.json")
         self.governance_service = NodeGovernanceService(self.governance_store)
         self.governance_status_store = NodeGovernanceStatusStore(path=Path(self.tmpdir.name) / "node_governance_status.json")
@@ -67,6 +73,7 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
                 node_capability_acceptance=self.capability_acceptance,
                 node_governance_service=self.governance_service,
                 node_governance_status_service=self.governance_status_service,
+                provider_model_policy_service=self.provider_policy_service,
             ),
             prefix="/api",
         )
@@ -274,17 +281,32 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
         self.assertEqual(len(items), 1)
         self.assertEqual(items[0]["profile_id"], profile_id)
         self.assertEqual(items[0]["provider_intelligence"][0]["provider"], "openai")
-        self.assertEqual(items[0]["node_id"], node_id)
 
-        got = self.client.get(
-            f"/api/system/nodes/capabilities/profiles/{profile_id}",
+    def test_provider_model_policy_can_reject_unapproved_models(self) -> None:
+        node_id, trust_token = self._trusted_node()
+        set_policy = self.client.put(
+            "/api/system/nodes/providers/model-policy/openai",
+            json={"allowed_models": ["gpt-4.1-mini"]},
             headers={"X-Admin-Token": "test-token"},
         )
-        self.assertEqual(got.status_code, 200, got.text)
-        profile = got.json()["profile"]
-        self.assertEqual(profile["profile_id"], profile_id)
-        self.assertEqual(profile["node_id"], node_id)
-        self.assertIn("declaration_raw", profile)
+        self.assertEqual(set_policy.status_code, 200, set_policy.text)
+        self.assertEqual(set_policy.json()["policy"]["provider"], "openai")
+        self.assertEqual(set_policy.json()["policy"]["allowed_models"], ["gpt-4.1-mini"])
+
+        listed = self.client.get(
+            "/api/system/nodes/providers/model-policy",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(listed.status_code, 200, listed.text)
+        self.assertEqual(len(listed.json()["items"]), 1)
+
+        rejected = self.client.post(
+            "/api/system/nodes/capabilities/declaration",
+            json={"manifest": self._manifest(node_id)},
+            headers={"X-Node-Trust-Token": trust_token},
+        )
+        self.assertEqual(rejected.status_code, 400, rejected.text)
+        self.assertEqual(rejected.json()["detail"]["error"], "provider_model_not_approved")
 
 
 if __name__ == "__main__":

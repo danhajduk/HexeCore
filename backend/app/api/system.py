@@ -65,6 +65,10 @@ class NodeTelemetryIngestRequest(BaseModel):
     payload: dict | None = None
 
 
+class ProviderModelPolicyUpdateRequest(BaseModel):
+    allowed_models: list[str]
+
+
 def _onboarding_error(error: str, message: str, *, retryable: bool = False) -> dict[str, object]:
     return {
         "error": error,
@@ -349,6 +353,7 @@ def build_system_router(
     node_governance_service: NodeGovernanceService | None = None,
     node_governance_status_service: NodeGovernanceStatusService | None = None,
     node_telemetry_service: NodeTelemetryService | None = None,
+    provider_model_policy_service=None,
     audit_store: AuditLogStore | None = None,
 ) -> APIRouter:
     router = APIRouter()
@@ -752,6 +757,67 @@ def build_system_router(
             response_payload["governance_version"] = issued_governance.governance_version
             response_payload["governance_issued_at"] = issued_governance.issued_timestamp
         return response_payload
+
+    @router.get("/system/nodes/providers/model-policy")
+    def list_provider_model_policy(
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        if provider_model_policy_service is None:
+            return {"ok": True, "items": []}
+        items = provider_model_policy_service.list()
+        return {"ok": True, "items": [item.to_dict() for item in items]}
+
+    @router.put("/system/nodes/providers/model-policy/{provider}")
+    def set_provider_model_policy(
+        provider: str,
+        body: ProviderModelPolicyUpdateRequest,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        if provider_model_policy_service is None:
+            raise HTTPException(status_code=503, detail="provider_model_policy_unavailable")
+        provider_id = str(provider or "").strip().lower()
+        if not provider_id:
+            raise HTTPException(status_code=400, detail="provider_required")
+        allowed_models = sorted({str(model or "").strip() for model in list(body.allowed_models or []) if str(model or "").strip()})
+        record = provider_model_policy_service.set_allowlist(
+            provider=provider_id,
+            allowed_models=allowed_models,
+            updated_by=_admin_actor(x_admin_token),
+        )
+        _record_audit(
+            audit_store,
+            event_type="provider_model_policy_updated",
+            actor_role="admin",
+            actor_id=_admin_actor(x_admin_token),
+            details={"provider": provider_id, "allowed_model_count": len(allowed_models)},
+        )
+        return {"ok": True, "policy": record.to_dict()}
+
+    @router.delete("/system/nodes/providers/model-policy/{provider}")
+    def delete_provider_model_policy(
+        provider: str,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        if provider_model_policy_service is None:
+            raise HTTPException(status_code=503, detail="provider_model_policy_unavailable")
+        provider_id = str(provider or "").strip().lower()
+        if not provider_id:
+            raise HTTPException(status_code=400, detail="provider_required")
+        removed = provider_model_policy_service.remove_provider(provider_id)
+        _record_audit(
+            audit_store,
+            event_type="provider_model_policy_deleted",
+            actor_role="admin",
+            actor_id=_admin_actor(x_admin_token),
+            details={"provider": provider_id, "removed": bool(removed is not None)},
+        )
+        return {"ok": True, "removed": bool(removed is not None), "provider": provider_id}
 
     @router.get("/system/nodes/capabilities/profiles")
     def list_node_capability_profiles(
