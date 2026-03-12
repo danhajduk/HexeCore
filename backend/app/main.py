@@ -39,6 +39,10 @@ from app.system.settings.router import build_settings_router
 from app.system.onboarding import (
     NodeCapabilityAcceptanceService,
     NodeCapabilityProfilesStore,
+    NodeGovernanceService,
+    NodeGovernanceStatusService,
+    NodeGovernanceStatusStore,
+    NodeGovernanceStore,
     NodeOnboardingSessionsStore,
     NodeRegistrationsStore,
     NodeTrustIssuanceService,
@@ -427,6 +431,10 @@ def create_app() -> FastAPI:
     node_trust_issuance = NodeTrustIssuanceService(node_trust_store)
     node_capability_profiles_store = NodeCapabilityProfilesStore()
     node_capability_acceptance = NodeCapabilityAcceptanceService(node_capability_profiles_store)
+    node_governance_store = NodeGovernanceStore()
+    node_governance_service = NodeGovernanceService(node_governance_store)
+    node_governance_status_store = NodeGovernanceStatusStore()
+    node_governance_status_service = NodeGovernanceStatusService(node_governance_status_store)
     app.state.install_sessions_store = install_sessions_store
     app.state.node_onboarding_sessions_store = node_onboarding_sessions_store
     app.state.node_registrations_store = node_registrations_store
@@ -434,6 +442,10 @@ def create_app() -> FastAPI:
     app.state.node_trust_issuance = node_trust_issuance
     app.state.node_capability_profiles_store = node_capability_profiles_store
     app.state.node_capability_acceptance = node_capability_acceptance
+    app.state.node_governance_store = node_governance_store
+    app.state.node_governance_service = node_governance_service
+    app.state.node_governance_status_store = node_governance_status_store
+    app.state.node_governance_status_service = node_governance_status_service
 
     app.include_router(build_settings_router(settings_store, audit_store), prefix="/api/system", tags=["settings"])
     app.include_router(build_users_router(users_store, audit_store), prefix="/api/admin", tags=["admin-users"])
@@ -539,6 +551,8 @@ def create_app() -> FastAPI:
             node_registrations_store=node_registrations_store,
             node_trust_issuance=node_trust_issuance,
             node_capability_acceptance=node_capability_acceptance,
+            node_governance_service=node_governance_service,
+            node_governance_status_service=node_governance_status_service,
             audit_store=audit_store,
         ),
         prefix="/api",

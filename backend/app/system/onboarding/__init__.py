@@ -3,6 +3,8 @@ from .registrations import NodeRegistrationRecord, NodeRegistrationsStore
 from .trust import NodeTrustIssuanceService, NodeTrustRecord, NodeTrustStore
 from .capability_profiles import NodeCapabilityProfileRecord, NodeCapabilityProfilesStore
 from .capability_acceptance import CapabilityAcceptanceResult, NodeCapabilityAcceptanceService
+from .governance import NodeGovernanceBundleRecord, NodeGovernanceService, NodeGovernanceStore
+from .governance_status import NodeGovernanceStatusRecord, NodeGovernanceStatusService, NodeGovernanceStatusStore
 from .capability_manifest import (
     CAPABILITY_DECLARATION_SCHEMA_VERSION,
     CapabilityManifestValidationError,
@@ -23,6 +25,12 @@ __all__ = [
     "NodeCapabilityProfilesStore",
     "CapabilityAcceptanceResult",
     "NodeCapabilityAcceptanceService",
+    "NodeGovernanceBundleRecord",
+    "NodeGovernanceStore",
+    "NodeGovernanceService",
+    "NodeGovernanceStatusRecord",
+    "NodeGovernanceStatusStore",
+    "NodeGovernanceStatusService",
     "CAPABILITY_DECLARATION_SCHEMA_VERSION",
     "SUPPORTED_CAPABILITY_DECLARATION_VERSIONS",
     "CapabilityManifestValidationError",

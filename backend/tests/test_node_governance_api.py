@@ -42,7 +42,7 @@ class _FakeRegistry:
 
 
 @unittest.skipIf(not FASTAPI_STACK_AVAILABLE, "fastapi/testclient not available in this environment")
-class TestNodeCapabilityDeclarationApi(unittest.TestCase):
+class TestNodeGovernanceApi(unittest.TestCase):
     def setUp(self) -> None:
         self.tmpdir = tempfile.TemporaryDirectory()
         self.sessions = NodeOnboardingSessionsStore(path=Path(self.tmpdir.name) / "node_onboarding_sessions.json")
@@ -76,6 +76,7 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
                 "SYNTHIA_AI_NODE_ONBOARDING_PROTOCOLS": "1.0",
                 "SYNTHIA_NODE_ONBOARDING_SUPPORTED_TYPES": "ai-node,sensor-node",
                 "SYNTHIA_ADMIN_TOKEN": "test-token",
+                "SYNTHIA_NODE_GOVERNANCE_REFRESH_INTERVAL_S": "180",
             },
             clear=False,
         )
@@ -93,7 +94,7 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
                 "node_type": "ai-node",
                 "node_software_version": "0.2.0",
                 "protocol_version": "1.0",
-                "node_nonce": "nonce-capability-1",
+                "node_nonce": "nonce-governance-1",
             },
         )
         self.assertEqual(started.status_code, 200, started.text)
@@ -107,7 +108,7 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
         node_id = approved.json()["registration"]["node_id"]
 
         finalized = self.client.get(
-            f"/api/system/nodes/onboarding/sessions/{session_id}/finalize?node_nonce=nonce-capability-1"
+            f"/api/system/nodes/onboarding/sessions/{session_id}/finalize?node_nonce=nonce-governance-1"
         )
         self.assertEqual(finalized.status_code, 200, finalized.text)
         self.assertEqual(finalized.json()["onboarding_status"], "approved")
@@ -143,102 +144,16 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
             },
         }
 
-    def test_accepts_capability_declaration_for_trusted_node(self) -> None:
+    def test_governance_fetch_requires_capability_declaration(self) -> None:
         node_id, trust_token = self._trusted_node()
-        res = self.client.post(
-            "/api/system/nodes/capabilities/declaration",
-            json={"manifest": self._manifest(node_id)},
+        res = self.client.get(
+            f"/api/system/nodes/governance/current?node_id={node_id}",
             headers={"X-Node-Trust-Token": trust_token},
         )
-        self.assertEqual(res.status_code, 200, res.text)
-        payload = res.json()
-        self.assertEqual(payload["acceptance_status"], "accepted")
-        self.assertEqual(payload["node_id"], node_id)
-        self.assertEqual(payload["manifest_version"], "1.0")
-        self.assertEqual(payload["declared_capabilities"], ["task.classification", "task.summarization"])
-        self.assertEqual(payload["enabled_providers"], ["openai"])
-        self.assertTrue(str(payload.get("capability_profile_id") or "").startswith(f"cap-{node_id}-v"))
-        self.assertTrue(str(payload.get("governance_version") or "").startswith("gov-v"))
-        self.assertTrue(str(payload.get("governance_issued_at") or "").strip())
+        self.assertEqual(res.status_code, 409, res.text)
+        self.assertEqual(res.json()["detail"]["error"], "capability_declaration_required")
 
-        registration = self.registrations.get(node_id)
-        self.assertIsNotNone(registration)
-        assert registration is not None
-        self.assertEqual(registration.declared_capabilities, ["task.classification", "task.summarization"])
-        self.assertEqual(registration.enabled_providers, ["openai"])
-        self.assertEqual(registration.capability_declaration_version, "1.0")
-        self.assertTrue(str(registration.capability_declaration_timestamp or "").strip())
-        self.assertEqual(registration.capability_profile_id, payload["capability_profile_id"])
-        governance_items = self.governance_store.list(node_id=node_id)
-        self.assertEqual(len(governance_items), 1)
-        self.assertEqual(governance_items[0].governance_version, payload["governance_version"])
-        status = self.governance_status_store.get(node_id)
-        self.assertIsNotNone(status)
-        assert status is not None
-        self.assertEqual(status.active_governance_version, payload["governance_version"])
-        self.assertTrue(str(status.last_issued_timestamp or "").strip())
-
-    def test_rejects_untrusted_node_token(self) -> None:
-        node_id, _trust_token = self._trusted_node()
-        res = self.client.post(
-            "/api/system/nodes/capabilities/declaration",
-            json={"manifest": self._manifest(node_id)},
-            headers={"X-Node-Trust-Token": "wrong-token"},
-        )
-        self.assertEqual(res.status_code, 403, res.text)
-        self.assertEqual(res.json()["detail"]["error"], "untrusted_node")
-
-    def test_rejects_invalid_schema(self) -> None:
-        node_id, trust_token = self._trusted_node()
-        manifest = self._manifest(node_id)
-        manifest["node"]["unknown"] = "x"
-        res = self.client.post(
-            "/api/system/nodes/capabilities/declaration",
-            json={"manifest": manifest},
-            headers={"X-Node-Trust-Token": trust_token},
-        )
-        self.assertEqual(res.status_code, 400, res.text)
-        self.assertEqual(res.json()["detail"]["error"], "invalid_schema")
-
-    def test_rejects_unsupported_capability_version(self) -> None:
-        node_id, trust_token = self._trusted_node()
-        manifest = self._manifest(node_id)
-        manifest["manifest_version"] = "9.9"
-        res = self.client.post(
-            "/api/system/nodes/capabilities/declaration",
-            json={"manifest": manifest},
-            headers={"X-Node-Trust-Token": trust_token},
-        )
-        self.assertEqual(res.status_code, 400, res.text)
-        self.assertEqual(res.json()["detail"]["error"], "unsupported_capability_version")
-
-    def test_rejects_unsupported_task_family_by_policy(self) -> None:
-        node_id, trust_token = self._trusted_node()
-        manifest = self._manifest(node_id)
-        manifest["declared_task_families"] = ["task.classification", "task.unknown.future"]
-        with patch.dict(os.environ, {"SYNTHIA_NODE_ALLOWED_TASK_FAMILIES": "task.classification,task.summarization"}, clear=False):
-            res = self.client.post(
-                "/api/system/nodes/capabilities/declaration",
-                json={"manifest": manifest},
-                headers={"X-Node-Trust-Token": trust_token},
-            )
-        self.assertEqual(res.status_code, 400, res.text)
-        self.assertEqual(res.json()["detail"]["error"], "unsupported_task_family")
-
-    def test_rejects_unsupported_provider_identifier_by_policy(self) -> None:
-        node_id, trust_token = self._trusted_node()
-        manifest = self._manifest(node_id)
-        manifest["supported_providers"] = ["openai", "provider-x"]
-        with patch.dict(os.environ, {"SYNTHIA_NODE_ALLOWED_PROVIDERS": "openai,local-llm"}, clear=False):
-            res = self.client.post(
-                "/api/system/nodes/capabilities/declaration",
-                json={"manifest": manifest},
-                headers={"X-Node-Trust-Token": trust_token},
-            )
-        self.assertEqual(res.status_code, 400, res.text)
-        self.assertEqual(res.json()["detail"]["error"], "unsupported_provider_identifier")
-
-    def test_admin_can_list_and_get_capability_profiles(self) -> None:
+    def test_governance_fetch_returns_current_bundle(self) -> None:
         node_id, trust_token = self._trusted_node()
         declared = self.client.post(
             "/api/system/nodes/capabilities/declaration",
@@ -247,26 +162,28 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
         )
         self.assertEqual(declared.status_code, 200, declared.text)
         profile_id = declared.json()["capability_profile_id"]
+        governance_version = declared.json()["governance_version"]
 
-        listed = self.client.get(
-            f"/api/system/nodes/capabilities/profiles?node_id={node_id}",
-            headers={"X-Admin-Token": "test-token"},
+        res = self.client.get(
+            f"/api/system/nodes/governance/current?node_id={node_id}",
+            headers={"X-Node-Trust-Token": trust_token},
         )
-        self.assertEqual(listed.status_code, 200, listed.text)
-        items = listed.json()["items"]
-        self.assertEqual(len(items), 1)
-        self.assertEqual(items[0]["profile_id"], profile_id)
-        self.assertEqual(items[0]["node_id"], node_id)
+        self.assertEqual(res.status_code, 200, res.text)
+        payload = res.json()
+        self.assertEqual(payload["node_id"], node_id)
+        self.assertEqual(payload["capability_profile_id"], profile_id)
+        self.assertEqual(payload["governance_version"], governance_version)
+        self.assertEqual(payload["refresh_interval_s"], 180)
+        self.assertEqual(payload["governance_bundle"]["governance_version"], governance_version)
+        self.assertEqual(payload["governance_bundle"]["capability_profile_id"], profile_id)
+        self.assertIn("private, max-age=", res.headers.get("cache-control", ""))
 
-        got = self.client.get(
-            f"/api/system/nodes/capabilities/profiles/{profile_id}",
-            headers={"X-Admin-Token": "test-token"},
-        )
-        self.assertEqual(got.status_code, 200, got.text)
-        profile = got.json()["profile"]
-        self.assertEqual(profile["profile_id"], profile_id)
-        self.assertEqual(profile["node_id"], node_id)
-        self.assertIn("declaration_raw", profile)
+        status = self.governance_status_store.get(node_id)
+        self.assertIsNotNone(status)
+        assert status is not None
+        self.assertEqual(status.active_governance_version, governance_version)
+        self.assertTrue(str(status.last_issued_timestamp or "").strip())
+        self.assertTrue(str(status.last_refresh_request_timestamp or "").strip())
 
 
 if __name__ == "__main__":

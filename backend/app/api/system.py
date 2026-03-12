@@ -17,6 +17,8 @@ from ..system.audit import AuditLogStore
 from ..system.onboarding import (
     CapabilityManifestValidationError,
     NodeCapabilityAcceptanceService,
+    NodeGovernanceService,
+    NodeGovernanceStatusService,
     NodeOnboardingSessionsStore,
     NodeRegistrationsStore,
     NodeTrustIssuanceService,
@@ -285,6 +287,8 @@ def build_system_router(
     node_registrations_store: NodeRegistrationsStore | None = None,
     node_trust_issuance: NodeTrustIssuanceService | None = None,
     node_capability_acceptance: NodeCapabilityAcceptanceService | None = None,
+    node_governance_service: NodeGovernanceService | None = None,
+    node_governance_status_service: NodeGovernanceStatusService | None = None,
     audit_store: AuditLogStore | None = None,
 ) -> APIRouter:
     router = APIRouter()
@@ -574,6 +578,19 @@ def build_system_router(
         profile = accepted.profile
         registration.capability_profile_id = profile.profile_id if profile is not None else None
         node_registrations_store.upsert(registration)
+        issued_governance = None
+        if node_governance_service is not None and profile is not None:
+            issued_governance = node_governance_service.issue_baseline_for_profile(
+                node_id=node_id,
+                node_type=registration.node_type,
+                profile=profile,
+            )
+            if node_governance_status_service is not None:
+                node_governance_status_service.mark_issued(
+                    node_id=node_id,
+                    governance_version=issued_governance.governance_version,
+                    issued_timestamp=issued_governance.issued_timestamp,
+                )
 
         _record_audit(
             audit_store,
@@ -586,11 +603,12 @@ def build_system_router(
                 "declared_capability_count": len(registration.declared_capabilities),
                 "enabled_provider_count": len(registration.enabled_providers),
                 "capability_profile_id": registration.capability_profile_id or "",
+                "governance_version": str(getattr(issued_governance, "governance_version", "") or ""),
                 "source_ip": str(request.client.host if request.client else "unknown"),
             },
         )
 
-        return {
+        response_payload = {
             "ok": True,
             "acceptance_status": "accepted",
             "node_id": node_id,
@@ -600,6 +618,10 @@ def build_system_router(
             "enabled_providers": list(registration.enabled_providers),
             "capability_profile_id": registration.capability_profile_id,
         }
+        if issued_governance is not None:
+            response_payload["governance_version"] = issued_governance.governance_version
+            response_payload["governance_issued_at"] = issued_governance.issued_timestamp
+        return response_payload
 
     @router.get("/system/nodes/capabilities/profiles")
     def list_node_capability_profiles(
@@ -626,6 +648,71 @@ def build_system_router(
         if item is None:
             raise HTTPException(status_code=404, detail="node_capability_profile_not_found")
         return {"ok": True, "profile": item.to_dict()}
+
+    @router.get("/system/nodes/governance/current")
+    def get_node_governance_bundle(
+        response: Response,
+        node_id: str = Query(...),
+        x_node_trust_token: str | None = Header(default=None),
+    ):
+        node_key = str(node_id or "").strip()
+        node_token = str(x_node_trust_token or "").strip()
+        if not node_key:
+            raise HTTPException(status_code=400, detail={"error": "node_id_required", "message": "node_id is required"})
+        if not node_token:
+            raise HTTPException(status_code=401, detail="node_trust_token_required")
+        if node_registrations_store is None:
+            raise HTTPException(status_code=503, detail="node_registrations_unavailable")
+        if node_trust_issuance is None:
+            raise HTTPException(status_code=503, detail="trust_issuance_unavailable")
+        if node_governance_service is None:
+            raise HTTPException(status_code=503, detail="node_governance_unavailable")
+
+        trust_record = node_trust_issuance.authenticate_node(node_key, node_token)
+        if trust_record is None:
+            raise HTTPException(status_code=403, detail={"error": "untrusted_node", "message": "node not trusted"})
+
+        registration = node_registrations_store.get(node_key)
+        if registration is None:
+            raise HTTPException(status_code=403, detail={"error": "untrusted_node", "message": "node not registered"})
+        if str(registration.trust_status or "").strip().lower() != "trusted":
+            raise HTTPException(
+                status_code=403,
+                detail={"error": "untrusted_node", "message": f"node trust_status is {registration.trust_status}"},
+            )
+        profile_id = str(registration.capability_profile_id or "").strip()
+        if not profile_id:
+            raise HTTPException(
+                status_code=409,
+                detail={"error": "capability_declaration_required", "message": "node capability declaration required"},
+            )
+
+        bundle = node_governance_service.get_current_for_node(node_id=node_key, capability_profile_id=profile_id)
+        if bundle is None:
+            raise HTTPException(
+                status_code=404,
+                detail={"error": "governance_not_issued", "message": "governance bundle has not been issued yet"},
+            )
+        if node_governance_status_service is not None:
+            node_governance_status_service.mark_refresh_request(node_id=node_key)
+
+        refresh_interval = 120
+        try:
+            refresh_interval = max(30, int(str(os.getenv("SYNTHIA_NODE_GOVERNANCE_REFRESH_INTERVAL_S", "120")).strip()))
+        except Exception:
+            refresh_interval = 120
+        max_age = min(refresh_interval, 300)
+        response.headers["Cache-Control"] = f"private, max-age={max_age}"
+
+        return {
+            "ok": True,
+            "node_id": node_key,
+            "capability_profile_id": profile_id,
+            "governance_version": bundle.governance_version,
+            "issued_timestamp": bundle.issued_timestamp,
+            "refresh_interval_s": refresh_interval,
+            "governance_bundle": bundle.to_dict(),
+        }
 
     @router.delete("/system/nodes/registrations/{node_id}")
     def delete_node_registration(

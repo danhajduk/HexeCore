@@ -43,6 +43,7 @@ Not developed:
 ### Core Governance Service
 - Generates baseline governance bundles based on node class and accepted capability profile.
 - Versions governance bundles and tracks issuance/refresh.
+- Persists per-node governance status metadata (`active_governance_version`, `last_issued_timestamp`, `last_refresh_request_timestamp`).
 
 ### Core Node Management Layer
 - Owns node lifecycle model and readiness progression.
