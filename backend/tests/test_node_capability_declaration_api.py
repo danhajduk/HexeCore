@@ -16,7 +16,14 @@ except Exception:  # pragma: no cover
     build_system_router = None
     FASTAPI_STACK_AVAILABLE = False
 
-from app.system.onboarding import NodeOnboardingSessionsStore, NodeRegistrationsStore, NodeTrustIssuanceService, NodeTrustStore
+from app.system.onboarding import (
+    ModelRoutingRegistryService,
+    ModelRoutingRegistryStore,
+    NodeOnboardingSessionsStore,
+    NodeRegistrationsStore,
+    NodeTrustIssuanceService,
+    NodeTrustStore,
+)
 from app.system.onboarding.capability_acceptance import NodeCapabilityAcceptanceService
 from app.system.onboarding.capability_profiles import NodeCapabilityProfilesStore
 from app.system.onboarding.governance import NodeGovernanceService, NodeGovernanceStore
@@ -55,6 +62,8 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
         self.capability_profiles = NodeCapabilityProfilesStore(path=Path(self.tmpdir.name) / "node_capability_profiles.json")
         self.provider_policy_store = ProviderModelPolicyStore(path=Path(self.tmpdir.name) / "provider_model_policy.json")
         self.provider_policy_service = ProviderModelApprovalPolicyService(self.provider_policy_store)
+        self.routing_registry_store = ModelRoutingRegistryStore(path=Path(self.tmpdir.name) / "model_routing_registry.json")
+        self.routing_registry_service = ModelRoutingRegistryService(self.routing_registry_store)
         self.capability_acceptance = NodeCapabilityAcceptanceService(
             self.capability_profiles,
             provider_model_policy=self.provider_policy_service,
@@ -74,6 +83,7 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
                 node_governance_service=self.governance_service,
                 node_governance_status_service=self.governance_status_service,
                 provider_model_policy_service=self.provider_policy_service,
+                model_routing_registry_service=self.routing_registry_service,
             ),
             prefix="/api",
         )
@@ -203,6 +213,16 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
         assert status is not None
         self.assertEqual(status.active_governance_version, payload["governance_version"])
         self.assertTrue(str(status.last_issued_timestamp or "").strip())
+        routing = self.client.get(
+            f"/api/system/nodes/providers/routing-metadata?node_id={node_id}",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(routing.status_code, 200, routing.text)
+        routing_items = routing.json()["items"]
+        self.assertEqual(len(routing_items), 1)
+        self.assertEqual(routing_items[0]["provider"], "openai")
+        self.assertEqual(routing_items[0]["normalized_model_id"], "gpt-4o-mini")
+        self.assertTrue(routing_items[0]["node_available"])
 
     def test_rejects_untrusted_node_token(self) -> None:
         node_id, _trust_token = self._trusted_node()
@@ -309,6 +329,88 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
         )
         self.assertEqual(rejected.status_code, 400, rejected.text)
         self.assertEqual(rejected.json()["detail"]["error"], "provider_model_not_approved")
+
+    def test_trusted_node_can_submit_provider_capability_report(self) -> None:
+        node_id, trust_token = self._trusted_node()
+        report = self.client.post(
+            "/api/system/nodes/providers/capabilities/report",
+            json={
+                "node_id": node_id,
+                "provider_intelligence": [
+                    {
+                        "provider": "OpenAI",
+                        "available_models": [
+                            {
+                                "model_id": " GPT-4O-Mini ",
+                                "pricing": {"input_per_1k": 0.00015},
+                                "latency_metrics": {"p50_ms": 120.0},
+                            }
+                        ],
+                    }
+                ],
+                "node_available": True,
+            },
+            headers={"X-Node-Trust-Token": trust_token},
+        )
+        self.assertEqual(report.status_code, 200, report.text)
+        payload = report.json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["node_id"], node_id)
+        self.assertEqual(payload["provider_intelligence"][0]["provider"], "openai")
+        self.assertEqual(
+            payload["provider_intelligence"][0]["available_models"][0]["normalized_model_id"],
+            "gpt-4o-mini",
+        )
+        self.assertEqual(payload["unified_model_descriptors"][0]["normalized_model_id"], "gpt-4o-mini")
+
+        registration = self.registrations.get(node_id)
+        self.assertIsNotNone(registration)
+        assert registration is not None
+        self.assertEqual(registration.provider_intelligence[0]["provider"], "openai")
+        routing = self.client.get(
+            f"/api/system/nodes/providers/routing-metadata?node_id={node_id}",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(routing.status_code, 200, routing.text)
+        self.assertEqual(len(routing.json()["items"]), 1)
+        self.assertTrue(routing.json()["items"][0]["node_available"])
+
+        report_offline = self.client.post(
+            "/api/system/nodes/providers/capabilities/report",
+            json={"node_id": node_id, "provider_intelligence": payload["provider_intelligence"], "node_available": False},
+            headers={"X-Node-Trust-Token": trust_token},
+        )
+        self.assertEqual(report_offline.status_code, 200, report_offline.text)
+        routing_after = self.client.get(
+            f"/api/system/nodes/providers/routing-metadata?node_id={node_id}",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(routing_after.status_code, 200, routing_after.text)
+        self.assertFalse(routing_after.json()["items"][0]["node_available"])
+        self.assertEqual(routing_after.json()["items"][0]["source"], "provider_capability_report")
+
+    def test_provider_capability_report_rejects_untrusted_token(self) -> None:
+        node_id, _trust_token = self._trusted_node()
+        report = self.client.post(
+            "/api/system/nodes/providers/capabilities/report",
+            json={"node_id": node_id, "provider_intelligence": []},
+            headers={"X-Node-Trust-Token": "wrong-token"},
+        )
+        self.assertEqual(report.status_code, 403, report.text)
+        self.assertEqual(report.json()["detail"]["error"], "untrusted_node")
+
+    def test_provider_capability_report_rejects_invalid_schema(self) -> None:
+        node_id, trust_token = self._trusted_node()
+        report = self.client.post(
+            "/api/system/nodes/providers/capabilities/report",
+            json={
+                "node_id": node_id,
+                "provider_intelligence": [{"provider": "bad provider", "available_models": []}],
+            },
+            headers={"X-Node-Trust-Token": trust_token},
+        )
+        self.assertEqual(report.status_code, 400, report.text)
+        self.assertEqual(report.json()["detail"]["error"], "invalid_provider_id")
 
 
 if __name__ == "__main__":

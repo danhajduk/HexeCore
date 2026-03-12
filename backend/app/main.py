@@ -37,6 +37,8 @@ from app.system.scheduler.history import SchedulerHistoryStore
 from app.system.settings.store import SettingsStore
 from app.system.settings.router import build_settings_router
 from app.system.onboarding import (
+    ModelRoutingRegistryService,
+    ModelRoutingRegistryStore,
     NodeCapabilityAcceptanceService,
     NodeCapabilityProfilesStore,
     NodeGovernanceService,
@@ -436,6 +438,8 @@ def create_app() -> FastAPI:
     node_capability_profiles_store = NodeCapabilityProfilesStore()
     provider_model_policy_store = ProviderModelPolicyStore()
     provider_model_policy_service = ProviderModelApprovalPolicyService(provider_model_policy_store)
+    model_routing_registry_store = ModelRoutingRegistryStore()
+    model_routing_registry_service = ModelRoutingRegistryService(model_routing_registry_store)
     node_capability_acceptance = NodeCapabilityAcceptanceService(
         node_capability_profiles_store,
         provider_model_policy=provider_model_policy_service,
@@ -453,6 +457,8 @@ def create_app() -> FastAPI:
     app.state.node_trust_issuance = node_trust_issuance
     app.state.node_capability_profiles_store = node_capability_profiles_store
     app.state.node_capability_acceptance = node_capability_acceptance
+    app.state.model_routing_registry_store = model_routing_registry_store
+    app.state.model_routing_registry_service = model_routing_registry_service
     app.state.node_governance_store = node_governance_store
     app.state.node_governance_service = node_governance_service
     app.state.node_governance_status_store = node_governance_status_store
@@ -571,6 +577,7 @@ def create_app() -> FastAPI:
             node_governance_status_service=node_governance_status_service,
             node_telemetry_service=node_telemetry_service,
             provider_model_policy_service=provider_model_policy_service,
+            model_routing_registry_service=model_routing_registry_service,
             audit_store=audit_store,
         ),
         prefix="/api",

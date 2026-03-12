@@ -20,10 +20,12 @@ from ..system.onboarding import (
     NodeCapabilityAcceptanceService,
     NodeGovernanceService,
     NodeGovernanceStatusService,
+    ModelRoutingRegistryService,
     NodeOnboardingSessionsStore,
     NodeRegistrationsStore,
     NodeTelemetryService,
     NodeTrustIssuanceService,
+    normalize_provider_capability_report,
     validate_capability_declaration,
 )
 from ..system.runtime import StandaloneRuntimeService
@@ -67,6 +69,13 @@ class NodeTelemetryIngestRequest(BaseModel):
 
 class ProviderModelPolicyUpdateRequest(BaseModel):
     allowed_models: list[str]
+
+
+class ProviderCapabilityReportRequest(BaseModel):
+    node_id: str
+    provider_intelligence: list[dict]
+    node_available: bool = True
+    observed_at: str | None = None
 
 
 def _onboarding_error(error: str, message: str, *, retryable: bool = False) -> dict[str, object]:
@@ -354,6 +363,7 @@ def build_system_router(
     node_governance_status_service: NodeGovernanceStatusService | None = None,
     node_telemetry_service: NodeTelemetryService | None = None,
     provider_model_policy_service=None,
+    model_routing_registry_service: ModelRoutingRegistryService | None = None,
     audit_store: AuditLogStore | None = None,
 ) -> APIRouter:
     router = APIRouter()
@@ -713,6 +723,13 @@ def build_system_router(
             registration.provider_intelligence = [dict(item) for item in list(profile.provider_intelligence or []) if isinstance(item, dict)]
         registration.capability_profile_id = profile.profile_id if profile is not None else None
         node_registrations_store.upsert(registration)
+        if model_routing_registry_service is not None and profile is not None:
+            model_routing_registry_service.record_provider_intelligence(
+                node_id=node_id,
+                provider_intelligence=[dict(item) for item in list(profile.provider_intelligence or []) if isinstance(item, dict)],
+                node_available=(str(registration.trust_status or "").strip().lower() == "trusted"),
+                source="capability_declaration",
+            )
         issued_governance = None
         if node_governance_service is not None and profile is not None:
             issued_governance = node_governance_service.issue_baseline_for_profile(
@@ -764,6 +781,100 @@ def build_system_router(
             response_payload["governance_version"] = issued_governance.governance_version
             response_payload["governance_issued_at"] = issued_governance.issued_timestamp
         return response_payload
+
+    @router.post("/system/nodes/providers/capabilities/report")
+    def report_provider_capabilities(
+        body: ProviderCapabilityReportRequest,
+        request: Request,
+        x_node_trust_token: str | None = Header(default=None),
+    ):
+        node_token = str(x_node_trust_token or "").strip()
+        if not node_token:
+            raise HTTPException(status_code=401, detail="node_trust_token_required")
+        if node_registrations_store is None:
+            raise HTTPException(status_code=503, detail="node_registrations_unavailable")
+        if node_trust_issuance is None:
+            raise HTTPException(status_code=503, detail="trust_issuance_unavailable")
+
+        node_id = str(body.node_id or "").strip()
+        if not node_id:
+            raise HTTPException(status_code=400, detail={"error": "node_id_required", "message": "node_id is required"})
+        trust_record = node_trust_issuance.authenticate_node(node_id, node_token)
+        if trust_record is None:
+            raise HTTPException(status_code=403, detail={"error": "untrusted_node", "message": "node not trusted"})
+        registration = node_registrations_store.get(node_id)
+        if registration is None:
+            raise HTTPException(status_code=403, detail={"error": "untrusted_node", "message": "node not registered"})
+        if str(registration.trust_status or "").strip().lower() != "trusted":
+            raise HTTPException(
+                status_code=403,
+                detail={"error": "untrusted_node", "message": f"node trust_status is {registration.trust_status}"},
+            )
+
+        try:
+            normalized_providers, unified_model_descriptors = normalize_provider_capability_report(
+                list(body.provider_intelligence or []),
+                node_available=bool(body.node_available),
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail={"error": str(exc) or "provider_capability_report_invalid", "message": "invalid provider capability report"},
+            )
+
+        registration.provider_intelligence = [dict(item) for item in normalized_providers]
+        node_registrations_store.upsert(registration)
+        if model_routing_registry_service is not None:
+            model_routing_registry_service.record_provider_intelligence(
+                node_id=node_id,
+                provider_intelligence=[dict(item) for item in normalized_providers],
+                node_available=bool(body.node_available),
+                source="provider_capability_report",
+            )
+
+        _record_audit(
+            audit_store,
+            event_type="node_provider_capability_report_received",
+            actor_role="node",
+            actor_id=node_id,
+            details={
+                "node_id": node_id,
+                "provider_count": len(normalized_providers),
+                "descriptor_count": len(unified_model_descriptors),
+                "node_available": bool(body.node_available),
+                "source_ip": str(request.client.host if request.client else "unknown"),
+            },
+        )
+        return {
+            "ok": True,
+            "node_id": node_id,
+            "associated_node_id": registration.node_id,
+            "provider_intelligence": [dict(item) for item in normalized_providers],
+            "unified_model_descriptors": [dict(item) for item in unified_model_descriptors],
+            "node_available": bool(body.node_available),
+            "observed_at": str(body.observed_at or "").strip() or None,
+        }
+
+    @router.get("/system/nodes/providers/routing-metadata")
+    def list_model_routing_metadata(
+        request: Request,
+        node_id: str | None = Query(default=None),
+        provider: str | None = Query(default=None),
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        if model_routing_registry_service is None:
+            return {"ok": True, "items": [], "nodes": []}
+        items = model_routing_registry_service.list(node_id=node_id if node_id else None, provider=provider if provider else None)
+        nodes = model_routing_registry_service.list_grouped_by_node(
+            node_id=node_id if node_id else None,
+            provider=provider if provider else None,
+        )
+        return {
+            "ok": True,
+            "items": [item.to_dict() for item in items],
+            "nodes": nodes,
+        }
 
     @router.get("/system/nodes/providers/model-policy")
     def list_provider_model_policy(

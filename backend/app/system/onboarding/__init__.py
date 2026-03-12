@@ -23,6 +23,7 @@ from .capability_manifest import (
     validate_capability_declaration,
 )
 from .provider_capability_normalization import normalize_provider_capability_report
+from .model_routing_registry import ModelRoutingRecord, ModelRoutingRegistryService, ModelRoutingRegistryStore
 
 __all__ = [
     "NodeOnboardingSession",
@@ -55,4 +56,7 @@ __all__ = [
     "CapabilityManifestValidationError",
     "validate_capability_declaration",
     "normalize_provider_capability_report",
+    "ModelRoutingRecord",
+    "ModelRoutingRegistryStore",
+    "ModelRoutingRegistryService",
 ]
