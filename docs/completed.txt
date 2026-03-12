@@ -530,3 +530,4 @@
 2026-03-11 18:19 - Task 465: updated API reference with node registration delete/revoke lifecycle endpoints and compatibility alias note.
 2026-03-11 18:19 - Task 466: added runtime restart-boundary guidance and Phase 2 operator runbook verification/troubleshooting steps.
 2026-03-11 18:19 - Task 467: documented activation payload operational MQTT host non-loopback resolution precedence.
+2026-03-11 20:00 - Task 463: extended node capability registry with provider intelligence (provider/model pricing and latency metadata) across manifest validation, capability profiles, node registration persistence, and capability declaration API responses.

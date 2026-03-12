@@ -65,6 +65,88 @@ class CapabilityEnvironmentHints(BaseModel):
     region: str | None = Field(default=None, max_length=64)
 
 
+class CapabilityProviderModelMetadata(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    model_id: str = Field(..., min_length=1, max_length=128)
+    pricing: dict[str, float] = Field(default_factory=dict)
+    latency_metrics: dict[str, float] = Field(default_factory=dict)
+
+    @field_validator("model_id")
+    @classmethod
+    def _validate_model_id(cls, value: str) -> str:
+        model_id = str(value or "").strip()
+        if not model_id:
+            raise ValueError("invalid_model_id")
+        return model_id
+
+    @field_validator("pricing", mode="before")
+    @classmethod
+    def _validate_pricing(cls, value: Any) -> dict[str, float]:
+        if value is None:
+            return {}
+        if not isinstance(value, dict):
+            raise ValueError("provider_model_pricing_must_be_object")
+        out: dict[str, float] = {}
+        for key, raw in value.items():
+            metric = str(key or "").strip().lower()
+            if not metric:
+                raise ValueError("invalid_pricing_metric")
+            try:
+                amount = float(raw)
+            except Exception as exc:
+                raise ValueError("invalid_pricing_value") from exc
+            if amount < 0:
+                raise ValueError("invalid_pricing_value")
+            out[metric] = amount
+        return out
+
+    @field_validator("latency_metrics", mode="before")
+    @classmethod
+    def _validate_latency_metrics(cls, value: Any) -> dict[str, float]:
+        if value is None:
+            return {}
+        if not isinstance(value, dict):
+            raise ValueError("provider_model_latency_metrics_must_be_object")
+        out: dict[str, float] = {}
+        for key, raw in value.items():
+            metric = str(key or "").strip().lower()
+            if not metric:
+                raise ValueError("invalid_latency_metric")
+            try:
+                latency = float(raw)
+            except Exception as exc:
+                raise ValueError("invalid_latency_value") from exc
+            if latency < 0:
+                raise ValueError("invalid_latency_value")
+            out[metric] = latency
+        return out
+
+
+class CapabilityProviderIntelligence(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str = Field(..., min_length=1, max_length=128)
+    available_models: list[CapabilityProviderModelMetadata] = Field(default_factory=list)
+
+    @field_validator("provider")
+    @classmethod
+    def _validate_provider(cls, value: str) -> str:
+        provider = str(value or "").strip().lower()
+        if not _ID_RE.match(provider):
+            raise ValueError("invalid_provider_id")
+        return provider
+
+    @field_validator("available_models", mode="before")
+    @classmethod
+    def _validate_available_models(cls, value: Any) -> list[dict[str, Any]]:
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            raise ValueError("provider_available_models_must_be_list")
+        return value
+
+
 class CapabilityDeclaration(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -75,6 +157,7 @@ class CapabilityDeclaration(BaseModel):
     enabled_providers: list[str] = Field(default_factory=list)
     node_features: CapabilityNodeFeatures
     environment_hints: CapabilityEnvironmentHints
+    provider_intelligence: list[CapabilityProviderIntelligence] = Field(default_factory=list)
 
     @field_validator("manifest_version")
     @classmethod
@@ -129,6 +212,9 @@ class CapabilityDeclaration(BaseModel):
         for provider in self.enabled_providers:
             if provider not in supported:
                 raise ValueError("enabled_provider_not_supported")
+        for intel in self.provider_intelligence:
+            if intel.provider not in supported:
+                raise ValueError("provider_intelligence_not_supported")
         return self
 
 

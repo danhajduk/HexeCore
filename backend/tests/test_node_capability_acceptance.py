@@ -29,6 +29,14 @@ class TestNodeCapabilityAcceptance(unittest.TestCase):
             "declared_task_families": ["task.classification", "task.summarization"],
             "supported_providers": ["openai", "local-llm"],
             "enabled_providers": ["openai"],
+            "provider_intelligence": [
+                {
+                    "provider": "openai",
+                    "available_models": [
+                        {"model_id": "gpt-4o-mini", "pricing": {"input_per_1k": 0.00015}, "latency_metrics": {"p50_ms": 120.0}}
+                    ],
+                }
+            ],
             "node_features": {"telemetry": True, "governance_refresh": True},
             "environment_hints": {},
         }
@@ -39,6 +47,7 @@ class TestNodeCapabilityAcceptance(unittest.TestCase):
         self.assertIsNotNone(result.profile)
         assert result.profile is not None
         self.assertTrue(result.profile.profile_id.startswith("cap-node-abc123-v"))
+        self.assertEqual(result.profile.provider_intelligence[0]["provider"], "openai")
 
     def test_rejects_unsupported_task_family(self) -> None:
         manifest = self._manifest()

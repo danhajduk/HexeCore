@@ -32,6 +32,14 @@ class TestNodeRegistrationsStore(unittest.TestCase):
             updated_at="2026-03-11T00:00:00+00:00",
             declared_capabilities=["task.classification", "task.captioning"],
             enabled_providers=["openai", "local-cpu"],
+            provider_intelligence=[
+                {
+                    "provider": "openai",
+                    "available_models": [
+                        {"model_id": "gpt-4o-mini", "pricing": {"input_per_1k": 0.00015}, "latency_metrics": {"p50_ms": 120.0}}
+                    ],
+                }
+            ],
             capability_declaration_version="1.0",
             capability_declaration_timestamp="2026-03-11T00:00:05+00:00",
             capability_profile_id="cap-node-001-v1",
@@ -48,6 +56,7 @@ class TestNodeRegistrationsStore(unittest.TestCase):
         self.assertEqual(by_id.trust_status, "approved")
         self.assertEqual(by_id.declared_capabilities, ["task.classification", "task.captioning"])
         self.assertEqual(by_id.enabled_providers, ["openai", "local-cpu"])
+        self.assertEqual(by_id.provider_intelligence[0]["provider"], "openai")
         self.assertEqual(by_id.capability_declaration_version, "1.0")
         self.assertEqual(by_id.capability_profile_id, "cap-node-001-v1")
         by_session = reloaded.get_by_session("sess-001")
@@ -78,6 +87,7 @@ class TestNodeRegistrationsStore(unittest.TestCase):
         assert item is not None
         self.assertEqual(item.declared_capabilities, [])
         self.assertEqual(item.enabled_providers, [])
+        self.assertEqual(item.provider_intelligence, [])
         self.assertIsNone(item.capability_declaration_version)
         self.assertIsNone(item.capability_declaration_timestamp)
         self.assertIsNone(item.capability_profile_id)

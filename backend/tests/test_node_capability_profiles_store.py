@@ -21,6 +21,14 @@ class TestNodeCapabilityProfilesStore(unittest.TestCase):
             "declared_task_families": ["task.classification"],
             "supported_providers": ["openai", "local-llm"],
             "enabled_providers": list(providers or ["openai"]),
+            "provider_intelligence": [
+                {
+                    "provider": "openai",
+                    "available_models": [
+                        {"model_id": "gpt-4o-mini", "pricing": {"input_per_1k": 0.00015}, "latency_metrics": {"p50_ms": 120.0}}
+                    ],
+                }
+            ],
             "node_features": {"telemetry": True},
             "environment_hints": {},
         }
@@ -33,6 +41,7 @@ class TestNodeCapabilityProfilesStore(unittest.TestCase):
             enabled_providers=["openai"],
             feature_flags={"telemetry": True},
             manifest_version="1.0",
+            provider_intelligence=self._manifest()["provider_intelligence"],
         )
         profile2 = self.store.create_or_get(
             node_id="node-abc123",
@@ -41,8 +50,10 @@ class TestNodeCapabilityProfilesStore(unittest.TestCase):
             enabled_providers=["openai"],
             feature_flags={"telemetry": True},
             manifest_version="1.0",
+            provider_intelligence=self._manifest()["provider_intelligence"],
         )
         self.assertEqual(profile1.profile_id, profile2.profile_id)
+        self.assertEqual(profile1.provider_intelligence[0]["provider"], "openai")
         self.assertEqual(len(self.store.list(node_id="node-abc123")), 1)
 
     def test_create_or_get_versions_profiles_on_manifest_change(self) -> None:
@@ -53,6 +64,7 @@ class TestNodeCapabilityProfilesStore(unittest.TestCase):
             enabled_providers=["openai"],
             feature_flags={"telemetry": True},
             manifest_version="1.0",
+            provider_intelligence=self._manifest(["openai"])["provider_intelligence"],
         )
         p2 = self.store.create_or_get(
             node_id="node-abc123",
@@ -61,6 +73,14 @@ class TestNodeCapabilityProfilesStore(unittest.TestCase):
             enabled_providers=["local-llm"],
             feature_flags={"telemetry": True},
             manifest_version="1.0",
+            provider_intelligence=[
+                {
+                    "provider": "local-llm",
+                    "available_models": [
+                        {"model_id": "llama3", "pricing": {"input_per_1k": 0.0}, "latency_metrics": {"p50_ms": 95.0}}
+                    ],
+                }
+            ],
         )
         self.assertNotEqual(p1.profile_id, p2.profile_id)
         self.assertTrue(p1.profile_id.endswith("-v1"))

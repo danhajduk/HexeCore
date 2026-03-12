@@ -131,6 +131,18 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
             "declared_task_families": ["task.classification", "task.summarization"],
             "supported_providers": ["openai", "local-llm"],
             "enabled_providers": ["openai"],
+            "provider_intelligence": [
+                {
+                    "provider": "openai",
+                    "available_models": [
+                        {
+                            "model_id": "gpt-4o-mini",
+                            "pricing": {"input_per_1k": 0.00015, "output_per_1k": 0.0006},
+                            "latency_metrics": {"p50_ms": 120.0, "p95_ms": 280.0},
+                        }
+                    ],
+                }
+            ],
             "node_features": {
                 "telemetry": True,
                 "governance_refresh": True,
@@ -159,6 +171,8 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
         self.assertEqual(payload["manifest_version"], "1.0")
         self.assertEqual(payload["declared_capabilities"], ["task.classification", "task.summarization"])
         self.assertEqual(payload["enabled_providers"], ["openai"])
+        self.assertEqual(payload["provider_intelligence"][0]["provider"], "openai")
+        self.assertEqual(payload["provider_intelligence"][0]["available_models"][0]["model_id"], "gpt-4o-mini")
         self.assertTrue(str(payload.get("capability_profile_id") or "").startswith(f"cap-{node_id}-v"))
         self.assertTrue(str(payload.get("governance_version") or "").startswith("gov-v"))
         self.assertTrue(str(payload.get("governance_issued_at") or "").strip())
@@ -168,6 +182,7 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
         assert registration is not None
         self.assertEqual(registration.declared_capabilities, ["task.classification", "task.summarization"])
         self.assertEqual(registration.enabled_providers, ["openai"])
+        self.assertEqual(registration.provider_intelligence[0]["provider"], "openai")
         self.assertEqual(registration.capability_declaration_version, "1.0")
         self.assertTrue(str(registration.capability_declaration_timestamp or "").strip())
         self.assertEqual(registration.capability_profile_id, payload["capability_profile_id"])
@@ -258,6 +273,7 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
         items = listed.json()["items"]
         self.assertEqual(len(items), 1)
         self.assertEqual(items[0]["profile_id"], profile_id)
+        self.assertEqual(items[0]["provider_intelligence"][0]["provider"], "openai")
         self.assertEqual(items[0]["node_id"], node_id)
 
         got = self.client.get(

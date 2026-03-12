@@ -49,6 +49,7 @@ class NodeRegistrationRecord:
     updated_at: str
     declared_capabilities: list[str] = field(default_factory=list)
     enabled_providers: list[str] = field(default_factory=list)
+    provider_intelligence: list[dict[str, object]] = field(default_factory=list)
     capability_declaration_version: str | None = None
     capability_declaration_timestamp: str | None = None
     capability_profile_id: str | None = None
@@ -65,6 +66,7 @@ class NodeRegistrationRecord:
             "capabilities_summary": list(self.capabilities_summary or []),
             "declared_capabilities": list(self.declared_capabilities or []),
             "enabled_providers": list(self.enabled_providers or []),
+            "provider_intelligence": [dict(item) for item in self.provider_intelligence if isinstance(item, dict)],
             "capability_declaration_version": self.capability_declaration_version,
             "capability_declaration_timestamp": self.capability_declaration_timestamp,
             "capability_profile_id": self.capability_profile_id,
@@ -132,6 +134,12 @@ class NodeRegistrationsStore:
             )
             enabled_providers_raw = item.get("enabled_providers")
             enabled_providers = [str(v).strip() for v in enabled_providers_raw] if isinstance(enabled_providers_raw, list) else []
+            provider_intelligence_raw = item.get("provider_intelligence")
+            provider_intelligence = (
+                [dict(v) for v in provider_intelligence_raw if isinstance(v, dict)]
+                if isinstance(provider_intelligence_raw, list)
+                else []
+            )
             record = NodeRegistrationRecord(
                 node_id=node_id,
                 node_type=node_type,
@@ -141,6 +149,7 @@ class NodeRegistrationsStore:
                 capabilities_summary=[v for v in capabilities if v],
                 declared_capabilities=[v for v in declared_capabilities if v],
                 enabled_providers=[v for v in enabled_providers if v],
+                provider_intelligence=provider_intelligence,
                 capability_declaration_version=str(item.get("capability_declaration_version") or "").strip() or None,
                 capability_declaration_timestamp=str(item.get("capability_declaration_timestamp") or "").strip() or None,
                 capability_profile_id=str(item.get("capability_profile_id") or "").strip() or None,
@@ -218,6 +227,7 @@ class NodeRegistrationsStore:
             capabilities_summary=[],
             declared_capabilities=[],
             enabled_providers=[],
+            provider_intelligence=[],
             capability_declaration_version=None,
             capability_declaration_timestamp=None,
             capability_profile_id=None,

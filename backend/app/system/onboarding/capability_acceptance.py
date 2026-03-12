@@ -49,6 +49,9 @@ class NodeCapabilityAcceptanceService:
             str(v).strip().lower() for v in list(manifest.get("supported_providers") or []) if str(v).strip()
         ]
         providers_enabled = [str(v).strip().lower() for v in list(manifest.get("enabled_providers") or []) if str(v).strip()]
+        provider_intelligence = [
+            dict(item) for item in list(manifest.get("provider_intelligence") or []) if isinstance(item, dict)
+        ]
 
         allowed_families = _allowed_task_families()
         if allowed_families:
@@ -85,6 +88,7 @@ class NodeCapabilityAcceptanceService:
             manifest=manifest,
             declared_task_families=families,
             enabled_providers=providers_enabled,
+            provider_intelligence=provider_intelligence,
             feature_flags=normalized_features,
             manifest_version=version,
         )

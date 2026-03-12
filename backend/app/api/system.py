@@ -319,6 +319,7 @@ def _node_registry_payload(item, node_governance_status_service: NodeGovernanceS
         "approved_at": getattr(item, "approved_at", None),
         "declared_capabilities": list(getattr(item, "declared_capabilities", []) or []),
         "enabled_providers": list(getattr(item, "enabled_providers", []) or []),
+        "provider_intelligence": [dict(v) for v in list(getattr(item, "provider_intelligence", []) or []) if isinstance(v, dict)],
         "capability_declaration_version": getattr(item, "capability_declaration_version", None),
         "capability_declaration_timestamp": getattr(item, "capability_declaration_timestamp", None),
         "capability_profile_id": getattr(item, "capability_profile_id", None),
@@ -688,6 +689,9 @@ def build_system_router(
 
         registration.declared_capabilities = list(manifest.get("declared_task_families") or [])
         registration.enabled_providers = list(manifest.get("enabled_providers") or [])
+        registration.provider_intelligence = [
+            dict(item) for item in list(manifest.get("provider_intelligence") or []) if isinstance(item, dict)
+        ]
         registration.capability_declaration_version = str(manifest.get("manifest_version") or "").strip() or None
         registration.capability_declaration_timestamp = _utcnow_iso()
         accepted = node_capability_acceptance.evaluate(node_id=node_id, manifest=manifest)
@@ -726,6 +730,7 @@ def build_system_router(
                 "manifest_version": registration.capability_declaration_version or "",
                 "declared_capability_count": len(registration.declared_capabilities),
                 "enabled_provider_count": len(registration.enabled_providers),
+                "provider_intelligence_count": len(registration.provider_intelligence),
                 "capability_profile_id": registration.capability_profile_id or "",
                 "governance_version": str(getattr(issued_governance, "governance_version", "") or ""),
                 "source_ip": str(request.client.host if request.client else "unknown"),
@@ -740,6 +745,7 @@ def build_system_router(
             "accepted_at": registration.capability_declaration_timestamp,
             "declared_capabilities": list(registration.declared_capabilities),
             "enabled_providers": list(registration.enabled_providers),
+            "provider_intelligence": [dict(item) for item in list(registration.provider_intelligence or []) if isinstance(item, dict)],
             "capability_profile_id": registration.capability_profile_id,
         }
         if issued_governance is not None:

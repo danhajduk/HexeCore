@@ -3,7 +3,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -36,6 +36,7 @@ class NodeCapabilityProfileRecord:
     manifest_version: str
     declaration_digest: str
     declaration_raw: dict[str, Any]
+    provider_intelligence: list[dict[str, Any]] = field(default_factory=list)
     schema_version: str = CAPABILITY_PROFILE_SCHEMA_VERSION
 
     def to_dict(self) -> dict[str, Any]:
@@ -45,6 +46,7 @@ class NodeCapabilityProfileRecord:
             "node_id": self.node_id,
             "declared_task_families": list(self.declared_task_families or []),
             "enabled_providers": list(self.enabled_providers or []),
+            "provider_intelligence": copy.deepcopy(self.provider_intelligence or []),
             "feature_flags": dict(self.feature_flags or {}),
             "acceptance_timestamp": self.acceptance_timestamp,
             "manifest_version": self.manifest_version,
@@ -84,6 +86,9 @@ class NodeCapabilityProfilesStore:
                 continue
             declared = item.get("declared_task_families") if isinstance(item.get("declared_task_families"), list) else []
             providers = item.get("enabled_providers") if isinstance(item.get("enabled_providers"), list) else []
+            provider_intelligence = (
+                item.get("provider_intelligence") if isinstance(item.get("provider_intelligence"), list) else []
+            )
             features = item.get("feature_flags") if isinstance(item.get("feature_flags"), dict) else {}
             raw_manifest = item.get("declaration_raw") if isinstance(item.get("declaration_raw"), dict) else {}
             record = NodeCapabilityProfileRecord(
@@ -91,6 +96,9 @@ class NodeCapabilityProfilesStore:
                 node_id=node_id,
                 declared_task_families=[str(v).strip() for v in declared if str(v).strip()],
                 enabled_providers=[str(v).strip() for v in providers if str(v).strip()],
+                provider_intelligence=[
+                    copy.deepcopy(v) for v in provider_intelligence if isinstance(v, dict)
+                ],
                 feature_flags={str(k): bool(v) for k, v in features.items()},
                 acceptance_timestamp=accepted_at,
                 manifest_version=manifest_version,
@@ -139,6 +147,7 @@ class NodeCapabilityProfilesStore:
         enabled_providers: list[str],
         feature_flags: dict[str, bool],
         manifest_version: str,
+        provider_intelligence: list[dict[str, Any]] | None = None,
     ) -> NodeCapabilityProfileRecord:
         node_key = str(node_id or "").strip()
         if not node_key:
@@ -165,6 +174,7 @@ class NodeCapabilityProfilesStore:
             node_id=node_key,
             declared_task_families=[str(v).strip() for v in declared_task_families if str(v).strip()],
             enabled_providers=[str(v).strip() for v in enabled_providers if str(v).strip()],
+            provider_intelligence=[copy.deepcopy(v) for v in list(provider_intelligence or []) if isinstance(v, dict)],
             feature_flags={str(k): bool(v) for k, v in feature_flags.items()},
             acceptance_timestamp=_utcnow_iso(),
             manifest_version=str(manifest_version or "").strip(),
