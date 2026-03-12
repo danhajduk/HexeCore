@@ -257,13 +257,42 @@ def _registry_state_from_trust_status(value: str | None) -> str:
     return "pending"
 
 
-def _node_registry_payload(item) -> dict[str, object]:
+def _node_capability_status(item) -> str:
+    profile_id = str(getattr(item, "capability_profile_id", "") or "").strip()
+    declared_at = str(getattr(item, "capability_declaration_timestamp", "") or "").strip()
+    if profile_id:
+        return "accepted"
+    if declared_at:
+        return "declared"
+    return "missing"
+
+
+def _node_registry_payload(item, node_governance_status_service: NodeGovernanceStatusService | None = None) -> dict[str, object]:
     trust_status = str(getattr(item, "trust_status", "") or "").strip().lower()
+    capability_status = _node_capability_status(item)
+    governance_status = "pending"
+    active_governance_version = None
+    governance_last_issued_at = None
+    governance_last_refresh_request_at = None
+    if node_governance_status_service is not None:
+        status = node_governance_status_service.get_status(str(getattr(item, "node_id", "") or ""))
+        if status is not None:
+            active_governance_version = status.active_governance_version
+            governance_last_issued_at = status.last_issued_timestamp
+            governance_last_refresh_request_at = status.last_refresh_request_timestamp
+            if str(status.active_governance_version or "").strip():
+                governance_status = "issued"
+    if capability_status == "missing":
+        governance_status = "pending_capability"
+    operational_ready = bool(trust_status == "trusted" and capability_status == "accepted" and governance_status == "issued")
     return {
         "node_id": getattr(item, "node_id", None),
         "node_name": getattr(item, "node_name", None),
         "node_type": getattr(item, "node_type", None),
         "node_software_version": getattr(item, "node_software_version", None),
+        "requested_node_name": getattr(item, "node_name", None),
+        "requested_node_type": getattr(item, "requested_node_type", None) or getattr(item, "node_type", None),
+        "requested_node_software_version": getattr(item, "node_software_version", None),
         "trust_status": trust_status or "pending",
         "registry_state": _registry_state_from_trust_status(trust_status),
         "approved_by_user_id": getattr(item, "approved_by_user_id", None),
@@ -273,6 +302,12 @@ def _node_registry_payload(item) -> dict[str, object]:
         "capability_declaration_version": getattr(item, "capability_declaration_version", None),
         "capability_declaration_timestamp": getattr(item, "capability_declaration_timestamp", None),
         "capability_profile_id": getattr(item, "capability_profile_id", None),
+        "capability_status": capability_status,
+        "governance_sync_status": governance_status,
+        "operational_ready": operational_ready,
+        "active_governance_version": active_governance_version,
+        "governance_last_issued_at": governance_last_issued_at,
+        "governance_last_refresh_request_at": governance_last_refresh_request_at,
         "source_onboarding_session_id": getattr(item, "source_onboarding_session_id", None),
         "created_at": getattr(item, "created_at", None),
         "updated_at": getattr(item, "updated_at", None),
@@ -468,7 +503,7 @@ def build_system_router(
         if trust_status:
             trust_status_filter = str(trust_status).strip().lower()
             entries = [item for item in entries if str(item.trust_status).strip().lower() == trust_status_filter]
-        return {"ok": True, "items": [item.to_api_dict() for item in entries]}
+        return {"ok": True, "items": [_node_registry_payload(item, node_governance_status_service) for item in entries]}
 
     @router.get("/system/nodes/registrations/{node_id}")
     def get_node_registration(
@@ -482,7 +517,7 @@ def build_system_router(
         item = node_registrations_store.get(node_id)
         if item is None:
             raise HTTPException(status_code=404, detail="node_registration_not_found")
-        return {"ok": True, "registration": item.to_api_dict()}
+        return {"ok": True, "registration": _node_registry_payload(item, node_governance_status_service)}
 
     @router.get("/system/nodes/registry")
     def list_node_registry(
@@ -502,7 +537,7 @@ def build_system_router(
         if trust_status:
             trust_status_filter = str(trust_status).strip().lower()
             entries = [item for item in entries if str(item.trust_status).strip().lower() == trust_status_filter]
-        payload = [_node_registry_payload(item) for item in entries]
+        payload = [_node_registry_payload(item, node_governance_status_service) for item in entries]
         if state:
             state_filter = str(state).strip().lower()
             payload = [item for item in payload if str(item.get("registry_state") or "").strip().lower() == state_filter]

@@ -185,6 +185,17 @@ class TestNodeGovernanceApi(unittest.TestCase):
         self.assertTrue(str(status.last_issued_timestamp or "").strip())
         self.assertTrue(str(status.last_refresh_request_timestamp or "").strip())
 
+        registry = self.client.get("/api/system/nodes/registry", headers={"X-Admin-Token": "test-token"})
+        self.assertEqual(registry.status_code, 200, registry.text)
+        items = registry.json()["items"]
+        self.assertEqual(len(items), 1)
+        node = items[0]
+        self.assertEqual(node["node_id"], node_id)
+        self.assertEqual(node["capability_status"], "accepted")
+        self.assertEqual(node["governance_sync_status"], "issued")
+        self.assertTrue(bool(node["operational_ready"]))
+        self.assertEqual(node["active_governance_version"], governance_version)
+
 
 if __name__ == "__main__":
     unittest.main()

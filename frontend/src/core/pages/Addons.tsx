@@ -54,6 +54,10 @@ type NodeRegistration = {
   node_software_version?: string;
   trust_status?: string;
   registry_state?: string;
+  capability_status?: string;
+  governance_sync_status?: string;
+  operational_ready?: boolean;
+  active_governance_version?: string | null;
   approved_by_user_id?: string | null;
   source_onboarding_session_id?: string | null;
   updated_at?: string | null;
@@ -454,6 +458,13 @@ export default function Addons() {
                       </div>
                       <div className="addon-meta">
                         version: {item.node_software_version || "unknown"} • approved by: {item.approved_by_user_id || "-"}
+                      </div>
+                      <div className="addon-meta">
+                        capability: {item.capability_status || "missing"} • governance: {item.governance_sync_status || "pending"} •
+                        readiness: {item.operational_ready ? "operational" : "not_ready"}
+                      </div>
+                      <div className="addon-meta">
+                        governance version: {item.active_governance_version || "-"}
                       </div>
                       <div className="addon-meta">
                         session: {item.source_onboarding_session_id || "-"} • updated:{" "}

@@ -31,6 +31,7 @@ Status: Implemented
   - `GET /api/system/nodes/onboarding/sessions/{session_id}/finalize?node_nonce=...`
   - `GET /api/system/nodes/registrations` (admin session/token required)
   - `GET /api/system/nodes/registrations/{node_id}` (admin session/token required)
+  - `GET /api/system/nodes/registry` (admin session/token required; includes capability/governance/readiness status fields)
   - `POST /api/system/nodes/capabilities/declaration` (trusted node token required via `X-Node-Trust-Token`)
   - `GET /api/system/nodes/governance/current?node_id=...` (trusted node token required via `X-Node-Trust-Token`)
   - `GET /api/system/nodes/capabilities/profiles` (admin session/token required)
