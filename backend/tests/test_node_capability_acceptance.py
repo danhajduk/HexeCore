@@ -89,6 +89,20 @@ class TestNodeCapabilityAcceptance(unittest.TestCase):
         self.assertFalse(result.accepted)
         self.assertEqual(result.error_code, "unsupported_provider_identifier")
 
+    def test_accepts_provider_identifier_from_node_when_allowlist_not_configured(self) -> None:
+        manifest = self._manifest()
+        manifest["supported_providers"] = ["provider-x"]
+        manifest["enabled_providers"] = ["provider-x"]
+        manifest["provider_intelligence"] = [
+            {
+                "provider": "provider-x",
+                "available_models": [{"model_id": "x-large", "pricing": {"input_per_1k": 0.1}}],
+            }
+        ]
+        with patch.dict(os.environ, {"SYNTHIA_NODE_ALLOWED_PROVIDERS": ""}, clear=False):
+            result = self.service.evaluate(node_id="node-abc123", manifest=manifest)
+        self.assertTrue(result.accepted)
+
     def test_rejects_unapproved_models_when_provider_policy_exists(self) -> None:
         manifest = self._manifest()
         self.provider_policy.set_allowlist(provider="openai", allowed_models=["gpt-4.1-mini"], updated_by="admin")

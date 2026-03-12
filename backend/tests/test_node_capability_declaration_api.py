@@ -284,6 +284,24 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
         self.assertEqual(res.status_code, 400, res.text)
         self.assertEqual(res.json()["detail"]["error"], "unsupported_provider_identifier")
 
+    def test_accepts_provider_identifier_from_node_when_allowlist_not_configured(self) -> None:
+        node_id, trust_token = self._trusted_node()
+        manifest = self._manifest(node_id)
+        manifest["supported_providers"] = ["provider-x"]
+        manifest["enabled_providers"] = ["provider-x"]
+        manifest["provider_intelligence"] = [
+            {"provider": "provider-x", "available_models": [{"model_id": "x-large", "pricing": {"input_per_1k": 0.1}}]}
+        ]
+        with patch.dict(os.environ, {"SYNTHIA_NODE_ALLOWED_PROVIDERS": ""}, clear=False):
+            res = self.client.post(
+                "/api/system/nodes/capabilities/declaration",
+                json={"manifest": manifest},
+                headers={"X-Node-Trust-Token": trust_token},
+            )
+        self.assertEqual(res.status_code, 200, res.text)
+        self.assertEqual(res.json()["enabled_providers"], ["provider-x"])
+        self.assertEqual(res.json()["provider_intelligence"][0]["provider"], "provider-x")
+
     def test_admin_can_list_and_get_capability_profiles(self) -> None:
         node_id, trust_token = self._trusted_node()
         declared = self.client.post(

@@ -19,10 +19,7 @@ def _allowed_task_families() -> set[str]:
 
 
 def _allowed_providers() -> set[str]:
-    configured = _normalized_set(os.getenv("SYNTHIA_NODE_ALLOWED_PROVIDERS", ""))
-    if configured:
-        return configured
-    return {"openai", "local-llm", "local-cpu", "anthropic", "google"}
+    return _normalized_set(os.getenv("SYNTHIA_NODE_ALLOWED_PROVIDERS", ""))
 
 
 @dataclass
@@ -79,13 +76,14 @@ class NodeCapabilityAcceptanceService:
                 )
 
         allowed_providers = _allowed_providers()
-        unsupported_providers = sorted((set(providers_supported) | set(providers_enabled)) - allowed_providers)
-        if unsupported_providers:
-            return CapabilityAcceptanceResult(
-                accepted=False,
-                error_code="unsupported_provider_identifier",
-                message=",".join(unsupported_providers),
-            )
+        if allowed_providers:
+            unsupported_providers = sorted((set(providers_supported) | set(providers_enabled)) - allowed_providers)
+            if unsupported_providers:
+                return CapabilityAcceptanceResult(
+                    accepted=False,
+                    error_code="unsupported_provider_identifier",
+                    message=",".join(unsupported_providers),
+                )
 
         if any(provider not in providers_supported for provider in providers_enabled):
             return CapabilityAcceptanceResult(
