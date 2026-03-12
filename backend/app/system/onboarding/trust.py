@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import secrets
 import socket
 from dataclasses import dataclass
@@ -67,6 +68,16 @@ def _resolve_operational_mqtt_host() -> str:
     if mqtt_host and not _is_loopback_host(mqtt_host):
         return mqtt_host
     return _detect_advertise_host()
+
+
+def _sanitize_mqtt_username(value: str) -> str:
+    clean = re.sub(r"[^a-zA-Z0-9_.-]+", "_", str(value or "").strip())
+    clean = clean.strip("_.-")
+    return clean[:64] if clean else "mqtt_user"
+
+
+def _default_node_mqtt_identity(node_id: str) -> str:
+    return _sanitize_mqtt_username(f"sn_{str(node_id or '').strip()}")
 
 
 @dataclass
@@ -230,7 +241,10 @@ class NodeTrustIssuanceService:
         if existing is not None:
             if _is_loopback_host(existing.operational_mqtt_host):
                 existing.operational_mqtt_host = self._mqtt_host
-                self._store.upsert(existing)
+            normalized_identity = _default_node_mqtt_identity(existing.node_id)
+            if str(existing.operational_mqtt_identity or "").strip() != normalized_identity:
+                existing.operational_mqtt_identity = normalized_identity
+            self._store.upsert(existing)
             return {"ok": True, "activation": existing.to_dict()}
 
         node_id = str(session.linked_node_id or "").strip() or f"node-{session.session_id[:12]}"
@@ -255,7 +269,7 @@ class NodeTrustIssuanceService:
             initial_baseline_policy=baseline_policy,
             baseline_policy_version=baseline_policy_version,
             activation_profile=activation_profile,
-            operational_mqtt_identity=f"node:{node_id}",
+            operational_mqtt_identity=_default_node_mqtt_identity(node_id),
             operational_mqtt_token=secrets.token_urlsafe(32),
             operational_mqtt_host=self._mqtt_host,
             operational_mqtt_port=self._mqtt_port,
@@ -267,6 +281,16 @@ class NodeTrustIssuanceService:
 
     def revoke_node(self, node_id: str) -> bool:
         return self._store.delete_by_node(node_id) is not None
+
+    def activation_for_session(self, session_id: str) -> dict[str, Any] | None:
+        record = self._store.get_by_session(session_id)
+        if record is None:
+            return None
+        normalized_identity = _default_node_mqtt_identity(record.node_id)
+        if str(record.operational_mqtt_identity or "").strip() != normalized_identity:
+            record.operational_mqtt_identity = normalized_identity
+            self._store.upsert(record)
+        return record.to_dict()
 
     def authenticate_node(self, node_id: str, node_trust_token: str) -> NodeTrustRecord | None:
         node_key = str(node_id or "").strip()

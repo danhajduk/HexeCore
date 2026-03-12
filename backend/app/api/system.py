@@ -134,6 +134,11 @@ def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _node_topic_scope(node_id: str) -> str:
+    node_key = str(node_id or "").strip()
+    return f"synthia/nodes/{node_key}/#"
+
+
 _RATE_WINDOWS: dict[str, list[float]] = {}
 _LEGACY_DEPRECATION_DATE = "2026-09-30"
 
@@ -333,6 +338,9 @@ def build_system_router(
     registry: AddonRegistry,
     runtime_service: StandaloneRuntimeService | None = None,
     mqtt_approval_service=None,
+    mqtt_integration_state_store=None,
+    mqtt_credential_store=None,
+    mqtt_runtime_reconciler=None,
     onboarding_sessions_store: NodeOnboardingSessionsStore | None = None,
     node_registrations_store: NodeRegistrationsStore | None = None,
     node_trust_issuance: NodeTrustIssuanceService | None = None,
@@ -344,6 +352,71 @@ def build_system_router(
 ) -> APIRouter:
     router = APIRouter()
     runtime = runtime_service or StandaloneRuntimeService()
+
+    async def _reconcile_mqtt_authority(reason: str) -> None:
+        if mqtt_runtime_reconciler is None:
+            return
+        reconcile_fn = getattr(mqtt_runtime_reconciler, "reconcile_authority", None)
+        if callable(reconcile_fn):
+            await reconcile_fn(reason=reason)
+
+    async def _provision_node_mqtt_principal(activation: dict[str, object] | None) -> None:
+        if not isinstance(activation, dict):
+            return
+        if mqtt_integration_state_store is None or mqtt_credential_store is None:
+            return
+        node_id = str(activation.get("node_id") or "").strip()
+        identity = str(activation.get("operational_mqtt_identity") or "").strip()
+        token = str(activation.get("operational_mqtt_token") or "").strip()
+        if not node_id or not identity or not token:
+            raise HTTPException(status_code=503, detail="mqtt_node_provisioning_missing_activation_fields")
+        principal_id = f"node:{node_id}"
+        topic_scope = _node_topic_scope(node_id)
+        from ..system.mqtt.integration_models import MqttPrincipal
+
+        state = await mqtt_integration_state_store.get_state()
+        current = state.principals.get(principal_id)
+        principal = current.model_copy(deep=True) if current is not None else MqttPrincipal(
+            principal_id=principal_id,
+            principal_type="synthia_node",
+            status="active",
+            logical_identity=node_id,
+            linked_node_id=node_id,
+        )
+        principal.principal_type = "synthia_node"
+        principal.status = "active"
+        principal.logical_identity = node_id
+        principal.linked_node_id = node_id
+        principal.username = identity
+        principal.managed_by = "node_onboarding"
+        principal.publish_topics = [topic_scope]
+        principal.subscribe_topics = [topic_scope]
+        principal.notes = "managed by node onboarding trust activation"
+        principal.last_activated_at = _utcnow_iso()
+        principal.last_revoked_at = None
+        await mqtt_integration_state_store.upsert_principal(principal)
+        configured = mqtt_credential_store.set_principal_password(
+            principal_id=principal_id,
+            principal_type="synthia_node",
+            username=identity,
+            password=token,
+        )
+        if not configured:
+            raise HTTPException(status_code=503, detail="mqtt_node_credential_write_failed")
+        await _reconcile_mqtt_authority(reason=f"node_finalize:{node_id}")
+
+    async def _deprovision_node_mqtt_principal(node_id: str, *, reason: str) -> None:
+        node_key = str(node_id or "").strip()
+        if not node_key:
+            return
+        principal_id = f"node:{node_key}"
+        if mqtt_integration_state_store is not None:
+            await mqtt_integration_state_store.remove_principal(principal_id)
+        if mqtt_credential_store is not None:
+            rotate = getattr(mqtt_credential_store, "rotate_principal", None)
+            if callable(rotate):
+                rotate(principal_id)
+        await _reconcile_mqtt_authority(reason=reason)
 
     @router.get("/addons")
     def get_addons():
@@ -956,7 +1029,7 @@ def build_system_router(
         }
 
     @router.delete("/system/nodes/registrations/{node_id}")
-    def delete_node_registration(
+    async def delete_node_registration(
         node_id: str,
         request: Request,
         x_admin_token: str | None = Header(default=None),
@@ -974,6 +1047,7 @@ def build_system_router(
                 trust_removed = bool(node_trust_issuance.revoke_node(node_id))
             except Exception:
                 trust_removed = False
+        await _deprovision_node_mqtt_principal(str(node_id or ""), reason=f"node_delete:{node_id}")
         _record_audit(
             audit_store,
             event_type="node_registration_deleted",
@@ -990,7 +1064,7 @@ def build_system_router(
 
     @router.post("/system/nodes/registrations/{node_id}/revoke")
     @router.post("/system/nodes/registrations/{node_id}/untrust", include_in_schema=False)
-    def revoke_node_registration(
+    async def revoke_node_registration(
         node_id: str,
         request: Request,
         x_admin_token: str | None = Header(default=None),
@@ -1013,6 +1087,7 @@ def build_system_router(
                 trust_removed = bool(node_trust_issuance.revoke_node(node_id))
             except Exception:
                 trust_removed = False
+        await _deprovision_node_mqtt_principal(str(node_id or ""), reason=f"node_revoke:{node_id}")
         _record_audit(
             audit_store,
             event_type="node_registration_revoked",
@@ -1120,7 +1195,7 @@ def build_system_router(
         return {"ok": True, "session": decided.to_dict()}
 
     @router.get("/system/nodes/onboarding/sessions/{session_id}/finalize")
-    def finalize_node_onboarding_session(
+    async def finalize_node_onboarding_session(
         session_id: str,
         node_nonce: str = Query(...),
     ):
@@ -1169,6 +1244,20 @@ def build_system_router(
         if state == "cancelled":
             return {"ok": True, "onboarding_status": "invalid"}
         if state == "consumed":
+            replay_activation = None
+            if node_trust_issuance is not None:
+                try:
+                    replay_activation = node_trust_issuance.activation_for_session(session_id)
+                except Exception:
+                    replay_activation = None
+            if isinstance(replay_activation, dict):
+                await _provision_node_mqtt_principal(replay_activation)
+                return {
+                    "ok": True,
+                    "onboarding_status": "approved",
+                    "activation": replay_activation,
+                    "replayed": True,
+                }
             _record_audit(
                 audit_store,
                 event_type="node_onboarding_finalize_replay",
@@ -1181,6 +1270,7 @@ def build_system_router(
             if node_trust_issuance is None:
                 raise HTTPException(status_code=503, detail="trust_issuance_unavailable")
             issued = node_trust_issuance.issue_for_approved_session(session)
+            await _provision_node_mqtt_principal(issued.get("activation"))
             _record_audit(
                 audit_store,
                 event_type="node_onboarding_trust_issued",

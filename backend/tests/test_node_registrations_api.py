@@ -16,6 +16,8 @@ except Exception:  # pragma: no cover
     FASTAPI_STACK_AVAILABLE = False
 
 from app.system.onboarding import NodeOnboardingSessionsStore, NodeRegistrationsStore, NodeTrustIssuanceService, NodeTrustStore
+from app.system.mqtt.credential_store import MqttCredentialStore
+from app.system.mqtt.integration_state import MqttIntegrationStateStore
 from app.api import system as system_api
 
 
@@ -37,6 +39,15 @@ class _FakeRegistry:
         return []
 
 
+class _FakeRuntimeReconciler:
+    def __init__(self) -> None:
+        self.reasons: list[str] = []
+
+    async def reconcile_authority(self, *, reason: str, **kwargs):
+        self.reasons.append(str(reason))
+        return {"ok": True}
+
+
 @unittest.skipIf(not FASTAPI_STACK_AVAILABLE, "fastapi/testclient not available in this environment")
 class TestNodeRegistrationsApi(unittest.TestCase):
     def setUp(self) -> None:
@@ -46,10 +57,16 @@ class TestNodeRegistrationsApi(unittest.TestCase):
         self.registrations = NodeRegistrationsStore(path=Path(self.tmpdir.name) / "node_registrations.json")
         self.trust_store = NodeTrustStore(path=Path(self.tmpdir.name) / "node_trust_records.json")
         self.trust_issuance = NodeTrustIssuanceService(self.trust_store)
+        self.mqtt_state_store = MqttIntegrationStateStore(str(Path(self.tmpdir.name) / "mqtt_integration_state.json"))
+        self.mqtt_credential_store = MqttCredentialStore(str(Path(self.tmpdir.name) / "mqtt_credentials.json"))
+        self.runtime_reconciler = _FakeRuntimeReconciler()
         app = FastAPI()
         app.include_router(
             build_system_router(
                 _FakeRegistry(),
+                mqtt_integration_state_store=self.mqtt_state_store,
+                mqtt_credential_store=self.mqtt_credential_store,
+                mqtt_runtime_reconciler=self.runtime_reconciler,
                 onboarding_sessions_store=self.sessions,
                 node_registrations_store=self.registrations,
                 node_trust_issuance=self.trust_issuance,
@@ -143,6 +160,60 @@ class TestNodeRegistrationsApi(unittest.TestCase):
         got = self.client.get(f"/api/system/nodes/registrations/{node_id}", headers={"X-Admin-Token": "test-token"})
         self.assertEqual(got.status_code, 200, got.text)
         self.assertEqual(got.json()["registration"]["trust_status"], "trusted")
+
+    def test_finalize_provisions_node_mqtt_principal_and_credentials(self) -> None:
+        created = self._start_and_approve("mqtt-node", "ai-node", "nonce-mqtt-1")
+        node_id = created["node_id"]
+        session_id = created["source_onboarding_session_id"]
+        finalized = self.client.get(
+            f"/api/system/nodes/onboarding/sessions/{session_id}/finalize?node_nonce=nonce-mqtt-1"
+        )
+        self.assertEqual(finalized.status_code, 200, finalized.text)
+        activation = finalized.json()["activation"]
+        self.assertTrue(str(activation["operational_mqtt_identity"]).startswith("sn_"))
+
+        state = self.mqtt_state_store._read_sync()
+        principal = state.principals.get(f"node:{node_id}")
+        self.assertIsNotNone(principal)
+        self.assertEqual(principal.principal_type, "synthia_node")
+        self.assertEqual(principal.status, "active")
+        self.assertEqual(principal.username, activation["operational_mqtt_identity"])
+        self.assertEqual(principal.publish_topics, [f"synthia/nodes/{node_id}/#"])
+        self.assertEqual(principal.subscribe_topics, [f"synthia/nodes/{node_id}/#"])
+
+        credential = self.mqtt_credential_store.get_principal_credential(f"node:{node_id}")
+        self.assertIsNotNone(credential)
+        self.assertEqual(credential["username"], activation["operational_mqtt_identity"])
+        self.assertEqual(credential["password"], activation["operational_mqtt_token"])
+        self.assertIn(f"node_finalize:{node_id}", self.runtime_reconciler.reasons)
+
+    def test_finalize_consumed_replay_returns_activation_and_reprovisions(self) -> None:
+        created = self._start_and_approve("mqtt-replay-node", "ai-node", "nonce-mqtt-replay-1")
+        node_id = created["node_id"]
+        session_id = created["source_onboarding_session_id"]
+
+        first = self.client.get(
+            f"/api/system/nodes/onboarding/sessions/{session_id}/finalize?node_nonce=nonce-mqtt-replay-1"
+        )
+        self.assertEqual(first.status_code, 200, first.text)
+        activation = first.json()["activation"]
+        self.assertTrue(str(activation["operational_mqtt_identity"]).startswith("sn_"))
+
+        second = self.client.get(
+            f"/api/system/nodes/onboarding/sessions/{session_id}/finalize?node_nonce=nonce-mqtt-replay-1"
+        )
+        self.assertEqual(second.status_code, 200, second.text)
+        self.assertEqual(second.json()["onboarding_status"], "approved")
+        self.assertTrue(second.json().get("replayed"))
+        self.assertEqual(second.json()["activation"]["node_id"], node_id)
+
+        credential = self.mqtt_credential_store.get_principal_credential(f"node:{node_id}")
+        self.assertIsNotNone(credential)
+        self.assertEqual(credential["username"], second.json()["activation"]["operational_mqtt_identity"])
+        self.assertGreaterEqual(
+            len([item for item in self.runtime_reconciler.reasons if item == f"node_finalize:{node_id}"]),
+            2,
+        )
 
     def test_list_registrations_filters(self) -> None:
         self._start_and_approve("office-node", "ai-node", "nonce-api-2")
