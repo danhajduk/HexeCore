@@ -281,26 +281,29 @@ Key entry points:
 
 ### Platform Overview
 
--   docs/document-index.md
+-   docs/index.md
 -   docs/overview.md
 
 ### Core Platform
 
--   docs/core-platform.md
--   docs/runtime-and-supervision.md
+-   docs/architecture.md
+-   docs/fastapi/core-platform.md
+-   docs/supervisor/runtime-and-supervision.md
 
 ### MQTT Platform
 
--   docs/mqtt-platform.md
--   docs/notifications.md
+-   docs/mqtt/mqtt-platform.md
+-   docs/mqtt/topics.md
+-   docs/mqtt/notifications.md
 
 ### Addon Platform
 
--   docs/addon-platform.md
+-   docs/addons/addon-platform.md
+-   docs/addons/addon-lifecycle.md
 
 ### API and Development
 
--   docs/api-reference.md
+-   docs/fastapi/api-reference.md
 -   docs/development-guide.md
 
 ### Operations

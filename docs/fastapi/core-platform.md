@@ -54,7 +54,7 @@ Status: Archived Legacy
 
 ## See Also
 
-- [Platform Architecture](../platform-architecture.md)
+- [../architecture.md](../architecture.md)
 - [Runtime and Supervision](../supervisor/runtime-and-supervision.md)
 - [Notifications Bus](../mqtt/notifications.md)
 - [API Reference](./api-reference.md)

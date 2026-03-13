@@ -31,6 +31,7 @@ Returned under `activation`:
 - Session-bound and node-nonce validated.
 - One-time consumption enforced by finalize flow.
 - Replay attempts return `consumed`.
+- No partial trust material is returned for `pending`, `rejected`, `expired`, `cancelled`, or invalid finalize outcomes.
 
 ## Extensibility
 
@@ -52,6 +53,15 @@ Loopback values (for example `127.0.0.1`, `localhost`, `0.0.0.0`, `::1`) are rej
 
 After successful finalize+consume:
 - linked node registration trust status is promoted to `trusted`.
+
+## Validation Constraints
+
+Status: Implemented (baseline), Partial (profile extensions)
+
+- required baseline fields are expected to be present for successful activation responses
+- `operational_mqtt_port` must be a valid TCP port
+- baseline field names remain canonical across node classes
+- node-type-specific extensions belong under `activation_profile`, not by renaming baseline keys
 
 ## AI-Node Profile Compatibility
 

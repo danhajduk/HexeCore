@@ -30,6 +30,11 @@ Defines the canonical global node onboarding session API contract used by Core.
 
 Decision response includes session data and registration data when approved.
 
+Approval URL contract:
+- generated form is `<core_base>/onboarding/nodes/approve?sid=<session_id>&state=<state_token>`
+- `state` is required for approval page and decision validation
+- decision actions also require authenticated admin context
+
 ## Finalization
 
 - `GET /api/system/nodes/onboarding/sessions/{session_id}/finalize?node_nonce=...`
@@ -40,6 +45,14 @@ Decision response includes session data and registration data when approved.
   - `expired`
   - `consumed`
   - `invalid`
+
+Deterministic behavior rules:
+- start-session does not issue trust credentials
+- duplicate active sessions for the same binding return `duplicate_active_session`
+- invalid session ids or nonce mismatches return `invalid`
+- approved finalization returns trust activation payload from Core trust issuance
+- first successful approved finalization marks the session consumed
+- replayed approved finalization attempts return `consumed`
 
 ## Registration Query
 
@@ -67,6 +80,14 @@ Alias responses include:
 - `Deprecation: true`
 - `Sunset: 2026-09-30`
 - warning header with migration direction
+
+## Headless Compatibility
+
+Status: Implemented (baseline)
+
+- nodes do not need embedded browser capability for onboarding
+- nodes only need to present the approval URL to an operator
+- operator login and approval happen in Core independently from the node runtime
 
 ## See Also
 

@@ -9,7 +9,7 @@ Last updated: 2026-03-11
 This document defines the AI-node profile compatibility view of trust activation payloads.
 
 Canonical global contract:
-- [Node Trust Activation Payload Contract](./node-trust-activation-payload-contract.md)
+- [Node Trust Activation Payload Contract](../nodes/node-trust-activation-payload-contract.md)
 
 ## Canonical Response Shape
 

@@ -103,5 +103,5 @@ Pending:
 ## See Also
 
 - [AI Node Onboarding Approval Architecture](./ai-node-onboarding-approval-architecture.md)
-- [Node Onboarding API Contract](./node-onboarding-api-contract.md)
+- [Node Onboarding API Contract](../nodes/node-onboarding-api-contract.md)
 - [Auth and Identity](../fastapi/auth-and-identity.md)

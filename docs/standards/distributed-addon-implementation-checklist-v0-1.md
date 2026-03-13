@@ -19,7 +19,7 @@ Scope: General platform work to enable *any* addon to run locally or remotely, d
 - [ ] Ensure per-addon runtime directories are gitignored and writable.
 
 Deliverable:
-- `docs/distributed_addons/README.md` linking to the spec + diagrams + this checklist.
+- `docs/addon-standalone/README.md` linking to the spec + diagrams + this checklist.
 
 ---
 
@@ -230,4 +230,3 @@ Acceptance tests
 - [ ] Consumers call services directly using Core-issued JWTs.
 - [ ] Quotas are assigned by Core, enforced by service addons, with revocation + reporting.
 - [ ] Core outage does not stop addon data-plane operation.
-

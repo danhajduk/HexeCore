@@ -30,6 +30,25 @@ Derived status fields exposed by node registry and operational-status APIs:
 - `governance_last_issued_at`: timestamp (or `null`)
 - `governance_last_refresh_request_at`: timestamp (or `null`)
 
+## Lifecycle States
+
+Status: Implemented (baseline)
+
+Phase 2 introduces or depends on these post-trust lifecycle states:
+
+- `capability_setup_pending`
+- `operational`
+- `degraded`
+
+`capability_setup_pending` is the expected blocked state while a trusted node has not yet completed capability acceptance and governance issuance.
+
+Transition guidance:
+- `capability_setup_pending -> operational` only when:
+  - `capability_status=accepted`
+  - `governance_sync_status=issued`
+  - `operational_ready=true`
+- failure to complete declaration or governance sync keeps the node non-operational and may surface degraded indicators
+
 ## API Contract
 
 ### Capability Declaration
@@ -116,6 +135,8 @@ Derived status fields exposed by node registry and operational-status APIs:
   - `last_governance_refresh_request_at`
   - `last_telemetry_timestamp`
   - `updated_at`
+
+This endpoint is also the canonical polling contract for setup-state progression and operational readiness checks.
 
 ### Telemetry Ingestion
 

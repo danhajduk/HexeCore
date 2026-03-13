@@ -1,88 +1,83 @@
 # Synthia Repository Audit Report
 
-Generated: 2026-03-12 09:40  
+Generated: YYYY-MM-DD HH:MM  
 Repository: Synthia-Core  
-Audit Mode: Architecture + Documentation
+Audit Mode: Documentation Audit
 
 Canonical Core Documentation:
 /home/dan/Projects/Synthia/docs
 
 ---
 
-# Architecture Audit Summary
-
-Subsystems detected:
-
-- Core orchestration
-- Backend API
-- Frontend UI
-- Addon system
-- Store/catalog
-- Scheduler
-- Supervisor integration
-
-Total findings: 4
-
-Highest-risk drift:
-API contract mismatch in node capability declaration.
-
----
-
-# Architecture Findings
-
-## Finding 1
-
-Type: Missing documentation  
-Severity: Medium  
-
-Affected files:
-
-backend/api/nodes.py  
-docs/api.md  
-
-Explanation:
-
-Node capability declaration endpoint exists in code but is not documented in API docs.
-
-Recommended fix:
-
-Add endpoint documentation to docs/api.md.
-
----
-
 # Documentation Audit Summary
 
-Files updated:
+Scope:
 
-docs/api.md  
-docs/addon-system.md
+- `README.md`
+- `docs/`
+- code anchors used for verification
 
-Archived documentation:
+Verified against code:
 
-docs/archive/old-node-protocol.md
+- list the backend/frontend/config files used as evidence
+
+Updated files:
+
+- list only files actually updated during the audit
+
+Stale/archived files:
+
+- list only files actually archived or flagged as stale
 
 Remaining gaps:
 
-- Worker runtime documentation missing
-- Telemetry topic namespace not fully documented
+- unresolved documentation drift
+
+Recommended follow-up:
+
+- next documentation tasks in priority order
 
 ---
 
-# Recommended Follow-Up Tasks
+# Documentation Findings
 
-- Document worker runtime subsystem
-- Verify telemetry topic namespace in MQTT docs
-- Add API examples for node registration
+## Finding 1
+
+Type: `accurate | needs-update | missing | stale-remove-or-archive`  
+Severity: `Low | Medium | High | Critical`
+
+Affected files:
+
+- `path`
+- `path`
+
+Evidence:
+
+- `code file or route`
+- `doc file`
+
+What code shows:
+
+Short code-verified summary.
+
+What docs say:
+
+Short summary of the current documentation claim.
+
+Why this needs attention:
+
+Short mismatch explanation.
+
+Recommended fix:
+
+Short corrective action.
 
 ---
 
 # Audit Coverage Matrix
 
-| Subsystem | Code | Docs | Status |
-|---|---|---|---|
-| Core | Yes | Yes | OK |
-| Scheduler | Yes | Partial | Needs docs |
-| Addon System | Yes | Yes | OK |
-| Workers | Yes | No | Missing docs |
-
----
+| Subsystem | Code | Docs | Status | Notes |
+|---|---|---|---|---|
+| Core | Yes | Yes | accurate | |
+| Scheduler | Yes | Yes | accurate | |
+| Workers | Yes | Partial | needs-update | |

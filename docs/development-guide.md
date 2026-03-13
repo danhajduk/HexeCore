@@ -13,7 +13,7 @@ Status: Implemented
 Status: Implemented
 
 1. Update the relevant canonical doc first.
-2. Add or adjust cross-links from `docs/document-index.md`.
+2. Add or adjust cross-links from `docs/index.md`.
 3. Mark sections as `Implemented`, `Partial`, `Planned`, or `Archived Legacy`.
 4. Archive superseded split docs only after content transfer is complete.
 
@@ -51,6 +51,6 @@ Status: Partial
 
 ## See Also
 
-- [Document Index](./document-index.md)
+- [Document Index](./index.md)
 - [Documentation Migration Map](./documentation-migration-map.md)
 - [Overview](./overview.md)

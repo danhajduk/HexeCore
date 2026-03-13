@@ -129,4 +129,4 @@ Troubleshooting checklist:
 - [API Reference](./fastapi/api-reference.md)
 - [Node Onboarding API Contract](./nodes/node-onboarding-api-contract.md)
 - [Node Onboarding Migration Guide](./nodes/node-onboarding-migration-guide.md)
-- [Document Index](./document-index.md)
+- [Document Index](./index.md)

@@ -11,7 +11,7 @@ It is the implementation authority for Tasks 431-440.
 
 Global architecture note:
 - This AI-node document is now a node-type profile reference.
-- Global onboarding authority is defined in [Node Onboarding And Registration Architecture](./node-onboarding-registration-architecture.md).
+- Global onboarding authority is defined in [Node Onboarding And Registration Architecture](../nodes/node-onboarding-registration-architecture.md).
 
 The onboarding model is operator-mediated:
 
@@ -113,8 +113,8 @@ Status: Partial
 ## See Also
 
 - [AI Node Docs Mapping](./ai-node-docs-mapping.md)
-- [Node Onboarding API Contract](./node-onboarding-api-contract.md)
-- [Node Trust Activation Payload Contract](./node-trust-activation-payload-contract.md)
+- [Node Onboarding API Contract](../nodes/node-onboarding-api-contract.md)
+- [Node Trust Activation Payload Contract](../nodes/node-trust-activation-payload-contract.md)
 - [Auth and Identity](../fastapi/auth-and-identity.md)
 - [API Reference](../fastapi/api-reference.md)
-- [Platform Architecture](../platform-architecture.md)
+- [Architecture](../architecture.md)

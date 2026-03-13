@@ -40,6 +40,14 @@ Status: Implemented (baseline)
 6. Core returns trust activation payload for approved sessions.
 7. Node registration record transitions to trusted/active lifecycle.
 
+The onboarding model is operator-mediated rather than OAuth-style:
+
+- node starts an onboarding session
+- Core returns an approval URL
+- operator reviews and decides in Core
+- node polls/finalizes against the stored session
+- Core issues trust material only after approval
+
 ## Global Node Types
 
 Status: Partial
@@ -82,6 +90,43 @@ Planned extension:
 - profile-specific policy constraints by `node_type`
 - stronger cross-node binding guarantees for advanced node classes
 
+## Approval URL And Headless Flow
+
+Status: Implemented (baseline)
+
+Approval URLs are safe to display to operators in headless-node workflows.
+
+Canonical format:
+- `<core_base>/onboarding/nodes/approve?sid=<session_id>&state=<state_token>`
+
+Server-authoritative rules:
+- `sid` and `state` are lookup and tamper-detection hints, not authority state
+- session metadata, decision state, expiry, and linked node identity remain server-side only
+- trust tokens and MQTT operational credentials are never embedded in the URL
+
+Headless compatibility:
+- node runtime does not need an embedded browser
+- operator can complete approval and login entirely in the Core UI
+- node only needs to surface the approval URL and continue polling/finalizing
+
+## Canonical Approval Flow
+
+Status: Implemented (baseline)
+
+1. Node calls the onboarding start API with identity metadata and `node_nonce`.
+2. Core validates request data, supported `node_type`, and protocol compatibility.
+3. Core creates a persisted pending session with expiry and returns the approval URL.
+4. Operator opens the approval URL and authenticates in Core if needed.
+5. Operator approves or rejects the pending session.
+6. Node polls/finalizes using the session id plus the same `node_nonce`.
+7. Core returns deterministic pending, rejected, expired, consumed, invalid, or approved outcomes.
+
+Decision semantics:
+- pending sessions may be viewed multiple times
+- only one terminal approve or reject action is allowed
+- expired sessions become terminal and cannot be approved
+- approved finalization is one-time consumable
+
 ## AI-Node Compatibility
 
 Status: Implemented (with migration path)
@@ -108,7 +153,7 @@ Current contract references:
 
 ## See Also
 
-- [AI Node Onboarding Approval Architecture](./ai-node-onboarding-approval-architecture.md)
+- [AI Node Onboarding Approval Architecture](../temp-ai-node/ai-node-onboarding-approval-architecture.md)
 - [Node Onboarding API Contract](./node-onboarding-api-contract.md)
 - [Node Trust Activation Payload Contract](./node-trust-activation-payload-contract.md)
 - [API Reference](../fastapi/api-reference.md)

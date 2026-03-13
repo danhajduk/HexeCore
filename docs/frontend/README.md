@@ -17,4 +17,4 @@ Status: Implemented
 ## See Also
 
 - [../fastapi/api-reference.md](../fastapi/api-reference.md)
-- [../addon-embedded/addon-platform.md](../addon-embedded/addon-platform.md)
+- [../addons/addon-platform.md](../addons/addon-platform.md)

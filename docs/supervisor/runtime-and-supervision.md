@@ -58,7 +58,7 @@ Status: Planned
 
 ## See Also
 
-- [Platform Architecture](../platform-architecture.md)
+- [../architecture.md](../architecture.md)
 - [Core Platform](../fastapi/core-platform.md)
 - [Operators Guide](../operators-guide.md)
 - [Data and State](../fastapi/data-and-state.md)

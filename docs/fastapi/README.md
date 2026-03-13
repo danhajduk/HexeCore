@@ -12,6 +12,8 @@ This folder contains the Core backend documentation for the FastAPI application 
   Authentication and identity behavior for admin, service, and platform actors.
 - [data-and-state.md](./data-and-state.md)
   Persistent and runtime state references used by Core services.
+- [telemetry-and-usage.md](./telemetry-and-usage.md)
+  Usage telemetry routes, storage model, and service-token write contract.
 
 ## Code Boundary
 

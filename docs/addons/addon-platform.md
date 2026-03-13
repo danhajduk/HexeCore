@@ -47,10 +47,10 @@ Status: Implemented
 
 ## Distributed Addons
 
-Status: Partial
+Status: Partially implemented
 
-- Distributed addon references and policy docs remain under `docs/distributed_addons/`.
-- Canonical ownership remains here; implementation maturity varies by capability.
+- Distributed addons are the same runtime category as standalone addons in the current documentation layout.
+- Standalone packaging, compatibility, and remediation references now live under `docs/addon-standalone/`.
 
 ## Deprecated/Superseded Guidance
 
@@ -61,7 +61,8 @@ Status: Archived Legacy
 ## See Also
 
 - [Core Platform](../fastapi/core-platform.md)
-- [Platform Architecture](../platform-architecture.md)
 - [API Reference](../fastapi/api-reference.md)
 - [Frontend and UI](../frontend/frontend-and-ui.md)
 - [Data and State](../fastapi/data-and-state.md)
+- [addon-lifecycle.md](./addon-lifecycle.md)
+- [../addon-standalone/README.md](../addon-standalone/README.md)

@@ -17,4 +17,5 @@ Status: Implemented
 ## See Also
 
 - [../addon-standalone/README.md](../addon-standalone/README.md)
+- [../addons/addon-platform.md](../addons/addon-platform.md)
 - [../fastapi/data-and-state.md](../fastapi/data-and-state.md)

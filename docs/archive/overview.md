@@ -53,8 +53,8 @@ Status: Implemented
 
 ## See Also
 
-- [Platform Architecture](../platform-architecture.md)
+- [Architecture](../architecture.md)
 - [Core Platform](../fastapi/core-platform.md)
 - [MQTT Platform](../mqtt/mqtt-platform.md)
-- [Document Index](../document-index.md)
-- [AI Node Docs Mapping](../nodes/ai-node-docs-mapping.md)
+- [Document Index](../index.md)
+- [AI Node Docs Mapping](../temp-ai-node/ai-node-docs-mapping.md)

@@ -2,6 +2,11 @@
 
 This folder is the scheduler landing page for Core queueing and lease-based execution behavior.
 
+## Included Docs
+
+- [job-model.md](./job-model.md)
+  Code-verified job, lease, and queue-intent model reference.
+
 ## Status
 
 Status: Partially implemented
@@ -13,6 +18,7 @@ Status: Partially implemented
 ## Current References
 
 - [../architecture.md](../architecture.md)
+- [./job-model.md](./job-model.md)
 - [../fastapi/api-reference.md](../fastapi/api-reference.md)
 - [../operators-guide.md](../operators-guide.md)
 - [../overview.md](../overview.md)

@@ -272,8 +272,10 @@ High-level architectural source mapping:
 - [overview.md](./overview.md)
 - [fastapi/core-platform.md](./fastapi/core-platform.md)
 - [mqtt/mqtt-platform.md](./mqtt/mqtt-platform.md)
+- [mqtt/topics.md](./mqtt/topics.md)
 - [supervisor/runtime-and-supervision.md](./supervisor/runtime-and-supervision.md)
-- [addon-embedded/addon-platform.md](./addon-embedded/addon-platform.md)
+- [addons/addon-platform.md](./addons/addon-platform.md)
+- [addons/addon-lifecycle.md](./addons/addon-lifecycle.md)
 - [fastapi/api-reference.md](./fastapi/api-reference.md)
 - [mqtt/notifications.md](./mqtt/notifications.md)
 

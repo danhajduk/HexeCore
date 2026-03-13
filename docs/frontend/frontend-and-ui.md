@@ -93,6 +93,6 @@ Status: Archived Legacy
 ## See Also
 
 - [API Reference](../fastapi/api-reference.md)
-- [Addon Platform](../addon-embedded/addon-platform.md)
+- [Addon Platform](../addons/addon-platform.md)
 - [MQTT Platform](../mqtt/mqtt-platform.md)
 - [Operators Guide](../operators-guide.md)

@@ -2,7 +2,7 @@
 
 Last Updated: 2026-03-07 14:51 US/Pacific
 
-Reference: `docs/Policies/Synthia_Addon_Standard.md`.
+Reference: `docs/standards/addon-standard.md`.
 
 ## Scope
 - Store catalog management (index + publishers parsing and release selection).

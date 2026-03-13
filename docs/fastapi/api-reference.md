@@ -63,6 +63,7 @@ Status: Implemented
   - `GET /api/admin/addons/registry`
 - Install sessions:
   - `POST /api/addons/install/start`
+  - `GET /api/addons/install/{session_id}`
   - `POST /api/addons/install/{session_id}/permissions/approve`
   - `POST /api/addons/install/{session_id}/deployment/select`
   - `POST /api/addons/install/{session_id}/configure`
@@ -94,6 +95,8 @@ Status: Implemented
   - `POST /api/admin/session/login-user`
   - `GET /api/admin/session/status`
   - `POST /api/admin/session/logout`
+  - `POST /api/admin/reload`
+  - `GET /api/admin/reload/status`
 - Admin users:
   - `GET /api/admin/users`
   - `POST /api/admin/users`
@@ -102,6 +105,10 @@ Status: Implemented
   - `POST /api/auth/service-token`
   - `POST /api/auth/service-token/rotate`
 
+Service token issuance modes:
+- admin token or admin session may issue service tokens
+- service principals may also issue constrained service tokens using `X-Service-Principal-Id` and `X-Service-Principal-Secret`
+
 ## Runtime, Scheduler, Health APIs
 
 Status: Implemented
@@ -109,6 +116,25 @@ Status: Implemented
 - Scheduler queue/lease/history routes under `/api/system/scheduler/*`.
 - Stack/system health and metrics endpoints under `/api/system/*` and `/api/system-stats/*`.
 - Store lifecycle and status routes under `/api/store/*`.
+
+## Telemetry APIs
+
+Status: Implemented
+
+- Usage telemetry:
+  - `POST /api/telemetry/usage` (service token with `telemetry.write` scope required)
+  - `GET /api/telemetry/usage`
+  - `GET /api/telemetry/usage/stats`
+
+Request model for `POST /api/telemetry/usage`:
+- `service`
+- `consumer_addon_id`
+- `grant_id` (optional)
+- `usage_units`
+- `request_count`
+- `period_start` (optional)
+- `period_end` (optional)
+- `metadata`
 
 ## Planned
 
@@ -120,6 +146,7 @@ Status: Planned
 ## See Also
 
 - [Core Platform](./core-platform.md)
+- [Telemetry And Usage](./telemetry-and-usage.md)
 - [MQTT Platform](../mqtt/mqtt-platform.md)
 - [Notifications Bus](../mqtt/notifications.md)
 - [Auth and Identity](./auth-and-identity.md)

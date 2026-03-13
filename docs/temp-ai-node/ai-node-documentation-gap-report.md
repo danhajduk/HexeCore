@@ -19,14 +19,14 @@ This report defines the remaining documentation gaps required to align the AI No
 ## Gap 1: Missing AI Node Entry In Golden Canonical Index
 
 Current state:
-- Golden index (`document-index.md`) does not include an AI Node architecture track.
+- Golden index (`index.md`) did not previously include an AI Node architecture track.
 
 Required fulfillment:
 - Add an AI Node section/link in golden index that points to canonical AI Node documents.
 - Clarify whether AI Node docs are canonical in golden repo or mirrored from node repo.
 
 Acceptance criteria:
-- AI Node docs are discoverable from golden `document-index.md`.
+- AI Node docs are discoverable from golden `index.md`.
 - Ownership/canonical source is explicit.
 
 ## Gap 2: Missing Canonical Mapping Between Main And Golden Docs
@@ -88,7 +88,7 @@ Required fulfillment:
   - `ai-node-architecture.md`
   - `node-capability-declaration.md`
 - Add upstream references to relevant golden docs where applicable:
-  - `platform-architecture.md`
+  - `architecture.md`
   - `mqtt-platform.md`
   - `api-reference.md`
 

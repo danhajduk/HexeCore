@@ -11,7 +11,7 @@ This document defines the AI-node profile compatibility view for node-initiated 
 - finalization/polling
 
 Canonical global contract:
-- [Node Onboarding API Contract](./node-onboarding-api-contract.md)
+- [Node Onboarding API Contract](../nodes/node-onboarding-api-contract.md)
 
 Session creation creates onboarding intent only and does not issue trust credentials.
 

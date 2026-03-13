@@ -76,4 +76,4 @@ Status: Planned
 - [Core Platform](./core-platform.md)
 - [Runtime and Supervision](../supervisor/runtime-and-supervision.md)
 - [MQTT Platform](../mqtt/mqtt-platform.md)
-- [Addon Platform](../addon-embedded/addon-platform.md)
+- [Addon Platform](../addons/addon-platform.md)
