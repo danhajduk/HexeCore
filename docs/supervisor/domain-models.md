@@ -131,6 +131,7 @@ Current Supervisor routes:
 Current Supervisor ownership:
 
 - host-local standalone runtime realization
+- host-local worker/process execution helpers
 - desired-to-runtime reconciliation
 - standalone workload lifecycle execution
 

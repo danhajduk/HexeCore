@@ -46,3 +46,4 @@ The folders `docs/core/api/`, `docs/core/frontend/`, and `docs/core/scheduler/` 
 
 - Keep scheduler ownership in Core for admission, policy, and orchestration.
 - Do not describe Core as the long-term execution runtime boundary when the behavior is actually worker-, Supervisor-, or Node-side.
+- Treat host-local worker/process execution management as Supervisor-owned, even when compatibility helpers still live in Core-era module paths.

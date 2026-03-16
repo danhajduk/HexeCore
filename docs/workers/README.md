@@ -9,6 +9,7 @@ Status: Partially implemented
 - Worker support code is present under `backend/app/system/worker/`.
 - Worker lifecycle and runner behavior are documented in the canonical worker runtime document.
 - Current worker helpers act as scheduler clients, not as the Core scheduler ownership boundary.
+- Host-local worker/process management should be read as Supervisor-owned runtime behavior during migration.
 - Advanced worker fleet management is not verifiable from the current repository state.
 
 ## Current References

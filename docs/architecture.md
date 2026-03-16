@@ -73,6 +73,7 @@ Status: Implemented
 - Scheduler queueing, admission, and lease orchestration remain Core responsibilities.
 - The scheduler does not own host-local runtime execution as a platform boundary.
 - Current worker runners are execution clients that consume Core-issued leases.
+- Host-local worker/process execution management now aligns to the Supervisor boundary, even where compatibility code still lives under `backend/app/system/worker/`.
 - Supervisor is the target host-local runtime authority, and Nodes are the canonical external execution layer.
 
 ## Cross-Domain Flow

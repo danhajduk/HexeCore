@@ -15,6 +15,7 @@ Supervisor currently spans:
 ## Current Responsibilities
 
 - standalone addon runtime supervision
+- host-local worker/process execution ownership during migration
 - desired vs runtime reconciliation
 - compose-based service realization for host-local standalone workloads
 - migration-foundation route exposure through:
@@ -28,6 +29,8 @@ Supervisor currently spans:
   - `POST /api/supervisor/nodes/{node_id}/restart`
 
 Broader host-local resource and lifecycle ownership is Partially implemented.
+
+Execution-facing worker/process management is now considered part of the Supervisor boundary even where compatibility helpers still live in `backend/app/system/worker/`.
 
 ## Included Docs
 

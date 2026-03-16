@@ -41,6 +41,7 @@ class TestArchitectureFoundationApi(unittest.TestCase):
         self.assertEqual([item["id"] for item in payload["domains"]], ["core", "supervisor", "nodes"])
         self.assertEqual(payload["workload_boundary"]["scheduler"]["owner_domain"], "core")
         self.assertEqual(payload["workload_boundary"]["scheduler"]["role"], "admission_and_orchestration")
+        self.assertEqual(payload["workload_boundary"]["execution_surfaces"][0]["owner_domain"], "supervisor")
         self.assertEqual(payload["extension_boundaries"]["embedded_addons"]["owner_domain"], "core")
         self.assertEqual(payload["extension_boundaries"]["external_functionality"]["canonical_domain"], "nodes")
 

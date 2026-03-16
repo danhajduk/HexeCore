@@ -24,10 +24,13 @@ def build_architecture_router() -> APIRouter:
                 "execution_surfaces": [
                     {
                         "id": "workers",
+                        "owner_domain": "supervisor",
                         "status": "compatibility_runtime_helper",
-                        "docs_path": "docs/workers",
+                        "docs_path": "docs/supervisor",
+                        "current_module_paths": ["backend/app/system/worker", "backend/app/system/runtime"],
                         "notes": [
                             "Current worker runners execute leased work outside the Core scheduler admission loop.",
+                            "Host-local worker/process execution management is being moved behind Supervisor ownership.",
                         ],
                     },
                     {

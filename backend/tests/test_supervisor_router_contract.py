@@ -103,6 +103,9 @@ class TestSupervisorRouterContract(unittest.TestCase):
         app.include_router(build_supervisor_router(_FakeSupervisorService()), prefix="/api")
         client = TestClient(app)
 
+        info = client.get("/api/supervisor/info")
+        self.assertEqual(info.status_code, 200)
+        self.assertEqual(info.json()["boundaries"]["owns"], ["runtime"])
         self.assertEqual(client.get("/api/supervisor/resources").status_code, 200)
         self.assertEqual(client.get("/api/supervisor/runtime").status_code, 200)
         self.assertEqual(client.get("/api/supervisor/nodes").json()["items"][0]["node_id"], "mqtt")

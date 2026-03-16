@@ -7,6 +7,7 @@ Status: Implemented
 - Core owns desired-state intent and runtime orchestration hooks.
 - Runtime boundaries execute concrete start/stop/rebuild/health flows.
 - Supervisor/standalone runtime model remains active for standalone addon execution paths.
+- Host-local worker/process execution ownership is also aligned to Supervisor during migration, even when helper code still lives under `backend/app/system/worker/`.
 
 ## Startup and Supervision
 
@@ -22,6 +23,7 @@ Status: Implemented
 - Job flow: submit -> lease request -> heartbeat -> complete/report/revoke.
 - Queue APIs and history stats provide operational visibility.
 - History cleanup and scheduler metrics are automated background concerns.
+- Core owns the queue/admission side of this flow, while execution-facing worker/process concerns belong with Supervisor ownership.
 
 ## Deployment and Runtime Boundaries
 
