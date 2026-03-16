@@ -1,270 +1,70 @@
-
 # Synthia Platform Overview
 
-Synthia is a modular automation and AI platform designed for home and edge environments.  
-It provides a unified control plane for automation services, AI capabilities, device integrations, and distributed nodes.
+Synthia is a modular automation and AI platform for home and edge environments. In the current repository, the platform is moving toward a `Core -> Supervisor -> Nodes` structure that makes control-plane, host-runtime, and external-execution boundaries explicit.
 
-At the center of the platform is **Synthia Core**, which acts as the system authority and orchestration layer.
+## Domain Model
 
-The platform is designed to support:
+### Core
 
-- single-host deployments
-- multi-service local environments
-- distributed edge nodes
-- extensible addon ecosystems
+Status: Implemented
 
----
+Core is the control plane. It currently owns:
 
-# Core Concepts
+- API hosting
+- operator UI hosting
+- addon lifecycle authority
+- scheduler orchestration
+- MQTT authority and messaging policy
+- trusted-node trust, governance, and telemetry authority
 
-Synthia is built around a small set of core concepts.
+### Supervisor
 
-Understanding these components explains how the entire platform operates.
+Status: Implemented
 
-## Synthia Core
+Supervisor is the host-local runtime authority. In current code this spans:
 
-Synthia Core is the **control-plane service** for the platform.
+- `backend/synthia_supervisor/`
+- `backend/app/system/runtime/`
+- `backend/app/supervisor/`
 
-Core is responsible for:
+Current top-level routes:
 
-- hosting the main API
-- serving the administration UI
-- managing addons
-- coordinating nodes
-- providing scheduler and worker infrastructure
-- managing MQTT policy and runtime messaging
-- aggregating telemetry and health signals
+- `GET /api/supervisor/health`
+- `GET /api/supervisor/info`
 
-Core is the **authority for platform state**.
+Broader host-local lifecycle ownership remains Partially implemented.
 
-All addons and nodes ultimately interact with the platform through Core.
+### Nodes
 
----
+Status: Implemented
 
-## Addons
+Nodes are trusted external systems that connect to Core. Current implemented flows include onboarding, registration, trust activation, capability declaration, governance issuance, and telemetry reporting.
 
-Addons extend the capabilities of the platform.
+Current top-level routes:
 
-Two addon models exist.
+- `GET /api/nodes`
+- `GET /api/nodes/{node_id}`
 
-### Embedded Addons
+## Current Platform Shape
 
-Embedded addons run directly inside the Core runtime.
+```text
+Operator UI
+  |
+Core
+  |- API, scheduler, MQTT, addons, trust, governance
+  |- Supervisor handoff and runtime visibility
+  \- Node orchestration authority
 
-Characteristics:
+Supervisor
+  \- host-local standalone runtime realization
 
-- share the Core process
-- mount routes into the Core API
-- integrate directly into the UI
-- managed entirely by Core
-
-Examples:
-
-- platform services
-- lightweight integrations
-- internal tools
-
----
-
-### Standalone Addons
-
-Standalone addons run as **separate runtime services**.
-
-They are supervised by the **Synthia Supervisor**.
-
-Characteristics:
-
-- independent runtime process
-- lifecycle managed by Core
-- installed through the addon platform
-- communicate with Core through APIs or MQTT
-
-Examples:
-
-- large integrations
-- compute services
-- external platform bridges
-
----
-
-## Nodes
-
-Nodes are **external trusted systems** that connect to Synthia Core.
-
-Nodes expand the platform beyond a single machine.
-
-Nodes may provide:
-
-- AI inference
-- device integrations
-- automation engines
-- external compute resources
-
-Nodes connect to Core and:
-
-- register with a trust model
-- declare capabilities
-- receive governance configuration
-- publish telemetry
-
-Examples:
-
-- AI nodes
-- vision processing nodes
-- hardware integration nodes
-
----
-
-## MQTT Platform Layer
-
-MQTT provides the **internal messaging backbone** of the Synthia platform.
-
-MQTT is used for:
-
-- event propagation
-- notifications
-- telemetry
-- service coordination
-- node communication
-
-Core defines the **topic structure and messaging policies** used by the platform.
-
----
-
-## Scheduler and Workers
-
-The scheduler subsystem manages **deferred and asynchronous work**.
-
-Responsibilities include:
-
-- scheduled jobs
-- queue dispatch
-- worker coordination
-- execution tracking
-- job history
-
-Workers execute jobs produced by the scheduler.
-
----
-
-## Supervisor
-
-The Supervisor subsystem manages **standalone runtime services**.
-
-Responsibilities include:
-
-- service lifecycle management
-- desired vs runtime reconciliation
-- container or compose supervision
-- restart and health behavior
-
-This allows Core to manage services without directly hosting them.
-
----
-
-# Platform Architecture
-
-At a high level, the platform looks like this:
-
+Nodes
+  \- trusted external capability providers and execution systems
 ```
 
-```
-            ┌─────────────────────────┐
-            │      Synthia UI         │
-            │       (React)           │
-            └──────────┬──────────────┘
-                       │
-            ┌──────────▼───────────┐
-            │      Synthia Core    │
-            │  API + Runtime Auth  │
-            └──────────┬───────────┘
-                       │
-     ┌─────────────────┼─────────────────┐
-     │                 │                 │
-```
+## Related Docs
 
-┌─────▼─────┐     ┌─────▼─────┐     ┌─────▼─────┐
-│ Scheduler │     │  MQTT     │     │ Addons    │
-│ Workers   │     │ Platform  │     │ Platform  │
-└─────┬─────┘     └─────┬─────┘     └─────┬─────┘
-│                 │                 │
-│                 │                 │
-│           ┌─────▼─────┐           │
-│           │ Supervisor│           │
-│           └─────┬─────┘           │
-│                 │                 │
-│        Standalone Addons          │
-│                                   │
-│                                   │
-└───────────────┬───────────────────┘
-│
-External Nodes
-
-```
-
----
-
-# Platform Design Goals
-
-Synthia is designed with the following goals.
-
-### Modular Architecture
-
-Subsystems should be loosely coupled and replaceable.
-
-### Distributed Capability
-
-The platform should support both single-machine and distributed deployments.
-
-### Extensibility
-
-New capabilities should be added through addons and nodes.
-
-### Clear Platform Authority
-
-Core acts as the authoritative control-plane for configuration, governance, and state.
-
-### Operational Transparency
-
-Operators should be able to inspect platform state, health, and behavior through the UI and APIs.
-
----
-
-# Documentation Structure
-
-Core documentation is organized by subsystem.
-
-Examples:
-
-```
-
-docs/
-overview.md
-core/
-mqtt/
-scheduler/
-supervisor/
-addons/
-nodes/
-api/
-
-```
-
-Each subsystem contains its own architecture notes, contracts, and reference documentation.
-
----
-
-# Related Repositories
-
-The Synthia ecosystem may include additional repositories implementing nodes or standalone addons.
-
-Examples include:
-
-- AI Node implementations
-- Vision processing services
-- platform integrations
-- external automation nodes
-
-These repositories provide **implementation details**, while Core documentation defines the **platform contracts and architecture**.
-
----
+- [core/README.md](./core/README.md)
+- [supervisor/README.md](./supervisor/README.md)
+- [nodes/README.md](./nodes/README.md)
+- [architecture.md](./architecture.md)

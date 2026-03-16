@@ -542,3 +542,5 @@
 2026-03-12 17:44 - Task 472: expanded notification schema tests to cover popup/event/state validity, broadcast targets, validation failures, TTL expiry, and JSON round-trips.
 2026-03-12 17:44 - Task 473: added publisher and bridge behavior tests covering topic selection, retain rules, exclude_none serialization, and HA forward/skip/drop behavior without a live broker.
 2026-03-12 17:44 - Task 474: added a dev-only notification flow trigger endpoint with config gating, reproducible expected results, and test coverage for the endpoint gate and emitted flow.
+Task 002: Create canonical documentation entrypoints - Completed on 03/16/2026 02:22
+Task 001: Establish Core / Supervisor / Node foundation - Completed on 03/16/2026 02:17

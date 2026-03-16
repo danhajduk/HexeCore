@@ -24,6 +24,7 @@ from .capability_manifest import (
 )
 from .provider_capability_normalization import normalize_provider_capability_report
 from .model_routing_registry import ModelRoutingRecord, ModelRoutingRegistryService, ModelRoutingRegistryStore
+from .registry_view import node_registry_payload, node_capability_status, registry_state_from_trust_status
 
 __all__ = [
     "NodeOnboardingSession",
@@ -59,4 +60,7 @@ __all__ = [
     "ModelRoutingRecord",
     "ModelRoutingRegistryStore",
     "ModelRoutingRegistryService",
+    "node_registry_payload",
+    "node_capability_status",
+    "registry_state_from_trust_status",
 ]

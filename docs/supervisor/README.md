@@ -1,21 +1,34 @@
 # Supervisor Docs
 
-This folder contains the standalone runtime and supervision documentation for Synthia Core.
+This is the canonical entrypoint for Supervisor documentation in the `Core -> Supervisor -> Nodes` structure.
+
+## Status
+
+Status: Implemented
+
+Supervisor currently spans:
+
+- `backend/synthia_supervisor/`
+- `backend/app/system/runtime/`
+- `backend/app/supervisor/`
+
+## Current Responsibilities
+
+- standalone addon runtime supervision
+- desired vs runtime reconciliation
+- compose-based service realization for host-local standalone workloads
+- migration-foundation route exposure through:
+  - `GET /api/supervisor/health`
+  - `GET /api/supervisor/info`
+
+Broader host-local resource and lifecycle ownership is Partially implemented.
 
 ## Included Docs
 
 - [runtime-and-supervision.md](./runtime-and-supervision.md)
-  Runtime ownership, supervisor boundaries, and standalone realization flow.
-
-## Code Boundary
-
-Status: Implemented
-
-- Supervisor code lives under `backend/synthia_supervisor/`.
-- Core-side runtime and handoff logic lives under `backend/app/system/runtime/`.
 
 ## See Also
 
+- [../architecture.md](../architecture.md)
 - [../addon-standalone/README.md](../addon-standalone/README.md)
 - [../addons/addon-platform.md](../addons/addon-platform.md)
-- [../fastapi/data-and-state.md](../fastapi/data-and-state.md)

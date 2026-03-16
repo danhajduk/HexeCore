@@ -19,9 +19,12 @@ from .core import (
 )
 from .core.logging import setup_logging
 from .core.health import router as health_router
+from .architecture import build_architecture_router
 from .addons.registry import build_registry, register_addons
 from .addons.install_sessions import InstallSessionsStore
 from .addons.proxy import AddonProxy, build_proxy_router
+from .nodes import build_nodes_router, NodesDomainService
+from .supervisor import build_supervisor_router, SupervisorDomainService
 from .api.system import build_system_router
 from .api.admin_registry import build_admin_registry_router
 from .api.addons_registry import build_addons_registry_router
@@ -597,6 +600,15 @@ def create_app() -> FastAPI:
     # System API using the registry
     runtime_service = StandaloneRuntimeService()
     app.state.standalone_runtime_service = runtime_service
+    app.include_router(build_architecture_router(), prefix="/api")
+    app.include_router(
+        build_supervisor_router(SupervisorDomainService(runtime_service)),
+        prefix="/api",
+    )
+    app.include_router(
+        build_nodes_router(NodesDomainService(node_registrations_store, node_governance_status_service)),
+        prefix="/api",
+    )
     app.include_router(
         build_system_router(
             registry,
