@@ -67,10 +67,13 @@ class TestArchitectureFoundationApi(unittest.TestCase):
             self.assertEqual(health.status_code, 200, health.text)
             self.assertEqual(health.json()["managed_node_count"], 1)
             self.assertEqual(health.json()["healthy_node_count"], 1)
+            self.assertEqual(health.json()["host"]["managed_runtime_type"], "standalone_addons")
+            self.assertIn("resources", health.json())
 
             info = client.get("/api/supervisor/info")
             self.assertEqual(info.status_code, 200, info.text)
-            self.assertEqual(info.json()["managed_nodes"], ["mqtt"])
+            self.assertEqual(info.json()["managed_nodes"][0]["node_id"], "mqtt")
+            self.assertIn("boundaries", info.json())
 
     def test_nodes_endpoints_reuse_registration_view(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -4,29 +4,96 @@ import os
 import socket
 
 from app.system.runtime import StandaloneRuntimeService
+from app.system.stats.service import collect_system_stats
+
+from .models import (
+    HostIdentitySummary,
+    HostResourceSummary,
+    ManagedNodeSummary,
+    SupervisorHealthSummary,
+    SupervisorInfoSummary,
+    SupervisorOwnershipBoundary,
+)
 
 
 class SupervisorDomainService:
     def __init__(self, runtime_service: StandaloneRuntimeService | None = None) -> None:
         self._runtime_service = runtime_service or StandaloneRuntimeService()
 
-    def health_summary(self) -> dict[str, object]:
-        runtimes = self._runtime_service.list_standalone_addon_runtimes()
-        healthy = sum(1 for item in runtimes if str(item.health_status or "").strip().lower() == "healthy")
-        unhealthy = sum(1 for item in runtimes if str(item.health_status or "").strip().lower() == "unhealthy")
-        return {
-            "status": "ok",
-            "managed_node_count": len(runtimes),
-            "healthy_node_count": healthy,
-            "unhealthy_node_count": unhealthy,
-        }
+    def _runtime_provider(self) -> str:
+        return str(os.getenv("SYNTHIA_MQTT_RUNTIME_PROVIDER", "docker")).strip().lower() or "docker"
 
-    def info_summary(self) -> dict[str, object]:
+    def _host_identity(self) -> HostIdentitySummary:
+        hostname = socket.gethostname()
+        return HostIdentitySummary(
+            host_id=hostname,
+            hostname=hostname,
+            runtime_provider=self._runtime_provider(),
+        )
+
+    def _host_resources(self) -> HostResourceSummary:
+        stats = collect_system_stats(api_metrics=None)
+        root_disk = stats.disks.get("/")
+        return HostResourceSummary(
+            uptime_s=stats.uptime_s,
+            load_1m=stats.load.load1,
+            load_5m=stats.load.load5,
+            load_15m=stats.load.load15,
+            cpu_percent_total=stats.cpu.percent_total,
+            cpu_cores_logical=stats.cpu.cores_logical,
+            memory_total_bytes=stats.mem.total,
+            memory_available_bytes=stats.mem.available,
+            memory_percent=stats.mem.percent,
+            root_disk_total_bytes=root_disk.total if root_disk is not None else None,
+            root_disk_free_bytes=root_disk.free if root_disk is not None else None,
+            root_disk_percent=root_disk.percent if root_disk is not None else None,
+        )
+
+    def _managed_nodes(self) -> list[ManagedNodeSummary]:
         runtimes = self._runtime_service.list_standalone_addon_runtimes()
-        return {
-            "supervisor_id": socket.gethostname(),
-            "runtime_provider": str(os.getenv("SYNTHIA_MQTT_RUNTIME_PROVIDER", "docker")).strip().lower() or "docker",
-            "managed_runtime_type": "standalone_addons",
-            "managed_node_count": len(runtimes),
-            "managed_nodes": [item.addon_id for item in runtimes],
-        }
+        return [
+            ManagedNodeSummary(
+                node_id=item.addon_id,
+                desired_state=item.desired_state,
+                runtime_state=item.runtime_state,
+                health_status=item.health_status,
+                active_version=item.active_version,
+                running=item.running,
+            )
+            for item in runtimes
+        ]
+
+    def health_summary(self) -> SupervisorHealthSummary:
+        managed_nodes = self._managed_nodes()
+        healthy = sum(1 for item in managed_nodes if str(item.health_status or "").strip().lower() == "healthy")
+        unhealthy = sum(1 for item in managed_nodes if str(item.health_status or "").strip().lower() == "unhealthy")
+        return SupervisorHealthSummary(
+            status="ok",
+            host=self._host_identity(),
+            resources=self._host_resources(),
+            managed_node_count=len(managed_nodes),
+            healthy_node_count=healthy,
+            unhealthy_node_count=unhealthy,
+        )
+
+    def info_summary(self) -> SupervisorInfoSummary:
+        managed_nodes = self._managed_nodes()
+        return SupervisorInfoSummary(
+            supervisor_id=self._host_identity().host_id,
+            host=self._host_identity(),
+            resources=self._host_resources(),
+            boundaries=SupervisorOwnershipBoundary(
+                owns=[
+                    "host-local standalone runtime realization",
+                    "desired-to-runtime reconciliation",
+                    "standalone workload lifecycle execution",
+                ],
+                depends_on_core_for=[
+                    "global governance and scheduler policy",
+                    "node trust and onboarding authority",
+                    "operator UI and control-plane APIs",
+                ],
+            ),
+            managed_node_count=len(managed_nodes),
+            managed_nodes=managed_nodes,
+        )

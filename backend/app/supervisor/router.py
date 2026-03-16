@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from .models import SupervisorHealthSummary, SupervisorInfoSummary
 from .service import SupervisorDomainService
 
 
@@ -10,11 +11,11 @@ def build_supervisor_router(service: SupervisorDomainService | None = None) -> A
     supervisor = service or SupervisorDomainService()
 
     @router.get("/supervisor/health")
-    def get_supervisor_health() -> dict[str, object]:
+    def get_supervisor_health() -> SupervisorHealthSummary:
         return supervisor.health_summary()
 
     @router.get("/supervisor/info")
-    def get_supervisor_info() -> dict[str, object]:
+    def get_supervisor_info() -> SupervisorInfoSummary:
         return supervisor.info_summary()
 
     return router

@@ -1,0 +1,93 @@
+# Supervisor Domain Models
+
+Status: Implemented
+
+This document defines the current Supervisor domain models exposed by the migration foundation in code.
+
+## Source Of Truth
+
+- `backend/app/supervisor/models.py`
+- `backend/app/supervisor/service.py`
+- `backend/app/supervisor/router.py`
+
+## Models
+
+### HostIdentitySummary
+
+- `host_id`
+- `hostname`
+- `runtime_provider`
+- `managed_runtime_type`
+
+### HostResourceSummary
+
+- `uptime_s`
+- `load_1m`
+- `load_5m`
+- `load_15m`
+- `cpu_percent_total`
+- `cpu_cores_logical`
+- `memory_total_bytes`
+- `memory_available_bytes`
+- `memory_percent`
+- `root_disk_total_bytes`
+- `root_disk_free_bytes`
+- `root_disk_percent`
+
+Current implementation reuses the existing Core stats collector as a compatibility source while the host-local logic is moved behind Supervisor boundaries in later tasks.
+
+### ManagedNodeSummary
+
+- `node_id`
+- `runtime_kind`
+- `desired_state`
+- `runtime_state`
+- `health_status`
+- `active_version`
+- `running`
+
+Current implementation maps host-local standalone addon runtimes into the Supervisor-managed node summary model.
+
+### SupervisorHealthSummary
+
+Returned by:
+
+- `GET /api/supervisor/health`
+
+Includes:
+
+- `status`
+- `host`
+- `resources`
+- `managed_node_count`
+- `healthy_node_count`
+- `unhealthy_node_count`
+
+### SupervisorInfoSummary
+
+Returned by:
+
+- `GET /api/supervisor/info`
+
+Includes:
+
+- `supervisor_id`
+- `host`
+- `resources`
+- `boundaries`
+- `managed_node_count`
+- `managed_nodes`
+
+## Ownership Boundary
+
+Current Supervisor ownership:
+
+- host-local standalone runtime realization
+- desired-to-runtime reconciliation
+- standalone workload lifecycle execution
+
+Current Core-owned dependencies:
+
+- global governance and scheduler policy
+- node trust and onboarding authority
+- operator UI and control-plane APIs
