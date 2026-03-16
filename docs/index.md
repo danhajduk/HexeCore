@@ -16,9 +16,9 @@ This is the canonical documentation index for the repository. The top-level navi
 
 ## Core Subsystems
 
-- [fastapi/README.md](./fastapi/README.md)
-- [frontend/README.md](./frontend/README.md)
-- [scheduler/README.md](./scheduler/README.md)
+- [core/api/README.md](./core/api/README.md)
+- [core/frontend/README.md](./core/frontend/README.md)
+- [core/scheduler/README.md](./core/scheduler/README.md)
 - [workers/README.md](./workers/README.md)
 - [addons/README.md](./addons/README.md)
 - [mqtt/README.md](./mqtt/README.md)
@@ -27,5 +27,5 @@ This is the canonical documentation index for the repository. The top-level navi
 
 - [operators-guide.md](./operators-guide.md)
 - [development-guide.md](./development-guide.md)
-- [documentation-migration-map.md](./documentation-migration-map.md)
+- [migration/documentation-migration-map.md](./migration/documentation-migration-map.md)
 - [standards/README.md](./standards/README.md)

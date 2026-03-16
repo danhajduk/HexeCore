@@ -10,6 +10,7 @@ Synthia Core is the control-plane service for the Synthia platform. This reposit
 - [docs/core/README.md](docs/core/README.md)
 - [docs/supervisor/README.md](docs/supervisor/README.md)
 - [docs/nodes/README.md](docs/nodes/README.md)
+- [docs/mqtt/README.md](docs/mqtt/README.md)
 
 ## Domain Summary
 

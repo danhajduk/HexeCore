@@ -15,10 +15,10 @@ Status: Implemented
 
 - Embedded addons are discovered and integrated into the Core runtime.
 - Standalone addons are lifecycle-managed by Core and realized through supervisor/runtime boundaries.
-- Standalone addon packaging and remediation documents live in `docs/addon-standalone/`.
+- Standalone addon packaging and remediation documents live in `docs/addons/standalone-archive/`.
 
 ## See Also
 
-- [../addon-embedded/README.md](../addon-embedded/README.md)
-- [../addon-standalone/README.md](../addon-standalone/README.md)
-- [../addon-store/architecture.md](../addon-store/architecture.md)
+- [./embedded/README.md](./embedded/README.md)
+- [./standalone-archive/README.md](./standalone-archive/README.md)
+- [./standalone-archive/architecture.md](./standalone-archive/architecture.md)

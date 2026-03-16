@@ -1,20 +1,19 @@
 # Frontend Docs
 
-This folder contains the operator UI documentation for the React frontend served by Synthia Core.
+This folder is a compatibility landing page. The canonical Core frontend docs now live under `docs/core/frontend/`.
 
 ## Included Docs
 
-- [frontend-and-ui.md](./frontend-and-ui.md)
-  Frontend structure, UI surfaces, and addon-facing integration points.
+- [../core/frontend/README.md](../core/frontend/README.md)
+- [../core/frontend/frontend-and-ui.md](../core/frontend/frontend-and-ui.md)
 
 ## Code Boundary
 
 Status: Implemented
 
-- Frontend source lives under `frontend/src/`.
-- Static assets and build output live under `frontend/public/` and `frontend/dist/`.
+The frontend code boundary is unchanged. Only the documentation home moved.
 
 ## See Also
 
-- [../fastapi/api-reference.md](../fastapi/api-reference.md)
+- [../core/api/api-reference.md](../core/api/api-reference.md)
 - [../addons/addon-platform.md](../addons/addon-platform.md)

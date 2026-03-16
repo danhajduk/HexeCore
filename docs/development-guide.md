@@ -52,5 +52,5 @@ Status: Partial
 ## See Also
 
 - [Document Index](./index.md)
-- [Documentation Migration Map](./documentation-migration-map.md)
+- [Documentation Migration Map](./migration/documentation-migration-map.md)
 - [Overview](./overview.md)

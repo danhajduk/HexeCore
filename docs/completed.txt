@@ -544,3 +544,4 @@
 2026-03-12 17:44 - Task 474: added a dev-only notification flow trigger endpoint with config gating, reproducible expected results, and test coverage for the endpoint gate and emitted flow.
 Task 002: Create canonical documentation entrypoints - Completed on 03/16/2026 02:22
 Task 001: Establish Core / Supervisor / Node foundation - Completed on 03/16/2026 02:17
+Task 003: Re-home documentation into the new structure - Completed on 03/16/2026 02:36

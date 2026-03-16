@@ -1,29 +1,24 @@
 # FastAPI Docs
 
-This folder contains the Core backend documentation for the FastAPI application and the HTTP control-plane it exposes.
+This folder is a compatibility landing page. The canonical Core API docs now live under `docs/core/api/`.
 
 ## Included Docs
 
-- [core-platform.md](./core-platform.md)
-  Core backend responsibilities, service ownership, and control-plane boundaries.
-- [api-reference.md](./api-reference.md)
-  Route-family reference for the current backend API surface.
-- [auth-and-identity.md](./auth-and-identity.md)
-  Authentication and identity behavior for admin, service, and platform actors.
-- [data-and-state.md](./data-and-state.md)
-  Persistent and runtime state references used by Core services.
-- [telemetry-and-usage.md](./telemetry-and-usage.md)
-  Usage telemetry routes, storage model, and service-token write contract.
+- [../core/api/README.md](../core/api/README.md)
+- [../core/api/core-platform.md](../core/api/core-platform.md)
+- [../core/api/api-reference.md](../core/api/api-reference.md)
+- [../core/api/auth-and-identity.md](../core/api/auth-and-identity.md)
+- [../core/api/data-and-state.md](../core/api/data-and-state.md)
+- [../core/api/telemetry-and-usage.md](../core/api/telemetry-and-usage.md)
 
 ## Code Boundary
 
 Status: Implemented
 
-- Main app assembly lives under `backend/app/`.
-- Route families are mounted from `backend/app/system/`, `backend/app/addons/`, and `backend/app/store/`.
+The underlying backend code boundary is unchanged. Only the documentation home moved.
 
 ## See Also
 
 - [../architecture.md](../architecture.md)
 - [../mqtt/mqtt-platform.md](../mqtt/mqtt-platform.md)
-- [../frontend/frontend-and-ui.md](../frontend/frontend-and-ui.md)
+- [../core/frontend/frontend-and-ui.md](../core/frontend/frontend-and-ui.md)

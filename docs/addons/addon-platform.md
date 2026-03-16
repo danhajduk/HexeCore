@@ -50,7 +50,7 @@ Status: Implemented
 Status: Partially implemented
 
 - Distributed addons are the same runtime category as standalone addons in the current documentation layout.
-- Standalone packaging, compatibility, and remediation references now live under `docs/addon-standalone/`.
+- Standalone packaging, compatibility, and remediation references now live under `docs/addons/standalone-archive/`.
 
 ## Deprecated/Superseded Guidance
 

@@ -25,13 +25,13 @@ Core is currently implemented across:
 
 ## Current Core Documentation Map
 
-- [../fastapi/README.md](../fastapi/README.md)
-- [../frontend/README.md](../frontend/README.md)
-- [../scheduler/README.md](../scheduler/README.md)
+- [./api/README.md](./api/README.md)
+- [./frontend/README.md](./frontend/README.md)
+- [./scheduler/README.md](./scheduler/README.md)
 - [../workers/README.md](../workers/README.md)
 - [../addons/README.md](../addons/README.md)
 - [../mqtt/README.md](../mqtt/README.md)
 
 ## Migration Structure
 
-The folders `docs/core/api/`, `docs/core/frontend/`, and `docs/core/scheduler/` now exist as the destination structure for later documentation re-homing work.
+The folders `docs/core/api/`, `docs/core/frontend/`, and `docs/core/scheduler/` now hold the re-homed Core API, frontend, and scheduler docs.
