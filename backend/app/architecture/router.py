@@ -50,6 +50,21 @@ def build_architecture_router() -> APIRouter:
                         ],
                     },
                 ],
+                "node_execution_contract": {
+                    "canonical_domain": "nodes",
+                    "docs_path": "docs/nodes/scheduled-work-execution-contract.md",
+                    "routes": [
+                        "/api/system/scheduler/leases/request",
+                        "/api/system/scheduler/leases/{lease_id}/heartbeat",
+                        "/api/system/scheduler/leases/{lease_id}/report",
+                        "/api/system/scheduler/leases/{lease_id}/complete",
+                        "/api/system/scheduler/leases/{lease_id}/revoke",
+                    ],
+                    "notes": [
+                        "The current scheduled-work execution contract reuses the existing scheduler lease protocol.",
+                        "Nodes and other execution clients claim work, heartbeat leases, report progress, and complete or fail leased jobs through the same Core-owned scheduler APIs.",
+                    ],
+                },
             },
             "extension_boundaries": {
                 "embedded_addons": {

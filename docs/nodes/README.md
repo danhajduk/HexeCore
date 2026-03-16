@@ -43,6 +43,7 @@ The new top-level node routes reuse the existing canonical registration payload 
 - [registry-domain.md](./registry-domain.md)
 - [node-onboarding-registration-architecture.md](./node-onboarding-registration-architecture.md)
 - [node-onboarding-api-contract.md](./node-onboarding-api-contract.md)
+- [scheduled-work-execution-contract.md](./scheduled-work-execution-contract.md)
 - [node-phase2-lifecycle-contract.md](./node-phase2-lifecycle-contract.md)
 - [node-lifecycle.md](./node-lifecycle.md)
 
