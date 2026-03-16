@@ -8,6 +8,7 @@ Status: Partially implemented
 
 - The general trusted-node model remains documented under `docs/nodes/`.
 - AI-node-specific compatibility views, migration notes, and mismatch reports now live here while the wider node model is consolidated.
+- Canonical onboarding, registration, trust activation, and capability activation terminology now lives under `docs/nodes/`.
 
 ## Included Docs
 
@@ -19,4 +20,5 @@ Status: Partially implemented
 ## See Also
 
 - [../nodes/README.md](../nodes/README.md)
+- [../nodes/onboarding-trust-terminology.md](../nodes/onboarding-trust-terminology.md)
 - [../nodes/node-onboarding-registration-architecture.md](../nodes/node-onboarding-registration-architecture.md)

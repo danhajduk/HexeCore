@@ -6,6 +6,11 @@ Last Updated: 2026-03-11 17:07
 ## Purpose
 Defines the Core-side architecture target for Phase 2 node capability activation after trust activation is complete.
 
+Terminology note:
+
+- `trust activation` is the finalize payload phase
+- `capability activation` is the later capability declaration/profile/governance phase
+
 This document is the source of truth for:
 - capability declaration intake
 - capability profile registration

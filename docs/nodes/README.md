@@ -26,6 +26,7 @@ The new top-level node routes reuse the existing canonical registration payload 
 
 ## Included Docs
 
+- [onboarding-trust-terminology.md](./onboarding-trust-terminology.md)
 - [registry-domain.md](./registry-domain.md)
 - [node-onboarding-registration-architecture.md](./node-onboarding-registration-architecture.md)
 - [node-onboarding-api-contract.md](./node-onboarding-api-contract.md)

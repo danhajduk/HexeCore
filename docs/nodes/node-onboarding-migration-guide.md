@@ -1,11 +1,13 @@
 # Node Onboarding Migration Guide
 
-Status: Planned
+Status: Implemented
 Last updated: 2026-03-11
 
 ## Purpose
 
 This guide defines migration steps from legacy AI-node-specific onboarding routes to global node onboarding and registration routes.
+
+Canonical terminology in this guide follows [Node Onboarding And Trust Terminology](./onboarding-trust-terminology.md).
 
 ## Route Migration
 
@@ -42,3 +44,4 @@ Legacy AI-node alias routes emit:
 2. Consume canonical response fields (`node_name`, `node_type`, `node_software_version`) and keep `requested_*` only as temporary fallback.
 3. Update operator links to `/onboarding/registrations/approve`.
 4. Validate that bootstrap consumers use canonical endpoint keys (`register_session`, `registrations`) while tolerating legacy keys during transition.
+5. Treat `AI-node` terms as compatibility/profile language and prefer canonical `node`, `onboarding session`, `registration record`, and `trust activation` terminology in new docs and clients.

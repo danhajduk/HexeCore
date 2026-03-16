@@ -7,6 +7,12 @@ Last updated: 2026-03-11
 
 Defines the canonical trust activation payload returned when a node onboarding session is approved and finalized.
 
+Terminology note:
+
+- approval is the operator decision step
+- trust activation is the finalize payload returned after approved finalization
+- capability activation is a later post-trust phase and is not part of the trust activation payload
+
 ## Activation Payload Fields
 
 Returned under `activation`:
@@ -69,6 +75,7 @@ AI-node consumers can continue using existing baseline fields while migrating to
 
 ## See Also
 
+- [Node Onboarding And Trust Terminology](./onboarding-trust-terminology.md)
 - [Node Onboarding API Contract](./node-onboarding-api-contract.md)
 - [Node Onboarding And Registration Architecture](./node-onboarding-registration-architecture.md)
 - [Node Onboarding Migration Guide](./node-onboarding-migration-guide.md)

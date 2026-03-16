@@ -8,6 +8,8 @@ Last updated: 2026-03-11
 
 This document defines the AI-node profile compatibility view of trust activation payloads.
 
+Canonical terminology is defined in [Node Onboarding And Trust Terminology](../nodes/onboarding-trust-terminology.md).
+
 Canonical global contract:
 - [Node Trust Activation Payload Contract](../nodes/node-trust-activation-payload-contract.md)
 

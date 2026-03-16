@@ -6,7 +6,9 @@ Last updated: 2026-03-11
 
 ## Purpose
 
-This document defines the AI-node profile compatibility view for node-initiated onboarding:
+This document defines the AI-node profile compatibility view for node-initiated onboarding.
+
+Canonical terminology is defined in [Node Onboarding And Trust Terminology](../nodes/onboarding-trust-terminology.md).
 - session creation
 - finalization/polling
 

@@ -7,6 +7,13 @@ Last updated: 2026-03-11
 
 Defines the canonical global node onboarding session API contract used by Core.
 
+Terminology note:
+
+- `onboarding session` is the canonical pre-trust flow term
+- `registration record` is the canonical persisted identity term
+- `trust activation` is the canonical finalize payload term
+- `AI-node` remains compatibility/profile terminology only
+
 ## Start Session
 
 - `POST /api/system/nodes/onboarding/sessions`
@@ -91,6 +98,7 @@ Status: Implemented (baseline)
 
 ## See Also
 
+- [Node Onboarding And Trust Terminology](./onboarding-trust-terminology.md)
 - [Node Onboarding Phase 1 Contract](./node-onboarding-phase1-contract.md)
 - [Node Onboarding And Registration Architecture](./node-onboarding-registration-architecture.md)
 - [Node Trust Activation Payload Contract](./node-trust-activation-payload-contract.md)

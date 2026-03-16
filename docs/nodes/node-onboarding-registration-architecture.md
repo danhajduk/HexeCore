@@ -8,6 +8,8 @@ Last updated: 2026-03-11
 
 This document defines the canonical global node onboarding and registration architecture for Synthia Core.
 
+Canonical terminology for onboarding, registration, trust activation, and capability activation is defined in [Node Onboarding And Trust Terminology](./onboarding-trust-terminology.md).
+
 It generalizes onboarding from AI-node-only assumptions to a node-type-aware model that supports future node classes.
 
 ## Scope

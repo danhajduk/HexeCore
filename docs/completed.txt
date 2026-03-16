@@ -3,6 +3,7 @@ Task 005: Move host-local health/resource logic behind Supervisor APIs - Complet
 Task 006: Add Supervisor host API surface - Completed on 03/16/2026 02:37
 Task 007: Introduce Supervisor-managed node lifecycle control - Completed on 03/16/2026 02:42
 Task 008: Create canonical node registry domain - Completed on 03/16/2026 02:45
+Task 009: Normalize node onboarding and trust contracts - Completed on 03/16/2026 02:47
 01. Task 23: Implement backend addon registry persistence and registry API endpoints. - Completed on 02/28/2026 17:58
 02. Task 24: Implement backend MQTT listener for announce/health with safe optional startup. - Completed on 02/28/2026 18:00
 03. Task 25: Implement backend install-session state machine and endpoints. - Completed on 02/28/2026 18:13
