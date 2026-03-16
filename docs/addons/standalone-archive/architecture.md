@@ -3,7 +3,9 @@
 Last Updated: 2026-03-07 14:51 US/Pacific
 
 Date: 2026-02-28
-Status: Phase 2 remote catalog + install flow implemented
+Status: Archived compatibility-era reference
+
+This document describes the earlier standalone addon store architecture. Current canonical platform structure is `Core -> Supervisor -> Nodes`; this file remains for compatibility-era packaging and install history only.
 
 ## Official Source
 - Official store source id: `official`

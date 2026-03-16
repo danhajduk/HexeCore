@@ -3,7 +3,9 @@
 Last Updated: 2026-03-07 14:51 US/Pacific
 
 Date: 2026-02-28
-Status: Phase 2 remote catalog + install requirements
+Status: Archived compatibility-era reference
+
+This file captures compatibility-era addon store requirements. It is preserved for historical product and packaging context, not as the active architecture entrypoint.
 
 ## Scope
 This document defines product requirements for Phase 2 of the official Synthia addon store. Focus is remote catalog trust, cached operations, and install-from-catalog security. Billing/reviews/publisher portal UX remain out of scope.

@@ -43,5 +43,5 @@ Execution-facing worker/process management is now considered part of the Supervi
 ## See Also
 
 - [../architecture.md](../architecture.md)
-- [../addon-standalone/README.md](../addon-standalone/README.md)
+- [../addons/standalone-archive/README.md](../addons/standalone-archive/README.md)
 - [../addons/addon-platform.md](../addons/addon-platform.md)
