@@ -29,7 +29,11 @@ async def stats_fast_sampler_loop(app: FastAPI, interval_s: float = 5.0) -> None
     while True:
         try:
             # Collect system stats (no API snapshot computation inside service)
-            sys_snap = collect_system_stats(api_metrics=None)
+            supervisor = getattr(app.state, "supervisor_service", None)
+            if supervisor is not None and callable(getattr(supervisor, "system_stats", None)):
+                sys_snap = supervisor.system_stats(api_metrics=None)
+            else:
+                sys_snap = collect_system_stats(api_metrics=None)
 
             # Get latest API metrics snapshot (captured every 60s)
             api_snap: Dict[str, Any] = getattr(app.state, "latest_api_metrics", None) or {}
@@ -52,11 +56,18 @@ async def stats_fast_sampler_loop(app: FastAPI, interval_s: float = 5.0) -> None
             registry = getattr(app.state, "addon_registry", None)
             cfg = getattr(app.state, "system_config", None)
             quiet_thresholds = getattr(cfg, "quiet_thresholds", None) if cfg else None
-            snapshot = collect_system_snapshot(
-                api_snapshot=api_snap,
-                registry=registry,
-                quiet_thresholds=quiet_thresholds,
-            )
+            if supervisor is not None and callable(getattr(supervisor, "system_snapshot", None)):
+                snapshot = supervisor.system_snapshot(
+                    api_snapshot=api_snap,
+                    registry=registry,
+                    quiet_thresholds=quiet_thresholds,
+                )
+            else:
+                snapshot = collect_system_snapshot(
+                    api_snapshot=api_snap,
+                    registry=registry,
+                    quiet_thresholds=quiet_thresholds,
+                )
             app.state.latest_system_snapshot = snapshot
 
         except Exception:
@@ -105,7 +116,11 @@ async def stats_minute_writer_loop(app: FastAPI, retention_days: int = 1) -> Non
             # do a one-off collection (with API snapshot if available).
             if snap is None:
                 api_snap: Dict[str, Any] = getattr(app.state, "latest_api_metrics", None) or {}
-                sys_snap = collect_system_stats(api_metrics=None)
+                supervisor = getattr(app.state, "supervisor_service", None)
+                if supervisor is not None and callable(getattr(supervisor, "system_stats", None)):
+                    sys_snap = supervisor.system_stats(api_metrics=None)
+                else:
+                    sys_snap = collect_system_stats(api_metrics=None)
                 sys_dict = sys_snap.model_dump()
                 busy = compute_busy_rating(sys_dict, api_snap)
                 snap = sys_snap.model_copy(

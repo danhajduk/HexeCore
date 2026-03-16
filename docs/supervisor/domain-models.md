@@ -48,6 +48,25 @@ Current implementation reuses the existing Core stats collector as a compatibili
 
 Current implementation maps host-local standalone addon runtimes into the Supervisor-managed node summary model.
 
+## Compatibility Service Boundary
+
+Status: Implemented
+
+The Supervisor domain service now also acts as the compatibility boundary for host-local collection that still feeds Core-owned routes.
+
+Current compatibility methods:
+
+- `system_stats()`
+- `system_snapshot()`
+- `process_stats()`
+
+Current compatibility consumers:
+
+- `backend/app/system/stats/router.py`
+- `backend/app/system/sampler.py`
+
+This keeps existing Core routes stable while shifting host-local inspection behind the Supervisor service layer.
+
 ### SupervisorHealthSummary
 
 Returned by:

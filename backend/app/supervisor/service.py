@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import os
 import socket
+from typing import Any
 
 from app.system.runtime import StandaloneRuntimeService
-from app.system.stats.service import collect_system_stats
+from app.system.stats.models import SystemStats, SystemStatsSnapshot
+from app.system.stats.service import collect_process_stats, collect_system_snapshot, collect_system_stats
 
 from .models import (
     HostIdentitySummary,
@@ -62,6 +64,27 @@ class SupervisorDomainService:
             )
             for item in runtimes
         ]
+
+    def system_stats(self, *, api_metrics=None) -> SystemStats:
+        return collect_system_stats(api_metrics=api_metrics)
+
+    def system_snapshot(
+        self,
+        *,
+        api_metrics=None,
+        api_snapshot: dict[str, Any] | None = None,
+        registry=None,
+        quiet_thresholds=None,
+    ) -> SystemStatsSnapshot:
+        return collect_system_snapshot(
+            api_metrics=api_metrics,
+            api_snapshot=api_snapshot,
+            registry=registry,
+            quiet_thresholds=quiet_thresholds,
+        )
+
+    def process_stats(self) -> dict[str, Any]:
+        return collect_process_stats()
 
     def health_summary(self) -> SupervisorHealthSummary:
         managed_nodes = self._managed_nodes()

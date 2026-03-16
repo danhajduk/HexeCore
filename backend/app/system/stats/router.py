@@ -35,6 +35,11 @@ def get_current_stats(request: Request):
 
     # fallback during startup
     api_metrics = getattr(request.app.state, "api_metrics", None)
+    supervisor = getattr(request.app.state, "supervisor_service", None)
+    if supervisor is not None:
+        collect = getattr(supervisor, "system_stats", None)
+        if callable(collect):
+            return collect(api_metrics=api_metrics)
     return collect_system_stats(api_metrics=api_metrics)
 
 
@@ -48,6 +53,15 @@ def get_current_system_snapshot(request: Request):
     registry = getattr(request.app.state, "addon_registry", None)
     cfg = getattr(request.app.state, "system_config", None)
     quiet_thresholds = getattr(cfg, "quiet_thresholds", None) if cfg else None
+    supervisor = getattr(request.app.state, "supervisor_service", None)
+    if supervisor is not None:
+        collect = getattr(supervisor, "system_snapshot", None)
+        if callable(collect):
+            return collect(
+                api_metrics=api_metrics,
+                registry=registry,
+                quiet_thresholds=quiet_thresholds,
+            )
     return collect_system_snapshot(
         api_metrics=api_metrics,
         registry=registry,

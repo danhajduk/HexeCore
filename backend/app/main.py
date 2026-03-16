@@ -601,8 +601,10 @@ def create_app() -> FastAPI:
     runtime_service = StandaloneRuntimeService()
     app.state.standalone_runtime_service = runtime_service
     app.include_router(build_architecture_router(), prefix="/api")
+    supervisor_service = SupervisorDomainService(runtime_service)
+    app.state.supervisor_service = supervisor_service
     app.include_router(
-        build_supervisor_router(SupervisorDomainService(runtime_service)),
+        build_supervisor_router(supervisor_service),
         prefix="/api",
     )
     app.include_router(
