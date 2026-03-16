@@ -58,6 +58,6 @@ Status: Partially implemented
 ## See Also
 
 - [addon-platform.md](./addon-platform.md)
-- [../addon-standalone/README.md](../addon-standalone/README.md)
+- [standalone-archive/README.md](./standalone-archive/README.md)
 - [../supervisor/runtime-and-supervision.md](../supervisor/runtime-and-supervision.md)
 - [../fastapi/api-reference.md](../fastapi/api-reference.md)

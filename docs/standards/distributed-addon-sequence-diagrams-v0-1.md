@@ -4,6 +4,10 @@ Last Updated: 2026-03-07 14:51 US/Pacific
 Version: 0.1  
 Date: 2026-02-28
 
+Status: Archived compatibility-era reference
+
+These diagrams describe the earlier standalone/distributed addon model. Current canonical architecture is `Core -> Supervisor -> Nodes`, with MQTT still Core-owned.
+
 These diagrams use Mermaid. Paste into any Mermaid renderer (GitHub, Mermaid Live, etc.).
 
 ---
@@ -15,7 +19,7 @@ sequenceDiagram
   autonumber
   participant U as User
   participant C as Core
-  participant M as MQTT Broker (local addon or external)
+  participant M as MQTT Broker (Core-managed local broker or external)
 
   U->>C: Install Core
   alt Option A: Local broker addon

@@ -4,11 +4,15 @@ Last Updated: 2026-03-07 14:51 US/Pacific
 Version: 0.1  
 Date: 2026-02-28
 
+Status: Archived compatibility-era reference
+
+This document remains as a historical specification for the earlier distributed addon model. Active platform architecture is now documented under `Core -> Supervisor -> Nodes`, with Nodes as the canonical external execution/functionality model and Supervisor as the host-local runtime authority.
+
 This document defines a **general, reusable** structure for running Synthia addons as **independent services** that can live on the same host as Core or on different machines, while Core remains a **control plane** (registry/auth/policy/UI/proxy), not a data-path broker.
 
 > Design goals
 - **Non-interference**: addons keep running if Core is down; Core must not be required for realtime ingestion/processing.
-- **Distributed by default**: any addon may run remotely.
+- **Distributed by default**: any compatibility-era standalone addon may run remotely.
 - **Unified operator UX**: Core provides consistent auth/UI and a reverse-proxy path.
 - **Shared services**: some addons provide services (AI, Gmail, Storage). Others consume them with scoped tokens and quota grants.
 
@@ -31,8 +35,8 @@ Core does **not**:
 - Perform service work on behalf of addons (unless explicitly configured)
 - Become a single point of failure for data-path operations
 
-### Data plane (Addons)
-Each addon is an independent service that may:
+### Data plane (Compatibility-era standalone addons)
+Each compatibility-era standalone addon is an independent service that may:
 - Ingest data directly (MQTT, webhooks, polling)
 - Store local runtime state (DB/files)
 - Publish results to MQTT/HA
@@ -41,6 +45,8 @@ Each addon is an independent service that may:
 ---
 
 ## 2) Addon Types
+
+Note: for current platform work, use Nodes for new external capability surfaces. The addon types below are preserved to document the older packaging/runtime model.
 
 ### A) Standalone feature addon
 Provides UI + API for a feature domain (e.g., Vision).  
@@ -141,7 +147,7 @@ Why proxy:
 
 ## 6) MQTT Broker Options (Core Install)
 
-Core supports two configurations:
+Core supports two configurations and remains the owner of MQTT policy, notification publishing, and broker integration behavior.
 
 ### Option A: Local broker addon (default “works everywhere”)
 - Core starts an MQTT broker locally (container/service).

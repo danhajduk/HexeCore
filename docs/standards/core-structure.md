@@ -1,4 +1,4 @@
-# Synthia Distributed Architecture --- Core Structure
+# Synthia Core / Supervisor / Nodes Architecture --- Core Structure
 
 Last Updated: 2026-03-07 14:51 US/Pacific
 
@@ -18,15 +18,17 @@ It acts as:
 -   Unified UI shell
 -   Global settings manager
 -   Telemetry aggregator
+-   MQTT authority for platform messaging, notifications, and broker policy
+-   Scheduler and workload admission authority
 
 Core must NOT: - Relay sensor events - Relay AI inference traffic - Sit
 in high-frequency data paths
 
 ------------------------------------------------------------------------
 
-## 2. Addon Registry
+## 2. Registry and External Boundary
 
-Core maintains a persistent registry:
+Core maintains persistent registry state for embedded addons, compatibility-era standalone addons, and external node declarations:
 
 -   id
 -   name
@@ -39,11 +41,17 @@ Core maintains a persistent registry:
 Example capabilities: - vision.ingest - ai.classify - gmail.send -
 storage.object
 
+Canonical boundary:
+
+-   Embedded addons remain inside Core.
+-   Nodes are the canonical external functionality and scheduled work boundary.
+-   Compatibility-era standalone addons may still appear in the registry during migration.
+
 ------------------------------------------------------------------------
 
 ## 3. Reverse Proxy Model
 
-Browser → Core → Addon
+Browser → Core → Addon or Node-facing service
 
 Core proxies: - /api/addons/{id}/* - /addons/{id}/*
 
@@ -63,27 +71,37 @@ B. External MQTT Broker\
 - Host/port/credentials provided during install - Connection test
 required
 
-Core may attempt: - mDNS `_mqtt._tcp` - common hostname probes -
-fallback to local broker addon
+MQTT remains Core-owned even when the broker is external. Core is responsible for broker configuration, internal notification topics, and platform event publication.
 
 ------------------------------------------------------------------------
 
-## 5. Distributed Addon Model
+## 5. External Runtime Model
 
-Addons may run on separate machines.
+External functionality may run on separate machines, but the canonical runtime categories are now split between Supervisor and Nodes.
 
 Core responsibilities: - Service discovery - Policy distribution - Token
-issuing
+issuing - workload admission - UI/governance surfaces
 
-Addon responsibilities: - Data ingestion - Local persistence -
-Service-specific execution
+Supervisor responsibilities: - host-local process/runtime control -
+resource reporting - lifecycle actions
+
+Node responsibilities: - external execution - external capability delivery
+- node-local health/capability declaration
 
 Core must not disturb addon runtime operation.
 
 ------------------------------------------------------------------------
 
-## 6. Supervisor Layer (Future)
+## 6. Supervisor Layer
 
-Optional supervisor endpoints: - start - stop - restart - reload_config
+Supervisor endpoints now exist in the active platform surface:
 
-Supervision is optional and must not be required for correctness.
+- `GET /api/supervisor/resources`
+- `GET /api/supervisor/runtime`
+- `GET /api/supervisor/nodes`
+- `GET /api/supervisor/admission`
+- `POST /api/supervisor/nodes/{node_id}/start`
+- `POST /api/supervisor/nodes/{node_id}/stop`
+- `POST /api/supervisor/nodes/{node_id}/restart`
+
+Supervisor is the host-local runtime authority. It is not the external platform boundary for new functionality; Nodes fill that role.

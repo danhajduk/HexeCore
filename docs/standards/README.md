@@ -11,6 +11,8 @@ Files in this directory contain platform specifications, standards, and checklis
 - These files are not the implementation source of truth.
 - They may include planned or aspirational behavior that is not yet implemented.
 - Canonical implemented behavior remains documented in `docs/index.md` and the repository code.
+- Active platform terminology is `Core -> Supervisor -> Nodes`.
+- Historical distributed-addon standards are retained here as compatibility-era references unless a file explicitly states otherwise.
 
 ## Included Standards
 

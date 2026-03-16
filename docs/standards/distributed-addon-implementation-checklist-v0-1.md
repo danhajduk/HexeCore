@@ -2,7 +2,15 @@
 
 Last Updated: 2026-03-07 14:51 US/Pacific
 Date: 2026-02-28  
-Scope: General platform work to enable *any* addon to run locally or remotely, discoverable via MQTT, managed by Core (control plane), and able to consume shared services (AI/Gmail/etc.) with tokens + quota grants.
+Scope: Archived compatibility-era platform work to enable standalone addons to run locally or remotely, discoverable via MQTT, managed by Core (control plane), and able to consume shared services (AI/Gmail/etc.) with tokens + quota grants.
+
+Status: Archived compatibility-era reference
+
+Current platform guidance:
+- Embedded addons remain Core-local.
+- Supervisor owns host-local runtime control.
+- Nodes are the canonical external execution/functionality surface.
+- MQTT remains Core-owned.
 
 > Principles
 - Core is **control plane**, not data plane.
@@ -19,7 +27,7 @@ Scope: General platform work to enable *any* addon to run locally or remotely, d
 - [ ] Ensure per-addon runtime directories are gitignored and writable.
 
 Deliverable:
-- `docs/addon-standalone/README.md` linking to the spec + diagrams + this checklist.
+- `docs/addons/standalone-archive/README.md` linking to the spec + diagrams + this checklist.
 
 ---
 
@@ -193,15 +201,15 @@ Acceptance tests
 
 ---
 
-## Phase 7 — Supervisor Layer (Optional, Later)
-Goal: give Core an operator panel for worker lifecycle without making it required.
+## Phase 7 — Supervisor Layer
+Goal: describe the compatibility-era control hooks in terms of the now-active Supervisor domain.
 
 - [ ] Define optional control endpoints (addon side):
   - [ ] `POST /api/addon/control/pause`
   - [ ] `POST /api/addon/control/resume`
   - [ ] `POST /api/addon/control/reload_config`
-- [ ] Add Core UI buttons to call these via proxy.
-- [ ] If you later add process orchestration, keep it pluggable:
+- [ ] Add Core UI buttons to call these via proxy or Supervisor mediation.
+- [ ] If you add process orchestration, keep it pluggable:
   - docker-compose manager
   - systemd
   - scheduler-managed jobs

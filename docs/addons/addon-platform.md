@@ -51,7 +51,7 @@ Status: Implemented
 
 Status: Partially implemented
 
-- Distributed addons are the same runtime category as standalone addons in the current documentation layout.
+- Distributed addons are the same compatibility-era runtime category as standalone addons in the current documentation layout.
 - Standalone packaging, compatibility, and remediation references now live under `docs/addons/standalone-archive/`.
 
 ## Canonical Boundary
@@ -75,4 +75,4 @@ Status: Archived Legacy
 - [Frontend and UI](../frontend/frontend-and-ui.md)
 - [Data and State](../fastapi/data-and-state.md)
 - [addon-lifecycle.md](./addon-lifecycle.md)
-- [../addon-standalone/README.md](../addon-standalone/README.md)
+- [standalone-archive/README.md](./standalone-archive/README.md)
