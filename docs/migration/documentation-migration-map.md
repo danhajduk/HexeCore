@@ -28,7 +28,9 @@ This document records the current documentation normalization state for the repo
 - `docs/workers/`
 - `docs/supervisor/`
 
-## Compatibility Landing Pages
+## Retired Compatibility Landing Pages
+
+The temporary migration landing pages under the following legacy paths were removed after canonical links were updated:
 
 - `docs/fastapi/`
 - `docs/frontend/`

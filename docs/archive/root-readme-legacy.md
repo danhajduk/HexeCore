@@ -139,7 +139,7 @@ Store status response fields (Phase 2):
 - `last_install_error` (or `null` after successful install)
 
 Store incident runbook:
-- `docs/addon-store/incident-runbook.md` covers `catalog_artifact_unavailable` triage/recovery.
+- `docs/addons/standalone-archive/incident-runbook.md` covers `catalog_artifact_unavailable` triage/recovery.
 - `scripts/validate-catalog-package-profile.sh <package_profile> <artifact_path>` enforces release profile/layout alignment before catalog publication.
 
 Catalog query parameters:
