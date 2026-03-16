@@ -18,11 +18,18 @@ Current node code boundaries:
 - capability declaration and profile acceptance
 - governance issuance and refresh
 - telemetry ingestion and operational status projection
+- external functionality and execution surfaces in the migration model
 - migration-foundation route exposure through:
   - `GET /api/nodes`
   - `GET /api/nodes/{node_id}`
 
 The new top-level node routes reuse the existing canonical registration payload shape.
+
+## Boundary Rules
+
+- Nodes are the canonical model for new external functionality and trusted host-separated execution.
+- Embedded addons remain inside Core and should not be used to describe external platform boundaries.
+- Core remains the MQTT authority, and node connectivity material continues to be issued from Core-owned flows.
 
 ## Included Docs
 

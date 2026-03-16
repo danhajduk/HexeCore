@@ -18,10 +18,16 @@ Core is currently implemented across:
 
 - API hosting
 - operator UI hosting
-- addon lifecycle authority
+- embedded addon lifecycle authority
 - scheduler orchestration
 - MQTT authority and messaging policy
 - trusted-node trust, governance, and telemetry authority
+
+## Extension Rules
+
+- Embedded addons are Core-local extensions and stay inside the Core runtime.
+- External functionality should be modeled through Nodes.
+- Supervisor realizes host-local runtime intent for compatibility-era standalone workloads, but that does not replace Nodes as the canonical external platform boundary.
 
 ## Current Core Documentation Map
 

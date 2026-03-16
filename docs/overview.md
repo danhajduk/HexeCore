@@ -12,7 +12,7 @@ Core is the control plane. It currently owns:
 
 - API hosting
 - operator UI hosting
-- addon lifecycle authority
+- embedded addon lifecycle authority
 - scheduler orchestration
 - MQTT authority and messaging policy
 - trusted-node trust, governance, and telemetry authority
@@ -61,6 +61,13 @@ Supervisor
 Nodes
   \- trusted external capability providers and execution systems
 ```
+
+## Extension Boundary
+
+- Embedded addons remain inside Core.
+- Supervisor realizes host-local runtime state for standalone compatibility paths.
+- Nodes are the canonical external extension and execution model.
+- MQTT remains Core-owned and participates in cross-domain coordination where implemented.
 
 ## Related Docs
 

@@ -8,13 +8,15 @@ Status: Implemented
 
 - Discovered and loaded into Core runtime using addon metadata/contracts.
 - UI surfaces are integrated through Core frontend routes and addon proxy embedding.
+- MQTT policy and coordination for embedded addon integrations remain Core-owned.
 
 ### Standalone Addons
 
-Status: Partial
+Status: Partially implemented
 
 - Standalone artifact contracts and desired/runtime documents exist.
 - Runtime realization depends on supervisor/runtime boundaries and deployment context.
+- This is a compatibility-era runtime path, not the canonical external extension model for new platform work.
 
 ## Discovery and Registry
 
@@ -51,6 +53,14 @@ Status: Partially implemented
 
 - Distributed addons are the same runtime category as standalone addons in the current documentation layout.
 - Standalone packaging, compatibility, and remediation references now live under `docs/addons/standalone-archive/`.
+
+## Canonical Boundary
+
+Status: Implemented
+
+- Embedded addons are the canonical addon model for functionality that stays inside Core.
+- Nodes are the canonical model for external functionality and execution surfaces.
+- Supervisor is the host-local runtime authority that can realize compatibility-era standalone runtime state, but it does not replace Nodes as the external platform boundary.
 
 ## Deprecated/Superseded Guidance
 

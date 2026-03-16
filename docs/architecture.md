@@ -19,7 +19,7 @@ Current Core responsibilities include:
 
 - API hosting
 - UI hosting
-- addon lifecycle authority
+- embedded addon lifecycle authority
 - scheduler orchestration
 - MQTT authority and runtime coordination
 - trusted-node trust and governance authority
@@ -56,6 +56,15 @@ Current top-level routes:
 - `GET /api/nodes/{node_id}`
 
 These routes reuse the existing canonical node registration payload shape rather than introducing a second schema.
+
+## Extension Boundary
+
+Status: Implemented
+
+- Embedded addons remain inside Core and are the active local extension model under `backend/app/addons/`.
+- Supervisor owns host-local runtime realization and compatibility-era standalone runtime state, but that host-local path is not the canonical external extension model.
+- Nodes are the canonical external functionality and execution model. New external compute or integration surfaces should be expressed through node onboarding, trust, capability, governance, and telemetry flows.
+- Core remains the MQTT authority for messaging policy and node-facing connectivity material.
 
 ## Cross-Domain Flow
 

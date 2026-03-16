@@ -52,6 +52,7 @@ Status: Partially implemented
 
 - Embedded addons run inside the Core-managed runtime and are the active local integration model.
 - Standalone addons reuse the Core lifecycle authority, but runtime realization depends on supervisor/runtime boundaries and addon store flows.
+- New external functionality should be modeled as Nodes rather than as standalone addons.
 - Standalone package-profile guidance and remediation docs now live under `docs/addons/standalone-archive/`.
 
 ## See Also
