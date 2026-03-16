@@ -20,7 +20,7 @@ Current Core responsibilities include:
 - API hosting
 - UI hosting
 - embedded addon lifecycle authority
-- scheduler orchestration
+- scheduler orchestration and workload admission
 - MQTT authority and runtime coordination
 - trusted-node trust and governance authority
 
@@ -65,6 +65,15 @@ Status: Implemented
 - Supervisor owns host-local runtime realization and compatibility-era standalone runtime state, but that host-local path is not the canonical external extension model.
 - Nodes are the canonical external functionality and execution model. New external compute or integration surfaces should be expressed through node onboarding, trust, capability, governance, and telemetry flows.
 - Core remains the MQTT authority for messaging policy and node-facing connectivity material.
+
+## Workload Boundary
+
+Status: Implemented
+
+- Scheduler queueing, admission, and lease orchestration remain Core responsibilities.
+- The scheduler does not own host-local runtime execution as a platform boundary.
+- Current worker runners are execution clients that consume Core-issued leases.
+- Supervisor is the target host-local runtime authority, and Nodes are the canonical external execution layer.
 
 ## Cross-Domain Flow
 

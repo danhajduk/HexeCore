@@ -39,6 +39,8 @@ class TestArchitectureFoundationApi(unittest.TestCase):
         payload = res.json()
         self.assertEqual(payload["target_architecture"], "core-supervisor-nodes")
         self.assertEqual([item["id"] for item in payload["domains"]], ["core", "supervisor", "nodes"])
+        self.assertEqual(payload["workload_boundary"]["scheduler"]["owner_domain"], "core")
+        self.assertEqual(payload["workload_boundary"]["scheduler"]["role"], "admission_and_orchestration")
         self.assertEqual(payload["extension_boundaries"]["embedded_addons"]["owner_domain"], "core")
         self.assertEqual(payload["extension_boundaries"]["external_functionality"]["canonical_domain"], "nodes")
 

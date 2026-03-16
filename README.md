@@ -26,7 +26,7 @@ Core currently spans:
 - `backend/app/system/`
 - `frontend/`
 
-Core owns API hosting, UI hosting, embedded addon lifecycle authority, scheduler orchestration, MQTT authority, and trusted-node governance flows.
+Core owns API hosting, UI hosting, embedded addon lifecycle authority, scheduler orchestration and workload admission, MQTT authority, and trusted-node governance flows.
 
 ### Supervisor
 
@@ -65,6 +65,12 @@ These routes reuse the existing canonical node registration payload shape.
 - Supervisor realizes host-local runtime intent and compatibility-era standalone runtime state.
 - External functionality is node-first in the migration structure. New external capability providers should be modeled as Nodes, not as standalone addons.
 - MQTT remains Core-owned and is used as part of Core-to-node and Core-to-addon coordination where implemented.
+
+## Workload Boundary
+
+- Core scheduler APIs own queueing, admission, and orchestration decisions.
+- Execution happens through worker/runtime clients outside that Core admission path where implemented today.
+- Supervisor and Nodes are the target runtime boundaries for host-local and external execution respectively.
 
 ## Repository Layout
 

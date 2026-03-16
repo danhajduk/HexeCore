@@ -15,6 +15,14 @@ Status: Implemented
 - Workers complete or fail leases with result payloads.
 - The current repository includes a simple built-in handler registry for local worker execution.
 
+## Boundary
+
+Status: Implemented
+
+- The scheduler remains the Core admission/orchestration boundary.
+- Worker runners are execution clients that act after Core has admitted work.
+- This current local worker path is a compatibility/runtime helper, not the final host-runtime ownership model.
+
 ## Worker Runner Configuration
 
 Status: Implemented
@@ -83,6 +91,7 @@ Status: Partially implemented
 
 - The current worker subsystem is a concrete scheduler client/runtime helper.
 - Advanced worker fleet management, remote deployment, and richer handler packaging are not verifiable from the current repository state.
+- Host-local runtime authority is expected to move toward Supervisor over later migration tasks.
 
 ## See Also
 

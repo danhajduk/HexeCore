@@ -76,6 +76,7 @@ class WorkerRunner:
             return
 
     async def run_once(self) -> None:
+        # The runner is an execution client for leased work; Core keeps queue/admission ownership.
         res = await self.request_lease()
         print(f"[{self.cfg.worker_id}] lease response: {res}")
 

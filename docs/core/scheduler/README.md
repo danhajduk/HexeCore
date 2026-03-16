@@ -12,6 +12,12 @@ Status: Partially implemented
 
 This documentation was re-homed from `docs/scheduler/` during the Core -> Supervisor -> Nodes migration.
 
+## Boundary
+
+- Scheduler remains a Core subsystem.
+- Its canonical role is workload admission, queue management, and orchestration.
+- Execution should be described separately from scheduler ownership.
+
 ## See Also
 
 - [../../workers/README.md](../../workers/README.md)

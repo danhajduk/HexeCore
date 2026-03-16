@@ -11,6 +11,43 @@ def build_architecture_router() -> APIRouter:
         return {
             "target_architecture": "core-supervisor-nodes",
             "status": "foundation",
+            "workload_boundary": {
+                "scheduler": {
+                    "owner_domain": "core",
+                    "role": "admission_and_orchestration",
+                    "docs_path": "docs/core/scheduler",
+                    "notes": [
+                        "Core admits work, manages queue state, and coordinates lease/orchestration decisions.",
+                        "The scheduler does not define host-local runtime ownership for execution.",
+                    ],
+                },
+                "execution_surfaces": [
+                    {
+                        "id": "workers",
+                        "status": "compatibility_runtime_helper",
+                        "docs_path": "docs/workers",
+                        "notes": [
+                            "Current worker runners execute leased work outside the Core scheduler admission loop.",
+                        ],
+                    },
+                    {
+                        "id": "supervisor",
+                        "status": "host_runtime_authority",
+                        "docs_path": "docs/supervisor",
+                        "notes": [
+                            "Supervisor is the target boundary for host-local runtime authority.",
+                        ],
+                    },
+                    {
+                        "id": "nodes",
+                        "status": "canonical_external_execution_layer",
+                        "docs_path": "docs/nodes",
+                        "notes": [
+                            "Nodes are the canonical external execution model in the migration structure.",
+                        ],
+                    },
+                ],
+            },
             "extension_boundaries": {
                 "embedded_addons": {
                     "owner_domain": "core",

@@ -346,7 +346,8 @@ def build_scheduler_router(
                     queue_store.enqueue(job)
                     continue
 
-                # Simple admission gate based on busy rating
+                # Core owns admission/orchestration here; actual execution happens after leasing.
+                # This queue path should stay focused on deciding when work may proceed.
                 if busy >= 8 and job.priority != JobPriority.high:
                     job.attempts += 1
                     job.next_earliest_start_at = now + timedelta(seconds=5)

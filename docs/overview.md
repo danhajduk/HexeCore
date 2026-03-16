@@ -13,7 +13,7 @@ Core is the control plane. It currently owns:
 - API hosting
 - operator UI hosting
 - embedded addon lifecycle authority
-- scheduler orchestration
+- scheduler orchestration and workload admission
 - MQTT authority and messaging policy
 - trusted-node trust, governance, and telemetry authority
 
@@ -68,6 +68,12 @@ Nodes
 - Supervisor realizes host-local runtime state for standalone compatibility paths.
 - Nodes are the canonical external extension and execution model.
 - MQTT remains Core-owned and participates in cross-domain coordination where implemented.
+
+## Workload Boundary
+
+- Core scheduler logic admits and orchestrates work.
+- Execution currently happens through leased worker/runtime clients outside the Core admission loop where implemented.
+- Supervisor and Nodes are the target runtime boundaries for host-local and external execution.
 
 ## Related Docs
 

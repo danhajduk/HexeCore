@@ -92,6 +92,14 @@ Status: Implemented
 - Jobs found in `DISPATCHING` or `RUNNING` are reset to `QUEUED` during rehydration.
 - Background loops handle expiration ticks and dispatch ticks.
 
+## Workload Boundary
+
+Status: Implemented
+
+- Queue jobs and leases describe Core-side admission and orchestration state.
+- A lease grants permission for execution work to proceed; it is not itself the execution runtime.
+- Current execution helpers consume leases after Core admission, which keeps scheduler ownership separate from runtime ownership.
+
 ## See Also
 
 - [README.md](./README.md)
