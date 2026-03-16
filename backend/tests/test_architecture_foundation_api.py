@@ -116,10 +116,12 @@ class TestArchitectureFoundationApi(unittest.TestCase):
             self.assertEqual(listed.status_code, 200, listed.text)
             self.assertEqual(len(listed.json()["items"]), 1)
             self.assertEqual(listed.json()["items"][0]["requested_node_type"], "ai-node")
+            self.assertEqual(listed.json()["items"][0]["capabilities"]["capability_status"], "missing")
+            self.assertEqual(listed.json()["items"][0]["status"]["trust_status"], "trusted")
 
             detail = client.get("/api/nodes/node-abc12345")
             self.assertEqual(detail.status_code, 200, detail.text)
-            self.assertEqual(detail.json()["node"]["trust_status"], "trusted")
+            self.assertEqual(detail.json()["node"]["status"]["trust_status"], "trusted")
 
 
 if __name__ == "__main__":
