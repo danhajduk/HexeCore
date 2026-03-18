@@ -3,6 +3,7 @@ import json
 import os
 import tempfile
 import unittest
+from pathlib import Path
 
 import paho.mqtt.client as mqtt
 from paho.mqtt.reasoncodes import ReasonCode
@@ -307,6 +308,98 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
         self.assertIn("addon:mqtt", metrics)
         self.assertGreater(float(metrics["addon:mqtt"]["messages_per_second"]), 0.0)
         self.assertGreaterEqual(int(metrics["addon:mqtt"]["topic_count"]), 1)
+
+    async def test_principal_traffic_metrics_prefers_generic_topic_prefix_over_broad_wildcards(self) -> None:
+        old_state_path = os.environ.get("MQTT_INTEGRATION_STATE_PATH")
+        with tempfile.TemporaryDirectory() as tmp:
+            state_path = Path(tmp) / "mqtt_state.json"
+            state_path.write_text(
+                json.dumps(
+                    {
+                        "principals": {
+                            "user:frigate": {
+                                "principal_type": "generic_user",
+                                "status": "active",
+                                "topic_prefix": "external/frigate",
+                                "publish_topics": ["#"],
+                                "subscribe_topics": ["#"],
+                            },
+                            "user:homeassistant": {
+                                "principal_type": "generic_user",
+                                "status": "active",
+                                "topic_prefix": "external/homeassistant",
+                                "publish_topics": ["#"],
+                                "subscribe_topics": ["#"],
+                            },
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            os.environ["MQTT_INTEGRATION_STATE_PATH"] = str(state_path)
+            manager = MqttManager(
+                settings_store=_FakeSettingsStore(),
+                registry=_FakeRegistry(),
+                service_catalog_store=_FakeServiceCatalogStore(),
+                enabled=True,
+            )
+            manager._loop = asyncio.get_running_loop()
+
+            manager._on_message(None, None, _Msg("external/frigate/events", {"ok": True}))
+
+            metrics = await manager.principal_traffic_metrics()
+            self.assertIn("user:frigate", metrics)
+            self.assertNotIn("user:homeassistant", metrics)
+        if old_state_path is None:
+            os.environ.pop("MQTT_INTEGRATION_STATE_PATH", None)
+        else:
+            os.environ["MQTT_INTEGRATION_STATE_PATH"] = old_state_path
+
+    async def test_principal_traffic_metrics_uses_topic_head_when_broad_scopes_are_ambiguous(self) -> None:
+        old_state_path = os.environ.get("MQTT_INTEGRATION_STATE_PATH")
+        with tempfile.TemporaryDirectory() as tmp:
+            state_path = Path(tmp) / "mqtt_state.json"
+            state_path.write_text(
+                json.dumps(
+                    {
+                        "principals": {
+                            "user:frigate": {
+                                "principal_type": "generic_user",
+                                "status": "active",
+                                "topic_prefix": "external/frigate",
+                                "publish_topics": ["#"],
+                                "subscribe_topics": ["#"],
+                            },
+                            "user:homeassistant": {
+                                "principal_type": "generic_user",
+                                "status": "active",
+                                "topic_prefix": "external/homeassistant",
+                                "publish_topics": ["#"],
+                                "subscribe_topics": ["#"],
+                            },
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            os.environ["MQTT_INTEGRATION_STATE_PATH"] = str(state_path)
+            manager = MqttManager(
+                settings_store=_FakeSettingsStore(),
+                registry=_FakeRegistry(),
+                service_catalog_store=_FakeServiceCatalogStore(),
+                enabled=True,
+            )
+            manager._loop = asyncio.get_running_loop()
+
+            manager._on_message(None, None, _Msg("frigate/events", {"ok": True}))
+
+            metrics = await manager.principal_traffic_metrics()
+            self.assertIn("user:frigate", metrics)
+            self.assertNotIn("user:homeassistant", metrics)
+        if old_state_path is None:
+            os.environ.pop("MQTT_INTEGRATION_STATE_PATH", None)
+        else:
+            os.environ["MQTT_INTEGRATION_STATE_PATH"] = old_state_path
 
     async def test_topic_activity_tracks_runtime_and_retained_sources(self) -> None:
         old_state_path = os.environ.get("MQTT_INTEGRATION_STATE_PATH")

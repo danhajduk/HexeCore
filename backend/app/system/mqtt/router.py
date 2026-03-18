@@ -1314,7 +1314,7 @@ def build_mqtt_router(
                 "session_count": int(state.get("session_count") or 0),
             }
             messages_per_second = float(traffic.get("messages_per_second") or 0.0)
-        item["runtime_traffic"] = {
+            item["runtime_traffic"] = {
                 "messages_per_second": round(messages_per_second, 3),
                 "avg_messages_per_second": round(messages_per_second, 3),
                 "payload_size": int(traffic.get("payload_size") or 0),

@@ -644,25 +644,19 @@ class MqttManager:
             status = str(row.get("status") or "").strip().lower()
             if status in {"revoked", "expired"}:
                 continue
-            scopes = sorted(
-                {
-                    str(scope).strip()
-                    for scope in (
-                        list(row.get("publish_topics") or [])
-                        + list(row.get("subscribe_topics") or [])
-                        + list(row.get("allowed_publish_topics") or [])
-                        + list(row.get("allowed_subscribe_topics") or [])
-                        + list(row.get("allowed_topics") or [])
-                    )
-                    if str(scope).strip()
-                }
+            scope_candidates = (
+                list(row.get("publish_topics") or [])
+                + list(row.get("subscribe_topics") or [])
+                + list(row.get("allowed_publish_topics") or [])
+                + list(row.get("allowed_subscribe_topics") or [])
+                + list(row.get("allowed_topics") or [])
             )
+            prefix = str(row.get("topic_prefix") or "").strip().strip("/")
+            if prefix:
+                scope_candidates.append(f"{prefix}/#")
+            scopes = sorted({str(scope).strip() for scope in scope_candidates if str(scope).strip()})
             scoped_specific = [scope for scope in scopes if self._scope_specificity(scope)[0] > 0]
             scopes = sorted(set(scoped_specific))
-            if not scopes:
-                prefix = str(row.get("topic_prefix") or "").strip()
-                if prefix:
-                    scopes = [f"{prefix}/#"]
             if scopes:
                 out[str(principal_id)] = scopes
         self._topic_scopes_by_principal = out
@@ -689,7 +683,10 @@ class MqttManager:
                 matches.append((best_for_principal, principal_id))
         if matches:
             matches.sort(key=lambda row: (row[0][0], row[0][1], row[1]), reverse=True)
-            return matches[0][1]
+            top_specificity = matches[0][0]
+            top_matches = [principal_id for specificity, principal_id in matches if specificity == top_specificity]
+            if len(top_matches) == 1:
+                return top_matches[0]
         if normalized.startswith("$SYS/") or normalized.startswith("synthia/"):
             return None
         head = normalized.split("/", 1)[0].strip()
@@ -697,7 +694,12 @@ class MqttManager:
             return None
         if not _GENERIC_TOPIC_SEGMENT_RE.match(head):
             return None
-        return f"user:{head}"
+        principal_id = f"user:{head}"
+        if not self._topic_scopes_by_principal:
+            return principal_id
+        if principal_id in self._topic_scopes_by_principal:
+            return principal_id
+        return None
 
     def _record_topic_activity(self, *, topic: str, retained: bool) -> None:
         normalized = str(topic or "").strip()

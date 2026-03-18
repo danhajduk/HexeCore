@@ -95,6 +95,15 @@ class _FakeMqttManager:
             "retained_messages": 1,
         }
 
+    async def principal_traffic_metrics(self):
+        return {
+            "user:testuser": {
+                "messages_per_second": 3.25,
+                "payload_size": 128,
+                "topic_count": 2,
+            }
+        }
+
 
 class TestMqttRuntimeIntegration(unittest.TestCase):
     def setUp(self) -> None:
@@ -262,6 +271,29 @@ class TestMqttRuntimeIntegration(unittest.TestCase):
         runtime_health = self.client.get("/api/system/runtime/health", headers={"X-Admin-Token": "test-token"})
         self.assertEqual(runtime_health.status_code, 200, runtime_health.text)
         self.assertEqual(runtime_health.json()["broker_metrics"]["connected_clients"], 1)
+
+    def test_mqtt_principals_populates_runtime_traffic_per_item(self) -> None:
+        result = asyncio.run(
+            self.approval.create_or_update_generic_user(
+                principal_id="user:testuser",
+                logical_identity="generic:testuser",
+                username="testuser",
+                topic_prefix="external/testuser",
+                access_mode="private",
+                publish_topics=["external/testuser/#"],
+                subscribe_topics=["external/testuser/#"],
+            )
+        )
+        self.assertTrue(result["ok"])
+
+        principals = self.client.get("/api/system/mqtt/principals", headers={"X-Admin-Token": "test-token"})
+        self.assertEqual(principals.status_code, 200, principals.text)
+        by_id = {item["principal_id"]: item for item in principals.json()["items"]}
+
+        self.assertIn("runtime_traffic", by_id["core.bootstrap"])
+        self.assertEqual(by_id["core.bootstrap"]["runtime_traffic"]["avg_messages_per_second"], 0.0)
+        self.assertIn("runtime_traffic", by_id["user:testuser"])
+        self.assertEqual(by_id["user:testuser"]["runtime_traffic"]["avg_messages_per_second"], 3.25)
 
     def test_setup_apply_local_creates_staged_and_live_runtime_artifacts(self) -> None:
         resp = self.client.post(
