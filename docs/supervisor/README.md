@@ -14,24 +14,42 @@ Supervisor currently spans:
 
 ## Current Responsibilities
 
-- standalone addon runtime supervision
-- host-local worker/process execution ownership during migration
-- desired vs runtime reconciliation
-- compose-based service realization for host-local standalone workloads
-- migration-foundation route exposure through:
-  - `GET /api/supervisor/health`
-  - `GET /api/supervisor/info`
-  - `GET /api/supervisor/resources`
-  - `GET /api/supervisor/runtime`
-  - `GET /api/supervisor/admission`
+- host monitoring through `HostResourceSummary`, `SupervisorHealthSummary`, and `SupervisorRuntimeSummary`
+- admission context reporting through `GET /api/supervisor/admission`
+- standalone addon lifecycle control through:
   - `GET /api/supervisor/nodes`
   - `POST /api/supervisor/nodes/{node_id}/start`
   - `POST /api/supervisor/nodes/{node_id}/stop`
   - `POST /api/supervisor/nodes/{node_id}/restart`
+- standalone runtime state reporting through:
+  - `GET /api/supervisor/health`
+  - `GET /api/supervisor/info`
+  - `GET /api/supervisor/resources`
+  - `GET /api/supervisor/runtime`
+- compose-based realization for host-local standalone addon workloads
 
-Broader host-local resource and lifecycle ownership is Partially implemented.
+## Explicit Non-Goals
 
-Execution-facing worker/process management is now considered part of the Supervisor boundary even where compatibility helpers still live in `backend/app/system/worker/`.
+Status: Implemented
+
+Supervisor does not own these areas in the current repository state:
+
+- OS administration
+- package management
+- general service management outside Synthia-managed runtimes
+- firewall and network policy management
+- non-Synthia workload orchestration
+
+## Future Expansion Path
+
+Status: Not developed
+
+Supervisor may grow into these areas later, but they are not implemented today:
+
+- broader host-local workload supervision
+- managed worker execution ownership
+- richer reconciliation loops
+- runtime backends beyond the current compose-based standalone path
 
 ## Included Docs
 

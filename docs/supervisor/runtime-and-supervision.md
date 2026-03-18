@@ -1,36 +1,14 @@
 # Runtime and Supervision
 
-## Runtime Ownership
+## Current Responsibilities
 
 Status: Implemented
 
-- Core owns desired-state intent and runtime orchestration hooks.
-- Runtime boundaries execute concrete start/stop/rebuild/health flows.
-- Supervisor/standalone runtime model remains active for standalone addon execution paths.
-- Host-local worker/process execution ownership is also aligned to Supervisor during migration, even when helper code still lives under `backend/app/system/worker/`.
-
-## Startup and Supervision
-
-Status: Implemented
-
-- Core startup initializes service stores, registry, MQTT manager/runtime boundary, and background supervision loops.
-- MQTT runtime supervision handles unhealthy recovery and config-missing self-heal pathways.
-
-## Scheduler and Worker Flow
-
-Status: Implemented
-
-- Job flow: submit -> lease request -> heartbeat -> complete/report/revoke.
-- Queue APIs and history stats provide operational visibility.
-- History cleanup and scheduler metrics are automated background concerns.
-- Core owns the queue/admission side of this flow, while execution-facing worker/process concerns belong with Supervisor ownership.
-
-## Deployment and Runtime Boundaries
-
-Status: Partial
-
-- Deployment environment, paths, and service dependencies are defined in code and existing runbooks.
-- Standalone vs embedded boundary behavior is implemented but still evolving.
+- Core owns desired-state intent and calls into Supervisor for host-local standalone runtime actions where implemented.
+- Supervisor reports host resources and process state through `/api/supervisor/health`, `/api/supervisor/resources`, and `/api/supervisor/runtime`.
+- Supervisor produces admission context through `/api/supervisor/admission`.
+- Supervisor lists standalone addon runtime state and performs start/stop/restart actions through `/api/supervisor/nodes` and the corresponding node action routes.
+- Standalone addon realization is compose-based today through `compose_up` and `compose_down` in `backend/app/supervisor/service.py`.
 
 ## Restart Semantics Boundary
 
@@ -51,16 +29,31 @@ Status: Implemented
 - Store lifecycle writes desired/runtime-linked state for addon deployment outcomes.
 - Runtime status and diagnostics APIs expose deployment/runtime realization status.
 
-## Planned
+## Explicit Non-Goals
 
-Status: Planned
+Status: Implemented
 
-- Further unification of standalone and embedded runtime observability surfaces.
-- Additional runtime policy enforcement and lifecycle guardrails.
+Supervisor does not currently implement:
+
+- OS administration
+- package management
+- general service supervision outside Synthia-managed runtimes
+- firewall or network policy control
+- non-Synthia orchestration
+
+## Future Expansion Path
+
+Status: Not developed
+
+Future growth can extend this boundary toward:
+
+- broader host-local workload supervision
+- managed worker execution ownership
+- richer reconciliation loops
+- runtime backends beyond compose
 
 ## See Also
 
 - [../architecture.md](../architecture.md)
-- [Core Platform](../fastapi/core-platform.md)
 - [Operators Guide](../operators-guide.md)
-- [Data and State](../fastapi/data-and-state.md)
+- [../core/README.md](../core/README.md)

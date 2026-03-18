@@ -38,10 +38,25 @@ Supervisor currently spans:
 - `backend/app/system/runtime/`
 - `backend/app/supervisor/`
 
-The migration foundation exposes:
+Current responsibilities:
 
 - `GET /api/supervisor/health`
 - `GET /api/supervisor/info`
+- `GET /api/supervisor/resources`
+- `GET /api/supervisor/runtime`
+- `GET /api/supervisor/admission`
+- `GET /api/supervisor/nodes`
+- `POST /api/supervisor/nodes/{node_id}/start`
+- `POST /api/supervisor/nodes/{node_id}/stop`
+- `POST /api/supervisor/nodes/{node_id}/restart`
+
+Current non-goals:
+
+- OS administration
+- package management
+- general service management outside Synthia-managed runtimes
+- firewall/network policy
+- non-Synthia orchestration
 
 ### Nodes
 

@@ -148,9 +148,9 @@ Current Supervisor routes:
 
 Current Supervisor ownership:
 
+- host monitoring and runtime resource summaries
+- admission context reporting
 - host-local standalone runtime realization
-- host-local worker/process execution helpers
-- desired-to-runtime reconciliation
 - standalone workload lifecycle execution
 
 Current Core-owned dependencies:
@@ -158,3 +158,18 @@ Current Core-owned dependencies:
 - global governance and scheduler policy
 - node trust and onboarding authority
 - operator UI and control-plane APIs
+
+Explicit non-goals in the current repository state:
+
+- OS administration
+- package management
+- general service management outside Synthia-managed runtimes
+- firewall and network policy
+- non-Synthia orchestration
+
+Future expansion path:
+
+- broader host-local workload supervision
+- managed worker execution ownership
+- richer reconciliation loops
+- runtime backends beyond compose
