@@ -56,7 +56,12 @@ def _session_ttl_seconds() -> int:
 
 
 def _session_secret(expected_token: str) -> str:
-    return os.getenv("SYNTHIA_ADMIN_SESSION_SECRET", "") or f"admin-session:{expected_token}"
+    configured = os.getenv("SYNTHIA_ADMIN_SESSION_SECRET", "")
+    if configured:
+        return configured
+    if expected_token:
+        return f"admin-session:{expected_token}"
+    return "admin-session:local"
 
 
 def _session_signature(payload: str, *, expected_token: str) -> str:
@@ -94,9 +99,7 @@ def _is_valid_session_cookie(cookie_value: str | None, *, expected_token: str) -
 
 def require_admin_token(x_admin_token: str | None, request: Request | None = None) -> None:
     expected = _admin_token_expected()
-    if not expected:
-        raise HTTPException(status_code=500, detail="SYNTHIA_ADMIN_TOKEN not configured")
-    if x_admin_token and x_admin_token == expected:
+    if expected and x_admin_token and x_admin_token == expected:
         return
     if request is not None:
         cookie = request.cookies.get(ADMIN_SESSION_COOKIE)
@@ -109,7 +112,7 @@ def require_admin_token(x_admin_token: str | None, request: Request | None = Non
 def admin_session_login(body: AdminSessionLoginRequest, response: Response):
     expected = _admin_token_expected()
     if not expected:
-        raise HTTPException(status_code=500, detail="SYNTHIA_ADMIN_TOKEN not configured")
+        raise HTTPException(status_code=503, detail="admin_token_login_unavailable")
     if not body.token or body.token != expected:
         raise HTTPException(status_code=401, detail="Unauthorized")
     cookie_value, expires_at = _build_session_cookie(expected_token=expected)
@@ -142,8 +145,6 @@ async def admin_session_login_user(body: AdminUserSessionLoginRequest, response:
         raise HTTPException(status_code=403, detail="admin_role_required")
 
     expected = _admin_token_expected()
-    if not expected:
-        raise HTTPException(status_code=500, detail="SYNTHIA_ADMIN_TOKEN not configured")
     cookie_value, expires_at = _build_session_cookie(expected_token=expected)
     max_age = max(expires_at - int(time.time()), 1)
     response.set_cookie(
@@ -175,8 +176,6 @@ def admin_session_logout(response: Response):
 @router.get("/admin/session/status")
 def admin_session_status(request: Request):
     expected = _admin_token_expected()
-    if not expected:
-        raise HTTPException(status_code=500, detail="SYNTHIA_ADMIN_TOKEN not configured")
     cookie = request.cookies.get(ADMIN_SESSION_COOKIE)
     return {"ok": True, "authenticated": _is_valid_session_cookie(cookie, expected_token=expected)}
 
