@@ -543,7 +543,7 @@ def build_system_router(
         if trust_status:
             trust_status_filter = str(trust_status).strip().lower()
             entries = [item for item in entries if str(item.trust_status).strip().lower() == trust_status_filter]
-        return {"ok": True, "items": [_node_registry_payload(item, node_governance_status_service) for item in entries]}
+        return {"ok": True, "items": [node_registry_payload(item, node_governance_status_service) for item in entries]}
 
     @router.get("/system/nodes/registrations/{node_id}")
     def get_node_registration(
@@ -557,7 +557,7 @@ def build_system_router(
         item = node_registrations_store.get(node_id)
         if item is None:
             raise HTTPException(status_code=404, detail="node_registration_not_found")
-        return {"ok": True, "registration": _node_registry_payload(item, node_governance_status_service)}
+        return {"ok": True, "registration": node_registry_payload(item, node_governance_status_service)}
 
     @router.get("/system/nodes/registry")
     def list_node_registry(
@@ -577,7 +577,7 @@ def build_system_router(
         if trust_status:
             trust_status_filter = str(trust_status).strip().lower()
             entries = [item for item in entries if str(item.trust_status).strip().lower() == trust_status_filter]
-        payload = [_node_registry_payload(item, node_governance_status_service) for item in entries]
+        payload = [node_registry_payload(item, node_governance_status_service) for item in entries]
         if state:
             state_filter = str(state).strip().lower()
             payload = [item for item in payload if str(item.get("registry_state") or "").strip().lower() == state_filter]
@@ -1076,7 +1076,7 @@ def build_system_router(
         registration = node_registrations_store.get(node_key)
         if registration is None:
             raise HTTPException(status_code=404, detail="node_registration_not_found")
-        node_payload = _node_registry_payload(registration, node_governance_status_service)
+        node_payload = node_registry_payload(registration, node_governance_status_service)
         last_telemetry_timestamp = (
             node_telemetry_service.latest_timestamp(node_key) if node_telemetry_service is not None else None
         )
@@ -1234,7 +1234,7 @@ def build_system_router(
         )
         return {
             "ok": True,
-            "registration": _node_registry_payload(updated),
+            "registration": node_registry_payload(updated),
             "removed_trust_record": trust_removed,
         }
 
