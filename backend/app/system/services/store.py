@@ -34,18 +34,31 @@ class ServiceCatalogStore:
         health: str,
         capabilities: list[str],
         addon_registry: dict[str, Any],
+        service_id: str | None = None,
+        provider: str | None = None,
+        models: list[Any] | None = None,
+        declared_capacity: dict[str, Any] | None = None,
+        auth_modes: list[str] | None = None,
+        required_scopes: list[str] | None = None,
     ) -> dict[str, Any]:
-        service_key = f"{addon_id}:{service_type}"
+        service_key = str(service_id or f"{addon_id}:{service_type}").strip()
+        auth_mode_list = [str(v).strip() for v in list(auth_modes or []) if str(v).strip()]
         payload = {
             "service_type": service_type,
             "addon_id": addon_id,
+            "service_id": service_key,
             "service": service_type,
             "endpoint": endpoint,
             "base_url": endpoint,
             "health": health,
             "health_status": health,
             "capabilities": capabilities,
-            "auth_mode": "service_token",
+            "provider": str(provider or "").strip().lower() or None,
+            "models": [item for item in list(models or [])],
+            "declared_capacity": dict(declared_capacity or {}),
+            "auth_mode": auth_mode_list[0] if auth_mode_list else "service_token",
+            "auth_modes": auth_mode_list or ["service_token"],
+            "required_scopes": [str(v).strip() for v in list(required_scopes or []) if str(v).strip()],
             "addon_registry": addon_registry,
         }
         await self.upsert_catalog(service_key, payload)

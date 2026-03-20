@@ -7,6 +7,13 @@ from .models import (
     NodeRegistryListResponse,
     NodeStatusSummary,
 )
+from .models_resolution import (
+    NodeEffectiveBudgetView,
+    NodeServiceAuthorizeRequest,
+    TaskExecutionResolutionCandidate,
+    TaskExecutionResolutionRequest,
+    TaskExecutionResolutionResponse,
+)
 from .registry import NodeRegistry
 from .router import build_nodes_router
 from .service import NodesDomainService
@@ -20,6 +27,11 @@ __all__ = [
     "NodeRegistry",
     "NodeRegistryListResponse",
     "NodeStatusSummary",
+    "TaskExecutionResolutionRequest",
+    "TaskExecutionResolutionCandidate",
+    "TaskExecutionResolutionResponse",
+    "NodeEffectiveBudgetView",
+    "NodeServiceAuthorizeRequest",
     "build_nodes_router",
     "NodesDomainService",
 ]

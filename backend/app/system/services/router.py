@@ -15,6 +15,12 @@ class ServiceRegisterRequest(BaseModel):
     endpoint: str = Field(..., min_length=1)
     health: str = Field(default="unknown", min_length=1)
     capabilities: list[str] = Field(default_factory=list)
+    service_id: str | None = None
+    provider: str | None = None
+    models: list[dict | str] = Field(default_factory=list)
+    declared_capacity: dict = Field(default_factory=dict)
+    auth_modes: list[str] = Field(default_factory=list)
+    required_scopes: list[str] = Field(default_factory=list)
 
 
 def build_service_resolution_router(
@@ -65,6 +71,12 @@ def build_service_resolution_router(
                 "registered_remote": remote_addon is not None,
                 "loaded_local": local_addon is not None,
             },
+            service_id=str(body.service_id or "").strip() or None,
+            provider=str(body.provider or "").strip() or None,
+            models=list(body.models or []),
+            declared_capacity=dict(body.declared_capacity or {}),
+            auth_modes=list(body.auth_modes or []),
+            required_scopes=list(body.required_scopes or []),
         )
         if events is not None:
             await events.emit(
@@ -73,11 +85,12 @@ def build_service_resolution_router(
                 payload={
                     "service_type": service_type,
                     "addon_id": addon_id,
-                    "endpoint": endpoint,
-                    "health": health,
-                    "capabilities": capabilities,
-                },
-            )
+                        "endpoint": endpoint,
+                        "health": health,
+                        "capabilities": capabilities,
+                        "provider": str(body.provider or "").strip() or None,
+                    },
+                )
         return {"ok": True, "service": saved}
 
     @router.get("/resolve")
@@ -120,12 +133,12 @@ def build_service_resolution_router(
 
         catalog_item = await catalog_store.resolve(capability)
         if catalog_item is not None:
-            return {
-                "ok": True,
-                "source": "catalog",
-                "service": capability,
-                "provider": catalog_item,
-            }
+                return {
+                    "ok": True,
+                    "source": "catalog",
+                    "service": capability,
+                    "provider": catalog_item,
+                }
 
         raise HTTPException(status_code=404, detail="service_provider_not_found")
 

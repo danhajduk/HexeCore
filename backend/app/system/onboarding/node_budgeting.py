@@ -853,6 +853,102 @@ class NodeBudgetService:
     def list_usage_reports(self, *, node_id: str, grant_id: str | None = None) -> list[dict[str, Any]]:
         return [item.to_dict() for item in self._store.list_usage_reports(node_id=node_id, grant_id=grant_id)]
 
+    def effective_budget_view(
+        self,
+        *,
+        node_id: str,
+        task_family: str,
+        provider: str | None = None,
+        model_id: str | None = None,
+    ) -> dict[str, Any]:
+        node_key = _clean_text(node_id)
+        config = self._store.get_config(node_key)
+        task_family_key = _clean_text(task_family, lower=True)
+        provider_key = _clean_text(provider, lower=True)
+        model_key = _clean_text(model_id, lower=True)
+        if config is None:
+            return {
+                "status": "not_configured",
+                "service": NODE_BUDGET_SERVICE_ID,
+                "provider": provider_key or None,
+                "task_family": task_family_key,
+                "model_id": model_key or None,
+                "admissible": False,
+                "reason": "node_budget_not_configured",
+            }
+
+        grants = self.derive_grants(node_key)
+        provider_allocations = {item.subject_id for item in self._store.list_allocations(node_key, kind="provider")}
+        selected_grant: dict[str, Any] | None = None
+        if provider_key:
+            selected_grant = next(
+                (
+                    grant
+                    for grant in grants
+                    if str(grant.get("scope_kind") or "") == "provider"
+                    and _clean_text(grant.get("subject_id"), lower=True) == provider_key
+                ),
+                None,
+            )
+            if selected_grant is None and provider_allocations and not bool(config.shared_provider_pool):
+                return {
+                    "status": "no_matching_grant",
+                    "service": NODE_BUDGET_SERVICE_ID,
+                    "provider": provider_key,
+                    "task_family": task_family_key,
+                    "model_id": model_key or None,
+                    "admissible": False,
+                    "reason": "provider_budget_allocation_required",
+                }
+        if selected_grant is None:
+            selected_grant = next((grant for grant in grants if str(grant.get("scope_kind") or "") == "node"), None)
+        if selected_grant is None:
+            return {
+                "status": "no_matching_grant",
+                "service": NODE_BUDGET_SERVICE_ID,
+                "provider": provider_key or None,
+                "task_family": task_family_key,
+                "model_id": model_key or None,
+                "admissible": False,
+                "reason": "grant_not_found",
+            }
+
+        limits = dict(selected_grant.get("limits") or {})
+        usage_reports = self._store.list_usage_reports(node_id=node_key, grant_id=str(selected_grant.get("grant_id") or ""))
+        consumed_requests = sum(int(item.used_requests or 0) for item in usage_reports)
+        consumed_tokens = sum(int(item.used_tokens or 0) for item in usage_reports)
+        consumed_cost_cents = sum(int(item.used_cost_cents or 0) for item in usage_reports)
+        remaining: dict[str, Any] = {}
+        if limits.get("max_requests") is not None:
+            remaining["max_requests"] = max(0, int(limits.get("max_requests") or 0) - consumed_requests)
+        if limits.get("max_tokens") is not None:
+            remaining["max_tokens"] = max(0, int(limits.get("max_tokens") or 0) - consumed_tokens)
+        if limits.get("max_cost_cents") is not None:
+            remaining["max_cost_cents"] = max(0, int(limits.get("max_cost_cents") or 0) - consumed_cost_cents)
+        raw_status = str(selected_grant.get("status") or "active")
+        admissible = raw_status == "active" and (not remaining or all(int(value) > 0 for value in remaining.values()))
+        return {
+            "status": "active" if admissible else (raw_status if raw_status != "active" else "exhausted"),
+            "enforcement_mode": config.enforcement_mode,
+            "grant_id": selected_grant.get("grant_id"),
+            "service": NODE_BUDGET_SERVICE_ID,
+            "provider": provider_key or None,
+            "task_family": task_family_key,
+            "model_id": model_key or None,
+            "grant_scope_kind": selected_grant.get("scope_kind"),
+            "period_start": selected_grant.get("period_start"),
+            "period_end": selected_grant.get("period_end"),
+            "limits": limits,
+            "consumed": {
+                "used_requests": consumed_requests,
+                "used_tokens": consumed_tokens,
+                "used_cost_cents": consumed_cost_cents,
+            },
+            "remaining": remaining,
+            "admissible": admissible,
+            "reason": None if admissible else ("budget_exhausted" if raw_status == "active" else raw_status),
+        }
+
     def report_usage_summary(self, *, node_id: str, payload: dict[str, Any]) -> dict[str, Any]:
         node_key = _clean_text(node_id)
         config = self._store.get_config(node_key)
@@ -870,6 +966,15 @@ class NodeBudgetService:
             period_end = period_end or end
         error_counts = payload.get("error_counts") if isinstance(payload.get("error_counts"), dict) else {}
         metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+        provider = _clean_text(payload.get("provider"), lower=True)
+        task_family = _clean_text(payload.get("task_family"), lower=True)
+        model_id = _clean_text(payload.get("model_id"), lower=True)
+        if provider:
+            metadata["provider"] = provider
+        if task_family:
+            metadata["task_family"] = task_family
+        if model_id:
+            metadata["model_id"] = model_id
         record = NodeBudgetUsageReportRecord(
             node_id=node_key,
             service=service,
@@ -1118,10 +1223,48 @@ class NodeBudgetService:
             "usage_summary": self.usage_summary(node_key),
             "reservations": [item.to_dict() for item in self._store.list_reservations(node_id=node_key)],
             "usage_reports": [item.to_dict() for item in self._store.list_usage_reports(node_id=node_key)],
+            "usage_report_rollups": self.usage_report_rollups(node_key),
             "budget_policy": self.budget_policy(node_key),
             "next_reset_at": self._next_reset_at(config),
             "period": config.period,
             "reset_policy": config.reset_policy,
+        }
+
+    def usage_report_rollups(self, node_id: str) -> dict[str, list[dict[str, Any]]]:
+        node_key = _clean_text(node_id)
+        reports = self._store.list_usage_reports(node_id=node_key)
+        by_service: dict[str, dict[str, Any]] = {}
+        by_provider: dict[str, dict[str, Any]] = {}
+        by_task_family: dict[str, dict[str, Any]] = {}
+
+        def _accumulate(bucket: dict[str, dict[str, Any]], key: str, *, field_name: str, report: NodeBudgetUsageReportRecord) -> None:
+            row = bucket.setdefault(
+                key,
+                {
+                    field_name: key,
+                    "used_requests": 0,
+                    "used_tokens": 0,
+                    "used_cost_cents": 0,
+                    "denials": 0,
+                },
+            )
+            row["used_requests"] += int(report.used_requests or 0)
+            row["used_tokens"] += int(report.used_tokens or 0)
+            row["used_cost_cents"] += int(report.used_cost_cents or 0)
+            row["denials"] += int(report.denials or 0)
+
+        for report in reports:
+            _accumulate(by_service, report.service, field_name="service", report=report)
+            provider = _clean_text(report.metadata.get("provider"), lower=True)
+            if provider:
+                _accumulate(by_provider, provider, field_name="provider", report=report)
+            task_family = _clean_text(report.metadata.get("task_family"), lower=True)
+            if task_family:
+                _accumulate(by_task_family, task_family, field_name="task_family", report=report)
+        return {
+            "services": list(by_service.values()),
+            "providers": list(by_provider.values()),
+            "task_families": list(by_task_family.values()),
         }
 
     def export_usage_rows(self, *, node_id: str | None = None) -> list[dict[str, Any]]:
@@ -1359,8 +1502,11 @@ class NodeBudgetService:
     ) -> NodeBudgetGrantRecord:
         limits, metadata = self._grant_limits(compute_unit=compute_unit, money_limit=money_limit, compute_limit=compute_limit)
         metadata.update({"scope_kind": scope_kind, "enforcement_mode": enforcement_mode})
+        metadata["service"] = NODE_BUDGET_SERVICE_ID
         if subject_id:
             metadata["subject_id"] = subject_id
+        if scope_kind == "provider" and subject_id:
+            metadata["provider"] = subject_id
         grant_suffix = scope_kind if not subject_id else f"{scope_kind}:{subject_id}"
         status = "expired" if datetime.fromisoformat(period_end) <= datetime.now(timezone.utc) else "active"
         return NodeBudgetGrantRecord(

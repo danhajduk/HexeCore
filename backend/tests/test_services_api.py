@@ -122,16 +122,26 @@ class TestServicesApi(unittest.TestCase):
             headers={"Authorization": f"Bearer {self._token(sub='vision-addon', scopes=['services.register'])}"},
             json={
                 "service_type": "ai-service",
+                "service_id": "summary-service",
                 "addon_id": "vision-addon",
                 "endpoint": "http://127.0.0.1:9000",
                 "health": "healthy",
                 "capabilities": ["ai.embed", "ai.classify"],
+                "provider": "openai",
+                "models": [{"model_id": "gpt-4o-mini"}],
+                "declared_capacity": {"limits": {"max_tokens": 1000000}},
+                "auth_modes": ["service_token"],
+                "required_scopes": ["service.execute:ai.embed"],
             },
         )
         self.assertEqual(register.status_code, 200, register.text)
         payload = register.json()["service"]
         self.assertEqual(payload["service_type"], "ai-service")
         self.assertEqual(payload["addon_id"], "vision-addon")
+        self.assertEqual(payload["service_id"], "summary-service")
+        self.assertEqual(payload["provider"], "openai")
+        self.assertEqual(payload["models"][0]["model_id"], "gpt-4o-mini")
+        self.assertEqual(payload["declared_capacity"]["limits"]["max_tokens"], 1000000)
         self.assertEqual(payload["auth_mode"], "service_token")
         self.assertTrue(payload["addon_registry"]["loaded_local"])
 

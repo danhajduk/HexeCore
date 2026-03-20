@@ -14,8 +14,10 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Header, HTTPException, Query, Request, Response
 from pydantic import BaseModel
 
+from ..nodes import NodeServiceAuthorizeRequest, TaskExecutionResolutionRequest
 from ..addons.registry import AddonRegistry, list_addons
 from ..system.audit import AuditLogStore
+from ..system.auth.tokens import sign_hs256
 from ..system.onboarding import (
     ALLOWED_NODE_TELEMETRY_EVENTS,
     CapabilityManifestValidationError,
@@ -35,6 +37,7 @@ from ..system.onboarding import (
 )
 from ..system.onboarding.provider_capability_normalization import normalize_capacity_descriptor
 from ..system.runtime import StandaloneRuntimeService
+from ..system.services import NodeServiceResolutionService, ServiceCatalogStore
 from .admin import require_admin_token
 
 
@@ -143,6 +146,9 @@ class NodeBudgetUsageSummaryRequest(BaseModel):
     node_id: str
     service: str = "ai.inference"
     grant_id: str
+    provider: str | None = None
+    model_id: str | None = None
+    task_family: str | None = None
     period_start: str | None = None
     period_end: str | None = None
     used_requests: int = 0
@@ -420,6 +426,8 @@ def build_system_router(
     registry: AddonRegistry,
     runtime_service: StandaloneRuntimeService | None = None,
     mqtt_manager=None,
+    service_token_key_store=None,
+    service_catalog_store: ServiceCatalogStore | None = None,
     mqtt_approval_service=None,
     mqtt_integration_state_store=None,
     mqtt_credential_store=None,
@@ -438,6 +446,7 @@ def build_system_router(
 ) -> APIRouter:
     router = APIRouter()
     runtime = runtime_service or StandaloneRuntimeService()
+    node_service_resolution = NodeServiceResolutionService(service_catalog_store) if service_catalog_store is not None else None
 
     async def _reconcile_mqtt_authority(reason: str) -> None:
         if mqtt_runtime_reconciler is None:
@@ -514,6 +523,28 @@ def build_system_router(
                 issued_timestamp=bundle.issued_timestamp,
             )
         return bundle
+
+    async def _issue_service_token_for_node(*, node_id: str, audience: str, scopes: list[str]) -> tuple[str, dict[str, object]]:
+        if service_token_key_store is None:
+            raise HTTPException(status_code=503, detail="service_token_key_store_unavailable")
+        key = await service_token_key_store.active_key()
+        now = int(time.time())
+        ttl_s = 600
+        try:
+            ttl_s = max(60, int(str(os.getenv("SYNTHIA_NODE_SERVICE_TOKEN_TTL_S", "600")).strip()))
+        except Exception:
+            ttl_s = 600
+        payload = {
+            "sub": node_id,
+            "aud": audience,
+            "scp": [str(scope).strip() for scope in scopes if str(scope).strip()],
+            "exp": now + ttl_s,
+            "jti": f"node-{node_id}-{secrets.token_urlsafe(12)}",
+            "iat": now,
+        }
+        header = {"alg": "HS256", "typ": "JWT", "kid": str(key["kid"])}
+        token = sign_hs256(header, payload, secret=str(key["secret"]))
+        return token, payload
 
     async def _publish_budget_policy_snapshot(node_id: str):
         if mqtt_manager is None or node_budget_service is None:
@@ -1311,13 +1342,35 @@ def build_system_router(
     def list_node_budget_usage_reports(
         node_id: str,
         request: Request,
+        grant_id: str | None = Query(default=None),
+        service: str | None = Query(default=None),
+        provider: str | None = Query(default=None),
+        task_family: str | None = Query(default=None),
         x_admin_token: str | None = Header(default=None),
     ):
         require_admin_token(x_admin_token, request)
         if node_budget_service is None:
             raise HTTPException(status_code=503, detail="node_budgeting_unavailable")
         try:
-            return {"ok": True, "items": node_budget_service.list_usage_reports(node_id=node_id)}
+            items = node_budget_service.list_usage_reports(node_id=node_id, grant_id=grant_id)
+            service_key = str(service or "").strip().lower()
+            provider_key = str(provider or "").strip().lower()
+            task_family_key = str(task_family or "").strip().lower()
+            if service_key:
+                items = [item for item in items if str(item.get("service") or "").strip().lower() == service_key]
+            if provider_key:
+                items = [
+                    item
+                    for item in items
+                    if str((item.get("metadata") or {}).get("provider") or "").strip().lower() == provider_key
+                ]
+            if task_family_key:
+                items = [
+                    item
+                    for item in items
+                    if str((item.get("metadata") or {}).get("task_family") or "").strip().lower() == task_family_key
+                ]
+            return {"ok": True, "items": items, "rollups": node_budget_service.usage_report_rollups(node_id)}
         except ValueError as exc:
             raise HTTPException(status_code=404, detail={"error": str(exc), "message": str(exc)})
 
@@ -1521,6 +1574,125 @@ def build_system_router(
             },
         )
         return {"ok": True, "node_id": node_id, "report": report}
+
+    @router.post("/system/nodes/services/resolve")
+    async def resolve_node_service(
+        body: TaskExecutionResolutionRequest,
+        x_node_trust_token: str | None = Header(default=None),
+    ):
+        node_id = str(body.node_id or "").strip()
+        node_token = str(x_node_trust_token or "").strip()
+        if not node_id:
+            raise HTTPException(status_code=400, detail={"error": "node_id_required", "message": "node_id is required"})
+        if not node_token:
+            raise HTTPException(status_code=401, detail="node_trust_token_required")
+        if node_service_resolution is None:
+            raise HTTPException(status_code=503, detail="service_catalog_unavailable")
+        if node_registrations_store is None:
+            raise HTTPException(status_code=503, detail="node_registrations_unavailable")
+        if node_trust_issuance is None:
+            raise HTTPException(status_code=503, detail="trust_issuance_unavailable")
+        if node_budget_service is None:
+            raise HTTPException(status_code=503, detail="node_budgeting_unavailable")
+        if node_trust_issuance.authenticate_node(node_id, node_token) is None:
+            raise HTTPException(status_code=403, detail={"error": "untrusted_node", "message": "node not trusted"})
+        registration = node_registrations_store.get(node_id)
+        if registration is None or str(registration.trust_status or "").strip().lower() != "trusted":
+            raise HTTPException(status_code=403, detail={"error": "untrusted_node", "message": "node not registered"})
+        governance_bundle = _ensure_node_governance_bundle(node_id)
+        if governance_bundle is None:
+            raise HTTPException(status_code=409, detail={"error": "governance_not_issued", "message": "governance bundle not issued"})
+        response_payload = await node_service_resolution.resolve_for_node(
+            request=body,
+            governance_bundle=governance_bundle.to_dict(),
+            budget_service=node_budget_service,
+        )
+        return {"ok": True, **response_payload.model_dump(mode="json")}
+
+    @router.post("/system/nodes/services/authorize")
+    async def authorize_node_service(
+        body: NodeServiceAuthorizeRequest,
+        request: Request,
+        x_node_trust_token: str | None = Header(default=None),
+    ):
+        node_id = str(body.node_id or "").strip()
+        node_token = str(x_node_trust_token or "").strip()
+        if not node_id:
+            raise HTTPException(status_code=400, detail={"error": "node_id_required", "message": "node_id is required"})
+        if not node_token:
+            raise HTTPException(status_code=401, detail="node_trust_token_required")
+        if node_service_resolution is None:
+            raise HTTPException(status_code=503, detail="service_catalog_unavailable")
+        if node_registrations_store is None:
+            raise HTTPException(status_code=503, detail="node_registrations_unavailable")
+        if node_trust_issuance is None:
+            raise HTTPException(status_code=503, detail="trust_issuance_unavailable")
+        if node_budget_service is None:
+            raise HTTPException(status_code=503, detail="node_budgeting_unavailable")
+        if node_trust_issuance.authenticate_node(node_id, node_token) is None:
+            raise HTTPException(status_code=403, detail={"error": "untrusted_node", "message": "node not trusted"})
+        registration = node_registrations_store.get(node_id)
+        if registration is None or str(registration.trust_status or "").strip().lower() != "trusted":
+            raise HTTPException(status_code=403, detail={"error": "untrusted_node", "message": "node not registered"})
+        governance_bundle = _ensure_node_governance_bundle(node_id)
+        if governance_bundle is None:
+            raise HTTPException(status_code=409, detail={"error": "governance_not_issued", "message": "governance bundle not issued"})
+        resolution = await node_service_resolution.resolve_for_node(
+            request=TaskExecutionResolutionRequest.model_validate(body.model_dump(mode="json")),
+            governance_bundle=governance_bundle.to_dict(),
+            budget_service=node_budget_service,
+        )
+        if not resolution.candidates:
+            raise HTTPException(status_code=404, detail={"error": "service_provider_not_found", "message": "no candidate service available"})
+        service_id = str(body.service_id or "").strip()
+        provider = str(body.provider or body.preferred_provider or "").strip().lower()
+        model_id = str(body.model_id or body.preferred_model or "").strip().lower()
+        candidate = next(
+            (
+                item
+                for item in resolution.candidates
+                if (not service_id or item.service_id == service_id)
+                and (not provider or str(item.provider or "").strip().lower() == provider)
+                and (not model_id or not item.models_allowed or model_id in [str(v).strip().lower() for v in item.models_allowed])
+            ),
+            None,
+        )
+        if candidate is None:
+            raise HTTPException(status_code=403, detail={"error": "service_candidate_not_authorized", "message": "requested service candidate not authorized"})
+        if candidate.budget_view is None or not bool(candidate.budget_view.admissible):
+            raise HTTPException(status_code=403, detail={"error": "budget_not_admissible", "message": "no admissible budget grant available"})
+        token, claims = await _issue_service_token_for_node(
+            node_id=node_id,
+            audience=candidate.service_id,
+            scopes=list(candidate.required_scopes or []),
+        )
+        _record_audit(
+            audit_store,
+            event_type="node_service_authorized",
+            actor_role="node",
+            actor_id=node_id,
+            details={
+                "node_id": node_id,
+                "service_id": candidate.service_id,
+                "provider": candidate.provider,
+                "grant_id": candidate.grant_id,
+                "task_family": str(body.task_family or "").strip(),
+                "source_ip": str(request.client.host if request.client else "unknown"),
+            },
+        )
+        return {
+            "ok": True,
+            "node_id": node_id,
+            "service_id": candidate.service_id,
+            "provider": candidate.provider,
+            "model_id": model_id or None,
+            "grant_id": candidate.grant_id,
+            "required_scopes": list(candidate.required_scopes or []),
+            "expires_at": datetime.fromtimestamp(int(claims["exp"]), tz=timezone.utc).isoformat(),
+            "token": token,
+            "claims": claims,
+            "resolution": candidate.model_dump(mode="json"),
+        }
 
     @router.post("/system/nodes/providers/capabilities/report")
     def report_provider_capabilities(

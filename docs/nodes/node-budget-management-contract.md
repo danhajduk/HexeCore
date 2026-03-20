@@ -81,6 +81,19 @@ Current behavior:
 
 - `usage-summary` is the canonical periodic grant-usage path
 - `usage-report` remains implemented for per-job reservation reconciliation compatibility
+- `usage-summary` may also carry optional `provider`, `model_id`, and `task_family` metadata for service-resolution and admin rollup views
+
+### Node Service Resolution And Authorization
+
+- `POST /api/system/nodes/services/resolve`
+- `POST /api/system/nodes/services/authorize`
+
+Auth: `X-Node-Trust-Token`
+
+Current behavior:
+
+- resolution returns service/provider candidates filtered by governance routing policy and current admissible budget state
+- authorization reuses the Core service-token issuer primitives and returns a short-lived token only when the selected candidate remains admissible
 
 ### Provider And Capacity Publication
 
@@ -256,6 +269,17 @@ The intended node runtime sequence is:
 9. reject or degrade when over budget or when all cached grants have expired
 
 Core no longer needs to be queried synchronously for each request under this contract. Core remains the grant issuer and reconciliation authority.
+
+## Service-Resolution Relationship
+
+The current budget policy and grant system is also used by the node service-resolution flow.
+
+Current behavior:
+
+- Core resolves task-family requests against service catalog candidates
+- Core computes an effective budget view for the selected service/provider/model using the current grant set
+- nodes still enforce those grants locally at execution time
+- Core authorization is only for issuing short-lived service tokens and does not replace local execution-time enforcement
 
 ## MQTT Distribution And Poll Fallback
 

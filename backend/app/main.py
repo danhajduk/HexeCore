@@ -629,6 +629,8 @@ def create_app() -> FastAPI:
             registry,
             runtime_service,
             mqtt_manager=mqtt_manager,
+            service_token_key_store=service_token_keys,
+            service_catalog_store=service_catalog_store,
             mqtt_approval_service=mqtt_registration_approval,
             mqtt_integration_state_store=mqtt_integration_state_store,
             mqtt_credential_store=mqtt_credential_store,
