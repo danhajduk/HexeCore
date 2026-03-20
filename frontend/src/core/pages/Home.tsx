@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { useAdminSession } from "../auth/AdminSessionContext";
+import { usePlatformBranding } from "../branding";
 import "./home.css";
 
 type AddonSummary = {
@@ -227,6 +228,7 @@ function addonHealthState(item: AddonSummary, stack: StackSummary | null): strin
 
 export default function Home() {
   const { authenticated, login, logout, ready } = useAdminSession();
+  const branding = usePlatformBranding();
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -350,11 +352,11 @@ export default function Home() {
     const reasons = Array.isArray(stack.status.reasons) ? stack.status.reasons : [];
     return {
       label: summaryLabel(stack.status.overall),
-      detail: reasons.length > 0 ? reasons[0] : "Core services healthy",
+      detail: reasons.length > 0 ? reasons[0] : `${branding.coreName} services healthy`,
       tone: summaryTone(stack.status.overall),
       reasons,
     };
-  }, [stack]);
+  }, [branding.coreName, stack]);
 
   return (
     <div className="home-page">
@@ -362,11 +364,11 @@ export default function Home() {
         <div>
           <h1 className="home-title">Home Dashboard</h1>
           <p className="home-subtitle">
-            Operational overview for core services, addons, workers, connectivity, and recent platform activity.
+            Operational overview for {branding.coreName}, {branding.addonsName}, workers, connectivity, and recent platform activity.
           </p>
         </div>
         <div className="home-head-meta">
-          <span className="home-pill">{repoStatus?.update_available ? "Update available" : "Core up to date"}</span>
+          <span className="home-pill">{repoStatus?.update_available ? "Update available" : `${branding.coreName} up to date`}</span>
           <span className="home-pill home-pill-muted">
             {stats ? `${stats.hostname} • uptime ${fmtUptime(stats.uptime_s)}` : "Host unavailable"}
           </span>
@@ -423,12 +425,12 @@ export default function Home() {
         <div className="home-status-tiles-wrap">
           <section className="home-status-row">
             <StatusMini
-              title="Core"
+              title={branding.coreName}
               tone={pillTone(stack?.subsystems.core.state || "unknown")}
               icon={Cpu}
             />
             <StatusMini
-              title="Supervisor"
+              title={branding.supervisorName}
               tone={pillTone(stack?.subsystems.supervisor.state || "unknown")}
               icon={ShieldCheck}
             />
@@ -443,7 +445,7 @@ export default function Home() {
               icon={Waypoints}
             />
             <StatusMini
-              title="AI Node"
+              title={branding.nodesName}
               tone={pillTone(stack?.subsystems.ai?.state || "unknown")}
               icon={BrainCircuit}
             />
@@ -453,7 +455,7 @@ export default function Home() {
               icon={Cog}
             />
             <StatusMini
-              title="Addons"
+              title={branding.addonsName}
               tone={pillTone(stack?.subsystems.addons.state || "unknown")}
               icon={Puzzle}
             />
@@ -476,11 +478,11 @@ export default function Home() {
       <section className="home-grid">
         <article className="home-panel">
           <div className="home-panel-head">
-            <h2>Installed Addons</h2>
-            <Link to="/addons" className="home-link">Open Addons</Link>
+            <h2>Installed {branding.addonsName}</h2>
+            <Link to="/addons" className="home-link">Open {branding.addonsName}</Link>
           </div>
           {installedAddons.length === 0 ? (
-            <div className="home-empty">No installed addons yet.</div>
+            <div className="home-empty">No installed {branding.addonsName.toLowerCase()} yet.</div>
           ) : (
             <div className="home-addon-list">
               {installedAddons.slice(0, 10).map((item) => {
@@ -503,15 +505,15 @@ export default function Home() {
 
         <article className="home-panel">
           <div className="home-panel-head">
-            <h2>Nodes Summary</h2>
-            <Link to="/addons" className="home-link">Open Nodes</Link>
+            <h2>{branding.nodesName} Summary</h2>
+            <Link to="/addons" className="home-link">Open {branding.nodesName}</Link>
           </div>
           <div className="home-metrics">
             <MetricRow label="Trusted" value={String(nodeSummary.trusted)} />
             <MetricRow label="Pending" value={String(nodeSummary.pending)} />
             <MetricRow label="Error" value={String(nodeSummary.error)} />
           </div>
-          {nodes.length === 0 && <div className="home-empty">No registered nodes yet.</div>}
+          {nodes.length === 0 && <div className="home-empty">No registered {branding.nodesName.toLowerCase()} yet.</div>}
         </article>
 
         <article className="home-panel">

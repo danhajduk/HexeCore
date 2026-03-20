@@ -6,7 +6,7 @@ import socket
 from typing import Any
 
 from .notification_publisher import CoreNotificationPublisher
-from app.system.platform_identity import default_platform_identity
+from app.system.platform_identity import default_platform_naming
 
 
 class CoreStartupNotificationProducer:
@@ -16,7 +16,7 @@ class CoreStartupNotificationProducer:
         self._log = logging.getLogger("synthia.core.notifications")
 
     async def emit_startup_notifications(self) -> list[dict[str, Any]]:
-        branding = default_platform_identity()
+        naming = default_platform_naming()
         hostname = socket.gethostname().strip() or "localhost"
         username = self._current_user()
         targets = {"hosts": [hostname]}
@@ -27,7 +27,7 @@ class CoreStartupNotificationProducer:
             "kind": "core",
             "id": "synthia-core",
             "component": "startup",
-            "label": branding.core_name,
+            "label": naming.core(),
             "host": hostname,
             "user": username,
             "metadata": {"version": self._core_version},
@@ -45,8 +45,8 @@ class CoreStartupNotificationProducer:
                     "dedupe_key": "core-startup-popup",
                 },
                 "content": {
-                    "title": f"{branding.core_name} Ready",
-                    "message": f"{branding.core_name} startup completed and notification publishing is active.",
+                    "title": f"{naming.core()} Ready",
+                    "message": f"{naming.core()} startup completed and notification publishing is active.",
                 },
                 "event": {
                     "event_type": "core_startup_popup",
@@ -67,7 +67,7 @@ class CoreStartupNotificationProducer:
                     "dedupe_key": "core-startup-event",
                 },
                 "content": {
-                    "title": f"{branding.core_name} startup complete",
+                    "title": f"{naming.core()} startup complete",
                     "message": "Startup event emitted for notification pipeline smoke testing.",
                 },
                 "event": {
@@ -91,8 +91,8 @@ class CoreStartupNotificationProducer:
                     "dedupe_key": "core-startup-state",
                 },
                 "content": {
-                    "title": f"{branding.core_name} runtime ready",
-                    "message": f"{branding.core_name} runtime state published after startup.",
+                    "title": f"{naming.core()} runtime ready",
+                    "message": f"{naming.core()} runtime state published after startup.",
                 },
                 "state": {
                     "state_type": "core_runtime",

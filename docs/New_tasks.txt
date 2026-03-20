@@ -44,374 +44,414 @@ if it is not present and should be node-owned create a file with the new data in
 
 Do not edit above this line:
 #######################################################################
-# Phase 1 Tasks — Naming Abstraction Layer
-# Start at Task 620
+Got it. Then skip the compatibility dance and go straight to a **hard cutover plan**.
+
+That means Phase 2 becomes:
+
+* rename MQTT root
+* rename helpers
+* rename docs/examples
+* rename notifications/bootstrap/topics
+* update all producers/consumers/nodes
+* no legacy `synthia/...` support kept
+
+Here’s the copy-paste-ready Phase 2.
+
+````md
+# Phase 2 Tasks — Full Namespace Migration to Hexe
+# Start at Task 640
 
 ## Scope
 
-This phase introduces a **central naming abstraction layer** so the platform can present itself as **Hexe AI** externally while still tolerating legacy internal `synthia` usage.
+This phase performs a **full namespace migration** from:
+
+- `synthia/...` → `hexe/...`
+
+There is **no dual namespace compatibility layer** in this phase.
 
 ### Goal
-Create a stable abstraction for:
-- platform identity
-- component display names
-- backend display text
-- frontend branding consumption
-- API metadata exposure
+Make `hexe` the only active namespace and remove legacy `synthia` topic usage from active runtime behavior.
 
 ### This phase SHOULD
-- centralize naming
-- reduce hardcoded brand strings
-- make UI/backend consume shared identity data
-- prepare for later deeper migrations
+- rename MQTT topic root to `hexe`
+- update all topic helpers
+- update all publishers and subscribers
+- update notifications/bootstrap/node/addon/supervisor topic families
+- update docs/examples/tests
+- remove hardcoded `synthia/...` topic usage from active code
 
-### This phase should NOT yet
-- change MQTT topic roots
-- rename API routes
-- rename internal package/module paths
-- change protocol payload keys
-- rename stable runtime identifiers unless display-only
+### This phase should NOT
+- keep dual publish/subscribe support
+- preserve legacy runtime topic compatibility
+- leave ambiguous topic-root behavior in active code
 
 ---
 
-## [TODO] Task 620: Create Phase 1 naming abstraction document
+## [TODO] Task 640: Create Phase 2 full namespace migration document
 
-Create the canonical Phase 1 document describing the naming abstraction layer.
+Create the canonical migration doc for full MQTT/topic namespace cutover to Hexe.
 
 Include:
 - purpose
 - scope
-- relationship to Phase 0
-- separation between display identity and internal identifiers
-- design rules for backend/frontend consumption
-- examples of allowed vs forbidden hardcoding
+- affected topic families
+- required code/runtime changes
+- impacted nodes/addons/integrations
+- migration risks
+- verification checklist
 
 Deliverables:
-- `docs/migration/phase-1-naming-abstraction-hexe-ai.md`
+- `docs/migration/phase-2-full-namespace-migration-hexe.md`
 
 ---
 
-## [TODO] Task 621: Expand platform identity configuration model
+## [TODO] Task 641: Replace configurable legacy topic-root plan with canonical Hexe topic root
 
-Extend the Phase 0 identity config to support component-level display names.
+Set the active topic root to:
 
-Add support for:
-- `PLATFORM_CORE_NAME`
-- `PLATFORM_SUPERVISOR_NAME`
-- `PLATFORM_NODES_NAME`
-- `PLATFORM_ADDONS_NAME`
-- `PLATFORM_DOCS_NAME`
+```env
+MQTT_TOPIC_ROOT=hexe
+````
 
-Default values:
-- `Hexe Core`
-- `Hexe Supervisor`
-- `Hexe Nodes`
-- `Hexe Addons`
-- `Hexe Docs`
+Remove the need for:
+
+* `MQTT_LEGACY_TOPIC_ROOT`
+* `MQTT_ENABLE_LEGACY_COMPAT`
+
+unless they are still temporarily present as dead config pending cleanup.
 
 Deliverables:
-- settings/config expansion
-- default values
-- env loading
-- sample config docs
+
+* config/settings update
+* single-root behavior
+* example env docs updated
 
 ---
 
-## [TODO] Task 622: Create canonical platform identity model
+## [TODO] Task 642: Refactor MQTT topic helpers to use `hexe` root only
 
-Create a structured backend model for platform identity rather than passing around loose strings.
+Replace all active topic helper generation based on `synthia/...` with `hexe/...`.
 
-Suggested fields:
-- `platform_name`
-- `platform_short`
-- `platform_domain`
-- `core_name`
-- `supervisor_name`
-- `nodes_name`
-- `addons_name`
-- `docs_name`
-- optional legacy compatibility note/reference
-
-Deliverables:
-- identity model/schema
-- serialization helpers
-- tests
-
----
-
-## [TODO] Task 623: Create backend naming service/helper layer
-
-Replace ad-hoc naming access with a reusable naming service/helper.
-
-Responsibilities:
-- return canonical display names
-- support fallback defaults
-- expose legacy name if needed for compatibility messaging
-- provide helper methods for common labels like:
-  - platform
-  - core
-  - supervisor
-  - nodes
-  - addons
-  - docs
-
-Deliverables:
-- helper/service module
-- backend usage patterns
-- tests
-
----
-
-## [TODO] Task 624: Refactor platform metadata endpoint to use canonical identity model
-
-Update:
-- `GET /api/system/platform`
-
-So it returns the canonical identity model rather than hand-built strings.
-
-Ensure endpoint is the single source of truth for frontend display naming.
-
-Deliverables:
-- endpoint refactor
-- response model update
-- tests
-
----
-
-## [TODO] Task 625: Add frontend platform identity client/provider
-
-Create a frontend abstraction that fetches platform metadata once and exposes it to the app.
-
-Requirements:
-- fetch from `/api/system/platform`
-- cache in app state/context
-- expose helper hooks/selectors for display names
-- provide fallback behavior for development or endpoint failure
-
-Deliverables:
-- frontend platform identity provider
-- hooks/utilities
-- integration tests if applicable
-
----
-
-## [TODO] Task 626: Replace remaining major frontend hardcoded branding with identity provider
-
-Update major frontend surfaces to consume the identity provider instead of literal strings.
-
-At minimum include:
-- top nav / header
-- page titles
-- dashboard intro
-- settings pages
-- onboarding pages
-- admin/status pages
-- dialogs/modals where product naming appears
-
-Deliverables:
-- frontend refactor
-- reduced hardcoded branding usage
-
----
-
-## [TODO] Task 627: Replace backend generated display text with naming helpers
-
-Refactor backend-generated display text to consume the naming helper layer.
-
-Targets include:
-- API metadata
-- startup/status labels
-- notification titles
-- onboarding display labels
-- human-readable summaries
-- operator text returned by APIs where applicable
-
-Deliverables:
-- backend refactor
-- no reintroduced hardcoded product strings in key flows
-
----
-
-## [TODO] Task 628: Create standard naming usage rules for new code
-
-Define a short developer-facing standard for how naming must be used going forward.
-
-Rules should include:
-- no hardcoded `Synthia` or `Hexe` strings in product-facing code when a helper exists
-- frontend should use platform identity provider
-- backend should use naming helpers/config
-- protocol/internal identifiers require explicit migration decisions
-
-Deliverables:
-- short standard doc or section in migration doc
-- linked from relevant dev docs if appropriate
-
----
-
-## [TODO] Task 629: Audit backend for remaining hardcoded Synthia branding after abstraction
-
-Perform a targeted audit of backend code to identify remaining hardcoded `Synthia` display strings after abstraction support exists.
-
-Classify results:
-- must refactor now
-- acceptable legacy compatibility
-- non-user-facing comment/docstring
-- archival material
-
-Deliverables:
-- backend audit notes
-- cleanup list
-
----
-
-## [TODO] Task 630: Audit frontend for remaining hardcoded Synthia branding after abstraction
-
-Perform a targeted audit of frontend code to identify remaining hardcoded `Synthia` display strings.
-
-Classify results:
-- must refactor now
-- acceptable temporary fallback
-- non-user-facing dev/test artifact
-
-Deliverables:
-- frontend audit notes
-- cleanup list
-
----
-
-## [TODO] Task 631: Add component display-name support to docs generation and metadata surfaces
-
-Ensure documentation-facing and metadata-facing surfaces can use the canonical component names.
-
-Targets may include:
-- docs landing summaries
-- generated API labels
-- UI cards that label Core / Supervisor / Nodes
-- admin summaries
-
-Deliverables:
-- component display names wired into relevant surfaces
-
----
-
-## [TODO] Task 632: Add legacy branding compatibility message support
-
-Introduce optional support for showing a clear compatibility message where needed.
+Ensure helpers generate canonical Hexe topics only.
 
 Examples:
-- “Internal legacy identifiers may still use `synthia` during migration.”
-- “Legacy namespace remains active internally.”
 
-This should be centrally generated rather than manually duplicated all over the place.
+* `hexe/bootstrap/core`
+* `hexe/notify/internal/popup`
+* `hexe/nodes/{node_id}/...`
+* `hexe/addons/{addon_id}/...`
 
 Deliverables:
-- helper text support
-- optional API/UI usage in appropriate places
+
+* topic helper refactor
+* no active helper returns `synthia/...`
+* tests updated
 
 ---
 
-## [TODO] Task 633: Refactor onboarding branding to use identity abstraction
+## [TODO] Task 643: Replace hardcoded `synthia/...` topic strings across backend runtime code
 
-Update onboarding-related frontend/backend display text so it uses the naming abstraction.
+Search and replace all active hardcoded MQTT topic strings using `synthia/...`.
 
-Includes:
-- node onboarding screens
-- approval text
-- status labels
-- generated human-facing onboarding messages
+Targets include:
 
-Do NOT rename onboarding route paths or protocol fields in this phase.
+* publishers
+* subscribers
+* notification flows
+* bootstrap publication
+* supervisor/runtime messaging
+* node/addon/service topic generation
+* observability/debug helpers
+
+Rules:
+
+* replace active runtime usage
+* preserve only archival/historical references where explicitly documented
 
 Deliverables:
-- onboarding branding abstraction
-- unchanged behavior
+
+* backend runtime cleanup
+* reduced hardcoded topic strings
+* audit notes for any retained references
 
 ---
 
-## [TODO] Task 634: Refactor notification branding to use identity abstraction
+## [TODO] Task 644: Migrate notification bus topics to Hexe namespace
 
-Update notification producers/formatters so brand-facing text uses the naming abstraction.
+Rename notification topics to:
 
-Includes:
-- startup popups
-- status notifications
-- bridge messages where display branding appears
-- sample messages used in operator flows
+* `hexe/notify/internal/popup`
+* `hexe/notify/internal/event`
+* `hexe/notify/internal/state`
+* `hexe/notify/external/{target}`
 
-Do NOT change topic names yet.
+Update:
+
+* notification publisher
+* notification producer
+* notification consumer
+* notification bridge
+* docs/examples/tests
 
 Deliverables:
-- naming-helper driven notification branding
-- tests/examples updated
+
+* notification bus fully migrated
+* no active legacy topic usage in notification flows
 
 ---
 
-## [TODO] Task 635: Refactor bootstrap/install/dev helper branding to use identity abstraction
+## [TODO] Task 645: Migrate bootstrap publication topic to Hexe namespace
 
-Update bootstrap/dev/helper script output to use configurable naming instead of hardcoded branding where practical.
+Rename bootstrap publication topic to:
 
-Includes:
-- printed setup text
-- startup banners
-- operator guidance messages
-- dev helper output
+* `hexe/bootstrap/core`
+
+Update:
+
+* bootstrap publisher
+* startup reconciliation behavior
+* onboarding discovery docs
+* tests/examples
 
 Deliverables:
-- script/output cleanup
-- stable runtime behavior preserved
+
+* bootstrap topic migrated
+* docs/tests aligned
 
 ---
 
-## [TODO] Task 636: Add tests for frontend platform identity consumption
+## [TODO] Task 646: Migrate node topic families to Hexe namespace
 
-Test:
-- platform metadata fetch
-- provider fallback behavior
-- major branded surfaces render correct names
-- no regression to literal legacy branding in key components
+Rename node-related topic helpers and active usage to:
+
+* `hexe/nodes/{node_id}/...`
+
+Update:
+
+* node onboarding/discovery-related topic references
+* node telemetry/messaging helpers
+* node docs/examples/tests
 
 Deliverables:
-- frontend tests or targeted verification harness
-- passing validation
+
+* node topic family migration completed
 
 ---
 
-## [TODO] Task 637: Add tests for backend naming helper usage
+## [TODO] Task 647: Migrate addon topic families to Hexe namespace
 
-Test:
-- helper returns correct defaults
-- helper respects env overrides
-- metadata endpoint uses helper values
-- component labels are stable and consistent
+Rename addon-related topic helpers and active usage to:
+
+* `hexe/addons/{addon_id}/...`
+
+Update:
+
+* addon messaging helpers
+* addon docs/examples/tests
+* any store/registry/runtime references that generate MQTT topic strings
 
 Deliverables:
-- backend tests
-- passing validation
+
+* addon topic family migration completed
 
 ---
 
-## [TODO] Task 638: Add verification pass for naming abstraction coverage
+## [TODO] Task 648: Migrate supervisor/system/runtime topic families to Hexe namespace
+
+Rename active topic usage for:
+
+* supervisor
+* runtime
+* core
+* system
+* scheduler
+* policy
+* telemetry
+* services
+* bridges
+* events
+* remote
+* import
+
+Deliverables:
+
+* subsystem topic family migration completed
+* helpers/docs/tests updated
+
+---
+
+## [TODO] Task 649: Update reserved topic-family definitions and classifiers
+
+Update topic-family classifier logic so Hexe namespace is canonical.
+
+Replace active root handling from `synthia/` to `hexe/`.
+
+Ensure:
+
+* reserved family classification works
+* invalid/external classification still works
+* scoped helper logic still works
+* policy topic matching still works
+
+Deliverables:
+
+* classifier refactor
+* tests updated
+
+---
+
+## [TODO] Task 650: Update MQTT authority/runtime docs and examples to Hexe namespace
+
+Update docs so Hexe is the only canonical namespace in active docs.
+
+At minimum update:
+
+* MQTT platform docs
+* topic family docs
+* notification docs
+* bootstrap/onboarding docs where MQTT topics appear
+
+Rules:
+
+* use `hexe/...` in all active examples
+* move `synthia/...` references into migration/archive notes only if needed
+
+Deliverables:
+
+* docs updated
+* examples aligned
+
+---
+
+## [TODO] Task 651: Update node onboarding/bootstrap documentation for Hexe namespace
+
+Update onboarding docs and examples so all active bootstrap topic references use:
+
+* `hexe/bootstrap/core`
+
+Update any onboarding/migration guidance that still references legacy root as active.
+
+Deliverables:
+
+* node docs updated
+* onboarding examples aligned
+
+---
+
+## [TODO] Task 652: Update notification payload examples and HA bridge examples
+
+Update all example payloads and docs blocks that mention old topic names.
+
+Ensure:
+
+* topic examples use Hexe
+* branding inside examples uses Hexe AI / Hexe Core where applicable
+
+Deliverables:
+
+* example payload refresh
+* doc consistency
+
+---
+
+## [TODO] Task 653: Update tests for Hexe-only namespace behavior
+
+Update automated tests to assume Hexe namespace only.
+
+Remove or rewrite tests that assume:
+
+* `synthia/...` root
+* dual compatibility behavior
+* legacy topic mirroring
+
+Deliverables:
+
+* MQTT/topic tests updated
+* notification/bootstrap/topic-family tests updated
+
+---
+
+## [TODO] Task 654: Add repository-wide audit for remaining active `synthia/...` topic usage
+
+Perform an audit for remaining `synthia/...` references and classify them as:
+
+* blocking active runtime reference
+* test fixture
+* historical/archive doc
+* migration note
+* intentional compatibility holdout
+
+Deliverables:
+
+* audit report
+* cleanup list for blocking references
+
+---
+
+## [TODO] Task 655: Remove or isolate obsolete dual-namespace planning/config
+
+Clean up any abandoned work related to:
+
+* dual namespace configs
+* legacy compat toggles
+* dual publish/subscribe helpers
+* placeholder migration code that is no longer needed
+
+Deliverables:
+
+* code cleanup
+* config cleanup
+* reduced migration complexity
+
+---
+
+## [TODO] Task 656: Verify node/addon/runtime clients are aligned to Hexe namespace
+
+Confirm all active internal clients and expected external node/addon integrations are updated to Hexe namespace.
+
+Where needed, document required consumer updates.
+
+Deliverables:
+
+* compatibility verification notes
+* required update checklist for connected components
+
+---
+
+## [TODO] Task 657: Add Phase 2 verification pass
 
 Verify:
-- platform identity is centrally defined
-- frontend consumes shared identity data
-- backend consumes shared naming helper where appropriate
-- Phase 1 did not alter MQTT/API/protocol internals
-- public-facing naming is consistently Hexe-branded
+
+* all active runtime topic generation uses `hexe/...`
+* notification flows work
+* bootstrap publication works
+* topic classifier works
+* docs and examples are updated
+* no required active consumer still depends on `synthia/...`
 
 Deliverables:
-- Phase 1 verification notes
-- unresolved leftovers list
+
+* Phase 2 verification notes
+* unresolved blockers list if any
 
 ---
 
-## [TODO] Task 639: Create Phase 1 completion report
+## [TODO] Task 658: Create Phase 2 completion report
 
-Create a short completion report summarizing:
-- abstraction pieces added
-- frontend/backend adoption status
-- remaining hardcoded legacy areas
-- what Phase 2 can now safely build on
+Summarize:
+
+* namespace migration completed
+* active topic root is now `hexe`
+* removed legacy behavior
+* remaining non-runtime historical references if any
+* readiness for next phase
 
 Deliverables:
-- `docs/migration/phase-1-completion-report.md`
+
+* `docs/migration/phase-2-completion-report.md`
+
+```
+
+The next phase after this should be the **internal identifier/code rename cleanup** rather than dual namespace logic.
+```
+

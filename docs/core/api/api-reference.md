@@ -75,6 +75,19 @@ Status: Implemented
   - `POST /api/services/register`
   - `GET /api/services/resolve`
 
+Platform metadata currently includes:
+
+- `platform_name`
+- `platform_short`
+- `platform_domain`
+- `core_name`
+- `supervisor_name`
+- `nodes_name`
+- `addons_name`
+- `docs_name`
+- `legacy_internal_namespace`
+- `legacy_compatibility_note`
+
 ## Addon APIs
 
 Status: Implemented

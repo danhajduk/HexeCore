@@ -8,7 +8,7 @@ import presentingImage from "../../assets/presenting.png";
 import successImage from "../../assets/success.png";
 import workingImage from "../../assets/working.png";
 import { useAdminSession } from "../auth/AdminSessionContext";
-import { usePlatformBranding } from "../branding";
+import { useLegacyCompatibilityNote, usePlatformBranding } from "../branding";
 import "./onboarding-node-approval.css";
 
 type ApprovalSession = {
@@ -54,6 +54,7 @@ function maskSessionId(value?: string | null): string {
 
 export default function OnboardingNodeApproval() {
   const { platformName } = usePlatformBranding();
+  const compatibilityNote = useLegacyCompatibilityNote();
   const { ready, authenticated, login } = useAdminSession();
   const [params] = useSearchParams();
   const sid = (params.get("sid") || "").trim();
@@ -290,6 +291,7 @@ export default function OnboardingNodeApproval() {
           <div className="onboard-header">
             <div className="onboard-eyebrow">Node Registration Approval</div>
             <p className="onboard-lead">Approved nodes receive trust material and operational MQTT credentials.</p>
+            <p className="onboard-lead">{compatibilityNote}</p>
           </div>
           <div className="onboard-error">Missing required `sid` or `state` in URL.</div>
         </div>
@@ -305,6 +307,7 @@ export default function OnboardingNodeApproval() {
         <div className="onboard-header">
           <div className="onboard-eyebrow">Node Registration Approval</div>
           <p className="onboard-lead">Approved nodes receive trust material and operational MQTT credentials.</p>
+          <p className="onboard-lead">{compatibilityNote}</p>
         </div>
 
         {!ready ? (

@@ -10,6 +10,7 @@ Status: Implemented
   - `frontend/src/App.tsx`
   - `frontend/src/core/router/routes.tsx`
 - Shell layout wraps route output and admin session context.
+- Platform branding is loaded through `PlatformBrandingProvider` in `frontend/src/core/branding.tsx` and sourced from `GET /api/system/platform`.
 
 ## Route and Page Model
 
@@ -44,6 +45,7 @@ Status: Implemented
 - Settings organizes platform controls by subsystem.
 - MQTT embedded UI includes overview/principals/users/runtime/audit/noisy-client pages.
 - Node onboarding approval page requires normal admin session login before showing approval context.
+- Major visible component labels now consume the shared branding abstraction instead of inferring product names from internal identifiers.
 
 ### Home Status Tiles
 

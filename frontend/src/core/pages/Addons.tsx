@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiGet } from "../api/client";
 import { useAdminSession } from "../auth/AdminSessionContext";
-import { usePlatformBranding } from "../branding";
+import { useLegacyCompatibilityNote, usePlatformBranding } from "../branding";
 import {
   canShowUninstallAction,
   confirmingUninstallState,
@@ -356,7 +356,8 @@ function scopeBudgetLabel(scope: BudgetScopeUsage): string {
 
 export default function Addons() {
   const { authenticated: isAdmin } = useAdminSession();
-  const { platformName } = usePlatformBranding();
+  const { platformName, addonsName, nodesName } = usePlatformBranding();
+  const compatibilityNote = useLegacyCompatibilityNote();
   const [addons, setAddons] = useState<AddonInfo[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -761,9 +762,10 @@ export default function Addons() {
     <div className="addons-page">
       <div className="addons-head addons-hero">
         <div className="addons-hero-copy">
-          <h1 className="addons-title">Addons &amp; Nodes</h1>
+          <h1 className="addons-title">{addonsName} &amp; {nodesName}</h1>
           <p className="addons-subtitle">Extensions that expand the {platformName} platform.</p>
           <div className="addon-meta">Supervisor runtime details remain under System pages, not in this extension inventory.</div>
+          <div className="addon-meta">{compatibilityNote}</div>
         </div>
         <div className="addons-head-actions">
           <button className="addon-btn" onClick={() => void updateCatalogNow()} disabled={catalogBusy}>
@@ -783,7 +785,7 @@ export default function Addons() {
       <section className="addons-section">
         <div className="addons-section-head">
           <div>
-            <h2 className="addons-section-title">Addons</h2>
+            <h2 className="addons-section-title">{addonsName}</h2>
             <div className="addon-meta">Platform extensions running inside Core or through supported standalone addon runtimes.</div>
           </div>
           <div className="addons-section-summary">
@@ -916,7 +918,7 @@ export default function Addons() {
       <section className="addons-section">
         <div className="addons-section-head">
           <div>
-            <h2 className="addons-section-title">Nodes</h2>
+            <h2 className="addons-section-title">{nodesName}</h2>
             <div className="addon-meta">Trusted external {platformName} components with onboarding, governance, and provider status.</div>
           </div>
           <div className="addon-inline">

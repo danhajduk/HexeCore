@@ -46,7 +46,7 @@ from app.system.scheduler.engine import SchedulerEngine
 from app.system.scheduler.history import SchedulerHistoryStore
 from app.system.settings.store import SettingsStore
 from app.system.settings.router import build_settings_router
-from app.system.platform_identity import default_platform_identity
+from app.system.platform_identity import default_platform_naming
 from app.system.onboarding import (
     ModelRoutingRegistryService,
     ModelRoutingRegistryStore,
@@ -104,13 +104,13 @@ log = logging.getLogger("synthia.core")
 
 
 def create_app() -> FastAPI:
-    platform_identity = default_platform_identity()
+    naming = default_platform_naming()
     app = FastAPI(
-        title=platform_identity.core_name,
-        description=f"{platform_identity.core_name} is the control-plane service for {platform_identity.platform_name}.",
+        title=naming.core(),
+        description=f"{naming.core()} is the control-plane service for {naming.platform()}.",
         version="0.1.0",
     )
-    log.info("Starting %s", platform_identity.core_name)
+    log.info("Starting %s", naming.core())
     cfg_boot = load_config()
 
     api_metrics = ApiMetricsCollector()

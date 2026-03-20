@@ -15,10 +15,18 @@ except Exception:  # pragma: no cover
     FASTAPI_STACK_AVAILABLE = False
 
 from app.system.platform_identity import (
+    DEFAULT_LEGACY_INTERNAL_NAMESPACE,
+    DEFAULT_PLATFORM_ADDONS_NAME,
+    DEFAULT_PLATFORM_CORE_NAME,
+    DEFAULT_PLATFORM_DOCS_NAME,
     DEFAULT_PLATFORM_DOMAIN,
     DEFAULT_PLATFORM_NAME,
+    DEFAULT_PLATFORM_NODES_NAME,
     DEFAULT_PLATFORM_SHORT,
+    DEFAULT_PLATFORM_SUPERVISOR_NAME,
+    PlatformNamingService,
     default_platform_identity,
+    default_platform_naming,
     load_platform_identity,
     platform_identity_from_values,
 )
@@ -27,13 +35,19 @@ from app.system.settings.store import SettingsStore
 
 
 class TestPlatformIdentity(unittest.TestCase):
-    def test_default_platform_identity_uses_phase_zero_defaults(self) -> None:
+    def test_default_platform_identity_uses_phase_one_defaults(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
             identity = default_platform_identity()
         self.assertEqual(identity.platform_name, DEFAULT_PLATFORM_NAME)
         self.assertEqual(identity.platform_short, DEFAULT_PLATFORM_SHORT)
         self.assertEqual(identity.platform_domain, DEFAULT_PLATFORM_DOMAIN)
-        self.assertEqual(identity.core_name, f"{DEFAULT_PLATFORM_SHORT} Core")
+        self.assertEqual(identity.core_name, DEFAULT_PLATFORM_CORE_NAME)
+        self.assertEqual(identity.supervisor_name, DEFAULT_PLATFORM_SUPERVISOR_NAME)
+        self.assertEqual(identity.nodes_name, DEFAULT_PLATFORM_NODES_NAME)
+        self.assertEqual(identity.addons_name, DEFAULT_PLATFORM_ADDONS_NAME)
+        self.assertEqual(identity.docs_name, DEFAULT_PLATFORM_DOCS_NAME)
+        self.assertEqual(identity.legacy_internal_namespace, DEFAULT_LEGACY_INTERNAL_NAMESPACE)
+        self.assertIn(DEFAULT_LEGACY_INTERNAL_NAMESPACE, identity.legacy_compatibility_note)
 
     def test_platform_identity_uses_env_overrides(self) -> None:
         with patch.dict(
@@ -43,6 +57,12 @@ class TestPlatformIdentity(unittest.TestCase):
                 "PLATFORM_SHORT": "Acme",
                 "PLATFORM_DOMAIN": "acme.example",
                 "PLATFORM_CORE_NAME": "Acme Control",
+                "PLATFORM_SUPERVISOR_NAME": "Acme Supervisor",
+                "PLATFORM_NODES_NAME": "Acme Nodes",
+                "PLATFORM_ADDONS_NAME": "Acme Addons",
+                "PLATFORM_DOCS_NAME": "Acme Docs",
+                "PLATFORM_LEGACY_INTERNAL_NAMESPACE": "legacy",
+                "PLATFORM_LEGACY_COMPATIBILITY_NOTE": "Legacy namespace remains active internally.",
             },
             clear=True,
         ):
@@ -51,6 +71,12 @@ class TestPlatformIdentity(unittest.TestCase):
         self.assertEqual(identity.platform_short, "Acme")
         self.assertEqual(identity.platform_domain, "acme.example")
         self.assertEqual(identity.core_name, "Acme Control")
+        self.assertEqual(identity.supervisor_name, "Acme Supervisor")
+        self.assertEqual(identity.nodes_name, "Acme Nodes")
+        self.assertEqual(identity.addons_name, "Acme Addons")
+        self.assertEqual(identity.docs_name, "Acme Docs")
+        self.assertEqual(identity.legacy_internal_namespace, "legacy")
+        self.assertEqual(identity.legacy_compatibility_note, "Legacy namespace remains active internally.")
 
     def test_platform_identity_prefers_settings_values(self) -> None:
         with patch.dict(os.environ, {"PLATFORM_NAME": "Env AI"}, clear=True):
@@ -60,12 +86,34 @@ class TestPlatformIdentity(unittest.TestCase):
                     "platform.short": "Hexe",
                     "platform.domain": "hexe-ai.com",
                     "app.name": "Hexe Core",
+                    "platform.supervisor_name": "Hexe Supervisor",
+                    "platform.nodes_name": "Hexe Nodes",
+                    "platform.addons_name": "Hexe Addons",
+                    "platform.docs_name": "Hexe Docs",
+                    "platform.legacy_compatibility_note": "Internal legacy identifiers may still use `synthia` during migration.",
                 }
             )
         self.assertEqual(identity.platform_name, "Hexe AI")
         self.assertEqual(identity.platform_short, "Hexe")
         self.assertEqual(identity.platform_domain, "hexe-ai.com")
         self.assertEqual(identity.core_name, "Hexe Core")
+        self.assertEqual(identity.supervisor_name, "Hexe Supervisor")
+        self.assertEqual(identity.nodes_name, "Hexe Nodes")
+        self.assertEqual(identity.addons_name, "Hexe Addons")
+        self.assertEqual(identity.docs_name, "Hexe Docs")
+
+
+class TestPlatformNamingService(unittest.TestCase):
+    def test_default_naming_service_returns_canonical_component_labels(self) -> None:
+        service = default_platform_naming()
+        self.assertIsInstance(service, PlatformNamingService)
+        self.assertEqual(service.platform(), DEFAULT_PLATFORM_NAME)
+        self.assertEqual(service.core(), DEFAULT_PLATFORM_CORE_NAME)
+        self.assertEqual(service.supervisor(), DEFAULT_PLATFORM_SUPERVISOR_NAME)
+        self.assertEqual(service.nodes(), DEFAULT_PLATFORM_NODES_NAME)
+        self.assertEqual(service.addons(), DEFAULT_PLATFORM_ADDONS_NAME)
+        self.assertEqual(service.docs(), DEFAULT_PLATFORM_DOCS_NAME)
+        self.assertIn(DEFAULT_LEGACY_INTERNAL_NAMESPACE, service.compatibility_note())
 
 
 @unittest.skipIf(not FASTAPI_STACK_AVAILABLE, "fastapi/testclient not available in this environment")
@@ -89,7 +137,12 @@ class TestPlatformIdentityApi(unittest.TestCase):
         self.assertEqual(payload["platform_name"], DEFAULT_PLATFORM_NAME)
         self.assertEqual(payload["platform_short"], DEFAULT_PLATFORM_SHORT)
         self.assertEqual(payload["platform_domain"], DEFAULT_PLATFORM_DOMAIN)
-        self.assertEqual(payload["core_name"], f"{DEFAULT_PLATFORM_SHORT} Core")
+        self.assertEqual(payload["core_name"], DEFAULT_PLATFORM_CORE_NAME)
+        self.assertEqual(payload["supervisor_name"], DEFAULT_PLATFORM_SUPERVISOR_NAME)
+        self.assertEqual(payload["nodes_name"], DEFAULT_PLATFORM_NODES_NAME)
+        self.assertEqual(payload["addons_name"], DEFAULT_PLATFORM_ADDONS_NAME)
+        self.assertEqual(payload["docs_name"], DEFAULT_PLATFORM_DOCS_NAME)
+        self.assertEqual(payload["legacy_internal_namespace"], DEFAULT_LEGACY_INTERNAL_NAMESPACE)
 
     def test_platform_endpoint_returns_settings_overrides(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
@@ -97,13 +150,18 @@ class TestPlatformIdentityApi(unittest.TestCase):
             self.store._set_sync("platform.short", "Hexe")
             self.store._set_sync("platform.domain", "hexe-ai.com")
             self.store._set_sync("app.name", "Hexe Core")
+            self.store._set_sync("platform.supervisor_name", "Hexe Supervisor")
+            self.store._set_sync("platform.nodes_name", "Hexe Nodes")
+            self.store._set_sync("platform.addons_name", "Hexe Addons")
+            self.store._set_sync("platform.docs_name", "Hexe Docs")
             res = self.client.get("/api/system/platform")
         self.assertEqual(res.status_code, 200, res.text)
         payload = res.json()
         self.assertEqual(payload["platform_name"], "Hexe AI")
-        self.assertEqual(payload["platform_short"], "Hexe")
-        self.assertEqual(payload["platform_domain"], "hexe-ai.com")
-        self.assertEqual(payload["core_name"], "Hexe Core")
+        self.assertEqual(payload["supervisor_name"], "Hexe Supervisor")
+        self.assertEqual(payload["nodes_name"], "Hexe Nodes")
+        self.assertEqual(payload["addons_name"], "Hexe Addons")
+        self.assertEqual(payload["docs_name"], "Hexe Docs")
 
 
 class TestLoadPlatformIdentity(unittest.IsolatedAsyncioTestCase):
@@ -113,11 +171,16 @@ class TestLoadPlatformIdentity(unittest.IsolatedAsyncioTestCase):
             await store.set("platform.name", "Hexe AI")
             await store.set("platform.short", "Hexe")
             await store.set("platform.domain", "hexe-ai.com")
+            await store.set("platform.supervisor_name", "Hexe Supervisor")
+            await store.set("platform.nodes_name", "Hexe Nodes")
+            await store.set("platform.addons_name", "Hexe Addons")
+            await store.set("platform.docs_name", "Hexe Docs")
             identity = await load_platform_identity(store)
         self.assertEqual(identity.platform_name, "Hexe AI")
-        self.assertEqual(identity.platform_short, "Hexe")
-        self.assertEqual(identity.platform_domain, "hexe-ai.com")
-        self.assertEqual(identity.core_name, "Hexe Core")
+        self.assertEqual(identity.supervisor_name, "Hexe Supervisor")
+        self.assertEqual(identity.nodes_name, "Hexe Nodes")
+        self.assertEqual(identity.addons_name, "Hexe Addons")
+        self.assertEqual(identity.docs_name, "Hexe Docs")
 
 
 if __name__ == "__main__":

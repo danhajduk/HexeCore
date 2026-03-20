@@ -691,3 +691,23 @@ Task 616: Add tests for platform identity configuration and metadata endpoint - 
 Task 617: Verify frontend branding no longer hardcodes Synthia on major visible screens - Completed on 03/20/2026 11:15
 Task 618: Run the final Phase 0 cosmetic rebrand verification pass - Completed on 03/20/2026 11:15
 Task 619: Create the Phase 0 completion report - Completed on 03/20/2026 11:15
+Task 620: Create the canonical Phase 1 naming abstraction document for Hexe AI display identity and internal identifier separation - Completed on 03/20/2026 12:09
+Task 621: Expand the platform identity configuration model with component display names - Completed on 03/20/2026 12:09
+Task 622: Create the canonical structured platform identity model - Completed on 03/20/2026 12:09
+Task 623: Create the backend naming service/helper layer for canonical component labels - Completed on 03/20/2026 12:09
+Task 624: Refactor `GET /api/system/platform` to use the canonical identity model - Completed on 03/20/2026 12:09
+Task 625: Add the frontend platform identity provider, selectors, and fallback resolution helpers - Completed on 03/20/2026 12:09
+Task 626: Replace remaining major frontend hardcoded branding with the identity provider - Completed on 03/20/2026 12:09
+Task 627: Replace backend generated display text with naming helpers - Completed on 03/20/2026 12:09
+Task 628: Create standard naming usage rules for new code - Completed on 03/20/2026 12:09
+Task 629: Audit backend for remaining hardcoded Synthia branding after abstraction - Completed on 03/20/2026 12:09
+Task 630: Audit frontend for remaining hardcoded Synthia branding after abstraction - Completed on 03/20/2026 12:09
+Task 631: Add component display-name support to docs generation and metadata surfaces - Completed on 03/20/2026 12:09
+Task 632: Add legacy branding compatibility message support - Completed on 03/20/2026 12:09
+Task 633: Refactor onboarding branding to use the identity abstraction - Completed on 03/20/2026 12:09
+Task 634: Refactor notification branding to use the identity abstraction - Completed on 03/20/2026 12:09
+Task 635: Refactor bootstrap/install/dev helper branding to use the identity abstraction - Completed on 03/20/2026 12:09
+Task 636: Add tests for frontend platform identity consumption - Completed on 03/20/2026 12:09
+Task 637: Add tests for backend naming helper usage - Completed on 03/20/2026 12:09
+Task 638: Add verification pass for naming abstraction coverage - Completed on 03/20/2026 12:09
+Task 639: Create the Phase 1 completion report - Completed on 03/20/2026 12:09

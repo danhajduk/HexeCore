@@ -13,7 +13,7 @@ fi
 REPO_URL_DEFAULT="https://github.com/danhajduk/SynthiaCore.git"
 REPO_URL="${REPO_URL:-$REPO_URL_DEFAULT}"
 PLATFORM_NAME="${PLATFORM_NAME:-Hexe AI}"
-CORE_NAME="${PLATFORM_SHORT:-Hexe} Core"
+CORE_NAME="${PLATFORM_CORE_NAME:-${PLATFORM_SHORT:-Hexe} Core}"
 
 INSTALL_DIR=""
 MODE=""

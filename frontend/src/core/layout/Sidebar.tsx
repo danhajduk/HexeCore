@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { apiGet } from "../api/client";
+import { usePlatformBranding } from "../branding";
 import { loadAddons } from "../router/loadAddons";
 import avatarUrl from "../../assets/avatar.png";
 import "./sidebar.css";
@@ -34,6 +35,7 @@ const systemItems: NavItem[] = [
 ];
 
 export default function Sidebar({ isAdmin }: { isAdmin: boolean }) {
+  const branding = usePlatformBranding();
   const [backendAddons, setBackendAddons] = useState<AddonInfo[]>([]);
 
   useEffect(() => {
@@ -72,10 +74,10 @@ export default function Sidebar({ isAdmin }: { isAdmin: boolean }) {
   const sections: NavSection[] = isAdmin
     ? [
         { title: "Home", items: homeItems },
-        { title: "Addons", items: addonItemsCore },
+        { title: branding.addonsName, items: addonItemsCore.map((item) => ({ ...item, label: `${branding.addonsName} & ${branding.nodesName}` })) },
         { title: "Store", items: storeItems },
         { title: "System", items: systemItems },
-        { title: "Addon UIs", items: dynamicAddonItems },
+        { title: `${branding.addonsName} UIs`, items: dynamicAddonItems },
       ].filter((section) => section.items.length > 0)
     : [{ title: "Home", items: homeItems }];
 
@@ -110,7 +112,7 @@ export default function Sidebar({ isAdmin }: { isAdmin: boolean }) {
         ))}
       </nav>
       <div className="sidebar-footer">
-        {isAdmin ? "Admin mode enabled." : "Guest mode: Home only. Sign in for Addons, Store, and System routes."}
+        {isAdmin ? "Admin mode enabled." : `Guest mode: Home only. Sign in for ${branding.addonsName}, Store, and System routes.`}
       </div>
     </aside>
   );

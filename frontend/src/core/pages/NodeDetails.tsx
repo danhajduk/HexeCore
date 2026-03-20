@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
+import { usePlatformBranding } from "../branding";
 import "./node-details.css";
 
 type NodeCapabilityCategorySummary = {
@@ -131,6 +132,7 @@ function formatMap(values?: Record<string, number>): string {
 }
 
 export default function NodeDetails() {
+  const branding = usePlatformBranding();
   const { nodeId = "" } = useParams();
   const [node, setNode] = useState<NodeRecord | null>(null);
   const [routing, setRouting] = useState<RoutingNodeGroup | null>(null);
@@ -200,9 +202,9 @@ export default function NodeDetails() {
       <div className="node-hero">
         <div className="node-hero-copy">
           <Link to="/addons" className="node-back">
-            Back to Addons &amp; Nodes
+            Back to {branding.addonsName} &amp; {branding.nodesName}
           </Link>
-          <div className="node-eyebrow">Node Details</div>
+          <div className="node-eyebrow">{branding.nodesName} Details</div>
           <h1 className="node-title">{node?.node_name || nodeId}</h1>
           <p className="node-subtitle">Canonical details for this trusted node from `/api/nodes/{nodeId}`.</p>
         </div>

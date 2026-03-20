@@ -16,13 +16,27 @@ class SetSettingRequest(BaseModel):
     value: Any
 
 
+class PlatformIdentityResponse(BaseModel):
+    ok: bool = True
+    platform_name: str
+    platform_short: str
+    platform_domain: str
+    core_name: str
+    supervisor_name: str
+    nodes_name: str
+    addons_name: str
+    docs_name: str
+    legacy_internal_namespace: str
+    legacy_compatibility_note: str
+
+
 def build_settings_router(store: SettingsStore, audit_store: AuditLogStore | None = None) -> APIRouter:
     router = APIRouter()
 
-    @router.get("/platform")
+    @router.get("/platform", response_model=PlatformIdentityResponse)
     async def get_platform_identity():
         identity = await load_platform_identity(store)
-        return {"ok": True, **identity.to_dict()}
+        return PlatformIdentityResponse(**{"ok": True, **identity.to_dict()})
 
     @router.get("/settings")
     async def get_all():

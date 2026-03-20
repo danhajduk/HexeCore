@@ -10,6 +10,12 @@ from app.system.settings.store import SettingsStore
 DEFAULT_PLATFORM_NAME = "Hexe AI"
 DEFAULT_PLATFORM_SHORT = "Hexe"
 DEFAULT_PLATFORM_DOMAIN = "hexe-ai.com"
+DEFAULT_PLATFORM_CORE_NAME = "Hexe Core"
+DEFAULT_PLATFORM_SUPERVISOR_NAME = "Hexe Supervisor"
+DEFAULT_PLATFORM_NODES_NAME = "Hexe Nodes"
+DEFAULT_PLATFORM_ADDONS_NAME = "Hexe Addons"
+DEFAULT_PLATFORM_DOCS_NAME = "Hexe Docs"
+DEFAULT_LEGACY_INTERNAL_NAMESPACE = "synthia"
 
 
 @dataclass(frozen=True)
@@ -18,6 +24,12 @@ class PlatformIdentity:
     platform_short: str
     platform_domain: str
     core_name: str
+    supervisor_name: str
+    nodes_name: str
+    addons_name: str
+    docs_name: str
+    legacy_internal_namespace: str
+    legacy_compatibility_note: str
 
     def to_dict(self) -> dict[str, str]:
         return {
@@ -25,7 +37,52 @@ class PlatformIdentity:
             "platform_short": self.platform_short,
             "platform_domain": self.platform_domain,
             "core_name": self.core_name,
+            "supervisor_name": self.supervisor_name,
+            "nodes_name": self.nodes_name,
+            "addons_name": self.addons_name,
+            "docs_name": self.docs_name,
+            "legacy_internal_namespace": self.legacy_internal_namespace,
+            "legacy_compatibility_note": self.legacy_compatibility_note,
         }
+
+
+class PlatformNamingService:
+    def __init__(self, identity: PlatformIdentity) -> None:
+        self._identity = identity
+
+    @property
+    def identity(self) -> PlatformIdentity:
+        return self._identity
+
+    def platform(self) -> str:
+        return self._identity.platform_name
+
+    def platform_short(self) -> str:
+        return self._identity.platform_short
+
+    def platform_domain(self) -> str:
+        return self._identity.platform_domain
+
+    def core(self) -> str:
+        return self._identity.core_name
+
+    def supervisor(self) -> str:
+        return self._identity.supervisor_name
+
+    def nodes(self) -> str:
+        return self._identity.nodes_name
+
+    def addons(self) -> str:
+        return self._identity.addons_name
+
+    def docs(self) -> str:
+        return self._identity.docs_name
+
+    def legacy_namespace(self) -> str:
+        return self._identity.legacy_internal_namespace
+
+    def compatibility_note(self) -> str:
+        return self._identity.legacy_compatibility_note
 
 
 async def load_platform_identity(settings_store: SettingsStore | None = None) -> PlatformIdentity:
@@ -36,6 +93,10 @@ async def load_platform_identity(settings_store: SettingsStore | None = None) ->
         except Exception:
             values = {}
     return platform_identity_from_values(values)
+
+
+async def load_platform_naming(settings_store: SettingsStore | None = None) -> PlatformNamingService:
+    return PlatformNamingService(await load_platform_identity(settings_store))
 
 
 def platform_identity_from_values(values: dict[str, Any] | None = None) -> PlatformIdentity:
@@ -59,18 +120,58 @@ def platform_identity_from_values(values: dict[str, Any] | None = None) -> Platf
         data.get("app.name"),
         data.get("platform.core_name"),
         os.getenv("PLATFORM_CORE_NAME"),
-        f"{platform_short} Core",
+        DEFAULT_PLATFORM_CORE_NAME if platform_short == DEFAULT_PLATFORM_SHORT else f"{platform_short} Core",
+    )
+    supervisor_name = _pick_text(
+        data.get("platform.supervisor_name"),
+        os.getenv("PLATFORM_SUPERVISOR_NAME"),
+        DEFAULT_PLATFORM_SUPERVISOR_NAME if platform_short == DEFAULT_PLATFORM_SHORT else f"{platform_short} Supervisor",
+    )
+    nodes_name = _pick_text(
+        data.get("platform.nodes_name"),
+        os.getenv("PLATFORM_NODES_NAME"),
+        DEFAULT_PLATFORM_NODES_NAME if platform_short == DEFAULT_PLATFORM_SHORT else f"{platform_short} Nodes",
+    )
+    addons_name = _pick_text(
+        data.get("platform.addons_name"),
+        os.getenv("PLATFORM_ADDONS_NAME"),
+        DEFAULT_PLATFORM_ADDONS_NAME if platform_short == DEFAULT_PLATFORM_SHORT else f"{platform_short} Addons",
+    )
+    docs_name = _pick_text(
+        data.get("platform.docs_name"),
+        os.getenv("PLATFORM_DOCS_NAME"),
+        DEFAULT_PLATFORM_DOCS_NAME if platform_short == DEFAULT_PLATFORM_SHORT else f"{platform_short} Docs",
+    )
+    legacy_internal_namespace = _pick_text(
+        data.get("platform.legacy_internal_namespace"),
+        os.getenv("PLATFORM_LEGACY_INTERNAL_NAMESPACE"),
+        DEFAULT_LEGACY_INTERNAL_NAMESPACE,
+    )
+    legacy_compatibility_note = _pick_text(
+        data.get("platform.legacy_compatibility_note"),
+        os.getenv("PLATFORM_LEGACY_COMPATIBILITY_NOTE"),
+        f"Internal legacy identifiers may still use `{legacy_internal_namespace}` during migration.",
     )
     return PlatformIdentity(
         platform_name=platform_name,
         platform_short=platform_short,
         platform_domain=platform_domain,
         core_name=core_name,
+        supervisor_name=supervisor_name,
+        nodes_name=nodes_name,
+        addons_name=addons_name,
+        docs_name=docs_name,
+        legacy_internal_namespace=legacy_internal_namespace,
+        legacy_compatibility_note=legacy_compatibility_note,
     )
 
 
 def default_platform_identity() -> PlatformIdentity:
     return platform_identity_from_values({})
+
+
+def default_platform_naming() -> PlatformNamingService:
+    return PlatformNamingService(default_platform_identity())
 
 
 def _pick_text(*values: Any) -> str:

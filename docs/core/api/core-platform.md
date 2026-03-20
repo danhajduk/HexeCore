@@ -9,6 +9,7 @@ Status: Implemented
 - Coordinate addon registry, runtime status, and platform health aggregation.
 - Coordinate embedded MQTT authority/runtime startup and reconciliation.
 - Coordinate notification publisher, bridge, local consumer, and startup/debug notification flows.
+- Expose canonical public naming metadata through `/api/system/platform`.
 
 Code anchors:
 - `backend/app/main.py`

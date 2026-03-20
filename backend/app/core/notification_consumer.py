@@ -12,7 +12,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from .notifications import NotificationChannel, NotificationMessage
-from app.system.platform_identity import default_platform_identity
+from app.system.platform_identity import default_platform_naming
 
 
 class LocalDesktopNotificationConsumer:
@@ -111,12 +111,12 @@ class LocalDesktopNotificationConsumer:
         return prior is not None and (now - prior) <= max(ttl, 60.0)
 
     async def _show_notification(self, message: NotificationMessage) -> bool:
-        branding = default_platform_identity()
+        naming = default_platform_naming()
         title = (
             (message.content.title if message.content is not None else None)
             or (message.event.summary if message.event is not None else None)
             or (message.state.status if message.state is not None else None)
-            or f"{branding.platform_name} Notification"
+            or f"{naming.platform()} Notification"
         )
         body_parts = [
             message.content.message if message.content is not None else None,
