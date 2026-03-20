@@ -30,6 +30,10 @@ def node_registry_payload(item, node_governance_status_service: NodeGovernanceSt
     active_governance_version = None
     governance_last_issued_at = None
     governance_last_refresh_request_at = None
+    governance_freshness_state = "pending"
+    governance_freshness_changed_at = None
+    governance_stale_for_s = None
+    governance_outdated = False
     if node_governance_status_service is not None:
         status = node_governance_status_service.get_status(str(getattr(item, "node_id", "") or ""))
         if status is not None:
@@ -38,6 +42,13 @@ def node_registry_payload(item, node_governance_status_service: NodeGovernanceSt
             governance_last_refresh_request_at = status.last_refresh_request_timestamp
             if str(status.active_governance_version or "").strip():
                 governance_status = "issued"
+            freshness = node_governance_status_service.governance_freshness(str(getattr(item, "node_id", "") or ""))
+            governance_freshness_state = str(freshness.get("state") or "pending")
+            governance_freshness_changed_at = str(
+                freshness.get("changed_at") or getattr(status, "freshness_changed_at", "") or ""
+            ).strip() or None
+            governance_stale_for_s = freshness.get("stale_for_s")
+            governance_outdated = bool(freshness.get("outdated"))
     if capability_status == "missing":
         governance_status = "pending_capability"
     operational_ready = bool(trust_status == "trusted" and capability_status == "accepted" and governance_status == "issued")
@@ -74,6 +85,10 @@ def node_registry_payload(item, node_governance_status_service: NodeGovernanceSt
         "active_governance_version": active_governance_version,
         "governance_last_issued_at": governance_last_issued_at,
         "governance_last_refresh_request_at": governance_last_refresh_request_at,
+        "governance_freshness_state": governance_freshness_state,
+        "governance_freshness_changed_at": governance_freshness_changed_at,
+        "governance_stale_for_s": governance_stale_for_s,
+        "governance_outdated": governance_outdated,
         "source_onboarding_session_id": getattr(item, "source_onboarding_session_id", None),
         "created_at": getattr(item, "created_at", None),
         "updated_at": getattr(item, "updated_at", None),

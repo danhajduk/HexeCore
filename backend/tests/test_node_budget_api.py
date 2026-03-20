@@ -2,6 +2,7 @@ import os
 import tempfile
 import unittest
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -27,6 +28,10 @@ from app.system.onboarding import (
     NodeTrustIssuanceService,
     NodeTrustStore,
 )
+from app.system.onboarding.capability_acceptance import NodeCapabilityAcceptanceService
+from app.system.onboarding.capability_profiles import NodeCapabilityProfilesStore
+from app.system.onboarding.governance import NodeGovernanceService, NodeGovernanceStore
+from app.system.onboarding.governance_status import NodeGovernanceStatusService, NodeGovernanceStatusStore
 from app.api import system as system_api
 from app.system.audit import AuditLogStore
 
@@ -72,6 +77,15 @@ class TestNodeBudgetApi(unittest.TestCase):
         self.routing_store = ModelRoutingRegistryStore(path=base / "model_routing_registry.json")
         self.routing_service = ModelRoutingRegistryService(self.routing_store)
         self.budget_service = NodeBudgetService(self.budget_store, self.routing_service)
+        self.capability_profiles = NodeCapabilityProfilesStore(path=base / "node_capability_profiles.json")
+        self.capability_acceptance = NodeCapabilityAcceptanceService(self.capability_profiles)
+        self.governance_store = NodeGovernanceStore(path=base / "node_governance_bundles.json")
+        self.governance_service = NodeGovernanceService(
+            self.governance_store,
+            node_budget_service=self.budget_service,
+        )
+        self.governance_status_store = NodeGovernanceStatusStore(path=base / "node_governance_status.json")
+        self.governance_status_service = NodeGovernanceStatusService(self.governance_status_store)
         self.audit_store = AuditLogStore(str(base / "audit.log"))
         self.audit_path = base / "audit.log"
         self.mqtt = _FakeMqttManager()
@@ -85,6 +99,9 @@ class TestNodeBudgetApi(unittest.TestCase):
                 node_registrations_store=self.registrations,
                 node_trust_issuance=self.trust_issuance,
                 node_budget_service=self.budget_service,
+                node_capability_acceptance=self.capability_acceptance,
+                node_governance_service=self.governance_service,
+                node_governance_status_service=self.governance_status_service,
                 audit_store=self.audit_store,
             ),
             prefix="/api",
@@ -141,6 +158,39 @@ class TestNodeBudgetApi(unittest.TestCase):
             return []
         return [json.loads(line) for line in self.audit_path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
+    def _declare_capabilities(self, node_id: str, trust_token: str) -> None:
+        declared = self.client.post(
+            "/api/system/nodes/capabilities/declaration",
+            headers={"X-Node-Trust-Token": trust_token},
+            json={
+                "manifest": {
+                    "manifest_version": "1.0",
+                    "node": {
+                        "node_id": node_id,
+                        "node_type": "ai-node",
+                        "node_name": "budget-node",
+                        "node_software_version": "0.3.0",
+                    },
+                    "declared_task_families": ["task.summarization"],
+                    "supported_providers": ["openai"],
+                    "enabled_providers": ["openai"],
+                    "node_features": {
+                        "telemetry": True,
+                        "governance_refresh": True,
+                        "lifecycle_events": True,
+                        "provider_failover": False,
+                    },
+                    "environment_hints": {
+                        "deployment_target": "edge",
+                        "acceleration": "cpu",
+                        "network_tier": "lan",
+                        "region": "home",
+                    },
+                }
+            },
+        )
+        self.assertEqual(declared.status_code, 200, declared.text)
+
     def test_trusted_node_can_declare_budget_capabilities(self) -> None:
         node_id, trust_token = self._trusted_node()
         res = self.client.post(
@@ -169,6 +219,7 @@ class TestNodeBudgetApi(unittest.TestCase):
 
     def test_admin_can_configure_node_budget_bundle(self) -> None:
         node_id, trust_token = self._trusted_node()
+        self._declare_capabilities(node_id, trust_token)
         declared = self.client.post(
             "/api/system/nodes/budgets/declaration",
             headers={"X-Node-Trust-Token": trust_token},
@@ -215,6 +266,58 @@ class TestNodeBudgetApi(unittest.TestCase):
         listed = self.client.get("/api/system/nodes/budgets", headers={"X-Admin-Token": "test-token"})
         self.assertEqual(listed.status_code, 200, listed.text)
         self.assertEqual(listed.json()["items"][0]["node_id"], node_id)
+
+    def test_outdated_node_budget_policy_is_blocked_until_governance_refresh(self) -> None:
+        node_id, trust_token = self._trusted_node()
+        self._declare_capabilities(node_id, trust_token)
+        declared = self.client.post(
+            "/api/system/nodes/budgets/declaration",
+            headers={"X-Node-Trust-Token": trust_token},
+            json={"node_id": node_id, "compute_unit": "tokens"},
+        )
+        self.assertEqual(declared.status_code, 200, declared.text)
+        configured = self.client.put(
+            f"/api/system/nodes/budgets/{node_id}",
+            headers={"X-Admin-Token": "test-token"},
+            json={"node_budget": {"node_money_limit": 10.0, "node_compute_limit": 10000.0, "compute_unit": "tokens"}},
+        )
+        self.assertEqual(configured.status_code, 200, configured.text)
+
+        status = self.governance_status_store.get(node_id)
+        self.assertIsNotNone(status)
+        assert status is not None
+        outdated_at = (datetime.now(timezone.utc) - timedelta(hours=25)).isoformat()
+        self.governance_status_store.upsert(
+            node_id=node_id,
+            active_governance_version=status.active_governance_version,
+            last_issued_timestamp=status.last_issued_timestamp,
+            last_refresh_request_timestamp=outdated_at,
+        )
+
+        blocked = self.client.get(
+            f"/api/system/nodes/budgets/policy/current?node_id={node_id}",
+            headers={"X-Node-Trust-Token": trust_token},
+        )
+        self.assertEqual(blocked.status_code, 409, blocked.text)
+        self.assertEqual(blocked.json()["detail"]["error"], "node_governance_outdated")
+
+        refresh = self.client.post(
+            "/api/system/nodes/governance/refresh",
+            headers={"X-Node-Trust-Token": trust_token},
+            json={"node_id": node_id},
+        )
+        self.assertEqual(refresh.status_code, 200, refresh.text)
+
+        policy = self.client.get(
+            f"/api/system/nodes/budgets/policy/current?node_id={node_id}",
+            headers={"X-Node-Trust-Token": trust_token},
+        )
+        self.assertEqual(policy.status_code, 200, policy.text)
+        self.assertEqual(policy.json()["budget_policy"]["status"], "active")
+
+        freshness_events = [event for event in self._audit_events() if event.get("event_type") == "node_governance_freshness_changed"]
+        self.assertTrue(freshness_events)
+        self.assertEqual(freshness_events[-1]["details"]["freshness_state"], "fresh")
 
     def test_rejects_customer_budget_sum_above_node_total_without_overcommit(self) -> None:
         node_id, trust_token = self._trusted_node()

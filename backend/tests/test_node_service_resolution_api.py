@@ -2,6 +2,7 @@ import asyncio
 import os
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -369,6 +370,42 @@ class TestNodeServiceResolutionApi(unittest.TestCase):
         )
         self.assertEqual(resolved.status_code, 200, resolved.text)
         self.assertEqual(resolved.json()["candidates"], [])
+
+    def test_outdated_node_cannot_receive_new_service_contracts_until_refresh(self) -> None:
+        node_id, trust_token = self._configure_node_for_resolution()
+        status = self.governance_status_store.get(node_id)
+        self.assertIsNotNone(status)
+        assert status is not None
+        outdated_at = (datetime.now(timezone.utc) - timedelta(hours=25)).isoformat()
+        self.governance_status_store.upsert(
+            node_id=node_id,
+            active_governance_version=status.active_governance_version,
+            last_issued_timestamp=status.last_issued_timestamp,
+            last_refresh_request_timestamp=outdated_at,
+        )
+
+        blocked = self.client.post(
+            "/api/system/nodes/services/resolve",
+            headers={"X-Node-Trust-Token": trust_token},
+            json={"node_id": node_id, "task_family": "task.summarization"},
+        )
+        self.assertEqual(blocked.status_code, 409, blocked.text)
+        self.assertEqual(blocked.json()["detail"]["error"], "node_governance_outdated")
+
+        refreshed = self.client.post(
+            "/api/system/nodes/governance/refresh",
+            headers={"X-Node-Trust-Token": trust_token},
+            json={"node_id": node_id},
+        )
+        self.assertEqual(refreshed.status_code, 200, refreshed.text)
+
+        resolved = self.client.post(
+            "/api/system/nodes/services/resolve",
+            headers={"X-Node-Trust-Token": trust_token},
+            json={"node_id": node_id, "task_family": "task.summarization"},
+        )
+        self.assertEqual(resolved.status_code, 200, resolved.text)
+        self.assertGreaterEqual(len(resolved.json()["candidates"]), 1)
 
 
 if __name__ == "__main__":

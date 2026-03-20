@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -236,6 +237,43 @@ class TestNodeOperationalStatusApi(unittest.TestCase):
         self.assertEqual(payload["revocation_action"], "remove")
         self.assertFalse(bool(payload["registry_present"]))
         self.assertIn("removed by Core", str(payload["message"]))
+
+    def test_operational_status_reports_governance_freshness_thresholds(self) -> None:
+        node_id, trust_token = self._trusted_node()
+        self._declare_capabilities(node_id, trust_token)
+        status = self.governance_status_store.get(node_id)
+        self.assertIsNotNone(status)
+        assert status is not None
+
+        critical_at = (datetime.now(timezone.utc) - timedelta(hours=7)).isoformat()
+        self.governance_status_store.upsert(
+            node_id=node_id,
+            active_governance_version=status.active_governance_version,
+            last_issued_timestamp=status.last_issued_timestamp,
+            last_refresh_request_timestamp=critical_at,
+        )
+        critical = self.client.get(
+            f"/api/system/nodes/operational-status/{node_id}",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(critical.status_code, 200, critical.text)
+        self.assertEqual(critical.json()["governance_freshness_state"], "critical")
+        self.assertFalse(bool(critical.json()["governance_outdated"]))
+
+        outdated_at = (datetime.now(timezone.utc) - timedelta(hours=25)).isoformat()
+        self.governance_status_store.upsert(
+            node_id=node_id,
+            active_governance_version=status.active_governance_version,
+            last_issued_timestamp=status.last_issued_timestamp,
+            last_refresh_request_timestamp=outdated_at,
+        )
+        outdated = self.client.get(
+            f"/api/system/nodes/operational-status/{node_id}",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(outdated.status_code, 200, outdated.text)
+        self.assertEqual(outdated.json()["governance_freshness_state"], "outdated")
+        self.assertTrue(bool(outdated.json()["governance_outdated"]))
 
 
 if __name__ == "__main__":

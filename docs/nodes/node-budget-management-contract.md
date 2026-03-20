@@ -1,7 +1,7 @@
 # Node Budget Management Contract
 
 Status: Partially implemented
-Last updated: 2026-03-20
+Last updated: 2026-03-20 09:20
 
 ## Purpose
 
@@ -69,6 +69,9 @@ Current behavior:
 - `GET` returns the effective budget policy, current governance version, current budget-policy version, and `refresh_interval_s=60`
 - `POST` returns `updated=false` when the caller already has the current `budget_policy_version` and `governance_version`
 - responses are cacheable for short-lived local caching only
+- nodes in governance freshness state `outdated` are blocked from receiving new budget policy material until they refresh governance
+- `critical` freshness is warning-only; `outdated` begins after 24 hours without governance refresh activity
+- the intended recovery path is governance refresh first, then budget-policy fetch/refresh
 
 ### Node Usage Ingestion
 
@@ -209,6 +212,7 @@ Current rules:
 - governance issuance is still the canonical Core-to-node policy channel
 - governance refresh returns the latest budget-bearing governance bundle when capability, routing-policy, or budget-policy inputs change
 - nodes can fetch budget policy directly through `/budgets/policy/*`, but the same effective policy is also embedded in governance
+- governance freshness transitions are derived from existing governance timestamps, preferring refresh activity and falling back to issued time before the first refresh, audited as `node_governance_freshness_changed`, and surfaced in registry and operational-status views
 
 ## Capacity Declaration Contract
 

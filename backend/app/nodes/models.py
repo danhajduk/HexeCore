@@ -42,6 +42,10 @@ class NodeStatusSummary(BaseModel):
     active_governance_version: str | None = None
     governance_last_issued_at: str | None = None
     governance_last_refresh_request_at: str | None = None
+    governance_freshness_state: str = "pending"
+    governance_freshness_changed_at: str | None = None
+    governance_stale_for_s: int | None = None
+    governance_outdated: bool = False
 
 
 class NodeRecord(BaseModel):

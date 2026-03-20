@@ -1,7 +1,7 @@
 # Node Service Resolution And Budgeting
 
 Status: Implemented
-Last Updated: 2026-03-20
+Last Updated: 2026-03-20 09:20
 
 ## Purpose
 
@@ -170,6 +170,20 @@ Candidates are filtered by:
 - governance allowed models
 - preferred provider/model when requested
 - admissible current budget grant
+
+### Governance Freshness Gate
+
+Resolution and authorization are blocked when the node governance freshness state is `outdated`.
+
+Current rule:
+
+- `critical` after 6 hours without governance refresh activity: warn only
+- `outdated` after 24 hours without governance refresh activity: block new `resolve` and `authorize` requests with `409 node_governance_outdated`
+
+Recovery path:
+
+- node refreshes governance through `/api/system/nodes/governance/current` or `/api/system/nodes/governance/refresh`
+- once freshness returns to `fresh`, service resolution and authorization resume normally
 
 ## Effective Budget Resolution
 

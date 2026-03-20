@@ -66,6 +66,14 @@ def _node_record_from_payload(payload: dict[str, object]) -> NodeRecord:
             active_governance_version=str(payload.get("active_governance_version") or "").strip() or None,
             governance_last_issued_at=str(payload.get("governance_last_issued_at") or "").strip() or None,
             governance_last_refresh_request_at=str(payload.get("governance_last_refresh_request_at") or "").strip() or None,
+            governance_freshness_state=str(payload.get("governance_freshness_state") or "pending"),
+            governance_freshness_changed_at=str(payload.get("governance_freshness_changed_at") or "").strip() or None,
+            governance_stale_for_s=(
+                int(payload.get("governance_stale_for_s"))
+                if payload.get("governance_stale_for_s") is not None
+                else None
+            ),
+            governance_outdated=bool(payload.get("governance_outdated")),
         ),
     )
 

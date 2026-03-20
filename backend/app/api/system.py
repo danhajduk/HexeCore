@@ -549,6 +549,9 @@ def build_system_router(
     async def _publish_budget_policy_snapshot(node_id: str):
         if mqtt_manager is None or node_budget_service is None:
             return []
+        freshness = _observe_governance_freshness(node_id)
+        if bool(freshness.get("outdated")):
+            return []
         bundle = _ensure_node_governance_bundle(node_id)
         governance_version = str(getattr(bundle, "governance_version", "") or "") or None
         payload = node_budget_service.budget_policy(node_id, governance_version=governance_version)
@@ -568,6 +571,51 @@ def build_system_router(
             ):
                 publishes.append(await mqtt_manager.publish(topic=topic, payload=payload, retain=True, qos=1))
         return publishes
+
+    def _observe_governance_freshness(node_id: str) -> dict[str, object]:
+        if node_governance_status_service is None:
+            return {
+                "state": "pending",
+                "stale_for_s": None,
+                "last_contact_at": None,
+                "critical_after_s": 21600,
+                "outdated_after_s": 86400,
+                "outdated": False,
+            }
+        freshness = node_governance_status_service.governance_freshness(node_id)
+        status = node_governance_status_service.get_status(node_id)
+        current_state = str(freshness.get("state") or "pending")
+        prior_state = str(getattr(status, "freshness_state", "") or "").strip() or None
+        if prior_state != current_state:
+            node_governance_status_service.record_freshness_state(node_id=node_id, freshness_state=current_state)
+            _record_audit(
+                audit_store,
+                event_type="node_governance_freshness_changed",
+                actor_role="system",
+                actor_id="governance_freshness_monitor",
+                details={
+                    "node_id": node_id,
+                    "previous_state": prior_state,
+                    "freshness_state": current_state,
+                    "stale_for_s": freshness.get("stale_for_s"),
+                    "last_contact_at": freshness.get("last_contact_at"),
+                },
+            )
+            freshness = node_governance_status_service.governance_freshness(node_id)
+        return freshness
+
+    def _reject_if_outdated_for_new_contracts(node_id: str) -> None:
+        freshness = _observe_governance_freshness(node_id)
+        if bool(freshness.get("outdated")):
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "error": "node_governance_outdated",
+                    "message": "node governance refresh is outdated; refresh governance before requesting new contracts",
+                    "governance_freshness_state": freshness.get("state"),
+                    "governance_stale_for_s": freshness.get("stale_for_s"),
+                },
+            )
 
     async def _deprovision_node_mqtt_principal(node_id: str, *, reason: str) -> None:
         node_key = str(node_id or "").strip()
@@ -756,6 +804,8 @@ def build_system_router(
         if trust_status:
             trust_status_filter = str(trust_status).strip().lower()
             entries = [item for item in entries if str(item.trust_status).strip().lower() == trust_status_filter]
+        for item in entries:
+            _observe_governance_freshness(str(getattr(item, "node_id", "") or ""))
         return {"ok": True, "items": [node_registry_payload(item, node_governance_status_service) for item in entries]}
 
     @router.get("/system/nodes/registrations/{node_id}")
@@ -770,6 +820,7 @@ def build_system_router(
         item = node_registrations_store.get(node_id)
         if item is None:
             raise HTTPException(status_code=404, detail="node_registration_not_found")
+        _observe_governance_freshness(node_id)
         return {"ok": True, "registration": node_registry_payload(item, node_governance_status_service)}
 
     @router.get("/system/nodes/registry")
@@ -790,6 +841,8 @@ def build_system_router(
         if trust_status:
             trust_status_filter = str(trust_status).strip().lower()
             entries = [item for item in entries if str(item.trust_status).strip().lower() == trust_status_filter]
+        for item in entries:
+            _observe_governance_freshness(str(getattr(item, "node_id", "") or ""))
         payload = [node_registry_payload(item, node_governance_status_service) for item in entries]
         if state:
             state_filter = str(state).strip().lower()
@@ -1013,6 +1066,7 @@ def build_system_router(
         registration = node_registrations_store.get(node_id)
         if registration is None or str(registration.trust_status or "").strip().lower() != "trusted":
             raise HTTPException(status_code=403, detail={"error": "untrusted_node", "message": "node not registered"})
+        _reject_if_outdated_for_new_contracts(node_id)
         governance_bundle = _ensure_node_governance_bundle(node_id)
         governance_version = str(getattr(governance_bundle, "governance_version", "") or "") or None
         policy = node_budget_service.budget_policy(node_id, governance_version=governance_version)
@@ -1049,6 +1103,7 @@ def build_system_router(
         registration = node_registrations_store.get(node_id)
         if registration is None or str(registration.trust_status or "").strip().lower() != "trusted":
             raise HTTPException(status_code=403, detail={"error": "untrusted_node", "message": "node not registered"})
+        _reject_if_outdated_for_new_contracts(node_id)
         governance_bundle = _ensure_node_governance_bundle(node_id)
         governance_version = str(getattr(governance_bundle, "governance_version", "") or "") or None
         policy = node_budget_service.budget_policy(node_id, governance_version=governance_version)
@@ -1599,6 +1654,7 @@ def build_system_router(
         registration = node_registrations_store.get(node_id)
         if registration is None or str(registration.trust_status or "").strip().lower() != "trusted":
             raise HTTPException(status_code=403, detail={"error": "untrusted_node", "message": "node not registered"})
+        _reject_if_outdated_for_new_contracts(node_id)
         governance_bundle = _ensure_node_governance_bundle(node_id)
         if governance_bundle is None:
             raise HTTPException(status_code=409, detail={"error": "governance_not_issued", "message": "governance bundle not issued"})
@@ -1634,6 +1690,7 @@ def build_system_router(
         registration = node_registrations_store.get(node_id)
         if registration is None or str(registration.trust_status or "").strip().lower() != "trusted":
             raise HTTPException(status_code=403, detail={"error": "untrusted_node", "message": "node not registered"})
+        _reject_if_outdated_for_new_contracts(node_id)
         governance_bundle = _ensure_node_governance_bundle(node_id)
         if governance_bundle is None:
             raise HTTPException(status_code=409, detail={"error": "governance_not_issued", "message": "governance bundle not issued"})
@@ -1920,6 +1977,9 @@ def build_system_router(
                 status_code=409,
                 detail={"error": "capability_declaration_required", "message": "node capability declaration required"},
             )
+        if node_governance_status_service is not None:
+            node_governance_status_service.mark_refresh_request(node_id=node_key)
+        _observe_governance_freshness(node_key)
 
         bundle = _ensure_node_governance_bundle(node_key)
         if bundle is not None and str(bundle.capability_profile_id or "").strip() != profile_id:
@@ -1931,9 +1991,6 @@ def build_system_router(
                 status_code=404,
                 detail={"error": "governance_not_issued", "message": "governance bundle has not been issued yet"},
             )
-        if node_governance_status_service is not None:
-            node_governance_status_service.mark_refresh_request(node_id=node_key)
-
         refresh_interval = 120
         try:
             refresh_interval = max(30, int(str(os.getenv("SYNTHIA_NODE_GOVERNANCE_REFRESH_INTERVAL_S", "120")).strip()))
@@ -1989,6 +2046,9 @@ def build_system_router(
                 status_code=409,
                 detail={"error": "capability_declaration_required", "message": "node capability declaration required"},
             )
+        if node_governance_status_service is not None:
+            node_governance_status_service.mark_refresh_request(node_id=node_key)
+        _observe_governance_freshness(node_key)
 
         bundle = _ensure_node_governance_bundle(node_key)
         if bundle is not None and str(bundle.capability_profile_id or "").strip() != profile_id:
@@ -2000,9 +2060,6 @@ def build_system_router(
                 status_code=404,
                 detail={"error": "governance_not_issued", "message": "governance bundle has not been issued yet"},
             )
-        if node_governance_status_service is not None:
-            node_governance_status_service.mark_refresh_request(node_id=node_key)
-
         refresh_interval = 120
         try:
             refresh_interval = max(30, int(str(os.getenv("SYNTHIA_NODE_GOVERNANCE_REFRESH_INTERVAL_S", "120")).strip()))
@@ -2057,6 +2114,7 @@ def build_system_router(
         registration = node_registrations_store.get(node_key)
         if registration is None:
             raise HTTPException(status_code=404, detail="node_registration_not_found")
+        _observe_governance_freshness(node_key)
         node_payload = node_registry_payload(registration, node_governance_status_service)
         last_telemetry_timestamp = (
             node_telemetry_service.latest_timestamp(node_key) if node_telemetry_service is not None else None
@@ -2073,6 +2131,10 @@ def build_system_router(
             "active_governance_version": node_payload.get("active_governance_version"),
             "last_governance_issued_at": node_payload.get("governance_last_issued_at"),
             "last_governance_refresh_request_at": node_payload.get("governance_last_refresh_request_at"),
+            "governance_freshness_state": node_payload.get("governance_freshness_state"),
+            "governance_freshness_changed_at": node_payload.get("governance_freshness_changed_at"),
+            "governance_stale_for_s": node_payload.get("governance_stale_for_s"),
+            "governance_outdated": bool(node_payload.get("governance_outdated")),
             "last_telemetry_timestamp": last_telemetry_timestamp,
             "updated_at": node_payload.get("updated_at"),
         }

@@ -1,7 +1,7 @@
 # Node Phase 2 Lifecycle Contract
 
 Status: Implemented
-Last Updated: 2026-03-20 08:05
+Last Updated: 2026-03-20 09:20
 
 ## Purpose
 
@@ -29,6 +29,10 @@ Derived status fields exposed by node registry and operational-status APIs:
 - `active_governance_version`: current governance version (or `null`)
 - `governance_last_issued_at`: timestamp (or `null`)
 - `governance_last_refresh_request_at`: timestamp (or `null`)
+- `governance_freshness_state`: `pending | unknown | fresh | critical | outdated`
+- `governance_freshness_changed_at`: timestamp of the last derived freshness-state transition
+- `governance_stale_for_s`: age in seconds since the latest governance issue or refresh request
+- `governance_outdated`: boolean convenience flag
 
 Readiness projection note:
 
@@ -145,6 +149,11 @@ Current refresh behavior:
 
 - governance is reissued when capability profile, routing-policy constraints, or embedded budget policy changes materially
 - budget policy remains readable through `/api/system/nodes/budgets/policy/*`, but governance remains the canonical Core-to-node policy bundle
+- governance freshness is derived from existing governance timestamps, preferring the latest refresh request and falling back to issued time before the first refresh, not from a separate heartbeat protocol
+- freshness thresholds are currently:
+  - `critical` after 6 hours without governance refresh activity
+  - `outdated` after 24 hours without governance refresh activity
+- `GET /api/system/nodes/governance/current` and `POST /api/system/nodes/governance/refresh` remain the recovery path for stale nodes; those routes record refresh activity before freshness is re-evaluated
 
 ### Operational Status
 
@@ -160,10 +169,20 @@ Current refresh behavior:
   - `active_governance_version`
   - `last_governance_issued_at`
   - `last_governance_refresh_request_at`
+  - `governance_freshness_state`
+  - `governance_freshness_changed_at`
+  - `governance_stale_for_s`
+  - `governance_outdated`
   - `last_telemetry_timestamp`
   - `updated_at`
 
 This endpoint is also the canonical polling contract for setup-state progression and operational readiness checks.
+
+Freshness-state meaning:
+
+- `fresh`: governance activity is within the expected freshness window
+- `critical`: governance has not refreshed for at least 6 hours and operator warning should be shown
+- `outdated`: governance has not refreshed for at least 24 hours; the node remains visible to operators but Core blocks new budget-policy reads and new node-to-service resolution or authorization material until governance is refreshed again
 
 Node UI setup/readiness payload note:
 

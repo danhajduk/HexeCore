@@ -44,8 +44,3 @@ if it is not present and should be node-owned create a file with the new data in
 
 Do not edit above this line:
 #######################################################################
-[TODO] Task 334: Define governance freshness states derived from the existing governance refresh model, with `critical` after 6 hours without refresh and `outdated` after 24 hours without refresh
-[TODO] Task 335: Extend node registry and operational-status views to expose governance freshness and outdated-state warnings using current refresh timestamps rather than a new node heartbeat protocol
-[TODO] Task 336: Prevent `outdated` nodes from receiving new budget policy, governance updates, or new node-to-service resolution/authorization material while preserving operator visibility into why they are blocked
-[TODO] Task 337: Add admin and audit visibility for governance freshness transitions so operators can see when a node becomes `critical` or `outdated`
-[TODO] Task 338: Add targeted tests and docs for governance freshness thresholds, including warning/critical/outdated transitions and the `outdated` policy block on new budgeting/service contracts
