@@ -48,10 +48,10 @@ class TestNotificationBridge(unittest.IsolatedAsyncioTestCase):
         manager = _FakeManager()
         bridge = NotificationBridgeService(publisher, manager)
 
-        await bridge._handle_runtime_message("synthia/notify/internal/event", self._payload(), False)
+        await bridge._handle_runtime_message("hexe/notify/internal/event", self._payload(), False)
 
         self.assertEqual(len(publisher.calls), 1)
-        self.assertEqual(publisher.calls[0]["topic"], "synthia/notify/external/ha")
+        self.assertEqual(publisher.calls[0]["topic"], "hexe/notify/external/ha")
         self.assertEqual(publisher.calls[0]["payload"]["title"], "Alert")
         self.assertEqual(publisher.calls[0]["payload"]["message"], "Attention\nImportant alert")
         self.assertEqual(publisher.calls[0]["payload"]["severity"], "warning")
@@ -64,7 +64,7 @@ class TestNotificationBridge(unittest.IsolatedAsyncioTestCase):
         bridge = NotificationBridgeService(publisher, _FakeManager())
 
         payload = self._payload(targets={"broadcast": True})
-        await bridge._handle_runtime_message("synthia/notify/internal/event", payload, False)
+        await bridge._handle_runtime_message("hexe/notify/internal/event", payload, False)
 
         self.assertEqual(publisher.calls, [])
 
@@ -76,7 +76,7 @@ class TestNotificationBridge(unittest.IsolatedAsyncioTestCase):
             delivery={"severity": "warning", "priority": "high", "dedupe_key": "alert-tag", "channels": ["event"], "ttl_seconds": 5},
         )
 
-        await bridge._handle_runtime_message("synthia/notify/internal/event", payload, False)
+        await bridge._handle_runtime_message("hexe/notify/internal/event", payload, False)
 
         self.assertEqual(publisher.calls, [])
 
@@ -84,7 +84,7 @@ class TestNotificationBridge(unittest.IsolatedAsyncioTestCase):
         publisher = _FakePublisher()
         bridge = NotificationBridgeService(publisher, _FakeManager())
 
-        await bridge._handle_runtime_message("synthia/notify/internal/event", {"bad": "payload"}, False)
+        await bridge._handle_runtime_message("hexe/notify/internal/event", {"bad": "payload"}, False)
 
         self.assertEqual(publisher.calls, [])
 
@@ -93,6 +93,6 @@ class TestNotificationBridge(unittest.IsolatedAsyncioTestCase):
         bridge = NotificationBridgeService(publisher, _FakeManager())
         payload = self._payload(targets={"broadcast": True, "external": ["other"]})
 
-        await bridge._handle_runtime_message("synthia/notify/internal/event", payload, False)
+        await bridge._handle_runtime_message("hexe/notify/internal/event", payload, False)
 
         self.assertEqual(publisher.calls, [])

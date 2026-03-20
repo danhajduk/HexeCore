@@ -39,12 +39,12 @@ This document covers the Phase 1 steps. Phase 2 readiness is documented in [Node
 
 Core publishes retained bootstrap metadata to:
 
-- topic: `synthia/bootstrap/core`
+- topic: `hexe/bootstrap/core`
 
-Phase 0 compatibility note:
+Compatibility note:
 
 - the public-facing product name is Hexe AI / Hexe Core
-- the bootstrap topic remains `synthia/bootstrap/core`
+- the bootstrap topic remains `hexe/bootstrap/core`
 
 Bootstrap transport:
 
@@ -69,7 +69,7 @@ Publication cadence:
 Phase-1 step mapping:
 
 - `Core Connection`: node reaches the bootstrap MQTT listener and can be considered `bootstrap_connecting` or `bootstrap_connected`
-- `Bootstrap Discovery`: node reads retained Core bootstrap metadata from `synthia/bootstrap/core` and can be considered `core_discovered`
+- `Bootstrap Discovery`: node reads retained Core bootstrap metadata from `hexe/bootstrap/core` and can be considered `core_discovered`
 
 ## Approval Contract
 

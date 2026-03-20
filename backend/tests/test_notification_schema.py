@@ -109,10 +109,10 @@ class TestNotificationSchema(unittest.TestCase):
         self.assertEqual(message.delivery.channels, [NotificationChannel.STATE])
 
     def test_topic_helpers_expose_canonical_paths(self) -> None:
-        self.assertEqual(INTERNAL_EVENT_TOPIC, "synthia/notify/internal/event")
-        self.assertEqual(INTERNAL_STATE_TOPIC, "synthia/notify/internal/state")
-        self.assertEqual(INTERNAL_POPUP_TOPIC, "synthia/notify/internal/popup")
-        self.assertEqual(external_notification_topic("ha"), "synthia/notify/external/ha")
+        self.assertEqual(INTERNAL_EVENT_TOPIC, "hexe/notify/internal/event")
+        self.assertEqual(INTERNAL_STATE_TOPIC, "hexe/notify/internal/state")
+        self.assertEqual(INTERNAL_POPUP_TOPIC, "hexe/notify/internal/popup")
+        self.assertEqual(external_notification_topic("ha"), "hexe/notify/external/ha")
         with self.assertRaises(ValueError):
             external_notification_topic("bad target")
 

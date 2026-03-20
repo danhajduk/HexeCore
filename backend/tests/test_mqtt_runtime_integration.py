@@ -51,7 +51,7 @@ class _FakeMqttManager:
         return None
 
     async def publish_test(self, topic: str | None = None, payload: dict | None = None):
-        return {"ok": True, "topic": topic or "synthia/core/mqtt/info", "payload": payload or {}}
+        return {"ok": True, "topic": topic or "hexe/core/mqtt/info", "payload": payload or {}}
 
     async def publish(self, topic: str, payload: dict, retain: bool = True, qos: int = 1):
         self.published.append((topic, payload))
@@ -198,8 +198,8 @@ class TestMqttRuntimeIntegration(unittest.TestCase):
         req = MqttRegistrationRequest(
             addon_id="vision",
             access_mode="gateway",
-            publish_topics=["synthia/addons/vision/state/#"],
-            subscribe_topics=["synthia/addons/vision/command/#"],
+            publish_topics=["hexe/addons/vision/state/#"],
+            subscribe_topics=["hexe/addons/vision/command/#"],
             capabilities=MqttCapabilityFlags(),
         )
         approved = asyncio.run(self.approval.approve(req))
@@ -211,16 +211,16 @@ class TestMqttRuntimeIntegration(unittest.TestCase):
         self.assertTrue(result.ok)
         self.assertEqual(result.runtime_state, "running")
         published_topics = [topic for topic, _ in self.manager.published]
-        self.assertIn("synthia/bootstrap/core", published_topics)
+        self.assertIn("hexe/bootstrap/core", published_topics)
 
         live_dir = Path(self.reconciler.live_dir())
         staged_dir = live_dir.parent / "staged"
         self.assertTrue((staged_dir / "broker.conf").exists())
         acl_text = (live_dir / "acl_compiled.conf").read_text(encoding="utf-8")
-        self.assertIn("topic read synthia/bootstrap/core", acl_text)
+        self.assertIn("topic read hexe/bootstrap/core", acl_text)
         self.assertNotIn("topic deny #", acl_text)
         self.assertIn("user sx_vision", acl_text)
-        self.assertIn("topic write synthia/addons/vision/state/#", acl_text)
+        self.assertIn("topic write hexe/addons/vision/state/#", acl_text)
 
         passwords_text = (live_dir / "passwords.conf").read_text(encoding="utf-8")
         self.assertIn("sx_vision:$7$", passwords_text)
@@ -336,8 +336,8 @@ class TestMqttRuntimeIntegration(unittest.TestCase):
             headers={"X-Admin-Token": "test-token"},
             json={
                 "addon_id": "vision",
-                "publish_topics": ["synthia/addons/other/state"],
-                "subscribe_topics": ["synthia/bootstrap/core"],
+                "publish_topics": ["hexe/addons/other/state"],
+                "subscribe_topics": ["hexe/bootstrap/core"],
             },
         )
         self.assertEqual(validate.status_code, 200, validate.text)

@@ -2,7 +2,7 @@
 
 Hexe AI is a modular automation and AI platform for home and edge environments. In the current repository, the platform is moving toward a `Core -> Supervisor -> Nodes` structure that makes control-plane, host-runtime, and external-execution boundaries explicit.
 
-Compatibility note: the public-facing product name is now Hexe AI, but internal identifiers such as `synthia/...` topic roots and `/api/...` route paths remain active during this migration phase.
+Compatibility note: the public-facing product name is now Hexe AI, and the active MQTT namespace has also moved to `hexe/...`. API route paths and Python package names still retain their existing internal forms.
 
 ## Domain Model
 

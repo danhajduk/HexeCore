@@ -38,7 +38,7 @@ class _FakeMqttManager:
         return None
 
     async def publish_test(self, topic: str | None = None, payload: dict | None = None):
-        return {"ok": True, "topic": topic or "synthia/core/mqtt/info", "payload": payload or {}}
+        return {"ok": True, "topic": topic or "hexe/core/mqtt/info", "payload": payload or {}}
 
     async def publish(self, topic: str, payload: dict, retain: bool = True, qos: int = 1):
         self.published.append({"topic": topic, "payload": payload, "retain": retain, "qos": qos})
@@ -90,9 +90,9 @@ class _FakeMqttManager:
 class _FakeNotificationDebugTrigger:
     async def emit_test_flow(self):
         return [
-            {"ok": True, "topic": "synthia/notify/internal/popup", "message_id": "popup-1"},
-            {"ok": True, "topic": "synthia/notify/internal/event", "message_id": "event-1"},
-            {"ok": True, "topic": "synthia/notify/internal/state", "message_id": "state-1"},
+            {"ok": True, "topic": "hexe/notify/internal/popup", "message_id": "popup-1"},
+            {"ok": True, "topic": "hexe/notify/internal/event", "message_id": "event-1"},
+            {"ok": True, "topic": "hexe/notify/internal/state", "message_id": "state-1"},
         ]
 
 
@@ -296,7 +296,7 @@ class TestMqttAdminLifecycleApi(unittest.TestCase):
             def subscribe(self, topic, qos=0):
                 if callable(self.on_message):
                     class _Msg:
-                        topic = "synthia/addons/vision/event/status"
+                        topic = "hexe/addons/vision/event/status"
                         payload = b'{"value":42}'
                         retain = False
                         qos = 0
@@ -314,7 +314,7 @@ class TestMqttAdminLifecycleApi(unittest.TestCase):
             created = self.client.post(
                 "/api/system/debug/subscribe",
                 headers={"X-Admin-Token": "test-token"},
-                json={"topic_filter": "synthia/#", "qos": 0, "timeout_s": 60},
+                json={"topic_filter": "hexe/#", "qos": 0, "timeout_s": 60},
             )
             self.assertEqual(created.status_code, 200, created.text)
             payload = created.json()
@@ -352,7 +352,7 @@ class TestMqttAdminLifecycleApi(unittest.TestCase):
         blocked = self.client.post(
             "/api/system/debug/publish",
             headers={"X-Admin-Token": "test-token"},
-            json={"topic": "synthia/runtime/health", "payload": {"x": 1}, "qos": 0, "retain": False},
+            json={"topic": "hexe/runtime/health", "payload": {"x": 1}, "qos": 0, "retain": False},
         )
         self.assertEqual(blocked.status_code, 400, blocked.text)
         self.assertIn("reserved_topic_publish_forbidden", blocked.text)
@@ -405,8 +405,8 @@ class TestMqttAdminLifecycleApi(unittest.TestCase):
             json={
                 "addon_id": "vision",
                 "access_mode": "gateway",
-                "publish_topics": ["synthia/runtime/health"],
-                "subscribe_topics": ["synthia/addons/vision/command/#"],
+                "publish_topics": ["hexe/runtime/health"],
+                "subscribe_topics": ["hexe/addons/vision/command/#"],
                 "capabilities": {},
             },
         )
@@ -448,7 +448,7 @@ class TestMqttAdminLifecycleApi(unittest.TestCase):
         self.assertEqual(inspect_access.status_code, 200, inspect_access.text)
         payload = inspect_access.json()["effective_access"]
         self.assertFalse(payload["generic_non_reserved_only"])
-        self.assertIn("synthia/core/#", payload["reserved_prefix_denies"])
+        self.assertIn("hexe/core/#", payload["reserved_prefix_denies"])
         self.assertIn("normalized_effective_access", inspect_access.json())
 
         inspect_debug = self.client.get(
@@ -590,7 +590,7 @@ class TestMqttAdminLifecycleApi(unittest.TestCase):
         self.assertIn("user homeassistant", acl)
         self.assertIn("topic write external/homeassistant/controls/#", acl)
         self.assertIn("topic read external/homeassistant/sensors/#", acl)
-        self.assertIn("topic deny synthia/#", acl)
+        self.assertIn("topic deny hexe/#", acl)
 
         edited = self.client.patch(
             "/api/system/mqtt/users/user:homeassistant",
@@ -839,7 +839,7 @@ class TestMqttAdminLifecycleApi(unittest.TestCase):
         payload = response.json()
         self.assertTrue(payload["ok"])
         self.assertEqual(len(payload["results"]), 3)
-        self.assertEqual(payload["results"][1]["topic"], "synthia/notify/internal/event")
+        self.assertEqual(payload["results"][1]["topic"], "hexe/notify/internal/event")
 
         self.client.app.state.system_config.notification_debug_enabled = False
         blocked = self.client.post(

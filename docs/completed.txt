@@ -15,6 +15,25 @@ Task 017: Archive or relabel legacy standalone addon/store material - Completed 
 Task 018: Audit internal links, imports, and naming drift - Completed on 03/16/2026 03:29
 Task 019: Remove temporary compatibility shims that are no longer needed - Completed on 03/16/2026 03:33
 Task 020: Final architecture verification and documentation audit - Completed on 03/16/2026 03:42
+Task 640: Create Phase 2 full namespace migration document - Completed on 03/20/2026 10:37
+Task 641: Replace configurable legacy topic-root plan with canonical Hexe topic root - Completed on 03/20/2026 10:37
+Task 642: Refactor MQTT topic helpers to use `hexe` root only - Completed on 03/20/2026 10:37
+Task 643: Replace hardcoded `synthia/...` topic strings across backend runtime code - Completed on 03/20/2026 10:37
+Task 644: Migrate notification bus topics to Hexe namespace - Completed on 03/20/2026 10:37
+Task 645: Migrate bootstrap publication topic to Hexe namespace - Completed on 03/20/2026 10:37
+Task 646: Migrate node topic families to Hexe namespace - Completed on 03/20/2026 10:37
+Task 647: Migrate addon topic families to Hexe namespace - Completed on 03/20/2026 10:37
+Task 648: Migrate supervisor/system/runtime topic families to Hexe namespace - Completed on 03/20/2026 10:37
+Task 649: Update reserved topic-family definitions and classifiers - Completed on 03/20/2026 10:37
+Task 650: Update MQTT authority/runtime docs and examples to Hexe namespace - Completed on 03/20/2026 10:37
+Task 651: Update node onboarding/bootstrap documentation for Hexe namespace - Completed on 03/20/2026 10:37
+Task 652: Update notification payload examples and HA bridge examples - Completed on 03/20/2026 10:37
+Task 653: Update tests for Hexe-only namespace behavior - Completed on 03/20/2026 10:37
+Task 654: Add repository-wide audit for remaining active `synthia/...` topic usage - Completed on 03/20/2026 10:37
+Task 655: Remove or isolate obsolete dual-namespace planning/config - Completed on 03/20/2026 10:37
+Task 656: Verify node/addon/runtime clients are aligned to Hexe namespace - Completed on 03/20/2026 10:37
+Task 657: Add Phase 2 verification pass - Completed on 03/20/2026 10:37
+Task 658: Create Phase 2 completion report - Completed on 03/20/2026 10:37
 01. Task 23: Implement backend addon registry persistence and registry API endpoints. - Completed on 02/28/2026 17:58
 02. Task 24: Implement backend MQTT listener for announce/health with safe optional startup. - Completed on 02/28/2026 18:00
 03. Task 25: Implement backend install-session state machine and endpoints. - Completed on 02/28/2026 18:13

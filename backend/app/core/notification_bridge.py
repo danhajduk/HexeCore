@@ -22,11 +22,11 @@ class NotificationBridgeService:
             return
         self._listener_ids.append(
             self._mqtt_manager.register_message_listener(
-                topic_filter="synthia/notify/internal/#",
+                topic_filter="hexe/notify/internal/#",
                 callback=self._handle_runtime_message,
             )
         )
-        self._log.info("notification_bridge_started topic_filter=synthia/notify/internal/#")
+        self._log.info("notification_bridge_started topic_filter=hexe/notify/internal/#")
 
     async def stop(self) -> None:
         for listener_id in list(self._listener_ids):

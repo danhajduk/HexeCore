@@ -45,8 +45,8 @@ class TestMqttApprovalValidation(unittest.TestCase):
                 MqttRegistrationRequest(
                     addon_id="vision",
                     access_mode="gateway",
-                    publish_topics=["synthia/addons/vision/state/main"],
-                    subscribe_topics=["synthia/addons/vision/command/#"],
+                    publish_topics=["hexe/addons/vision/state/main"],
+                    subscribe_topics=["hexe/addons/vision/command/#"],
                 )
             )
         )
@@ -57,7 +57,7 @@ class TestMqttApprovalValidation(unittest.TestCase):
                 MqttRegistrationRequest(
                     addon_id="vision",
                     access_mode="gateway",
-                    publish_topics=["synthia/addons/other/state/main"],
+                    publish_topics=["hexe/addons/other/state/main"],
                     subscribe_topics=[],
                 )
             )
@@ -71,7 +71,7 @@ class TestMqttApprovalValidation(unittest.TestCase):
                 MqttRegistrationRequest(
                     addon_id="vision",
                     access_mode="gateway",
-                    publish_topics=["synthia/core/config/update"],
+                    publish_topics=["hexe/core/config/update"],
                     subscribe_topics=[],
                 )
             )
@@ -84,7 +84,7 @@ class TestMqttApprovalValidation(unittest.TestCase):
             MqttRegistrationRequest(
                 addon_id="vision",
                 access_mode="invalid",  # type: ignore[arg-type]
-                publish_topics=["synthia/addons/vision/state/main"],
+                publish_topics=["hexe/addons/vision/state/main"],
                 subscribe_topics=[],
             )
 
@@ -107,8 +107,8 @@ class TestMqttApprovalValidation(unittest.TestCase):
                 MqttRegistrationRequest(
                     addon_id="vision",
                     access_mode="both",
-                    publish_topics=["synthia/addons/vision/event/#"],
-                    subscribe_topics=["synthia/addons/vision/command/#"],
+                    publish_topics=["hexe/addons/vision/event/#"],
+                    subscribe_topics=["hexe/addons/vision/command/#"],
                 )
             )
         )
@@ -121,8 +121,8 @@ class TestMqttApprovalValidation(unittest.TestCase):
                 MqttRegistrationRequest(
                     addon_id="vision",
                     access_mode="both",
-                    publish_topics=["synthia/addons/vision/event/#", "synthia/addons/vision/state/#"],
-                    subscribe_topics=["synthia/addons/vision/command/#"],
+                    publish_topics=["hexe/addons/vision/event/#", "hexe/addons/vision/state/#"],
+                    subscribe_topics=["hexe/addons/vision/command/#"],
                 )
             )
         )
@@ -138,7 +138,7 @@ class TestMqttApprovalValidation(unittest.TestCase):
         valid = MqttRegistrationRequest(
             addon_id="vision",
             access_mode="gateway",
-            publish_topics=["synthia/addons/vision/state/main"],
+            publish_topics=["hexe/addons/vision/state/main"],
             subscribe_topics=[],
             capabilities={"ha_discovery": "gateway_managed"},
         )
@@ -148,7 +148,7 @@ class TestMqttApprovalValidation(unittest.TestCase):
             MqttRegistrationRequest(
                 addon_id="vision",
                 access_mode="gateway",
-                publish_topics=["synthia/addons/vision/state/main"],
+                publish_topics=["hexe/addons/vision/state/main"],
                 subscribe_topics=[],
                 capabilities={"ha_discovery": "unsupported_mode"},
             )

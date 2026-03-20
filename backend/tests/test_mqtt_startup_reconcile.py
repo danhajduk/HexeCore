@@ -81,8 +81,8 @@ class TestMqttStartupReconcile(unittest.TestCase):
             self.assertTrue(result.ok)
             self.assertEqual(result.setup_status, "ready")
             self.assertGreaterEqual(len(fake_manager.published), 2)
-            bootstrap_payload = next((payload for topic, payload in fake_manager.published if topic == "synthia/bootstrap/core"), {})
-            self.assertEqual(bootstrap_payload.get("topic"), "synthia/bootstrap/core")
+            bootstrap_payload = next((payload for topic, payload in fake_manager.published if topic == "hexe/bootstrap/core"), {})
+            self.assertEqual(bootstrap_payload.get("topic"), "hexe/bootstrap/core")
             self.assertEqual(bootstrap_payload.get("bootstrap_version"), 1)
             self.assertEqual(bootstrap_payload.get("core_version"), "0.1.0")
             self.assertEqual(bootstrap_payload.get("api_base"), "http://10.0.0.55:9001/api")
@@ -112,7 +112,7 @@ class TestMqttStartupReconcile(unittest.TestCase):
                 self.assertIn(principal_id, state.principals)
                 self.assertEqual(state.principals[principal_id].principal_type, "system")
                 self.assertEqual(state.principals[principal_id].managed_by, "core")
-            self.assertEqual(state.principals["core.runtime"].publish_topics, ["synthia/bootstrap/core", "synthia/core/mqtt/info"])
+            self.assertEqual(state.principals["core.runtime"].publish_topics, ["hexe/bootstrap/core", "hexe/core/mqtt/info"])
             self.assertEqual(state.principals["core.runtime"].subscribe_topics, ["#", "$SYS/#"])
             self.assertIn("sx_core.runtime:$7$", password_text)
 
@@ -183,8 +183,8 @@ class TestMqttStartupReconcile(unittest.TestCase):
                         addon_id="mqtt",
                         access_mode="gateway",
                         status="error",
-                        publish_topics=["synthia/addons/mqtt/state/#"],
-                        subscribe_topics=["synthia/addons/mqtt/command/#"],
+                        publish_topics=["hexe/addons/mqtt/state/#"],
+                        subscribe_topics=["hexe/addons/mqtt/command/#"],
                         last_error="mqtt_setup_not_ready:degraded",
                     )
                 )

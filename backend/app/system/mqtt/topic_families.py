@@ -19,41 +19,42 @@ TopicFamily = Literal[
     "services",
     "addons",
     "nodes",
-    "synthia_other",
+    "hexe_other",
     "external",
     "invalid",
 ]
 
-BOOTSTRAP_TOPIC = "synthia/bootstrap/core"
+MQTT_TOPIC_ROOT = "hexe"
+BOOTSTRAP_TOPIC = f"{MQTT_TOPIC_ROOT}/bootstrap/core"
 PLATFORM_RESERVED_PREFIXES: tuple[str, ...] = (
-    "synthia/bootstrap/",
-    "synthia/runtime/",
-    "synthia/system/",
-    "synthia/core/",
-    "synthia/supervisor/",
-    "synthia/scheduler/",
-    "synthia/policy/",
-    "synthia/telemetry/",
-    "synthia/events/",
-    "synthia/remote/",
-    "synthia/bridges/",
-    "synthia/import/",
+    f"{MQTT_TOPIC_ROOT}/bootstrap/",
+    f"{MQTT_TOPIC_ROOT}/runtime/",
+    f"{MQTT_TOPIC_ROOT}/system/",
+    f"{MQTT_TOPIC_ROOT}/core/",
+    f"{MQTT_TOPIC_ROOT}/supervisor/",
+    f"{MQTT_TOPIC_ROOT}/scheduler/",
+    f"{MQTT_TOPIC_ROOT}/policy/",
+    f"{MQTT_TOPIC_ROOT}/telemetry/",
+    f"{MQTT_TOPIC_ROOT}/events/",
+    f"{MQTT_TOPIC_ROOT}/remote/",
+    f"{MQTT_TOPIC_ROOT}/bridges/",
+    f"{MQTT_TOPIC_ROOT}/import/",
 )
 CANONICAL_RESERVED_PREFIXES: tuple[str, ...] = (
-    "synthia/#",
+    f"{MQTT_TOPIC_ROOT}/#",
     "$SYS/#",
-    "synthia/bootstrap/#",
-    "synthia/runtime/#",
-    "synthia/system/#",
-    "synthia/core/#",
-    "synthia/supervisor/#",
-    "synthia/scheduler/#",
-    "synthia/policy/#",
-    "synthia/telemetry/#",
-    "synthia/events/#",
-    "synthia/remote/#",
-    "synthia/bridges/#",
-    "synthia/import/#",
+    f"{MQTT_TOPIC_ROOT}/bootstrap/#",
+    f"{MQTT_TOPIC_ROOT}/runtime/#",
+    f"{MQTT_TOPIC_ROOT}/system/#",
+    f"{MQTT_TOPIC_ROOT}/core/#",
+    f"{MQTT_TOPIC_ROOT}/supervisor/#",
+    f"{MQTT_TOPIC_ROOT}/scheduler/#",
+    f"{MQTT_TOPIC_ROOT}/policy/#",
+    f"{MQTT_TOPIC_ROOT}/telemetry/#",
+    f"{MQTT_TOPIC_ROOT}/events/#",
+    f"{MQTT_TOPIC_ROOT}/remote/#",
+    f"{MQTT_TOPIC_ROOT}/bridges/#",
+    f"{MQTT_TOPIC_ROOT}/import/#",
 )
 TOP_LEVEL_RESERVED_FAMILIES: tuple[str, ...] = (
     "bootstrap",
@@ -74,7 +75,7 @@ TOP_LEVEL_RESERVED_FAMILIES: tuple[str, ...] = (
 )
 
 # TODO(phase1-topic): Additional planned families/subtrees are documented in docs/mqtt-topic-tree.md
-# (for example synthia/nodes/<node_id>/... and synthia/core/status|health|events/...),
+# (for example hexe/nodes/<node_id>/... and hexe/core/status|health|events/...),
 # but not all are implemented in runtime behavior yet.
 
 
@@ -93,10 +94,10 @@ def topic_family(topic: str) -> TopicFamily:
     parts = topic_parts(topic)
     if not parts:
         return "invalid"
-    if parts[0] != "synthia":
+    if parts[0] != MQTT_TOPIC_ROOT:
         return "external"
     if len(parts) < 2:
-        return "synthia_other"
+        return "hexe_other"
     family = parts[1]
     if family in {
         "bootstrap",
@@ -116,10 +117,10 @@ def topic_family(topic: str) -> TopicFamily:
         "nodes",
     }:
         return family  # type: ignore[return-value]
-    return "synthia_other"
+    return "hexe_other"
 
 
-def is_synthia_topic(topic: str) -> bool:
+def is_hexe_topic(topic: str) -> bool:
     return topic_family(topic) not in {"external", "invalid"}
 
 
@@ -141,7 +142,7 @@ def is_reserved_family_topic(topic: str) -> bool:
 
 def is_addon_scoped_topic(topic: str, addon_id: str | None = None) -> bool:
     parts = topic_parts(topic)
-    if len(parts) < 4 or parts[0] != "synthia" or parts[1] != "addons":
+    if len(parts) < 4 or parts[0] != MQTT_TOPIC_ROOT or parts[1] != "addons":
         return False
     if addon_id is None:
         return True
@@ -150,7 +151,7 @@ def is_addon_scoped_topic(topic: str, addon_id: str | None = None) -> bool:
 
 def is_node_scoped_topic(topic: str, node_id: str | None = None) -> bool:
     parts = topic_parts(topic)
-    if len(parts) < 4 or parts[0] != "synthia" or parts[1] != "nodes":
+    if len(parts) < 4 or parts[0] != MQTT_TOPIC_ROOT or parts[1] != "nodes":
         return False
     if node_id is None:
         return True
@@ -161,7 +162,7 @@ def is_generic_non_reserved_topic(topic: str) -> bool:
     clean = normalize_topic(topic)
     if not clean:
         return False
-    if not is_synthia_topic(clean):
+    if not is_hexe_topic(clean):
         return True
     return not is_reserved_family_topic(clean)
 
@@ -170,7 +171,7 @@ def is_policy_topic_path(topic: str) -> bool:
     parts = topic_parts(topic)
     if len(parts) != 4:
         return False
-    if parts[0] != "synthia" or parts[1] != "policy":
+    if parts[0] != MQTT_TOPIC_ROOT or parts[1] != "policy":
         return False
     if parts[2] not in {"grants", "revocations"}:
         return False

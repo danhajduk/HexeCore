@@ -69,7 +69,7 @@ class TestPolicyApi(unittest.TestCase):
             },
         )
         self.assertEqual(len(self.mqtt.published), 1)
-        self.assertEqual(self.mqtt.published[0]["topic"], "synthia/policy/grants/ai")
+        self.assertEqual(self.mqtt.published[0]["topic"], "hexe/policy/grants/ai")
         self.assertEqual(self.mqtt.published[0]["payload"]["limits"]["max_tokens"], 12000)
 
         stored = json.loads(self.grants_path.read_text(encoding="utf-8"))
@@ -139,22 +139,22 @@ class TestPolicyApi(unittest.TestCase):
         )
         self.assertEqual(resp.status_code, 200, resp.text)
         payload = resp.json()
-        self.assertEqual(payload["mqtt"]["topic"], "synthia/policy/revocations/revocation-1")
+        self.assertEqual(payload["mqtt"]["topic"], "hexe/policy/revocations/revocation-1")
         published_topics = [row["topic"] for row in self.mqtt.published]
         self.assertEqual(
             published_topics,
             [
-                "synthia/policy/revocations/vision",
-                "synthia/policy/revocations/grant-ai-1",
-                "synthia/policy/revocations/revocation-1",
+                "hexe/policy/revocations/vision",
+                "hexe/policy/revocations/grant-ai-1",
+                "hexe/policy/revocations/revocation-1",
             ],
         )
         self.assertEqual(
             [row["topic"] for row in payload["mqtt_publishes"]],
             [
-                "synthia/policy/revocations/vision",
-                "synthia/policy/revocations/grant-ai-1",
-                "synthia/policy/revocations/revocation-1",
+                "hexe/policy/revocations/vision",
+                "hexe/policy/revocations/grant-ai-1",
+                "hexe/policy/revocations/revocation-1",
             ],
         )
 
@@ -171,7 +171,7 @@ class TestPolicyApi(unittest.TestCase):
         )
         self.assertEqual(resp.status_code, 200, resp.text)
         published_topics = [row["topic"] for row in self.mqtt.published]
-        self.assertEqual(published_topics, ["synthia/policy/revocations/same-id"])
+        self.assertEqual(published_topics, ["hexe/policy/revocations/same-id"])
 
 
 if __name__ == "__main__":

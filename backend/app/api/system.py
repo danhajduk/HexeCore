@@ -283,7 +283,7 @@ def _utcnow_iso() -> str:
 
 def _node_topic_scope(node_id: str) -> str:
     node_key = str(node_id or "").strip()
-    return f"synthia/nodes/{node_key}/#"
+    return f"hexe/nodes/{node_key}/#"
 
 
 def _profile_for_registration(node_capability_acceptance, registration):

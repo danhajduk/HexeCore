@@ -6,7 +6,7 @@ Status: Implemented (embedded authority/runtime foundation), Partial (future aut
 
 Hexe AI's MQTT platform provides Core-owned authority state, principal lifecycle controls, topic policy boundaries, and embedded broker runtime management.
 
-Compatibility note: the active MQTT topic root remains `synthia/...` in this phase. The public-facing product label changes, but topic literals do not.
+Compatibility note: the active MQTT topic root remains `hexe/...` in this phase. The public-facing product label changes, but topic literals do not.
 
 ## Authority Model
 
@@ -51,8 +51,8 @@ Status: Implemented
 
 Status: Implemented (canonical reserved families), Partial (future family expansion)
 
-- Reserved platform families (`synthia/core`, `synthia/system`, `synthia/scheduler`, `synthia/supervisor`, `synthia/policy`, `synthia/telemetry`) are protected.
-- Addon topics are scoped under `synthia/addons/<addon_id>/...`.
+- Reserved platform families (`hexe/core`, `hexe/system`, `hexe/scheduler`, `hexe/supervisor`, `hexe/policy`, `hexe/telemetry`) are protected.
+- Addon topics are scoped under `hexe/addons/<addon_id>/...`.
 - Node and service visibility topic families are represented in current topic-tree contract.
 
 ## Notification Contract
@@ -64,13 +64,13 @@ Status: Implemented (canonical shared schema), Partial (publishers/consumers sti
 - Core exposes an internal-to-external notification bridge at `backend/app/core/notification_bridge.py` and wires it on app state as `notification_bridge`.
 - Core exposes a local desktop notification consumer at `backend/app/core/notification_consumer.py` and wires it on app state as `notification_consumer`.
 - Core emits startup smoke-test notifications through `backend/app/core/notification_producer.py` after MQTT startup/reconcile completes.
-- Canonical internal topics are `synthia/notify/internal/event`, `synthia/notify/internal/state`, and `synthia/notify/internal/popup`.
-- External bridge targets should derive downstream topics via `synthia/notify/external/<target>` using the shared topic helper.
+- Canonical internal topics are `hexe/notify/internal/event`, `hexe/notify/internal/state`, and `hexe/notify/internal/popup`.
+- External bridge targets should derive downstream topics via `hexe/notify/external/<target>` using the shared topic helper.
 - The shared contract validates target scope, payload presence, optional TTL expiry, and reusable JSON serialization/parsing for future Core, addon, and node notification producers/consumers.
 - The publisher validates payloads before publish, omits empty optional sections with `exclude_none`, keeps popup/event notifications non-retained, and only allows retained state notifications when explicitly requested.
 - Current startup smoke-test production emits one popup, one event, and one retained ready-state notification with structured emission logs.
 - The desktop consumer listens for internal popup and event topics, validates canonical payloads, drops invalid or expired notifications, matches local user/host/session or broadcast targets, deduplicates by `dedupe_key`, and uses `notify-send` for local desktop display when available.
-- The bridge listens on `synthia/notify/internal/#`, forwards only valid non-expired messages with supported `targets.external` entries, and currently transforms `ha` messages into a simplified downstream payload on `synthia/notify/external/ha`.
+- The bridge listens on `hexe/notify/internal/#`, forwards only valid non-expired messages with supported `targets.external` entries, and currently transforms `ha` messages into a simplified downstream payload on `hexe/notify/external/ha`.
 
 ## Principals and Users
 

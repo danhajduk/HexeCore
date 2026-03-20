@@ -6,7 +6,7 @@ Status: Implemented
 
 Hexe Core exposes a canonical MQTT-backed notification bus for internal producers, local consumers, and bridge-owned external integrations.
 
-Compatibility note: notification topics continue to use the `synthia/...` namespace during the Phase 0 cosmetic rebrand.
+Notification topics use the `hexe/...` namespace.
 
 Code anchors:
 - `backend/app/core/notifications.py`
@@ -20,13 +20,13 @@ Code anchors:
 Status: Implemented
 
 Internal canonical topics:
-- `synthia/notify/internal/popup`
-- `synthia/notify/internal/event`
-- `synthia/notify/internal/state`
+- `hexe/notify/internal/popup`
+- `hexe/notify/internal/event`
+- `hexe/notify/internal/state`
 
 External bridge-owned topics:
-- `synthia/notify/external/<target>`
-- currently implemented target: `synthia/notify/external/ha`
+- `hexe/notify/external/<target>`
+- currently implemented target: `hexe/notify/external/ha`
 
 Producer rule:
 - Core producers publish only to internal topics through the shared publisher.
@@ -133,7 +133,7 @@ Current conventions:
 Status: Implemented
 
 External topic:
-- `synthia/notify/external/ha`
+- `hexe/notify/external/ha`
 
 Current payload fields:
 - `title`: user-facing title
@@ -229,7 +229,7 @@ Current emitted flow:
 
 Expected observable results:
 - local desktop popup appears when the local consumer target matches the current user/host/session
-- bridge publishes transformed event payload to `synthia/notify/external/ha`
+- bridge publishes transformed event payload to `hexe/notify/external/ha`
 - logs show publish, bridge, and consumer decisions
 
 ## See Also

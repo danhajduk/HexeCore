@@ -288,8 +288,8 @@ class MqttRegistrationApprovalService:
                     addon_id=addon_id,
                     access_mode="gateway",
                     status="approved",
-                    publish_topics=[f"synthia/addons/{addon_id}/event/#", f"synthia/addons/{addon_id}/state/#"],
-                    subscribe_topics=[f"synthia/addons/{addon_id}/command/#", "synthia/bootstrap/core"],
+                    publish_topics=[f"hexe/addons/{addon_id}/event/#", f"hexe/addons/{addon_id}/state/#"],
+                    subscribe_topics=[f"hexe/addons/{addon_id}/command/#", "hexe/bootstrap/core"],
                     granted_ha_mode="disabled",
                     access_profile="gateway",
                 )

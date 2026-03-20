@@ -22,12 +22,12 @@ log = logging.getLogger("synthia.mqtt")
 
 MQTT_SUBSCRIPTIONS = [
     ("#", 0),
-    ("synthia/core/mqtt/info", 1),
-    ("synthia/addons/+/announce", 1),
-    ("synthia/addons/+/health", 1),
-    ("synthia/services/+/catalog", 1),
-    ("synthia/policy/grants/+", 1),
-    ("synthia/policy/revocations/+", 1),
+    ("hexe/core/mqtt/info", 1),
+    ("hexe/addons/+/announce", 1),
+    ("hexe/addons/+/health", 1),
+    ("hexe/services/+/catalog", 1),
+    ("hexe/policy/grants/+", 1),
+    ("hexe/policy/revocations/+", 1),
     ("$SYS/broker/#", 0),
     ("$SYS/broker/clients/connected", 0),
     ("$SYS/broker/clients/disconnected", 0),
@@ -176,7 +176,7 @@ class MqttManager:
             return {"ok": False, "error": "mqtt_disabled"}
         if self._client is None:
             return {"ok": False, "error": "mqtt_not_initialized"}
-        msg_topic = topic or "synthia/core/mqtt/info"
+        msg_topic = topic or "hexe/core/mqtt/info"
         msg_payload = payload or {
             "source": "synthia-core",
             "type": "mqtt-test",
@@ -368,7 +368,7 @@ class MqttManager:
 
     def _publish_core_info_retained(self, client: Any) -> None:
         payload = redact_secrets(self._core_info_payload())
-        result = client.publish("synthia/core/mqtt/info", json.dumps(payload), 1, True)
+        result = client.publish("hexe/core/mqtt/info", json.dumps(payload), 1, True)
         rc = int(getattr(result, "rc", 1))
         if rc != 0:
             self._last_error = f"core_info_publish_rc:{rc}"
@@ -546,7 +546,7 @@ class MqttManager:
             )
             inferred_tracked = True
         parts = topic.split("/")
-        if len(parts) >= 4 and parts[0] == "synthia" and parts[1] == "addons":
+        if len(parts) >= 4 and parts[0] == "hexe" and parts[1] == "addons":
             addon_id = parts[2]
             event = parts[3]
             addon_principal = f"addon:{addon_id}"
@@ -561,7 +561,7 @@ class MqttManager:
                 self._dispatch_registry_update(addon_id, payload, announce=True)
             elif event == "health":
                 self._dispatch_registry_update(addon_id, payload, announce=False)
-        if len(parts) >= 4 and parts[0] == "synthia" and parts[1] == "services" and parts[3] == "catalog":
+        if len(parts) >= 4 and parts[0] == "hexe" and parts[1] == "services" and parts[3] == "catalog":
             service_name = parts[2]
             self._dispatch_service_catalog_update(service_name, payload)
         self._dispatch_message_listeners(topic=topic, payload=payload, retained=bool(getattr(msg, "retain", False)))
@@ -666,8 +666,8 @@ class MqttManager:
         normalized = str(topic or "").strip()
         if not normalized:
             return None
-        if normalized.startswith("$SYS/") or normalized.startswith("synthia/"):
-            # Scope matching may still map synthia/* to addon/core principals; generic fallback is skipped.
+        if normalized.startswith("$SYS/") or normalized.startswith("hexe/"):
+            # Scope matching may still map hexe/* to addon/core principals; generic fallback is skipped.
             pass
         self._refresh_principal_topic_scopes()
         matches: list[tuple[tuple[int, int], str]] = []
@@ -687,7 +687,7 @@ class MqttManager:
             top_matches = [principal_id for specificity, principal_id in matches if specificity == top_specificity]
             if len(top_matches) == 1:
                 return top_matches[0]
-        if normalized.startswith("$SYS/") or normalized.startswith("synthia/"):
+        if normalized.startswith("$SYS/") or normalized.startswith("hexe/"):
             return None
         head = normalized.split("/", 1)[0].strip()
         if not head:

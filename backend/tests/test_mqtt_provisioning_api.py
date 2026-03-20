@@ -35,7 +35,7 @@ class _FakeMqttManager:
         return None
 
     async def publish_test(self, topic: str | None = None, payload: dict | None = None):
-        return {"ok": True, "topic": topic or "synthia/core/mqtt/info", "payload": payload or {}}
+        return {"ok": True, "topic": topic or "hexe/core/mqtt/info", "payload": payload or {}}
 
 
 class TestMqttProvisioningApi(unittest.TestCase):
@@ -111,8 +111,8 @@ class TestMqttProvisioningApi(unittest.TestCase):
             json={
                 "addon_id": "vision",
                 "access_mode": "both",
-                "publish_topics": ["synthia/addons/vision/event/#"],
-                "subscribe_topics": ["synthia/system/#"],
+                "publish_topics": ["hexe/addons/vision/event/#"],
+                "subscribe_topics": ["hexe/addons/vision/command/#"],
                 "capabilities": {"ha_discovery": "gateway_managed"},
             },
         )
@@ -142,8 +142,8 @@ class TestMqttProvisioningApi(unittest.TestCase):
             json={
                 "addon_id": "vision",
                 "access_mode": "both",
-                "publish_topics": ["synthia/addons/vision/event/#"],
-                "subscribe_topics": ["synthia/system/#"],
+                "publish_topics": ["hexe/addons/vision/event/#"],
+                "subscribe_topics": ["hexe/addons/vision/command/#"],
             },
         )
         self.assertEqual(approved.status_code, 200, approved.text)
@@ -175,7 +175,7 @@ class TestMqttProvisioningApi(unittest.TestCase):
             json={
                 "addon_id": "vision",
                 "access_mode": "gateway",
-                "publish_topics": ["synthia/addons/vision/state/#"],
+                "publish_topics": ["hexe/addons/vision/state/#"],
                 "subscribe_topics": [],
             },
         )

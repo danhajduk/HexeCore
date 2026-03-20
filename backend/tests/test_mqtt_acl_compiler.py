@@ -9,7 +9,7 @@ class TestMqttAclCompiler(unittest.TestCase):
         compiler = MqttAclCompiler()
         result = compiler.compile(MqttIntegrationState())
         acl = result.acl_text
-        self.assertIn("topic read synthia/bootstrap/core", acl)
+        self.assertIn("topic read hexe/bootstrap/core", acl)
         self.assertNotIn("topic deny #", acl)
         self.assertGreaterEqual(len(result.effective_access), 1)
 
@@ -29,8 +29,8 @@ class TestMqttAclCompiler(unittest.TestCase):
                 "vision": MqttAddonGrant(
                     addon_id="vision",
                     status="active",
-                    publish_topics=["synthia/addons/vision/event/#"],
-                    subscribe_topics=["synthia/system/health"],
+                    publish_topics=["hexe/addons/vision/event/#"],
+                    subscribe_topics=["hexe/system/health"],
                 )
             },
         )
@@ -38,8 +38,8 @@ class TestMqttAclCompiler(unittest.TestCase):
         result = compiler.compile(state)
         acl = result.acl_text
         self.assertIn("user sx_vision", acl)
-        self.assertIn("topic write synthia/addons/vision/event/#", acl)
-        self.assertIn("topic read synthia/system/health", acl)
+        self.assertIn("topic write hexe/addons/vision/event/#", acl)
+        self.assertIn("topic read hexe/system/health", acl)
 
     def test_compiles_synthia_principal_without_username_using_credential_style_name(self) -> None:
         state = MqttIntegrationState(
@@ -57,8 +57,8 @@ class TestMqttAclCompiler(unittest.TestCase):
                 "mqtt": MqttAddonGrant(
                     addon_id="mqtt",
                     status="active",
-                    publish_topics=["synthia/addons/mqtt/event/#"],
-                    subscribe_topics=["synthia/addons/mqtt/command/#"],
+                    publish_topics=["hexe/addons/mqtt/event/#"],
+                    subscribe_topics=["hexe/addons/mqtt/command/#"],
                 )
             },
         )
@@ -84,22 +84,22 @@ class TestMqttAclCompiler(unittest.TestCase):
         )
         compiler = MqttAclCompiler()
         acl = compiler.compile(state).acl_text
-        self.assertIn("topic deny synthia/#", acl)
+        self.assertIn("topic deny hexe/#", acl)
         self.assertIn("topic deny $SYS/#", acl)
-        self.assertEqual(acl.count("topic deny synthia/#"), 1)
+        self.assertEqual(acl.count("topic deny hexe/#"), 1)
 
     def test_collapses_redundant_deny_children_under_parent(self) -> None:
         rules = [
-            ("anonymous", "publish", "synthia/#", "deny"),
-            ("anonymous", "publish", "synthia/runtime/#", "deny"),
-            ("anonymous", "publish", "synthia/bootstrap/#", "deny"),
+            ("anonymous", "publish", "hexe/#", "deny"),
+            ("anonymous", "publish", "hexe/runtime/#", "deny"),
+            ("anonymous", "publish", "hexe/bootstrap/#", "deny"),
         ]
         compiler = MqttAclCompiler()
         normalized = compiler._normalize_rules([CompiledAclRule(*rule) for rule in rules])  # type: ignore[attr-defined]
         topics = [rule.topic for rule in normalized if rule.effect == "deny" and rule.action == "publish"]
-        self.assertIn("synthia/#", topics)
-        self.assertNotIn("synthia/runtime/#", topics)
-        self.assertNotIn("synthia/bootstrap/#", topics)
+        self.assertIn("hexe/#", topics)
+        self.assertNotIn("hexe/runtime/#", topics)
+        self.assertNotIn("hexe/bootstrap/#", topics)
 
     def test_merges_publish_and_subscribe_allows_into_readwrite(self) -> None:
         state = MqttIntegrationState(
@@ -149,13 +149,13 @@ class TestMqttAclCompiler(unittest.TestCase):
         acl = compiler.compile(state).acl_text
         self.assertIn("user nonres", acl)
         self.assertIn("topic readwrite #", acl)
-        self.assertIn("topic deny synthia/#", acl)
+        self.assertIn("topic deny hexe/#", acl)
         self.assertIn("topic deny $SYS/#", acl)
         self.assertIn("user admin", acl)
         # Admin mode keeps broad allow without reserved deny overlays.
         admin_section = acl.split("user admin", 1)[1].split("\n\nuser ", 1)[0]
         self.assertIn("topic readwrite #", admin_section)
-        self.assertNotIn("topic deny synthia/#", admin_section)
+        self.assertNotIn("topic deny hexe/#", admin_section)
 
     def test_normalized_effective_access_exposes_permission_summary(self) -> None:
         state = MqttIntegrationState(
@@ -180,7 +180,7 @@ class TestMqttAclCompiler(unittest.TestCase):
         self.assertTrue(item.all_non_reserved)
         self.assertIn("#", item.read_rules)
         self.assertIn("#", item.write_rules)
-        self.assertIn("synthia/#", item.deny_rules)
+        self.assertIn("hexe/#", item.deny_rules)
 
 
 if __name__ == "__main__":

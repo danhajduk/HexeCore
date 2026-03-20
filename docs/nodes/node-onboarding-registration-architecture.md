@@ -43,7 +43,7 @@ Node presents `node_type`, node metadata, and nonce binding.
 Node reaches Core's bootstrap MQTT listener.
 
 3. `Bootstrap Discovery` -> `bootstrap_connected` then `core_discovered`
-Node reads retained bootstrap metadata from `synthia/bootstrap/core`.
+Node reads retained bootstrap metadata from `hexe/bootstrap/core`.
 
 4. `Registration` -> `registration_pending`
 Node starts the onboarding session and Core persists the pending session.

@@ -73,7 +73,7 @@ def build_policy_router(
     ):
         require_admin_token(x_admin_token, request)
         grant = await store.upsert_grant(body.model_dump(mode="json"))
-        topic = f"synthia/policy/grants/{grant['service']}"
+        topic = f"hexe/policy/grants/{grant['service']}"
         publish = await mqtt_manager.publish(topic=topic, payload=grant, retain=True, qos=1)
         if audit_store is not None:
             await audit_store.record(
@@ -100,10 +100,10 @@ def build_policy_router(
         consumer_addon_id = item.get("consumer_addon_id")
         grant_id = item.get("grant_id")
         if consumer_addon_id:
-            topics.append(f"synthia/policy/revocations/{consumer_addon_id}")
+            topics.append(f"hexe/policy/revocations/{consumer_addon_id}")
         if grant_id:
-            topics.append(f"synthia/policy/revocations/{grant_id}")
-        legacy_topic = f"synthia/policy/revocations/{item['id']}"
+            topics.append(f"hexe/policy/revocations/{grant_id}")
+        legacy_topic = f"hexe/policy/revocations/{item['id']}"
         topics.append(legacy_topic)
 
         ordered_topics = list(dict.fromkeys(topics))

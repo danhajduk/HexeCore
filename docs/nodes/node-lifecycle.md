@@ -59,7 +59,7 @@ Current implementation alignment:
 - `unconfigured`: node has local identity/runtime prerequisites missing and cannot begin bootstrap yet
 - `bootstrap_connecting`: node is attempting to reach Core's bootstrap MQTT listener
 - `bootstrap_connected`: node has transport connectivity to the bootstrap listener
-- `core_discovered`: node has consumed retained bootstrap metadata from `synthia/bootstrap/core`
+- `core_discovered`: node has consumed retained bootstrap metadata from `hexe/bootstrap/core`
 - `registration_pending`: node has started onboarding registration/session flow but has not yet reached approved trust activation
 - `pending_approval`: Core has a pending onboarding session awaiting operator decision
 - `trusted`: trust activation completed and the node has trusted-node credentials

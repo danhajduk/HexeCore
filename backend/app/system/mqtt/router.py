@@ -222,7 +222,7 @@ def _payload_preview(payload_text: str, *, limit: int = 240) -> str:
 
 def _infer_source_principal(topic: str, payload_text: str) -> str | None:
     normalized_topic = str(topic or "").strip()
-    if normalized_topic.startswith("synthia/addons/"):
+    if normalized_topic.startswith("hexe/addons/"):
         parts = normalized_topic.split("/")
         if len(parts) >= 3 and parts[2]:
             return f"addon:{parts[2]}"
@@ -230,15 +230,15 @@ def _infer_source_principal(topic: str, payload_text: str) -> str | None:
         parts = normalized_topic.split("/")
         if len(parts) >= 2 and parts[1]:
             return f"user:{parts[1]}"
-    if normalized_topic.startswith("synthia/core/"):
+    if normalized_topic.startswith("hexe/core/"):
         return "core.runtime"
-    if normalized_topic.startswith("synthia/scheduler/"):
+    if normalized_topic.startswith("hexe/scheduler/"):
         return "core.scheduler"
-    if normalized_topic.startswith("synthia/supervisor/"):
+    if normalized_topic.startswith("hexe/supervisor/"):
         return "core.supervisor"
-    if normalized_topic.startswith("synthia/telemetry/"):
+    if normalized_topic.startswith("hexe/telemetry/"):
         return "core.telemetry"
-    if normalized_topic.startswith("synthia/bootstrap/"):
+    if normalized_topic.startswith("hexe/bootstrap/"):
         return "core.bootstrap"
 
     payload = str(payload_text or "").strip()
@@ -764,7 +764,7 @@ def build_mqtt_router(
             "results": results,
             "expected": {
                 "desktop_popup": "local popup should appear when targets match local session",
-                "external_topic": "synthia/notify/external/ha should receive transformed event payload",
+                "external_topic": "hexe/notify/external/ha should receive transformed event payload",
                 "logs": "publish, bridge, and consumer logs should show the flow",
             },
         }

@@ -2,7 +2,7 @@
 
 This document describes the canonical MQTT topic families verified in the current runtime code.
 
-Compatibility note: Phase 0 keeps the `synthia/...` topic root unchanged even though the public-facing platform branding is now Hexe AI.
+The active platform MQTT topic root is `hexe/...`.
 
 Primary code:
 - `backend/app/system/mqtt/topic_families.py`
@@ -11,14 +11,14 @@ Primary code:
 
 Status: Implemented
 
-- Platform-owned MQTT topics use the `synthia/` root.
-- Topics outside `synthia/` are treated as `external` by the topic-family classifier.
+- Platform-owned MQTT topics use the `hexe/` root.
+- Topics outside `hexe/` are treated as `external` by the topic-family classifier.
 
 ## Reserved Topic Families
 
 Status: Implemented
 
-The current code recognizes these reserved top-level families under `synthia/`:
+The current code recognizes these reserved top-level families under `hexe/`:
 
 - `bootstrap`
 - `runtime`
@@ -36,7 +36,7 @@ The current code recognizes these reserved top-level families under `synthia/`:
 - `addons`
 - `nodes`
 
-The current bootstrap topic constant is `synthia/bootstrap/core`.
+The current bootstrap topic constant is `hexe/bootstrap/core`.
 
 Bootstrap listener note:
 
@@ -49,17 +49,17 @@ Bootstrap listener note:
 Status: Implemented
 
 - Empty topics are `invalid`.
-- Non-`synthia/` topics are `external`.
-- `synthia/<family>/...` is classified by its second path segment when that family is reserved.
-- Unrecognized `synthia/*` families are classified as `synthia_other`.
+- Non-`hexe/` topics are `external`.
+- `hexe/<family>/...` is classified by its second path segment when that family is reserved.
+- Unrecognized `hexe/*` families are classified as `hexe_other`.
 
 ## Scoped Topic Helpers
 
 Status: Implemented
 
-- Addon-scoped topics are recognized under `synthia/addons/<addon_id>/...`.
-- Node-scoped topics are recognized under `synthia/nodes/<node_id>/...`.
-- Policy topics are recognized only when they match `synthia/policy/(grants|revocations)/<id>`.
+- Addon-scoped topics are recognized under `hexe/addons/<addon_id>/...`.
+- Node-scoped topics are recognized under `hexe/nodes/<node_id>/...`.
+- Policy topics are recognized only when they match `hexe/policy/(grants|revocations)/<id>`.
 
 ## Reserved Prefixes
 
@@ -67,20 +67,20 @@ Status: Implemented
 
 Reserved prefix checks currently cover:
 
-- `synthia/bootstrap/`
-- `synthia/runtime/`
-- `synthia/system/`
-- `synthia/core/`
-- `synthia/supervisor/`
-- `synthia/scheduler/`
-- `synthia/policy/`
-- `synthia/telemetry/`
-- `synthia/events/`
-- `synthia/remote/`
-- `synthia/bridges/`
-- `synthia/import/`
+- `hexe/bootstrap/`
+- `hexe/runtime/`
+- `hexe/system/`
+- `hexe/core/`
+- `hexe/supervisor/`
+- `hexe/scheduler/`
+- `hexe/policy/`
+- `hexe/telemetry/`
+- `hexe/events/`
+- `hexe/remote/`
+- `hexe/bridges/`
+- `hexe/import/`
 
-The canonical reserved-prefix list also includes `synthia/#` and `$SYS/#`.
+The canonical reserved-prefix list also includes `hexe/#` and `$SYS/#`.
 
 ## See Also
 

@@ -111,8 +111,8 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
         )
         manager._loop = asyncio.get_running_loop()
 
-        manager._on_message(None, None, _Msg("synthia/addons/mqtt/announce", {"base_url": "http://127.0.0.1:9100"}))
-        manager._on_message(None, None, _Msg("synthia/addons/mqtt/health", {"status": "ok"}))
+        manager._on_message(None, None, _Msg("hexe/addons/mqtt/announce", {"base_url": "http://127.0.0.1:9100"}))
+        manager._on_message(None, None, _Msg("hexe/addons/mqtt/health", {"status": "ok"}))
         await asyncio.sleep(0.02)
 
         self.assertEqual(len(registry.calls), 2)
@@ -139,16 +139,16 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
             seen.append((topic, payload, retained))
 
         listener_id = manager.register_message_listener(
-            topic_filter="synthia/notify/internal/popup",
+            topic_filter="hexe/notify/internal/popup",
             callback=_listener,
         )
 
-        manager._on_message(None, None, _Msg("synthia/notify/internal/popup", {"content": {"title": "hi"}}, retain=False))
-        manager._on_message(None, None, _Msg("synthia/notify/internal/event", {"event": {"event_type": "skip"}}, retain=False))
+        manager._on_message(None, None, _Msg("hexe/notify/internal/popup", {"content": {"title": "hi"}}, retain=False))
+        manager._on_message(None, None, _Msg("hexe/notify/internal/event", {"event": {"event_type": "skip"}}, retain=False))
         await asyncio.sleep(0.02)
 
         self.assertEqual(len(seen), 1)
-        self.assertEqual(seen[0][0], "synthia/notify/internal/popup")
+        self.assertEqual(seen[0][0], "hexe/notify/internal/popup")
         self.assertFalse(seen[0][2])
         self.assertTrue(manager.unregister_message_listener(listener_id))
 
@@ -177,7 +177,7 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(client.subscribed, MQTT_SUBSCRIPTIONS)
         self.assertEqual(len(client.published), 1)
         topic, payload, qos, retain = client.published[0]
-        self.assertEqual(topic, "synthia/core/mqtt/info")
+        self.assertEqual(topic, "hexe/core/mqtt/info")
         self.assertEqual(qos, 1)
         self.assertTrue(retain)
         self.assertEqual(payload["source"], "synthia-core")
@@ -302,8 +302,8 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
             enabled=True,
         )
         manager._loop = asyncio.get_running_loop()
-        manager._on_message(None, None, _Msg("synthia/addons/mqtt/announce", {"ok": True}))
-        manager._on_message(None, None, _Msg("synthia/addons/mqtt/health", {"status": "ok"}))
+        manager._on_message(None, None, _Msg("hexe/addons/mqtt/announce", {"ok": True}))
+        manager._on_message(None, None, _Msg("hexe/addons/mqtt/health", {"status": "ok"}))
         metrics = await manager.principal_traffic_metrics()
         self.assertIn("addon:mqtt", metrics)
         self.assertGreater(float(metrics["addon:mqtt"]["messages_per_second"]), 0.0)
@@ -562,14 +562,14 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
                                 "principal_id": "addon:vision",
                                 "principal_type": "synthia_addon",
                                 "status": "active",
-                                "publish_topics": ["synthia/addons/vision/state/#"],
-                                "subscribe_topics": ["synthia/addons/vision/command/#"],
+                                "publish_topics": ["hexe/addons/vision/state/#"],
+                                "subscribe_topics": ["hexe/addons/vision/command/#"],
                             },
                             "core.scheduler": {
                                 "principal_id": "core.scheduler",
                                 "principal_type": "system",
                                 "status": "active",
-                                "publish_topics": ["synthia/scheduler/heartbeat"],
+                                "publish_topics": ["hexe/scheduler/heartbeat"],
                                 "subscribe_topics": [],
                             },
                         }
@@ -586,8 +586,8 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
                     enabled=True,
                 )
                 manager._loop = asyncio.get_running_loop()
-                manager._on_message(None, None, _Msg("synthia/addons/vision/state/temp", {"ok": True}, retain=False))
-                manager._on_message(None, None, _Msg("synthia/scheduler/heartbeat", {"ok": True}, retain=False))
+                manager._on_message(None, None, _Msg("hexe/addons/vision/state/temp", {"ok": True}, retain=False))
+                manager._on_message(None, None, _Msg("hexe/scheduler/heartbeat", {"ok": True}, retain=False))
                 runtime = await manager.principal_connection_states()
                 self.assertIn("addon:vision", runtime)
                 self.assertTrue(runtime["addon:vision"]["connected"])

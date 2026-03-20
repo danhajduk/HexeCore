@@ -281,7 +281,7 @@ This flow reuses the current policy distribution model:
 
 - governance remains the canonical Core-to-node policy carrier
 - budget policy remains embedded in governance and readable directly through budget-policy routes
-- retained grant/revocation topics remain under `synthia/policy/...`
+- retained grant/revocation topics remain under `hexe/policy/...`
 
 No new parallel policy transport was introduced for this feature.
 

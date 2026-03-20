@@ -2,7 +2,7 @@
 
 This is the canonical documentation index for the Hexe AI repository. The top-level navigation now follows the `Core -> Supervisor -> Nodes` structure while existing subsystem documentation remains active underneath it.
 
-Compatibility note: public-facing docs now use Hexe AI / Hexe Core naming, while internal identifiers such as `synthia/...` MQTT topics, `/api/...` paths, and Python package names remain unchanged in Phase 0.
+Compatibility note: public-facing docs now use Hexe AI / Hexe Core naming, and active MQTT topics also use the `hexe/...` namespace. API route paths and Python package names still retain their existing internal forms.
 
 ## Start Here
 

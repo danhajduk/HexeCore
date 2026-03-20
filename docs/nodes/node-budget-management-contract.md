@@ -289,9 +289,9 @@ Current behavior:
 
 Core publishes retained policy data to:
 
-- `synthia/policy/grants/{node_id}`
-- `synthia/policy/revocations/{node_id}`
-- `synthia/policy/revocations/{grant_id}`
+- `hexe/policy/grants/{node_id}`
+- `hexe/policy/revocations/{node_id}`
+- `hexe/policy/revocations/{grant_id}`
 
 Current behavior:
 

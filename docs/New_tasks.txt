@@ -44,20 +44,7 @@ if it is not present and should be node-owned create a file with the new data in
 
 Do not edit above this line:
 #######################################################################
-Got it. Then skip the compatibility dance and go straight to a **hard cutover plan**.
 
-That means Phase 2 becomes:
-
-* rename MQTT root
-* rename helpers
-* rename docs/examples
-* rename notifications/bootstrap/topics
-* update all producers/consumers/nodes
-* no legacy `synthia/...` support kept
-
-Here’s the copy-paste-ready Phase 2.
-
-````md
 # Phase 2 Tasks — Full Namespace Migration to Hexe
 # Start at Task 640
 
@@ -87,7 +74,7 @@ Make `hexe` the only active namespace and remove legacy `synthia` topic usage fr
 
 ---
 
-## [TODO] Task 640: Create Phase 2 full namespace migration document
+## [COMPLETED] Task 640: Create Phase 2 full namespace migration document
 
 Create the canonical migration doc for full MQTT/topic namespace cutover to Hexe.
 
@@ -105,7 +92,7 @@ Deliverables:
 
 ---
 
-## [TODO] Task 641: Replace configurable legacy topic-root plan with canonical Hexe topic root
+## [COMPLETED] Task 641: Replace configurable legacy topic-root plan with canonical Hexe topic root
 
 Set the active topic root to:
 
@@ -128,7 +115,7 @@ Deliverables:
 
 ---
 
-## [TODO] Task 642: Refactor MQTT topic helpers to use `hexe` root only
+## [COMPLETED] Task 642: Refactor MQTT topic helpers to use `hexe` root only
 
 Replace all active topic helper generation based on `synthia/...` with `hexe/...`.
 
@@ -149,7 +136,7 @@ Deliverables:
 
 ---
 
-## [TODO] Task 643: Replace hardcoded `synthia/...` topic strings across backend runtime code
+## [COMPLETED] Task 643: Replace hardcoded `synthia/...` topic strings across backend runtime code
 
 Search and replace all active hardcoded MQTT topic strings using `synthia/...`.
 
@@ -176,7 +163,7 @@ Deliverables:
 
 ---
 
-## [TODO] Task 644: Migrate notification bus topics to Hexe namespace
+## [COMPLETED] Task 644: Migrate notification bus topics to Hexe namespace
 
 Rename notification topics to:
 
@@ -200,7 +187,7 @@ Deliverables:
 
 ---
 
-## [TODO] Task 645: Migrate bootstrap publication topic to Hexe namespace
+## [COMPLETED] Task 645: Migrate bootstrap publication topic to Hexe namespace
 
 Rename bootstrap publication topic to:
 
@@ -220,7 +207,7 @@ Deliverables:
 
 ---
 
-## [TODO] Task 646: Migrate node topic families to Hexe namespace
+## [COMPLETED] Task 646: Migrate node topic families to Hexe namespace
 
 Rename node-related topic helpers and active usage to:
 
@@ -238,7 +225,7 @@ Deliverables:
 
 ---
 
-## [TODO] Task 647: Migrate addon topic families to Hexe namespace
+## [COMPLETED] Task 647: Migrate addon topic families to Hexe namespace
 
 Rename addon-related topic helpers and active usage to:
 
@@ -256,7 +243,7 @@ Deliverables:
 
 ---
 
-## [TODO] Task 648: Migrate supervisor/system/runtime topic families to Hexe namespace
+## [COMPLETED] Task 648: Migrate supervisor/system/runtime topic families to Hexe namespace
 
 Rename active topic usage for:
 
@@ -280,7 +267,7 @@ Deliverables:
 
 ---
 
-## [TODO] Task 649: Update reserved topic-family definitions and classifiers
+## [COMPLETED] Task 649: Update reserved topic-family definitions and classifiers
 
 Update topic-family classifier logic so Hexe namespace is canonical.
 
@@ -300,7 +287,7 @@ Deliverables:
 
 ---
 
-## [TODO] Task 650: Update MQTT authority/runtime docs and examples to Hexe namespace
+## [COMPLETED] Task 650: Update MQTT authority/runtime docs and examples to Hexe namespace
 
 Update docs so Hexe is the only canonical namespace in active docs.
 
@@ -323,7 +310,7 @@ Deliverables:
 
 ---
 
-## [TODO] Task 651: Update node onboarding/bootstrap documentation for Hexe namespace
+## [COMPLETED] Task 651: Update node onboarding/bootstrap documentation for Hexe namespace
 
 Update onboarding docs and examples so all active bootstrap topic references use:
 
@@ -338,7 +325,7 @@ Deliverables:
 
 ---
 
-## [TODO] Task 652: Update notification payload examples and HA bridge examples
+## [COMPLETED] Task 652: Update notification payload examples and HA bridge examples
 
 Update all example payloads and docs blocks that mention old topic names.
 
@@ -354,7 +341,7 @@ Deliverables:
 
 ---
 
-## [TODO] Task 653: Update tests for Hexe-only namespace behavior
+## [COMPLETED] Task 653: Update tests for Hexe-only namespace behavior
 
 Update automated tests to assume Hexe namespace only.
 
@@ -371,7 +358,7 @@ Deliverables:
 
 ---
 
-## [TODO] Task 654: Add repository-wide audit for remaining active `synthia/...` topic usage
+## [COMPLETED] Task 654: Add repository-wide audit for remaining active `synthia/...` topic usage
 
 Perform an audit for remaining `synthia/...` references and classify them as:
 
@@ -388,7 +375,7 @@ Deliverables:
 
 ---
 
-## [TODO] Task 655: Remove or isolate obsolete dual-namespace planning/config
+## [COMPLETED] Task 655: Remove or isolate obsolete dual-namespace planning/config
 
 Clean up any abandoned work related to:
 
@@ -405,7 +392,7 @@ Deliverables:
 
 ---
 
-## [TODO] Task 656: Verify node/addon/runtime clients are aligned to Hexe namespace
+## [COMPLETED] Task 656: Verify node/addon/runtime clients are aligned to Hexe namespace
 
 Confirm all active internal clients and expected external node/addon integrations are updated to Hexe namespace.
 
@@ -418,7 +405,7 @@ Deliverables:
 
 ---
 
-## [TODO] Task 657: Add Phase 2 verification pass
+## [COMPLETED] Task 657: Add Phase 2 verification pass
 
 Verify:
 
@@ -436,7 +423,7 @@ Deliverables:
 
 ---
 
-## [TODO] Task 658: Create Phase 2 completion report
+## [COMPLETED] Task 658: Create Phase 2 completion report
 
 Summarize:
 
@@ -449,9 +436,3 @@ Summarize:
 Deliverables:
 
 * `docs/migration/phase-2-completion-report.md`
-
-```
-
-The next phase after this should be the **internal identifier/code rename cleanup** rather than dual namespace logic.
-```
-

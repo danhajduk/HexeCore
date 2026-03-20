@@ -48,7 +48,7 @@ class _FakeMqttManager:
         return None
 
     async def publish_test(self, topic: str | None = None, payload: dict | None = None):
-        return {"ok": True, "topic": topic or "synthia/core/mqtt/info", "payload": payload or {}}
+        return {"ok": True, "topic": topic or "hexe/core/mqtt/info", "payload": payload or {}}
 
     async def runtime_sessions(self):
         return self._sessions_payload

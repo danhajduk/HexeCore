@@ -41,7 +41,7 @@ class TestNotificationConsumer(unittest.IsolatedAsyncioTestCase):
         await consumer.start()
 
         filters = [item[0] for item in mqtt.listeners.values()]
-        self.assertEqual(filters, ["synthia/notify/internal/popup", "synthia/notify/internal/event"])
+        self.assertEqual(filters, ["hexe/notify/internal/popup", "hexe/notify/internal/event"])
 
     async def test_matching_popup_notification_is_displayed(self) -> None:
         mqtt = _FakeMqttManager()
@@ -51,7 +51,7 @@ class TestNotificationConsumer(unittest.IsolatedAsyncioTestCase):
         await consumer.start()
 
         with patch("app.core.notification_consumer.subprocess.run") as run_mock:
-            await consumer._handle_runtime_message("synthia/notify/internal/popup", self._payload(), False)
+            await consumer._handle_runtime_message("hexe/notify/internal/popup", self._payload(), False)
 
         run_mock.assert_called_once()
 
@@ -60,7 +60,7 @@ class TestNotificationConsumer(unittest.IsolatedAsyncioTestCase):
         consumer = LocalDesktopNotificationConsumer(mqtt, notifier_cmd="/usr/bin/notify-send")
 
         with patch("app.core.notification_consumer.subprocess.run") as run_mock:
-            await consumer._handle_runtime_message("synthia/notify/internal/popup", {"source": {"kind": "core"}}, False)
+            await consumer._handle_runtime_message("hexe/notify/internal/popup", {"source": {"kind": "core"}}, False)
 
         run_mock.assert_not_called()
 
@@ -71,7 +71,7 @@ class TestNotificationConsumer(unittest.IsolatedAsyncioTestCase):
         consumer._user = "alex"
 
         with patch("app.core.notification_consumer.subprocess.run") as run_mock:
-            await consumer._handle_runtime_message("synthia/notify/internal/popup", self._payload(), False)
+            await consumer._handle_runtime_message("hexe/notify/internal/popup", self._payload(), False)
 
         run_mock.assert_not_called()
 
@@ -83,7 +83,7 @@ class TestNotificationConsumer(unittest.IsolatedAsyncioTestCase):
         payload = self._payload()
 
         with patch("app.core.notification_consumer.subprocess.run") as run_mock:
-            await consumer._handle_runtime_message("synthia/notify/internal/popup", payload, False)
-            await consumer._handle_runtime_message("synthia/notify/internal/popup", payload, False)
+            await consumer._handle_runtime_message("hexe/notify/internal/popup", payload, False)
+            await consumer._handle_runtime_message("hexe/notify/internal/popup", payload, False)
 
         self.assertEqual(run_mock.call_count, 1)

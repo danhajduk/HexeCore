@@ -10,9 +10,9 @@ from uuid import uuid4
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
-INTERNAL_EVENT_TOPIC = "synthia/notify/internal/event"
-INTERNAL_STATE_TOPIC = "synthia/notify/internal/state"
-INTERNAL_POPUP_TOPIC = "synthia/notify/internal/popup"
+INTERNAL_EVENT_TOPIC = "hexe/notify/internal/event"
+INTERNAL_STATE_TOPIC = "hexe/notify/internal/state"
+INTERNAL_POPUP_TOPIC = "hexe/notify/internal/popup"
 
 _EXTERNAL_TARGET_RE = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
 
@@ -254,4 +254,4 @@ def external_notification_topic(target: str) -> str:
     clean = str(target or "").strip()
     if not _EXTERNAL_TARGET_RE.match(clean):
         raise ValueError("external target must match [A-Za-z0-9_.-]{1,64}")
-    return f"synthia/notify/external/{clean}"
+    return f"hexe/notify/external/{clean}"

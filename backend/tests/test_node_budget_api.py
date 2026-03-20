@@ -488,8 +488,8 @@ class TestNodeBudgetApi(unittest.TestCase):
             json={"node_budget": {"node_money_limit": 10.0, "node_compute_limit": 100.0}},
         )
         self.assertEqual(configured.status_code, 200, configured.text)
-        self.assertTrue(any(row["topic"] == f"synthia/policy/grants/{node_id}" for row in self.mqtt.published))
-        published_grant = next(row for row in self.mqtt.published if row["topic"] == f"synthia/policy/grants/{node_id}")
+        self.assertTrue(any(row["topic"] == f"hexe/policy/grants/{node_id}" for row in self.mqtt.published))
+        published_grant = next(row for row in self.mqtt.published if row["topic"] == f"hexe/policy/grants/{node_id}")
         self.assertEqual(published_grant["payload"]["service"], "ai.inference")
 
         deleted = self.client.delete(
@@ -498,7 +498,7 @@ class TestNodeBudgetApi(unittest.TestCase):
         )
         self.assertEqual(deleted.status_code, 200, deleted.text)
         published_topics = [row["topic"] for row in self.mqtt.published]
-        self.assertIn(f"synthia/policy/revocations/{node_id}", published_topics)
+        self.assertIn(f"hexe/policy/revocations/{node_id}", published_topics)
 
     def test_admin_can_manage_customer_and_provider_allocations_and_usage_view(self) -> None:
         node_id, trust_token = self._trusted_node()

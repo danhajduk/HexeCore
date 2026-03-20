@@ -9,7 +9,7 @@ lifecycle management, and node integration.
 This repository contains the main runtime responsible for operating and
 coordinating the Hexe AI ecosystem.
 
-Compatibility note: internal identifiers such as `synthia/...` MQTT topic roots, `/api/...` route paths, Python modules, and systemd unit filenames remain unchanged during the Phase 0 cosmetic rebrand.
+Compatibility note: active MQTT topic roots now use `hexe/...`. API route paths, Python modules, and systemd unit filenames still retain their existing internal identifiers.
 
 ------------------------------------------------------------------------
 

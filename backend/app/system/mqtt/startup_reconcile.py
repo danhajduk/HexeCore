@@ -251,8 +251,8 @@ class EmbeddedMqttStartupReconciler:
                 "legacy_ai_node_keys": ["register", "ai_node_register"],
             },
         ).model_dump(mode="json")
-        bootstrap_publish = await self._mqtt.publish("synthia/bootstrap/core", payload, retain=True, qos=1)
-        info_publish = await self._mqtt.publish("synthia/core/mqtt/info", self._mqtt._core_info_payload(), retain=True, qos=1)
+        bootstrap_publish = await self._mqtt.publish("hexe/bootstrap/core", payload, retain=True, qos=1)
+        info_publish = await self._mqtt.publish("hexe/core/mqtt/info", self._mqtt._core_info_payload(), retain=True, qos=1)
         if bootstrap_publish.get("ok") and info_publish.get("ok"):
             self._bootstrap_successes += 1
             self._bootstrap_last_success_at = _utcnow_iso()
@@ -293,8 +293,8 @@ class EmbeddedMqttStartupReconciler:
             if principal_id == "core.runtime":
                 next_principal.publish_topics = sorted(
                     {
-                        "synthia/core/mqtt/info",
-                        "synthia/bootstrap/core",
+                        "hexe/core/mqtt/info",
+                        "hexe/bootstrap/core",
                     }
                 )
                 next_principal.subscribe_topics = sorted(
@@ -304,8 +304,8 @@ class EmbeddedMqttStartupReconciler:
                     }
                 )
             elif principal_id == "core.bootstrap":
-                next_principal.publish_topics = sorted({"synthia/bootstrap/core"})
-                next_principal.subscribe_topics = sorted({"synthia/bootstrap/core"})
+                next_principal.publish_topics = sorted({"hexe/bootstrap/core"})
+                next_principal.subscribe_topics = sorted({"hexe/bootstrap/core"})
             await self._state_store.upsert_principal(next_principal)
 
     async def _activate_ready_addon_principals(self, *, reason: str) -> list[str]:

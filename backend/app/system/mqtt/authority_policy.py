@@ -5,6 +5,7 @@ from typing import Iterable, Literal
 from .topic_families import BOOTSTRAP_TOPIC, is_bootstrap_topic, is_platform_reserved_topic, normalize_topic
 
 MqttAuthorityPrincipalType = Literal["synthia_addon", "synthia_node", "generic_user", "anonymous"]
+DEFAULT_BOOTSTRAP_TOPIC = BOOTSTRAP_TOPIC
 
 def is_reserved_platform_topic(topic: str, reserved_prefixes: Iterable[str] | None = None) -> bool:
     clean = normalize_topic(topic)

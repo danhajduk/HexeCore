@@ -14,7 +14,7 @@ MQTT_PRINCIPAL_TYPES = Literal["synthia_addon", "synthia_node", "generic_user", 
 MQTT_PRINCIPAL_STATUSES = Literal["pending", "active", "probation", "revoked", "expired"]
 MQTT_NOISY_STATES = Literal["normal", "watch", "noisy", "blocked"]
 MQTT_GENERIC_ACCESS_MODES = Literal["private", "custom", "non_reserved", "admin"]
-MQTT_BOOTSTRAP_TOPIC = "synthia/bootstrap/core"
+MQTT_BOOTSTRAP_TOPIC = "hexe/bootstrap/core"
 MQTT_BOOTSTRAP_VERSION = 1
 
 

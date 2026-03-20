@@ -1403,14 +1403,14 @@ class NodeBudgetService:
         node_key = _clean_text(node_id)
         if not node_key:
             return []
-        return [f"synthia/policy/grants/{node_key}"]
+        return [f"hexe/policy/grants/{node_key}"]
 
     def budget_revocation_topics(self, *, node_id: str, grant_id: str | None = None) -> list[str]:
         node_key = _clean_text(node_id)
-        topics = [f"synthia/policy/revocations/{node_key}"] if node_key else []
+        topics = [f"hexe/policy/revocations/{node_key}"] if node_key else []
         grant_key = _clean_text(grant_id)
         if grant_key:
-            topics.append(f"synthia/policy/revocations/{grant_key}")
+            topics.append(f"hexe/policy/revocations/{grant_key}")
         return topics
 
     def budget_revocation_payloads(self, node_id: str, *, reason: str) -> list[dict[str, Any]]:

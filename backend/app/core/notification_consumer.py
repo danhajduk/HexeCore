@@ -37,13 +37,13 @@ class LocalDesktopNotificationConsumer:
             return
         self._listener_ids.append(
             self._mqtt.register_message_listener(
-                topic_filter="synthia/notify/internal/popup",
+                topic_filter="hexe/notify/internal/popup",
                 callback=self._handle_runtime_message,
             )
         )
         self._listener_ids.append(
             self._mqtt.register_message_listener(
-                topic_filter="synthia/notify/internal/event",
+                topic_filter="hexe/notify/internal/event",
                 callback=self._handle_runtime_message,
             )
         )

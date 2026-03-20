@@ -35,7 +35,7 @@ class PlatformEventService:
         if self._mqtt_publish is not None:
             try:
                 await self._mqtt_publish(
-                    f"synthia/events/{event.event_type}",
+                    f"hexe/events/{event.event_type}",
                     event.model_dump(mode="json"),
                 )
             except Exception:

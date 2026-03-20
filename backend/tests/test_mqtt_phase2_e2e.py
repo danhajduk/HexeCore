@@ -45,7 +45,7 @@ class _FakeMqttManager:
         return None
 
     async def publish_test(self, topic: str | None = None, payload: dict | None = None):
-        return {"ok": True, "topic": topic or "synthia/core/mqtt/info", "payload": payload or {}}
+        return {"ok": True, "topic": topic or "hexe/core/mqtt/info", "payload": payload or {}}
 
 
 class _FakeRuntimeReconciler:
@@ -159,8 +159,8 @@ class TestMqttPhase2E2E(unittest.TestCase):
             json={
                 "addon_id": "vision",
                 "access_mode": "gateway",
-                "publish_topics": ["synthia/addons/vision/event/#"],
-                "subscribe_topics": ["synthia/addons/vision/command/#"],
+                "publish_topics": ["hexe/addons/vision/event/#"],
+                "subscribe_topics": ["hexe/addons/vision/command/#"],
             },
         )
         self.assertEqual(approved.status_code, 200, approved.text)
@@ -184,13 +184,14 @@ class TestMqttPhase2E2E(unittest.TestCase):
             headers={"X-Admin-Token": "test-token"},
         )
         self.assertEqual(addon_access.status_code, 200, addon_access.text)
-        self.assertIn("synthia/addons/vision/event/#", addon_access.json()["effective_access"]["publish_scopes"])
+        self.assertIn("hexe/addons/vision/event/#", addon_access.json()["effective_access"]["publish_scopes"])
 
         created = asyncio.run(
             self.approval.create_or_update_generic_user(
                 principal_id="user:guest-e2e",
                 logical_identity="guest-e2e",
                 username="guest-e2e",
+                access_mode="non_reserved",
                 publish_topics=["devices/guest-e2e/state"],
                 subscribe_topics=["devices/guest-e2e/cmd"],
                 notes="phase2_e2e",
@@ -204,8 +205,8 @@ class TestMqttPhase2E2E(unittest.TestCase):
         )
         self.assertEqual(generic_effective.status_code, 200, generic_effective.text)
         effective_payload = generic_effective.json()["effective_access"]
-        self.assertEqual(effective_payload["publish_scopes"], ["devices/guest-e2e/state"])
-        self.assertEqual(effective_payload["subscribe_scopes"], ["devices/guest-e2e/cmd"])
+        self.assertEqual(effective_payload["publish_scopes"], ["#"])
+        self.assertEqual(effective_payload["subscribe_scopes"], ["#"])
         self.assertTrue(effective_payload["generic_non_reserved_only"])
 
         watch = self.client.post(

@@ -12,15 +12,15 @@ class _FakeNotificationPublisher:
 
     async def publish_internal_popup(self, payload: dict[str, Any], *, qos: int = 1) -> dict[str, Any]:
         self.calls.append(("popup", payload, {"qos": qos}))
-        return {"ok": True, "topic": "synthia/notify/internal/popup", "message_id": "popup-1"}
+        return {"ok": True, "topic": "hexe/notify/internal/popup", "message_id": "popup-1"}
 
     async def publish_internal_event(self, payload: dict[str, Any], *, qos: int = 1) -> dict[str, Any]:
         self.calls.append(("event", payload, {"qos": qos}))
-        return {"ok": True, "topic": "synthia/notify/internal/event", "message_id": "event-1"}
+        return {"ok": True, "topic": "hexe/notify/internal/event", "message_id": "event-1"}
 
     async def publish_internal_state(self, payload: dict[str, Any], *, qos: int = 1, retain: bool = False) -> dict[str, Any]:
         self.calls.append(("state", payload, {"qos": qos, "retain": retain}))
-        return {"ok": True, "topic": "synthia/notify/internal/state", "message_id": "state-1"}
+        return {"ok": True, "topic": "hexe/notify/internal/state", "message_id": "state-1"}
 
 
 class TestNotificationProducer(unittest.IsolatedAsyncioTestCase):
@@ -32,9 +32,9 @@ class TestNotificationProducer(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual([item[0] for item in publisher.calls], ["popup", "event", "state"])
         self.assertEqual([item["topic"] for item in results], [
-            "synthia/notify/internal/popup",
-            "synthia/notify/internal/event",
-            "synthia/notify/internal/state",
+            "hexe/notify/internal/popup",
+            "hexe/notify/internal/event",
+            "hexe/notify/internal/state",
         ])
         popup_payload = publisher.calls[0][1]
         event_payload = publisher.calls[1][1]
