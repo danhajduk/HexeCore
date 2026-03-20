@@ -65,7 +65,9 @@ Phase-oriented lifecycle states documented across the current node contracts:
 
 Operational readiness guidance:
 - `capability_setup_pending` is a blocked pre-operational state
+- trusted startup may pass through `capability_setup_pending` and continue immediately when accepted capability state and fresh governance are already present
 - transition to `operational` requires accepted capabilities, issued governance, and `operational_ready=true`
+- `operational_ready` is the canonical readiness signal if lifecycle labeling and readiness projection differ during compatibility windows
 - setup and runtime polling use `GET /api/system/nodes/operational-status/{node_id}`
 
 ## See Also

@@ -1,7 +1,7 @@
 # Node Capability Activation Architecture (Phase 2)
 
 Status: Implemented (Phase 2 baseline)  
-Last Updated: 2026-03-11 17:07
+Last Updated: 2026-03-19 17:20
 
 ## Purpose
 Defines the Core-side architecture target for Phase 2 node capability activation after trust activation is complete.
@@ -53,6 +53,7 @@ Implemented:
 - Owns node lifecycle model and readiness progression.
 - Combines trust status, capability acceptance status, and governance sync status.
 - Exposes operational state to UI and node-facing status APIs.
+- Projects readiness separately from lifecycle labeling where needed during compatibility transitions.
 
 ## Phase 2 Responsibilities After Trust Activation
 After Phase 1 trust activation, Core must:
@@ -102,6 +103,33 @@ Node is operational only when all are true:
 3. governance bundle is issued/synced for active profile
 
 Any missing criterion keeps node non-operational.
+
+Compatibility note:
+
+- In current live behavior, `operational_ready` may already project `true` before all surfaces normalize the lifecycle label to `operational`.
+- Documentation and client logic should therefore treat `operational_ready` as the canonical readiness projection and `lifecycle_state` as a related lifecycle label that may lag during compatibility windows.
+
+## Startup Continuation Behavior
+
+Trusted startup is not always a forced stop in setup:
+
+- A trusted node can resume into `capability_setup_pending` as the default post-trust Phase 2 path.
+- If accepted capability state and fresh governance are already present for the active node profile, the node may continue through its local fast-path checks and become operational during startup.
+- This is valid implemented behavior and should be reflected in review, testing, and operator guidance.
+
+## Node-Local Setup Payload Boundary
+
+Core owns the readiness projection contract exposed by `GET /api/system/nodes/operational-status/{node_id}`.
+
+The AI-node UI also depends on node-local setup payload details that are not modeled as Core-owned fields, including:
+
+- provider selection readiness
+- task capability selection readiness
+- trusted runtime context validity
+- setup blocking reasons
+- declaration eligibility
+
+Those node-local setup fields are part of the node's own status contract and are used to drive setup UX before or alongside Core-reported operational readiness.
 
 ## API Surface (Implemented Baseline)
 Implemented Phase 2 API groups:

@@ -1,7 +1,7 @@
 # Node Phase 2 Lifecycle Contract
 
 Status: Implemented
-Last Updated: 2026-03-11 17:07
+Last Updated: 2026-03-19 17:20
 
 ## Purpose
 
@@ -30,6 +30,13 @@ Derived status fields exposed by node registry and operational-status APIs:
 - `governance_last_issued_at`: timestamp (or `null`)
 - `governance_last_refresh_request_at`: timestamp (or `null`)
 
+Readiness projection note:
+
+- `operational_ready` is the canonical Core-side readiness signal.
+- `lifecycle_state` and `operational_ready` are related but not identical projections.
+- In the current live system, Core can report `operational_ready=true` while the node-facing operational-status payload still carries `lifecycle_state=trusted`.
+- Until a Core lifecycle-label normalization change is made, clients and operators should treat `operational_ready` as the source of truth for Phase 2 operational readiness.
+
 ## Lifecycle States
 
 Status: Implemented (baseline)
@@ -41,6 +48,12 @@ Phase 2 introduces or depends on these post-trust lifecycle states:
 - `degraded`
 
 `capability_setup_pending` is the expected blocked state while a trusted node has not yet completed capability acceptance and governance issuance.
+
+Trusted-startup fast path:
+
+- On trusted restart, node runtime may resume through `trusted -> capability_setup_pending`.
+- If the node already has an accepted capability profile and fresh governance for the active profile, startup can continue immediately to `operational` instead of remaining visibly paused in setup.
+- This fast path depends on node-local resume checks in addition to Core's readiness projection, so Core docs should treat it as a valid startup continuation path rather than assuming every trusted restart remains blocked in setup.
 
 Transition guidance:
 - `capability_setup_pending -> operational` only when:
@@ -137,6 +150,27 @@ Transition guidance:
   - `updated_at`
 
 This endpoint is also the canonical polling contract for setup-state progression and operational readiness checks.
+
+Node UI setup/readiness payload note:
+
+- The AI-node operator UI also consumes node-local setup payload details in addition to this Core endpoint.
+- Current node-local status payload includes a `capability_setup` object with:
+  - `readiness_flags.trust_state_valid`
+  - `readiness_flags.node_identity_valid`
+  - `readiness_flags.provider_selection_valid`
+  - `readiness_flags.task_capability_selection_valid`
+  - `readiness_flags.core_runtime_context_valid`
+  - `provider_selection.configured`
+  - `provider_selection.enabled_count`
+  - `provider_selection.enabled[]`
+  - `provider_selection.supported.{cloud,local,future}[]`
+  - `task_capability_selection.configured`
+  - `task_capability_selection.selected_count`
+  - `task_capability_selection.selected[]`
+  - `task_capability_selection.available[]`
+  - `blocking_reasons[]`
+  - `declaration_allowed`
+- Core's `operational-status` contract remains the canonical readiness projection API, while the node-local setup payload is the canonical source for operator-facing setup gating details such as task capability selection readiness.
 
 ### Telemetry Ingestion
 

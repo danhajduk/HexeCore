@@ -101,7 +101,7 @@ degraded
 
 ## `capability_setup_pending` Contract (Golden)
 
-While in `capability_setup_pending`, node/runtime and operators should treat this as a blocked pre-operational state.
+While in `capability_setup_pending`, node/runtime and operators should treat this as the default blocked pre-operational state.
 
 Required readiness data:
 - trusted identity context is valid (`trust_status=trusted`)
@@ -115,6 +115,9 @@ Transition criteria:
   - `capability_status=accepted`
   - `governance_status=issued`
   - `operational_ready=true`
+- Trusted startup fast path:
+  - startup may resume through `trusted -> capability_setup_pending`
+  - if accepted capability state and fresh governance are already present, node startup may continue immediately to `operational`
 - Any failure in declaration/governance sync keeps state non-operational and may surface degraded indicators.
 
 ## Setup-State Polling Contract
@@ -132,6 +135,27 @@ Required payload fields for setup UI/state machine:
 - `last_governance_issued_at`
 - `last_governance_refresh_request_at`
 - `last_telemetry_timestamp`
+
+Node-local setup/readiness fields also used by the AI-node UI:
+- `capability_setup.readiness_flags.trust_state_valid`
+- `capability_setup.readiness_flags.node_identity_valid`
+- `capability_setup.readiness_flags.provider_selection_valid`
+- `capability_setup.readiness_flags.task_capability_selection_valid`
+- `capability_setup.readiness_flags.core_runtime_context_valid`
+- `capability_setup.provider_selection.configured`
+- `capability_setup.provider_selection.enabled_count`
+- `capability_setup.provider_selection.enabled[]`
+- `capability_setup.provider_selection.supported.{cloud,local,future}[]`
+- `capability_setup.task_capability_selection.configured`
+- `capability_setup.task_capability_selection.selected_count`
+- `capability_setup.task_capability_selection.selected[]`
+- `capability_setup.task_capability_selection.available[]`
+- `capability_setup.blocking_reasons[]`
+- `capability_setup.declaration_allowed`
+
+Readiness projection note:
+- `operational_ready` is the canonical readiness signal.
+- If a compatibility-era payload still reports `lifecycle_state=trusted`, clients should treat `operational_ready=true` as the authoritative indicator that Core considers the node operationally ready.
 
 ## Node Responsibilities
 

@@ -146,6 +146,7 @@ Status: Planned
 ## See Also
 
 - [Core Platform](./core-platform.md)
+- [Node Provider Intelligence Contract](./node-provider-intelligence-contract.md)
 - [Telemetry And Usage](./telemetry-and-usage.md)
 - [MQTT Platform](../mqtt/mqtt-platform.md)
 - [Notifications Bus](../mqtt/notifications.md)
