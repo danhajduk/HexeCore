@@ -1,7 +1,7 @@
 # Node Phase 2 Lifecycle Contract
 
 Status: Implemented
-Last Updated: 2026-03-19 17:20
+Last Updated: 2026-03-20 08:05
 
 ## Purpose
 
@@ -113,7 +113,16 @@ Transition guidance:
   - `governance_version`
   - `issued_timestamp`
   - `refresh_interval_s`
-  - `governance_bundle` (versioned baseline contract)
+  - `governance_bundle`
+
+Current implemented governance-bundle sections include:
+
+- `node_class_rules`
+- `feature_gating_defaults`
+- `telemetry_requirements`
+- `capability_usage_constraints`
+- `routing_policy_constraints`
+- `budget_policy`
 
 ### Governance Refresh
 
@@ -131,6 +140,11 @@ Transition guidance:
   - `updated: false`
   - `governance_version`
   - `refresh_interval_s`
+
+Current refresh behavior:
+
+- governance is reissued when capability profile, routing-policy constraints, or embedded budget policy changes materially
+- budget policy remains readable through `/api/system/nodes/budgets/policy/*`, but governance remains the canonical Core-to-node policy bundle
 
 ### Operational Status
 
@@ -190,5 +204,5 @@ Node UI setup/readiness payload note:
 ## See Also
 
 - [Node Capability Activation Architecture (Phase 2)](./node-capability-activation-architecture.md)
-- [API Reference](../fastapi/api-reference.md)
+- [API Reference](../core/api/api-reference.md)
 - [Node Onboarding Phase 1 Contract](./node-onboarding-phase1-contract.md)

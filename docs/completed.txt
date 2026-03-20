@@ -619,3 +619,36 @@ Task 527: Add tests for budget allocation math including node total 10-dollar sp
 Task 528: Add tests for provider-sliced budgets on multi-provider service nodes - Completed on 03/19/2026 21:42
 Task 529: Add tests for reservation race conditions and double-spend prevention - Completed on 03/19/2026 21:42
 Task 530: Add tests for node, customer, and provider budget enforcement behavior - Completed on 03/19/2026 21:42
+Task 532: Document canonical budget-governance ownership and explicitly resolve drift between quota standards and current node-budget implementation - Completed on 03/20/2026 07:56
+Task 533: Add a Core-issued node budget governance/grant contract so per-node/customer/provider budget policy can be versioned and distributed to trusted nodes - Completed on 03/20/2026 07:56
+Task 534: Add node-facing budget policy read/refresh endpoints with cache and staleness semantics so nodes can continue using already-issued budget policy while Core is temporarily unavailable - Completed on 03/20/2026 07:56
+Task 535: Add node-local budget enforcement contract so a node can evaluate individual execution requests against issued budget grants without requiring Core in the hot path - Completed on 03/20/2026 07:56
+Task 536: Add Core-side budget revocation/update distribution for trusted nodes, including explicit invalidation semantics for replaced or revoked budget grants - Completed on 03/20/2026 07:56
+Task 537: Align scheduler and node budgeting flow to the non-interference rule by keeping Core as policy authority while moving per-request budget execution checks to the node/runtime boundary - Completed on 03/20/2026 07:56
+Task 538: Add end-to-end tests and docs covering Core-outage behavior, already-issued budget grant continuity, and re-sync after Core recovers - Completed on 03/20/2026 07:56
+Task 539: Define the canonical node budget grant schema with `grant_id`, consumer identity, service, `period_start`, `period_end`, one-or-more limit fields, and `status=active|revoked|expired` - Completed on 03/20/2026 07:56
+Task 540: Add compatibility mapping from current node/customer/provider budget configuration records into issued budget grants so existing admin setup flows can produce node-readable grant material - Completed on 03/20/2026 07:56
+Task 541: Add limit-family support in node budget grants for `max_requests`, `max_tokens`, `max_cost_cents`, and optional `max_bytes`, with explicit mapping rules to current money/compute budget configuration - Completed on 03/20/2026 07:56
+Task 542: Define a canonical node capacity declaration contract covering max daily capacity by node/provider/model/service plus optional concurrency and SLA hints - Completed on 03/20/2026 07:56
+Task 543: Extend trusted-node provider/service declaration APIs so nodes can publish capacity metadata in addition to availability, pricing, and latency - Completed on 03/20/2026 07:56
+Task 544: Add Core-side persistence and admin inspection for declared node capacity metadata and expose it alongside routing/provider intelligence views - Completed on 03/20/2026 07:56
+Task 545: Document the budget control-plane model explicitly as `node publishes capacity; Core publishes grants`, including scope rules for global, per-node, per-provider, per-model, and per-task-family slices - Completed on 03/20/2026 07:56
+Task 546: Define the canonical node governance extension for budget policy so budget grants become part of the effective governance bundle delivered by Core - Completed on 03/20/2026 07:56
+Task 547: Extend node governance bundle generation and refresh APIs to include allowed providers, allowed models, allowed task families, budget grant set, enforcement mode, and fallback rules where applicable - Completed on 03/20/2026 07:56
+Task 548: Add versioning and compatibility rules for budget-bearing governance bundles so nodes can distinguish baseline governance from governance that includes budget policy - Completed on 03/20/2026 07:56
+Task 549: Update node lifecycle/readiness docs to clarify that issued governance remains the canonical Core-to-node policy channel once budget policy is folded into governance - Completed on 03/20/2026 07:56
+Task 550: Define the canonical node runtime budget-enforcement sequence from request intake through local grant check, local usage-counter update, execution, and usage-report reconciliation - Completed on 03/20/2026 07:56
+Task 551: Add Core-to-node grant material and runtime context needed for local provider/model/task-family resolution before execution - Completed on 03/20/2026 07:56
+Task 552: Add node-local usage counter contract and reconciliation semantics so nodes can enforce issued grants while Core is unavailable and later reconcile actual usage back to Core - Completed on 03/20/2026 07:56
+Task 553: Update scheduler and execution docs to distinguish Core admission/orchestration from node-local budget enforcement and over-budget rejection/degrade behavior - Completed on 03/20/2026 07:56
+Task 554: Define the canonical periodic node usage-report contract for budget grants, including grant-period aggregates, denial counts, and structured error counts - Completed on 03/20/2026 07:56
+Task 555: Add node-local usage ledger and periodic reporting semantics so nodes batch usage summaries to Core instead of depending on synchronous per-request budget accounting - Completed on 03/20/2026 07:56
+Task 556: Extend Core usage ingestion to accept node budget/grant summary reports and persist request, token, cost, denial, and error aggregates by node/service/grant/period - Completed on 03/20/2026 07:56
+Task 557: Align node budget reporting with the existing telemetry subsystem or document a distinct node-budget telemetry path if separate ingestion remains necessary - Completed on 03/20/2026 07:56
+Task 558: Define the canonical MQTT topic contract for node budget grant distribution and revocation, including retained grant topics plus node-id and grant-id revocation topics - Completed on 03/20/2026 07:56
+Task 559: Add atomic node-side grant-cache update semantics so newly received budget grant versions replace prior versions without partial enforcement windows - Completed on 03/20/2026 07:56
+Task 560: Add poll-based budget grant/revocation reconciliation rules for nodes as fallback when MQTT delivery is delayed or missed - Completed on 03/20/2026 07:56
+Task 561: Document push-first/poll-second budget revocation behavior explicitly so nodes do not need per-request Core authorization checks for budget validity - Completed on 03/20/2026 07:56
+Task 562: Define outage semantics for node budget grants so cached active grants remain locally enforceable until expiry while Core is unavailable and no new grants can be issued - Completed on 03/20/2026 07:56
+Task 563: Add queued-and-retry usage report delivery rules for node-local budget ledgers so periodic usage summaries survive temporary Core outages - Completed on 03/20/2026 07:56
+Task 564: Define clean degradation behavior when a cached budget grant period expires without a refreshed grant, including operator-visible status and denial reasons - Completed on 03/20/2026 07:56

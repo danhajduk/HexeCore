@@ -356,14 +356,27 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
             "/api/system/nodes/providers/capabilities/report",
             json={
                 "node_id": node_id,
+                "service_capacity": {
+                    "service": "ai.inference",
+                    "period": "daily",
+                    "limits": {"max_tokens": 1000000, "max_cost_cents": 1000},
+                    "concurrency": {"max_inflight_requests": 4},
+                    "sla_hints": {"availability_tier": "best_effort"},
+                },
                 "provider_intelligence": [
                     {
                         "provider": "OpenAI",
+                        "capacity": {
+                            "period": "daily",
+                            "limits": {"max_tokens": 750000},
+                            "concurrency": {"max_inflight_requests": 3},
+                        },
                         "available_models": [
                             {
                                 "model_id": " GPT-4O-Mini ",
                                 "pricing": {"input_per_1k": 0.00015},
                                 "latency_metrics": {"p50_ms": 120.0},
+                                "capacity": {"period": "daily", "limits": {"max_requests": 5000}},
                             }
                         ],
                     }
@@ -377,9 +390,15 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
         self.assertTrue(payload["ok"])
         self.assertEqual(payload["node_id"], node_id)
         self.assertEqual(payload["provider_intelligence"][0]["provider"], "openai")
+        self.assertEqual(payload["service_capacity"]["limits"]["max_tokens"], 1000000.0)
+        self.assertEqual(payload["provider_intelligence"][0]["capacity"]["limits"]["max_tokens"], 750000.0)
         self.assertEqual(
             payload["provider_intelligence"][0]["available_models"][0]["normalized_model_id"],
             "gpt-4o-mini",
+        )
+        self.assertEqual(
+            payload["provider_intelligence"][0]["available_models"][0]["capacity"]["limits"]["max_requests"],
+            5000.0,
         )
         self.assertEqual(payload["unified_model_descriptors"][0]["normalized_model_id"], "gpt-4o-mini")
 
@@ -387,12 +406,17 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
         self.assertIsNotNone(registration)
         assert registration is not None
         self.assertEqual(registration.provider_intelligence[0]["provider"], "openai")
+        self.assertEqual(registration.provider_intelligence[0]["service_capacity"]["service"], "ai.inference")
         routing = self.client.get(
             f"/api/system/nodes/providers/routing-metadata?node_id={node_id}",
             headers={"X-Admin-Token": "test-token"},
         )
         self.assertEqual(routing.status_code, 200, routing.text)
         self.assertEqual(len(routing.json()["items"]), 1)
+        self.assertEqual(routing.json()["items"][0]["service_capacity"]["limits"]["max_cost_cents"], 1000.0)
+        self.assertEqual(routing.json()["items"][0]["provider_capacity"]["limits"]["max_tokens"], 750000.0)
+        self.assertEqual(routing.json()["items"][0]["model_capacity"]["limits"]["max_requests"], 5000.0)
+        self.assertEqual(routing.json()["nodes"][0]["service_capacity"]["service"], "ai.inference")
         self.assertTrue(routing.json()["items"][0]["node_available"])
 
         report_offline = self.client.post(

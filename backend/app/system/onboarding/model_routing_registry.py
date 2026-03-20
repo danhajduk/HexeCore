@@ -24,6 +24,9 @@ class ModelRoutingRecord:
     provider: str
     model_id: str
     normalized_model_id: str
+    service_capacity: dict[str, Any]
+    provider_capacity: dict[str, Any]
+    model_capacity: dict[str, Any]
     pricing: dict[str, float]
     latency_metrics: dict[str, float]
     node_available: bool
@@ -42,6 +45,9 @@ class ModelRoutingRecord:
             "provider": self.provider,
             "model_id": self.model_id,
             "normalized_model_id": self.normalized_model_id,
+            "service_capacity": dict(self.service_capacity or {}),
+            "provider_capacity": dict(self.provider_capacity or {}),
+            "model_capacity": dict(self.model_capacity or {}),
             "pricing": dict(self.pricing or {}),
             "latency_metrics": dict(self.latency_metrics or {}),
             "node_available": bool(self.node_available),
@@ -82,6 +88,9 @@ class ModelRoutingRegistryStore:
                 provider=provider,
                 model_id=model_id,
                 normalized_model_id=normalized_model_id,
+                service_capacity=item.get("service_capacity") if isinstance(item.get("service_capacity"), dict) else {},
+                provider_capacity=item.get("provider_capacity") if isinstance(item.get("provider_capacity"), dict) else {},
+                model_capacity=item.get("model_capacity") if isinstance(item.get("model_capacity"), dict) else {},
                 pricing={str(k): float(v) for k, v in dict(item.get("pricing") or {}).items()},
                 latency_metrics={str(k): float(v) for k, v in dict(item.get("latency_metrics") or {}).items()},
                 node_available=bool(item.get("node_available")),
@@ -126,10 +135,12 @@ class ModelRoutingRegistryService:
         *,
         node_id: str,
         provider_intelligence: list[dict[str, Any]],
+        service_capacity: dict[str, Any] | None = None,
         node_available: bool,
         source: str,
     ) -> list[ModelRoutingRecord]:
         now = _utcnow_iso()
+        normalized_service_capacity = dict(service_capacity or {})
         out: list[ModelRoutingRecord] = []
         for provider_item in list(provider_intelligence or []):
             if not isinstance(provider_item, dict):
@@ -137,6 +148,9 @@ class ModelRoutingRegistryService:
             provider = str(provider_item.get("provider") or "").strip().lower()
             if not provider:
                 continue
+            provider_capacity = (
+                dict(provider_item.get("capacity") or {}) if isinstance(provider_item.get("capacity"), dict) else {}
+            )
             models = provider_item.get("available_models")
             if not isinstance(models, list):
                 continue
@@ -157,11 +171,15 @@ class ModelRoutingRegistryService:
                     for k, v in dict(model_item.get("latency_metrics") or {}).items()
                     if str(k or "").strip()
                 }
+                model_capacity = dict(model_item.get("capacity") or {}) if isinstance(model_item.get("capacity"), dict) else {}
                 record = ModelRoutingRecord(
                     node_id=str(node_id or "").strip(),
                     provider=provider,
                     model_id=model_id,
                     normalized_model_id=normalized_model_id,
+                    service_capacity=normalized_service_capacity,
+                    provider_capacity=provider_capacity,
+                    model_capacity=model_capacity,
                     pricing=pricing,
                     latency_metrics=latency_metrics,
                     node_available=bool(node_available),
@@ -200,11 +218,27 @@ class ModelRoutingRegistryService:
         out: list[dict[str, Any]] = []
         for nid in sorted(grouped.keys()):
             providers: list[dict[str, Any]] = []
+            node_records = [item for provider_items in grouped[nid].values() for item in provider_items]
+            service_capacity = (
+                dict(node_records[0].service_capacity or {}) if node_records and isinstance(node_records[0].service_capacity, dict) else {}
+            )
             for pid in sorted(grouped[nid].keys()):
+                provider_capacity = (
+                    dict(grouped[nid][pid][0].provider_capacity or {})
+                    if grouped[nid][pid] and isinstance(grouped[nid][pid][0].provider_capacity, dict)
+                    else {}
+                )
                 models = [
                     model.to_dict()
                     for model in sorted(grouped[nid][pid], key=lambda x: x.normalized_model_id)
                 ]
-                providers.append({"provider": pid, "models": models})
-            out.append({"node_id": nid, "node_available": availability.get(nid, False), "providers": providers})
+                providers.append({"provider": pid, "capacity": provider_capacity, "models": models})
+            out.append(
+                {
+                    "node_id": nid,
+                    "node_available": availability.get(nid, False),
+                    "service_capacity": service_capacity,
+                    "providers": providers,
+                }
+            )
         return out

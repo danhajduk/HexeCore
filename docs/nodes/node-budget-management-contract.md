@@ -1,493 +1,346 @@
 # Node Budget Management Contract
 
 Status: Partially implemented
-Last updated: 2026-03-19
+Last updated: 2026-03-20
 
 ## Purpose
 
-Defines the current Core-side contract for node-declared budget capabilities and operator-configured node budgets.
+Defines the current Core-owned contract for node budget policy, budget grants, capacity publication, usage reporting, and distribution behavior for trusted nodes.
 
-This foundation covers:
+Current implemented Core-side responsibilities:
 
-- node declaration of supported budget controls
-- Core persistence of node budget setup
-- optional customer and provider budget allocations
-- operator setup flow in the Core UI
-- validation that configured customer/provider slices do not exceed node totals unless overcommit is enabled
-- scheduler reservation ledger for scoped work reservations across node, customer, and provider dimensions
-- reservation finalization for successful work and release handling for canceled or failed work
-- hard-stop scheduler admission checks for node totals and configured customer/provider slices
-- cost and compute estimation hooks used when the caller does not provide explicit reservation values
-- trusted-node actual usage reporting and persisted usage summaries with remaining-budget calculations
-- audit logging across declaration, setup, allocation changes, reservation lifecycle, denials, and usage reporting
-- computed threshold alerts for node, customer, and provider budget usage
-- admin reporting/export for budget usage by node, customer, and provider scopes
+- store node-declared budget capabilities and operator-configured budget settings
+- derive versioned budget policy and grant material from node/customer/provider budget configuration
+- fold budget policy into the node governance bundle
+- expose node-facing budget-policy read and refresh endpoints
+- publish retained MQTT budget-policy snapshots and revocations
+- persist periodic node usage summaries by grant and period
+- preserve the existing queue-reservation and per-job usage-report compatibility path
+- persist provider/model routing metadata plus declared service/provider/model capacity metadata
 
-This document does not yet define:
+Current node-runtime execution responsibility:
 
-- runtime usage ingestion
+- local per-request budget enforcement against cached grants
 
-Those later phases remain queued in the task list.
+That execution responsibility is **Not verifiable from current repository state** because the AI node runtime lives outside this repository. This document defines the Core-to-node contract the node runtime is expected to follow.
 
-## Routes
+## Control Model
 
-### Node Declaration
+The current control-plane model is:
+
+- node publishes budget capability support and provider/service capacity metadata
+- Core owns budget policy, allocations, grant issuance, revocation, and governance versioning
+- node consumes the issued governance and budget policy, caches grants locally, enforces them at execution time, and reports usage back to Core
+
+Core remains the policy authority. The node is the intended budget enforcement point for individual executions. Core still retains a compatibility admission path for queue-based reservations so existing scheduler flows continue to work while node-local execution enforcement is adopted.
+
+## Implemented Routes
+
+### Budget Declaration And Admin Setup
 
 - `POST /api/system/nodes/budgets/declaration`
-- Auth: `X-Node-Trust-Token`
-
-Used by a trusted node to declare the budget controls it supports and the setup data Core should expose to operators.
-
-### Admin Read
-
 - `GET /api/system/nodes/budgets`
 - `GET /api/system/nodes/budgets/{node_id}`
-- `GET /api/system/nodes/budgets/{node_id}/customers`
-- `GET /api/system/nodes/budgets/{node_id}/providers`
-- `GET /api/system/nodes/budgets/{node_id}/usage`
-- `GET /api/system/nodes/budgets/export`
-- Auth: admin session/token
-
-Node trust-token reads are also allowed for `GET /api/system/nodes/budgets/{node_id}` while the node remains trusted.
-
-Budget read responses now include `usage_summary` when a configured node budget exists.
-
-### Admin Setup
-
 - `PUT /api/system/nodes/budgets/{node_id}`
 - `DELETE /api/system/nodes/budgets/{node_id}`
+- `GET /api/system/nodes/budgets/{node_id}/customers`
 - `PUT /api/system/nodes/budgets/{node_id}/customers/{customer_id}`
 - `DELETE /api/system/nodes/budgets/{node_id}/customers/{customer_id}`
+- `GET /api/system/nodes/budgets/{node_id}/providers`
 - `PUT /api/system/nodes/budgets/{node_id}/providers/{provider_id}`
 - `DELETE /api/system/nodes/budgets/{node_id}/providers/{provider_id}`
+- `GET /api/system/nodes/budgets/{node_id}/usage`
+- `GET /api/system/nodes/budgets/{node_id}/usage-reports`
+- `GET /api/system/nodes/budgets/export`
 - `POST /api/system/nodes/budgets/{node_id}/top-up`
 - `POST /api/system/nodes/budgets/{node_id}/reset`
 - `POST /api/system/nodes/budgets/{node_id}/override`
 - `POST /api/system/nodes/budgets/{node_id}/force-release`
-- Auth: admin session/token
 
-Used by operators to configure node totals and optional customer/provider allocations.
+### Node Policy Read And Refresh
 
-### Manual Admin Actions
+- `GET /api/system/nodes/budgets/policy/current?node_id=...`
+- `POST /api/system/nodes/budgets/policy/refresh`
 
-Current manual actions:
+Auth: `X-Node-Trust-Token`
 
-- top-up: increases node-level `node_money_limit` and/or `node_compute_limit`
-- reset: clears persisted reservation/usage state for the node budget
-- override: temporarily changes `enforcement_mode` and/or `overcommit_enabled`
-- force release: releases a non-finalized reservation by `job_id` or `reservation_id`
+Current behavior:
 
-Current force-release behavior:
+- `GET` returns the effective budget policy, current governance version, current budget-policy version, and `refresh_interval_s=60`
+- `POST` returns `updated=false` when the caller already has the current `budget_policy_version` and `governance_version`
+- responses are cacheable for short-lived local caching only
 
-- reservation must belong to the target node
-- finalized reservations cannot be force released
-- released reservations remain visible in usage history as released usage
+### Node Usage Ingestion
 
-### Trusted Node Usage Report
-
+- `POST /api/system/nodes/budgets/usage-summary`
 - `POST /api/system/nodes/budgets/usage-report`
-- Auth: `X-Node-Trust-Token`
 
-Used by a trusted node to report final money and compute usage for an existing reservation.
+Auth: `X-Node-Trust-Token`
 
-## Node Budget Declaration Contract
+Current behavior:
 
-Declaration request fields:
+- `usage-summary` is the canonical periodic grant-usage path
+- `usage-report` remains implemented for per-job reservation reconciliation compatibility
 
-- `node_id`
-- `currency`
-- `compute_unit`
-- `default_period`
-- `supports_money_budget`
-- `supports_compute_budget`
-- `supports_customer_allocations`
-- `supports_provider_allocations`
-- `supported_providers[]`
-- `setup_requirements[]`
-- `suggested_money_limit`
-- `suggested_compute_limit`
+### Provider And Capacity Publication
 
-### Implemented Compute Unit Values
+- `POST /api/system/nodes/providers/capabilities/report`
+- `GET /api/system/nodes/providers/routing-metadata`
 
-- `cost_units`
-- `tokens`
-- `requests`
-- `gpu_seconds`
-- `cpu_seconds`
+Auth:
 
-### Implemented Period Values
+- provider report: `X-Node-Trust-Token`
+- routing metadata read: admin auth
 
-- `monthly`
-- `daily`
-- `manual_reset`
+## Budget Policy Contract
 
-## Node Budget Configuration Contract
-
-Node budget config fields:
-
-- `currency`
-- `compute_unit`
-- `period`
-- `reset_policy`
-- `enforcement_mode`
-- `overcommit_enabled`
-- `shared_customer_pool`
-- `shared_provider_pool`
-- `node_money_limit`
-- `node_compute_limit`
-
-### Implemented Reset Policy Values
-
-- `calendar`
-- `rolling`
-- `manual`
-
-### Implemented Enforcement Mode Values
-
-- `hard_stop`
-- `warn`
-
-## Allocation Contract
-
-Customer allocation items:
-
-- `subject_id`
-- `money_limit`
-- `compute_limit`
-
-Provider allocation items use the same shape.
-
-Dedicated admin allocation endpoints use the path subject id as canonical:
-
-- `PUT .../customers/{customer_id}`
-- `PUT .../providers/{provider_id}`
-
-The request body still uses the allocation shape, but the path subject id is the applied identifier.
-
-Provider allocation validation rules:
-
-- provider allocations are only allowed when the node declared `supports_provider_allocations=true`
-- when `supported_providers[]` is declared, configured provider allocation `subject_id` values must be a subset of that declared provider set
-
-## Validation Rules
-
-When `overcommit_enabled=false`:
-
-- sum of customer money allocations must not exceed `node_money_limit`
-- sum of provider money allocations must not exceed `node_money_limit`
-- sum of customer compute allocations must not exceed `node_compute_limit`
-- sum of provider compute allocations must not exceed `node_compute_limit`
-
-Current implementation validates customer and provider slices independently against node totals.
-
-## Setup Status
-
-Core exposes one of these setup states per node:
-
-- `not_declared`
-- `needs_configuration`
-- `configured`
-
-Meaning:
-
-- `not_declared`: the node has not declared budget capabilities yet
-- `needs_configuration`: Core has the node declaration but no operator-configured budget
-- `configured`: Core has both declaration and configured budget data
-
-## Operator Setup Flow
-
-The current Core UI setup flow is available on the Addons page node cards.
-
-Operators can:
-
-- inspect the node-declared budget capabilities
-- set node-level money and compute totals
-- configure customer allocation JSON
-- configure provider allocation JSON when supported
-- save the resulting budget configuration back to Core
-- inspect node-level usage totals and threshold alerts
-- inspect explicit customer/provider scope summaries
-- run top-up, reset, override, and force-release actions from the same budget card
-- export per-node budget usage in JSON or CSV
-
-## Example
-
-Example node budget:
-
-- node total money budget: `$10`
-- three customers:
-  - `cust-a`: `$3.3`
-  - `cust-b`: `$3.3`
-  - `cust-c`: `$3.3`
-
-This configuration is valid because the total assigned customer money budget is `$9.9`, which is below the node total.
-
-## Scheduler Reservation Contract
-
-Current implementation adds a reservation ledger for queue-based scheduled work submitted through:
-
-- `POST /api/system/scheduler/queue/jobs/submit`
-- `POST /api/system/scheduler/queue/jobs/{job_id}/cancel`
-- `POST /api/system/scheduler/queue/jobs/{job_id}/complete`
-
-### Reservation Scope Payload
-
-Budget-aware queue submissions use the existing `payload` object with an optional `budget_scope` section:
+`GET /api/system/nodes/budgets/policy/current` returns:
 
 ```json
 {
-  "budget_scope": {
+  "ok": true,
+  "node_id": "node-abc123",
+  "governance_version": "gov-v8",
+  "budget_policy_version": "nbp-2e8d51dd7e2a",
+  "refresh_interval_s": 60,
+  "budget_policy": {
     "node_id": "node-abc123",
-    "customer_id": "cust-a",
-    "provider": "openai",
-    "money_estimate": 2.5,
-    "compute_units": 7
+    "service": "ai.inference",
+    "status": "active",
+    "budget_policy_version": "nbp-2e8d51dd7e2a",
+    "governance_version": "gov-v8",
+    "period_start": "2026-03-20T00:00:00+00:00",
+    "period_end": "2026-03-21T00:00:00+00:00",
+    "issued_at": "2026-03-20T07:10:00+00:00",
+    "enforcement_mode": "hard_stop",
+    "shared_customer_pool": false,
+    "shared_provider_pool": false,
+    "overcommit_enabled": false,
+    "allowed_providers": ["openai", "anthropic"],
+    "fallback_rules": {
+      "distribution_mode": "push_first_poll_second",
+      "allow_cached_grants_until_expiry": true,
+      "queue_usage_reports_while_core_unavailable": true,
+      "degrade_when_cached_grants_expire": true,
+      "reconcile_poll_interval_s": 60
+    },
+    "grants": []
   }
 }
 ```
 
-Implemented fields:
+Implemented `budget_policy.status` values:
 
-- `node_id`: required for budget reservation creation
-- `customer_id`: optional customer slice identifier
-- `provider`: optional provider slice identifier
-- `money_estimate`: optional estimated money reservation
-- `compute_units`: optional estimated compute reservation
+- `active`
+- `not_configured`
 
-If `compute_units` is omitted, Core reserves the queue job's `cost_units` value.
+Current budget-policy versioning rules:
 
-### Estimation Hooks
+- `budget_policy_version` is a stable hash of the persisted declaration, config, allocations, reservations, and usage-summary bundle
+- a governance reissue is triggered when the effective budget policy changes materially
+- `governance_version` is echoed into both the top-level policy and each derived grant when governance embeds budget policy
 
-When explicit reservation values are missing, Core estimates reservation values before dispatch.
+## Grant Contract
 
-Money estimation order:
+Core derives a grant set from the configured node budget and each explicit customer/provider allocation.
 
-1. explicit values from `budget_scope.money_estimate`, `budget_scope.money_reserved`, `payload.estimated_cost`, `payload.cost_estimate`, or `constraints.estimated_cost`
-2. provider/model pricing stored in Core routing metadata using:
-   - `provider`
-   - `model_id`
-   - `input_tokens` / `prompt_tokens`
-   - `output_tokens` / `completion_tokens` / `max_output_tokens`
-   - optional `request_count`
+Grant shape:
 
-Implemented routing-pricing keys used for estimation:
+- `grant_id`
+- `consumer_node_id`
+- `service`
+- `period_start`
+- `period_end`
+- `limits`
+- `status`
+- `scope_kind`
+- `subject_id`
+- `governance_version`
+- `budget_policy_version`
+- `metadata`
+- `issued_at`
 
-- `pricing.input_per_1k`
-- `pricing.output_per_1k`
-- `pricing.prompt_per_1k`
-- `pricing.completion_per_1k`
-- `pricing.per_request`
-- `pricing.request`
+Implemented `status` values:
 
-Compute estimation order:
+- `active`
+- `expired`
 
-1. explicit values from `budget_scope.compute_units`, `payload.compute_units`, or `constraints.compute_units`
-2. computed from the configured node `compute_unit`:
-   - `cost_units`: queue job `cost_units`
-   - `requests`: request count, default `1`
-   - `tokens`: total token estimate or input + output token estimate
-   - `cpu_seconds` / `gpu_seconds`: duration estimate from `expected_duration_sec`, `estimated_duration_sec`, or `max_runtime_sec`
+Implemented `scope_kind` values:
 
-### Reservation Lifecycle
+- `node`
+- `customer`
+- `provider`
 
-When `payload.budget_scope.node_id` is present and the node already has a configured budget:
+Current limit-family mapping:
 
-- queue submit creates a `reserved` ledger entry
-- queue ack may attach the issued `lease_id` to the reservation
-- queue completion with `status=DONE` finalizes the reservation and records actual spend
-- queue completion with `status=FAILED` releases the reservation
-- queue cancel releases the reservation
+- node or allocation money limit -> `limits.max_cost_cents`
+- compute unit `tokens` -> `limits.max_tokens`
+- compute unit `requests` -> `limits.max_requests`
+- other compute units remain in `metadata.compute_unit` and `metadata.max_compute_units`
 
-### Implemented Admission Checks
+`max_bytes` is not emitted by current Core budget configuration because node-budget setup does not yet include a byte-budget field.
 
-When the configured node budget uses `enforcement_mode=hard_stop`, queue submit rejects budget-aware work that would exceed:
+## Governance Integration
 
-- `node_money_limit`
-- `node_compute_limit`
-- configured customer `money_limit` / `compute_limit`
-- configured provider `money_limit` / `compute_limit`
+Budget policy is now part of the effective governance bundle issued by Core.
 
-Current enforcement uses the reservation ledger:
+Implemented governance-bundle additions:
 
-- `reserved` entries count against admission
-- `finalized` entries count using actual spend when reported, otherwise the reserved amount
-- `released` entries no longer count against admission
+- `routing_policy_constraints.allowed_providers`
+- `routing_policy_constraints.allowed_models`
+- `routing_policy_constraints.allowed_task_families`
+- `budget_policy`
 
-Current rejection errors:
+Current rules:
 
-- `node_money_budget_exceeded`
-- `node_compute_budget_exceeded`
-- `customer_money_budget_exceeded`
-- `customer_compute_budget_exceeded`
-- `provider_money_budget_exceeded`
-- `provider_compute_budget_exceeded`
-- `customer_budget_allocation_required`
-- `provider_budget_allocation_required`
+- governance issuance is still the canonical Core-to-node policy channel
+- governance refresh returns the latest budget-bearing governance bundle when capability, routing-policy, or budget-policy inputs change
+- nodes can fetch budget policy directly through `/budgets/policy/*`, but the same effective policy is also embedded in governance
 
-### Shared Pool Versus Hard Slice
+## Capacity Declaration Contract
 
-Current implementation distinguishes these modes for explicit customer/provider allocations:
+Trusted nodes can publish capacity metadata with `POST /api/system/nodes/providers/capabilities/report`.
 
-- `shared_customer_pool=false`: customer allocations are hard caps during scheduler admission
-- `shared_customer_pool=true`: customer allocations remain configured metadata, but queue admission allows explicit customers to borrow from the node-level pool as long as node totals still permit the work
-- `shared_provider_pool=false`: provider allocations are hard caps during scheduler admission
-- `shared_provider_pool=true`: provider allocations remain configured metadata, but queue admission allows explicit providers to borrow from the node-level pool as long as node totals still permit the work
-
-Default behavior for subjects without explicit configured allocations:
-
-- when customer allocations exist and `shared_customer_pool=false`, queue submit rejects unassigned `customer_id` values with `customer_budget_allocation_required`
-- when customer allocations exist and `shared_customer_pool=true`, unassigned `customer_id` values are allowed and use the node-level pool
-- when provider allocations exist and `shared_provider_pool=false`, queue submit rejects unassigned `provider` values with `provider_budget_allocation_required`
-- when provider allocations exist and `shared_provider_pool=true`, unassigned `provider` values are allowed and use the node-level pool
-- when no allocations exist for that scope family, queue admission falls back to node-level enforcement
-
-### Completion Payload Extensions
-
-`POST /api/system/scheduler/queue/jobs/{job_id}/complete` now accepts optional actual-usage fields:
-
-- `actual_money_spend`
-- `actual_compute_spend`
-
-If omitted on successful completion, Core finalizes the reservation using the originally reserved amounts.
-
-### Trusted Node Usage Report Contract
-
-Trusted nodes may also report actual usage directly through:
+Current implemented top-level capacity object:
 
 ```json
 {
-  "node_id": "node-abc123",
-  "job_id": "job-123",
-  "status": "completed",
-  "actual_money_spend": 1.5,
-  "actual_compute_spend": 4.0
+  "service": "ai.inference",
+  "period": "daily",
+  "limits": {
+    "max_requests": 10000,
+    "max_tokens": 1000000,
+    "max_cost_cents": 2500
+  },
+  "concurrency": {
+    "max_inflight_requests": 4
+  },
+  "sla_hints": {
+    "availability_tier": "best_effort"
+  }
 }
 ```
 
-Implemented status values:
+Current implemented capacity publication scopes:
 
-- `completed`
-- `done`
-- `finalized`
-- `failed`
-- `canceled`
-- `cancelled`
-- `released`
+- top-level `service_capacity`
+- provider item `capacity`
+- model item `capacity`
 
-Behavior:
+Current validation rules:
 
-- completed-like statuses finalize the reservation
-- failed/canceled-like statuses release the reservation
-- unknown reservation ids return `budget_reservation_not_found`
+- `limits` and `concurrency` are normalized as non-negative numeric maps
+- `sla_hints` is normalized as a shallow JSON object of scalar or scalar-list values
+- common limit keys include `max_requests`, `max_tokens`, `max_cost_cents`, `max_bytes`, and `max_compute_units`
+- unrecognized `max_*` numeric keys are preserved
 
-### Usage Summary Contract
+Current admin inspection behavior:
 
-Configured budget bundle reads now include:
+- `GET /api/system/nodes/providers/routing-metadata` returns `service_capacity`, `provider_capacity`, and `model_capacity` with each model row
+- grouped node output also exposes node-level `service_capacity` and provider-level `capacity`
 
-- `usage_summary.node`
-- `usage_summary.customers[]`
-- `usage_summary.providers[]`
+## Node Runtime Enforcement Contract
 
-Each scope summary currently includes:
+Status: Not verifiable from current repository state
 
-- `money_limit`
-- `compute_limit`
-- `reserved_money`
-- `reserved_compute`
-- `actual_money`
-- `actual_compute`
-- `released_money`
-- `released_compute`
-- `remaining_money`
-- `remaining_compute`
-- `money_utilization`
-- `compute_utilization`
-- `alerts[]`
+The intended node runtime sequence is:
 
-Dedicated usage inspection reads through `GET /api/system/nodes/budgets/{node_id}/usage` also include:
+1. receive the execution request
+2. validate trust/auth/governance context
+3. resolve provider, model, and task-family
+4. load the applicable cached grant set
+5. check local usage counters for the current grant period
+6. execute when within grant limits
+7. record actual local usage
+8. queue a periodic usage summary back to Core
+9. reject or degrade when over budget or when all cached grants have expired
 
-- `reservations[]`
-- `next_reset_at`
-- `period`
-- `reset_policy`
+Core no longer needs to be queried synchronously for each request under this contract. Core remains the grant issuer and reconciliation authority.
 
-Current `next_reset_at` behavior:
+## MQTT Distribution And Poll Fallback
 
-- `manual_reset` or `manual` reset policy: `null`
-- `daily` + `calendar`: next UTC midnight
-- `monthly` + `calendar`: first day of next UTC month
-- `rolling`: current time plus one period window
+Core publishes retained policy data to:
 
-### Threshold Alerts
+- `synthia/policy/grants/{node_id}`
+- `synthia/policy/revocations/{node_id}`
+- `synthia/policy/revocations/{grant_id}`
 
-Current usage summaries generate computed alert entries for:
+Current behavior:
 
-- node scope
-- explicit customer allocation scopes
-- explicit provider allocation scopes
+- budget configuration changes publish a retained grant snapshot for the node
+- budget deletion publishes retained revocation payloads for the node and each derived grant
+- nodes should apply new grant versions atomically from the retained snapshot
+- nodes should stop using revoked grants immediately when revocation messages arrive
+- polling remains the fallback reconciliation path when MQTT delivery is delayed or missed
 
-Current default thresholds:
+## Usage Reporting Contract
 
-- `0.8`
-- `0.9`
-- `1.0`
+### Periodic Summary
 
-Current alert fields:
-
-- `scope_kind`
-- `subject_id`
-- `metric`
-- `threshold`
-- `severity`
-- `utilization`
-- `used`
-- `limit`
-
-Current severity mapping:
-
-- `warn` for threshold alerts below `1.0`
-- `critical` for `1.0` and above
-
-## Reporting And Export
-
-Current export route:
-
-- `GET /api/system/nodes/budgets/export`
-
-Query parameters:
-
-- `node_id` (optional)
-- `format=json|csv` where default is `json`
-
-Current export rows include:
+`POST /api/system/nodes/budgets/usage-summary` accepts:
 
 - `node_id`
-- `scope_kind`
-- `subject_id`
-- `period`
-- `reset_policy`
-- `next_reset_at`
-- `money_limit`
-- `compute_limit`
-- `reserved_money`
-- `reserved_compute`
-- `actual_money`
-- `actual_compute`
-- `remaining_money`
-- `remaining_compute`
-- `money_utilization`
-- `compute_utilization`
-- `alert_count`
+- `service`
+- `grant_id`
+- `period_start`
+- `period_end`
+- `used_requests`
+- `used_tokens`
+- `used_cost_cents`
+- `denials`
+- `error_counts`
+- `metadata`
 
-### Current Limitations
+This is the canonical periodic reporting shape for node budget grants in Core.
 
-- reservation creation requires a configured node budget when `budget_scope.node_id` is supplied
-- current finalized records store reservation versus actual values, but aggregate usage rollups remain a later task
-- subject-assignment defaults are currently enforced only for queue-based scheduler admission
+### Per-Job Compatibility Path
+
+`POST /api/system/nodes/budgets/usage-report` still accepts:
+
+- `node_id`
+- `job_id`
+- `status`
+- `actual_money_spend`
+- `actual_compute_spend`
+
+This route remains the implemented compatibility path for reservation finalization and release in the queue-based scheduler flow.
+
+### Telemetry Relationship
+
+Node budget usage summaries remain a distinct Core ingestion path. They are not currently merged into the generic `/api/telemetry/usage` subsystem.
+
+## Outage And Expiry Semantics
+
+Implemented Core-issued fallback rules are:
+
+- `distribution_mode=push_first_poll_second`
+- `allow_cached_grants_until_expiry=true`
+- `queue_usage_reports_while_core_unavailable=true`
+- `degrade_when_cached_grants_expire=true`
+- `reconcile_poll_interval_s=60`
+
+This means the intended runtime behavior is:
+
+- continue enforcing cached active grants locally while Core is unavailable
+- queue periodic usage reports locally and retry later
+- do not assume new grants or governance updates are available until Core returns
+- degrade cleanly once cached grant periods expire without refresh
+
+The Core side of that contract is implemented. The node-runtime side remains outside this repository.
+
+## Scheduler Compatibility Path
+
+Current queue-based scheduler behavior remains implemented:
+
+- queue submit may still create Core-side reservations against node/customer/provider budgets
+- queue cancel and queue completion still reconcile those reservations
+- hard-stop admission still exists as a compatibility backstop for queue-driven work
+
+This is a compatibility layer, not the long-term replacement for node-local grant enforcement.
 
 ## Audit Events
 
-Current implementation emits audit events for:
+Current Core audit events include:
 
 - `node_budget_capabilities_declared`
 - `node_budget_configured`
@@ -497,21 +350,30 @@ Current implementation emits audit events for:
 - `node_budget_provider_allocation_upserted`
 - `node_budget_provider_allocation_deleted`
 - `node_budget_usage_reported`
+- `node_budget_usage_summary_reported`
 - `node_budget_reservation_created`
 - `node_budget_reservation_denied`
 - `node_budget_reservation_leased`
 - `node_budget_reservation_finalized`
 - `node_budget_reservation_released`
-
-Reset and override audit events are not developed yet because reset and override actions are still future tasks.
+- `node_budget_topped_up`
+- `node_budget_reset`
+- `node_budget_override_set`
+- `node_budget_reservation_force_released`
+- `node_provider_capability_report_received`
 
 ## Code Anchors
 
 - `backend/app/system/onboarding/node_budgeting.py`
+- `backend/app/system/onboarding/governance.py`
+- `backend/app/system/onboarding/model_routing_registry.py`
+- `backend/app/system/onboarding/provider_capability_normalization.py`
 - `backend/app/api/system.py`
 - `frontend/src/core/pages/Addons.tsx`
 
 ## See Also
 
-- [Node Onboarding API Contract](./node-onboarding-api-contract.md)
 - [API Reference](../core/api/api-reference.md)
+- [Node Provider Intelligence Contract](../core/api/node-provider-intelligence-contract.md)
+- [Node Phase 2 Lifecycle Contract](./node-phase2-lifecycle-contract.md)
+- [Node Onboarding API Contract](./node-onboarding-api-contract.md)

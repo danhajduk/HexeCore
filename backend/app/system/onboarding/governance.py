@@ -30,6 +30,8 @@ class NodeGovernanceBundleRecord:
     feature_gating_defaults: dict[str, bool]
     telemetry_requirements: dict[str, Any]
     capability_usage_constraints: dict[str, Any]
+    routing_policy_constraints: dict[str, Any]
+    budget_policy: dict[str, Any]
     schema_version: str = GOVERNANCE_SCHEMA_VERSION
 
     def to_dict(self) -> dict[str, Any]:
@@ -43,6 +45,8 @@ class NodeGovernanceBundleRecord:
             "feature_gating_defaults": dict(self.feature_gating_defaults or {}),
             "telemetry_requirements": dict(self.telemetry_requirements or {}),
             "capability_usage_constraints": dict(self.capability_usage_constraints or {}),
+            "routing_policy_constraints": dict(self.routing_policy_constraints or {}),
+            "budget_policy": dict(self.budget_policy or {}),
         }
 
 
@@ -92,6 +96,12 @@ class NodeGovernanceStore:
                         if isinstance(item.get("capability_usage_constraints"), dict)
                         else {}
                     ),
+                    routing_policy_constraints=(
+                        item.get("routing_policy_constraints")
+                        if isinstance(item.get("routing_policy_constraints"), dict)
+                        else {}
+                    ),
+                    budget_policy=item.get("budget_policy") if isinstance(item.get("budget_policy"), dict) else {},
                     schema_version=str(item.get("schema_version") or GOVERNANCE_SCHEMA_VERSION),
                 )
             )
@@ -127,8 +137,10 @@ class NodeGovernanceStore:
 
 
 class NodeGovernanceService:
-    def __init__(self, store: NodeGovernanceStore) -> None:
+    def __init__(self, store: NodeGovernanceStore, provider_model_policy=None, node_budget_service=None) -> None:
         self._store = store
+        self._provider_model_policy = provider_model_policy
+        self._node_budget_service = node_budget_service
 
     def get_current_for_node(self, *, node_id: str, capability_profile_id: str | None = None) -> NodeGovernanceBundleRecord | None:
         latest = self._store.latest_for_node(node_id)
@@ -146,9 +158,48 @@ class NodeGovernanceService:
         node_type: str,
         profile: NodeCapabilityProfileRecord,
     ) -> NodeGovernanceBundleRecord:
+        return self.ensure_current_for_node(node_id=node_id, node_type=node_type, profile=profile)
+
+    def ensure_current_for_node(
+        self,
+        *,
+        node_id: str,
+        node_type: str,
+        profile: NodeCapabilityProfileRecord,
+    ) -> NodeGovernanceBundleRecord:
         latest = self._store.latest_for_node(node_id)
+        feature_flags = dict(profile.feature_flags or {})
+        node_class_rules = {
+            "node_type": str(node_type or ""),
+            "profile_id": profile.profile_id,
+        }
+        feature_gating_defaults = {
+            "allow_provider_failover": bool(feature_flags.get("provider_failover", False)),
+            "allow_governance_refresh": bool(feature_flags.get("governance_refresh", False)),
+        }
+        telemetry_requirements = {
+            "required": bool(feature_flags.get("telemetry", False)),
+            "lifecycle_events_required": bool(feature_flags.get("lifecycle_events", False)),
+            "min_report_interval_s": 30,
+        }
+        capability_usage_constraints = {
+            "declared_task_families": list(profile.declared_task_families or []),
+            "enabled_providers": list(profile.enabled_providers or []),
+            "max_concurrent_tasks": 2,
+        }
+        routing_policy_constraints = self._routing_policy_constraints(profile)
+        budget_policy = self._budget_policy(node_id)
+
         if latest is not None and latest.capability_profile_id == profile.profile_id:
-            return latest
+            if (
+                latest.node_class_rules == node_class_rules
+                and latest.feature_gating_defaults == feature_gating_defaults
+                and latest.telemetry_requirements == telemetry_requirements
+                and latest.capability_usage_constraints == capability_usage_constraints
+                and latest.routing_policy_constraints == routing_policy_constraints
+                and self._normalized_budget_policy(latest.budget_policy) == self._normalized_budget_policy(budget_policy)
+            ):
+                return latest
 
         next_revision = 1
         if latest is not None:
@@ -159,29 +210,57 @@ class NodeGovernanceService:
                 except Exception:
                     next_revision = 1
         governance_version = f"gov-v{next_revision}"
-        feature_flags = dict(profile.feature_flags or {})
+        if budget_policy:
+            budget_policy = dict(budget_policy)
+            budget_policy["governance_version"] = governance_version
+            if self._node_budget_service is not None:
+                budget_policy["grants"] = self._node_budget_service.derive_grants(
+                    node_id,
+                    governance_version=governance_version,
+                )
         record = NodeGovernanceBundleRecord(
             node_id=node_id,
             capability_profile_id=profile.profile_id,
             governance_version=governance_version,
             issued_timestamp=_utcnow_iso(),
-            node_class_rules={
-                "node_type": str(node_type or ""),
-                "profile_id": profile.profile_id,
-            },
-            feature_gating_defaults={
-                "allow_provider_failover": bool(feature_flags.get("provider_failover", False)),
-                "allow_governance_refresh": bool(feature_flags.get("governance_refresh", False)),
-            },
-            telemetry_requirements={
-                "required": bool(feature_flags.get("telemetry", False)),
-                "lifecycle_events_required": bool(feature_flags.get("lifecycle_events", False)),
-                "min_report_interval_s": 30,
-            },
-            capability_usage_constraints={
-                "declared_task_families": list(profile.declared_task_families or []),
-                "enabled_providers": list(profile.enabled_providers or []),
-                "max_concurrent_tasks": 2,
-            },
+            node_class_rules=node_class_rules,
+            feature_gating_defaults=feature_gating_defaults,
+            telemetry_requirements=telemetry_requirements,
+            capability_usage_constraints=capability_usage_constraints,
+            routing_policy_constraints=routing_policy_constraints,
+            budget_policy=budget_policy,
         )
         return self._store.append(record)
+
+    def _routing_policy_constraints(self, profile: NodeCapabilityProfileRecord) -> dict[str, Any]:
+        allowed_models: dict[str, list[str]] = {}
+        if self._provider_model_policy is not None:
+            for provider in list(profile.enabled_providers or []):
+                record = self._provider_model_policy.get(provider)
+                if record is not None:
+                    allowed_models[provider] = list(record.allowed_models or [])
+        return {
+            "allowed_providers": list(profile.enabled_providers or []),
+            "allowed_models": allowed_models,
+            "allowed_task_families": list(profile.declared_task_families or []),
+        }
+
+    def _budget_policy(self, node_id: str) -> dict[str, Any]:
+        if self._node_budget_service is None:
+            return {}
+        try:
+            return self._node_budget_service.budget_policy(node_id)
+        except ValueError:
+            return {}
+
+    def _normalized_budget_policy(self, payload: dict[str, Any]) -> dict[str, Any]:
+        if not isinstance(payload, dict):
+            return {}
+        out = {k: v for k, v in payload.items() if k not in {"governance_version"}}
+        grants = []
+        for item in list(payload.get("grants") or []):
+            if not isinstance(item, dict):
+                continue
+            grants.append({k: v for k, v in item.items() if k not in {"governance_version"}})
+        out["grants"] = grants
+        return out

@@ -49,6 +49,15 @@ class _FakeRegistry:
         return []
 
 
+class _FakeMqttManager:
+    def __init__(self) -> None:
+        self.published: list[dict[str, object]] = []
+
+    async def publish(self, topic: str, payload: dict, retain: bool = True, qos: int = 1):
+        self.published.append({"topic": topic, "payload": payload, "retain": retain, "qos": qos})
+        return {"ok": True, "topic": topic, "rc": 0}
+
+
 @unittest.skipIf(not FASTAPI_STACK_AVAILABLE, "fastapi/testclient not available in this environment")
 class TestNodeBudgetApi(unittest.TestCase):
     def setUp(self) -> None:
@@ -65,11 +74,13 @@ class TestNodeBudgetApi(unittest.TestCase):
         self.budget_service = NodeBudgetService(self.budget_store, self.routing_service)
         self.audit_store = AuditLogStore(str(base / "audit.log"))
         self.audit_path = base / "audit.log"
+        self.mqtt = _FakeMqttManager()
 
         app = FastAPI()
         app.include_router(
             build_system_router(
                 _FakeRegistry(),
+                mqtt_manager=self.mqtt,
                 onboarding_sessions_store=self.sessions,
                 node_registrations_store=self.registrations,
                 node_trust_issuance=self.trust_issuance,
@@ -295,6 +306,96 @@ class TestNodeBudgetApi(unittest.TestCase):
         self.assertEqual(payload["reservation"]["state"], "finalized")
         self.assertEqual(payload["reservation"]["money_actual"], 1.5)
         self.assertEqual(payload["budget"]["usage_summary"]["node"]["actual_money"], 1.5)
+
+    def test_trusted_node_can_poll_budget_policy_and_report_periodic_usage_summary(self) -> None:
+        node_id, trust_token = self._trusted_node()
+        declared = self.client.post(
+            "/api/system/nodes/budgets/declaration",
+            headers={"X-Node-Trust-Token": trust_token},
+            json={"node_id": node_id, "compute_unit": "tokens"},
+        )
+        self.assertEqual(declared.status_code, 200, declared.text)
+        configured = self.client.put(
+            f"/api/system/nodes/budgets/{node_id}",
+            headers={"X-Admin-Token": "test-token"},
+            json={"node_budget": {"node_money_limit": 12.0, "node_compute_limit": 9000.0, "compute_unit": "tokens"}},
+        )
+        self.assertEqual(configured.status_code, 200, configured.text)
+
+        current = self.client.get(
+            f"/api/system/nodes/budgets/policy/current?node_id={node_id}",
+            headers={"X-Node-Trust-Token": trust_token},
+        )
+        self.assertEqual(current.status_code, 200, current.text)
+        policy = current.json()["budget_policy"]
+        self.assertEqual(policy["status"], "active")
+        self.assertTrue(policy["budget_policy_version"].startswith("nbp-"))
+        self.assertGreaterEqual(len(policy["grants"]), 1)
+
+        refreshed = self.client.post(
+            "/api/system/nodes/budgets/policy/refresh",
+            headers={"X-Node-Trust-Token": trust_token},
+            json={
+                "node_id": node_id,
+                "current_budget_policy_version": policy["budget_policy_version"],
+                "current_governance_version": current.json()["governance_version"],
+            },
+        )
+        self.assertEqual(refreshed.status_code, 200, refreshed.text)
+        self.assertFalse(bool(refreshed.json()["updated"]))
+
+        report = self.client.post(
+            "/api/system/nodes/budgets/usage-summary",
+            headers={"X-Node-Trust-Token": trust_token},
+            json={
+                "node_id": node_id,
+                "service": "ai.inference",
+                "grant_id": policy["grants"][0]["grant_id"],
+                "period_start": policy["period_start"],
+                "period_end": policy["period_end"],
+                "used_requests": 143,
+                "used_tokens": 284231,
+                "used_cost_cents": 731,
+                "denials": 3,
+                "error_counts": {"provider_unavailable": 1, "budget_exceeded": 2},
+            },
+        )
+        self.assertEqual(report.status_code, 200, report.text)
+        self.assertEqual(report.json()["report"]["used_tokens"], 284231)
+
+        listed = self.client.get(
+            f"/api/system/nodes/budgets/{node_id}/usage-reports",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(listed.status_code, 200, listed.text)
+        self.assertEqual(listed.json()["items"][0]["used_cost_cents"], 731)
+        self.assertEqual(listed.json()["items"][0]["error_counts"]["budget_exceeded"], 2)
+
+    def test_budget_changes_publish_grants_and_budget_delete_publishes_revocations(self) -> None:
+        node_id, trust_token = self._trusted_node()
+        declared = self.client.post(
+            "/api/system/nodes/budgets/declaration",
+            headers={"X-Node-Trust-Token": trust_token},
+            json={"node_id": node_id},
+        )
+        self.assertEqual(declared.status_code, 200, declared.text)
+        configured = self.client.put(
+            f"/api/system/nodes/budgets/{node_id}",
+            headers={"X-Admin-Token": "test-token"},
+            json={"node_budget": {"node_money_limit": 10.0, "node_compute_limit": 100.0}},
+        )
+        self.assertEqual(configured.status_code, 200, configured.text)
+        self.assertTrue(any(row["topic"] == f"synthia/policy/grants/{node_id}" for row in self.mqtt.published))
+        published_grant = next(row for row in self.mqtt.published if row["topic"] == f"synthia/policy/grants/{node_id}")
+        self.assertEqual(published_grant["payload"]["service"], "ai.inference")
+
+        deleted = self.client.delete(
+            f"/api/system/nodes/budgets/{node_id}",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(deleted.status_code, 200, deleted.text)
+        published_topics = [row["topic"] for row in self.mqtt.published]
+        self.assertIn(f"synthia/policy/revocations/{node_id}", published_topics)
 
     def test_admin_can_manage_customer_and_provider_allocations_and_usage_view(self) -> None:
         node_id, trust_token = self._trusted_node()

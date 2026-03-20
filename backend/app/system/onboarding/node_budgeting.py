@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -12,11 +13,13 @@ from .model_routing_registry import ModelRoutingRegistryService
 NODE_BUDGET_SCHEMA_VERSION = "1"
 ALLOCATION_KINDS = {"customer", "provider"}
 RESERVATION_STATES = {"reserved", "finalized", "released"}
+GRANT_STATUSES = {"active", "revoked", "expired"}
 SUPPORTED_PERIODS = {"monthly", "daily", "manual_reset"}
 SUPPORTED_RESET_POLICIES = {"calendar", "rolling", "manual"}
 SUPPORTED_ENFORCEMENT_MODES = {"hard_stop", "warn"}
 SUPPORTED_COMPUTE_UNITS = {"cost_units", "tokens", "requests", "gpu_seconds", "cpu_seconds"}
 DEFAULT_BUDGET_ALERT_THRESHOLDS = (0.8, 0.9, 1.0)
+NODE_BUDGET_SERVICE_ID = "ai.inference"
 
 
 def _utcnow_iso() -> str:
@@ -187,6 +190,80 @@ class NodeBudgetReservationRecord:
         }
 
 
+@dataclass
+class NodeBudgetGrantRecord:
+    grant_id: str
+    consumer_node_id: str
+    service: str
+    period_start: str
+    period_end: str
+    limits: dict[str, Any]
+    status: str
+    scope_kind: str
+    subject_id: str | None = None
+    governance_version: str | None = None
+    budget_policy_version: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    issued_at: str = field(default_factory=_utcnow_iso)
+    schema_version: str = NODE_BUDGET_SCHEMA_VERSION
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": self.schema_version,
+            "grant_id": self.grant_id,
+            "consumer_node_id": self.consumer_node_id,
+            "service": self.service,
+            "period_start": self.period_start,
+            "period_end": self.period_end,
+            "limits": dict(self.limits or {}),
+            "status": self.status,
+            "scope_kind": self.scope_kind,
+            "subject_id": self.subject_id,
+            "governance_version": self.governance_version,
+            "budget_policy_version": self.budget_policy_version,
+            "metadata": dict(self.metadata or {}),
+            "issued_at": self.issued_at,
+        }
+
+
+@dataclass
+class NodeBudgetUsageReportRecord:
+    node_id: str
+    service: str
+    grant_id: str
+    period_start: str
+    period_end: str
+    used_requests: int = 0
+    used_tokens: int = 0
+    used_cost_cents: int = 0
+    denials: int = 0
+    error_counts: dict[str, int] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    reported_at: str = field(default_factory=_utcnow_iso)
+    schema_version: str = NODE_BUDGET_SCHEMA_VERSION
+
+    @property
+    def key(self) -> str:
+        return f"{self.node_id}:{self.service}:{self.grant_id}:{self.period_start}:{self.period_end}"
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": self.schema_version,
+            "node_id": self.node_id,
+            "service": self.service,
+            "grant_id": self.grant_id,
+            "period_start": self.period_start,
+            "period_end": self.period_end,
+            "used_requests": self.used_requests,
+            "used_tokens": self.used_tokens,
+            "used_cost_cents": self.used_cost_cents,
+            "denials": self.denials,
+            "error_counts": dict(self.error_counts or {}),
+            "metadata": dict(self.metadata or {}),
+            "reported_at": self.reported_at,
+        }
+
+
 class NodeBudgetStore:
     def __init__(self, path: Path | None = None) -> None:
         self._path = path or (_repo_root() / "data" / "node_budgets.json")
@@ -194,6 +271,7 @@ class NodeBudgetStore:
         self._configs: dict[str, NodeBudgetConfigRecord] = {}
         self._allocations: dict[str, NodeBudgetAllocationRecord] = {}
         self._reservations: dict[str, NodeBudgetReservationRecord] = {}
+        self._usage_reports: dict[str, NodeBudgetUsageReportRecord] = {}
         self._load()
 
     def _load(self) -> None:
@@ -306,6 +384,34 @@ class NodeBudgetStore:
                 released_at=_clean_text(item.get("released_at")) or None,
                 schema_version=_clean_text(item.get("schema_version")) or NODE_BUDGET_SCHEMA_VERSION,
             )
+        for item in raw.get("usage_reports") or []:
+            if not isinstance(item, dict):
+                continue
+            node_id = _clean_text(item.get("node_id"))
+            service = _clean_text(item.get("service"))
+            grant_id = _clean_text(item.get("grant_id"))
+            period_start = _clean_text(item.get("period_start"))
+            period_end = _clean_text(item.get("period_end"))
+            if not (node_id and service and grant_id and period_start and period_end):
+                continue
+            error_counts = item.get("error_counts") if isinstance(item.get("error_counts"), dict) else {}
+            metadata = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
+            record = NodeBudgetUsageReportRecord(
+                node_id=node_id,
+                service=service,
+                grant_id=grant_id,
+                period_start=period_start,
+                period_end=period_end,
+                used_requests=int(item.get("used_requests") or 0),
+                used_tokens=int(item.get("used_tokens") or 0),
+                used_cost_cents=int(item.get("used_cost_cents") or 0),
+                denials=int(item.get("denials") or 0),
+                error_counts={str(k): int(v or 0) for k, v in error_counts.items() if str(k or "").strip()},
+                metadata=dict(metadata),
+                reported_at=_clean_text(item.get("reported_at")) or _utcnow_iso(),
+                schema_version=_clean_text(item.get("schema_version")) or NODE_BUDGET_SCHEMA_VERSION,
+            )
+            self._usage_reports[record.key] = record
 
     def _save(self) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
@@ -320,6 +426,13 @@ class NodeBudgetStore:
             "reservations": [
                 item.to_dict()
                 for item in sorted(self._reservations.values(), key=lambda value: (value.node_id, value.created_at, value.job_id))
+            ],
+            "usage_reports": [
+                item.to_dict()
+                for item in sorted(
+                    self._usage_reports.values(),
+                    key=lambda value: (value.node_id, value.service, value.period_start, value.grant_id),
+                )
             ],
         }
         self._path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
@@ -359,6 +472,15 @@ class NodeBudgetStore:
         before = len(self._reservations)
         self._reservations = {key: value for key, value in self._reservations.items() if value.node_id != node_key}
         removed = before - len(self._reservations)
+        if removed:
+            self._save()
+        return removed
+
+    def clear_usage_reports(self, node_id: str) -> int:
+        node_key = _clean_text(node_id)
+        before = len(self._usage_reports)
+        self._usage_reports = {key: value for key, value in self._usage_reports.items() if value.node_id != node_key}
+        removed = before - len(self._usage_reports)
         if removed:
             self._save()
         return removed
@@ -449,12 +571,34 @@ class NodeBudgetStore:
             items.append(item)
         return items
 
+    def upsert_usage_report(self, record: NodeBudgetUsageReportRecord) -> NodeBudgetUsageReportRecord:
+        record.reported_at = _utcnow_iso()
+        self._usage_reports[record.key] = record
+        self._save()
+        return record
+
+    def list_usage_reports(self, node_id: str | None = None, *, grant_id: str | None = None) -> list[NodeBudgetUsageReportRecord]:
+        node_key = _clean_text(node_id)
+        grant_key = _clean_text(grant_id)
+        items = []
+        for item in sorted(
+            self._usage_reports.values(),
+            key=lambda value: (value.node_id, value.service, value.period_start, value.grant_id),
+        ):
+            if node_key and item.node_id != node_key:
+                continue
+            if grant_key and item.grant_id != grant_key:
+                continue
+            items.append(item)
+        return items
+
     def list_bundles(self) -> list[dict[str, Any]]:
         node_ids = sorted(
             set(self._declarations.keys())
             | set(self._configs.keys())
             | {item.node_id for item in self._allocations.values()}
             | {item.node_id for item in self._reservations.values()}
+            | {item.node_id for item in self._usage_reports.values()}
         )
         return [self.bundle(node_id) for node_id in node_ids]
 
@@ -595,9 +739,151 @@ class NodeBudgetService:
         bundle = self._store.bundle(node_id)
         if not bundle.get("declaration") and not bundle.get("node_budget"):
             raise ValueError("node_budget_not_found")
+        bundle["budget_policy"] = self.budget_policy(node_id)
         if bundle.get("node_budget"):
             bundle["usage_summary"] = self.usage_summary(node_id)
+            bundle["usage_reports"] = self.list_usage_reports(node_id=node_id)
         return bundle
+
+    def budget_policy(self, node_id: str, *, governance_version: str | None = None) -> dict[str, Any]:
+        node_key = _clean_text(node_id)
+        declaration = self._store.get_declaration(node_key)
+        config = self._store.get_config(node_key)
+        if declaration is None and config is None:
+            raise ValueError("node_budget_not_found")
+        if config is None:
+            return {
+                "node_id": node_key,
+                "service": NODE_BUDGET_SERVICE_ID,
+                "status": "not_configured",
+                "budget_policy_version": None,
+                "governance_version": governance_version,
+                "grants": [],
+                "fallback_rules": {
+                    "distribution_mode": "push_first_poll_second",
+                    "allow_cached_grants_until_expiry": True,
+                    "queue_usage_reports_while_core_unavailable": True,
+                    "degrade_when_cached_grants_expire": True,
+                },
+            }
+
+        period_start, period_end = self._current_period_window(config)
+        version = self._budget_policy_version(node_key)
+        return {
+            "node_id": node_key,
+            "service": NODE_BUDGET_SERVICE_ID,
+            "status": "active",
+            "budget_policy_version": version,
+            "governance_version": governance_version,
+            "period_start": period_start,
+            "period_end": period_end,
+            "issued_at": config.updated_at,
+            "enforcement_mode": config.enforcement_mode,
+            "shared_customer_pool": bool(config.shared_customer_pool),
+            "shared_provider_pool": bool(config.shared_provider_pool),
+            "overcommit_enabled": bool(config.overcommit_enabled),
+            "allowed_providers": list((declaration.supported_providers if declaration is not None else []) or []),
+            "fallback_rules": {
+                "distribution_mode": "push_first_poll_second",
+                "allow_cached_grants_until_expiry": True,
+                "queue_usage_reports_while_core_unavailable": True,
+                "degrade_when_cached_grants_expire": True,
+                "reconcile_poll_interval_s": 60,
+            },
+            "grants": self.derive_grants(node_key, governance_version=governance_version),
+        }
+
+    def derive_grants(self, node_id: str, *, governance_version: str | None = None) -> list[dict[str, Any]]:
+        node_key = _clean_text(node_id)
+        config = self._store.get_config(node_key)
+        if config is None:
+            return []
+        period_start, period_end = self._current_period_window(config)
+        policy_version = self._budget_policy_version(node_key)
+
+        grants: list[NodeBudgetGrantRecord] = [
+            self._grant_record(
+                node_id=node_key,
+                scope_kind="node",
+                subject_id=None,
+                money_limit=config.node_money_limit,
+                compute_limit=config.node_compute_limit,
+                compute_unit=config.compute_unit,
+                enforcement_mode=config.enforcement_mode,
+                period_start=period_start,
+                period_end=period_end,
+                governance_version=governance_version,
+                policy_version=policy_version,
+            )
+        ]
+        for item in self._store.list_allocations(node_key, kind="customer"):
+            grants.append(
+                self._grant_record(
+                    node_id=node_key,
+                    scope_kind="customer",
+                    subject_id=item.subject_id,
+                    money_limit=item.money_limit,
+                    compute_limit=item.compute_limit,
+                    compute_unit=config.compute_unit,
+                    enforcement_mode=config.enforcement_mode,
+                    period_start=period_start,
+                    period_end=period_end,
+                    governance_version=governance_version,
+                    policy_version=policy_version,
+                )
+            )
+        for item in self._store.list_allocations(node_key, kind="provider"):
+            grants.append(
+                self._grant_record(
+                    node_id=node_key,
+                    scope_kind="provider",
+                    subject_id=item.subject_id,
+                    money_limit=item.money_limit,
+                    compute_limit=item.compute_limit,
+                    compute_unit=config.compute_unit,
+                    enforcement_mode=config.enforcement_mode,
+                    period_start=period_start,
+                    period_end=period_end,
+                    governance_version=governance_version,
+                    policy_version=policy_version,
+                )
+            )
+        return [item.to_dict() for item in grants]
+
+    def list_usage_reports(self, *, node_id: str, grant_id: str | None = None) -> list[dict[str, Any]]:
+        return [item.to_dict() for item in self._store.list_usage_reports(node_id=node_id, grant_id=grant_id)]
+
+    def report_usage_summary(self, *, node_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        node_key = _clean_text(node_id)
+        config = self._store.get_config(node_key)
+        if config is None:
+            raise ValueError("node_budget_not_configured")
+        service = _clean_text(payload.get("service")) or NODE_BUDGET_SERVICE_ID
+        grant_id = _clean_text(payload.get("grant_id"))
+        if not grant_id:
+            raise ValueError("grant_id_required")
+        period_start = _clean_text(payload.get("period_start"))
+        period_end = _clean_text(payload.get("period_end"))
+        if not period_start or not period_end:
+            start, end = self._current_period_window(config)
+            period_start = period_start or start
+            period_end = period_end or end
+        error_counts = payload.get("error_counts") if isinstance(payload.get("error_counts"), dict) else {}
+        metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+        record = NodeBudgetUsageReportRecord(
+            node_id=node_key,
+            service=service,
+            grant_id=grant_id,
+            period_start=period_start,
+            period_end=period_end,
+            used_requests=max(0, int(payload.get("used_requests") or 0)),
+            used_tokens=max(0, int(payload.get("used_tokens") or 0)),
+            used_cost_cents=max(0, int(payload.get("used_cost_cents") or 0)),
+            denials=max(0, int(payload.get("denials") or 0)),
+            error_counts={str(k): max(0, int(v or 0)) for k, v in error_counts.items() if str(k or "").strip()},
+            metadata=dict(metadata),
+        )
+        return self._store.upsert_usage_report(record).to_dict()
 
     def delete_node_budget(self, node_id: str) -> dict[str, Any]:
         node_key = _clean_text(node_id)
@@ -831,6 +1117,8 @@ class NodeBudgetService:
             "node_id": node_key,
             "usage_summary": self.usage_summary(node_key),
             "reservations": [item.to_dict() for item in self._store.list_reservations(node_id=node_key)],
+            "usage_reports": [item.to_dict() for item in self._store.list_usage_reports(node_id=node_key)],
+            "budget_policy": self.budget_policy(node_key),
             "next_reset_at": self._next_reset_at(config),
             "period": config.period,
             "reset_policy": config.reset_policy,
@@ -910,6 +1198,7 @@ class NodeBudgetService:
         if config is None:
             raise ValueError("node_budget_not_found")
         self._store.clear_reservations(node_key)
+        self._store.clear_usage_reports(node_key)
         config.updated_at = _utcnow_iso()
         self._store.upsert_config(config)
         return self.get_bundle(node_key)
@@ -966,6 +1255,129 @@ class NodeBudgetService:
         record.released_at = _utcnow_iso()
         self._store.upsert_reservation(record)
         return record.to_dict()
+
+    def budget_grant_topics(self, node_id: str) -> list[str]:
+        node_key = _clean_text(node_id)
+        if not node_key:
+            return []
+        return [f"synthia/policy/grants/{node_key}"]
+
+    def budget_revocation_topics(self, *, node_id: str, grant_id: str | None = None) -> list[str]:
+        node_key = _clean_text(node_id)
+        topics = [f"synthia/policy/revocations/{node_key}"] if node_key else []
+        grant_key = _clean_text(grant_id)
+        if grant_key:
+            topics.append(f"synthia/policy/revocations/{grant_key}")
+        return topics
+
+    def budget_revocation_payloads(self, node_id: str, *, reason: str) -> list[dict[str, Any]]:
+        payloads: list[dict[str, Any]] = []
+        for grant in self.derive_grants(node_id):
+            payload = {
+                "id": f"budget-revocation:{_clean_text(node_id)}:{_clean_text(grant.get('grant_id'))}",
+                "node_id": _clean_text(node_id),
+                "grant_id": grant.get("grant_id"),
+                "service": grant.get("service") or NODE_BUDGET_SERVICE_ID,
+                "reason": _clean_text(reason) or "budget_policy_removed",
+                "status": "revoked",
+            }
+            payloads.append(payload)
+        if not payloads:
+            payloads.append(
+                {
+                    "id": f"budget-revocation:{_clean_text(node_id)}",
+                    "node_id": _clean_text(node_id),
+                    "grant_id": None,
+                    "service": NODE_BUDGET_SERVICE_ID,
+                    "reason": _clean_text(reason) or "budget_policy_removed",
+                    "status": "revoked",
+                }
+            )
+        return payloads
+
+    def _budget_policy_version(self, node_id: str) -> str:
+        bundle = self._store.bundle(node_id)
+        digest = hashlib.sha256(json.dumps(bundle, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+        return f"nbp-{digest[:12]}"
+
+    def _current_period_window(self, config: NodeBudgetConfigRecord) -> tuple[str, str]:
+        now = datetime.now(timezone.utc)
+        if config.period == "daily":
+            start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
+            end = start + timedelta(days=1)
+            return start.isoformat(), end.isoformat()
+        if config.period == "monthly":
+            start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+            year = now.year + (1 if now.month == 12 else 0)
+            month = 1 if now.month == 12 else now.month + 1
+            end = datetime(year, month, 1, tzinfo=timezone.utc)
+            return start.isoformat(), end.isoformat()
+        if config.reset_policy == "rolling":
+            delta = timedelta(days=1 if config.period == "daily" else 30)
+            try:
+                start = datetime.fromisoformat(config.updated_at)
+            except Exception:
+                start = now
+            end = start + delta
+            return start.astimezone(timezone.utc).isoformat(), end.astimezone(timezone.utc).isoformat()
+        try:
+            start = datetime.fromisoformat(config.updated_at)
+        except Exception:
+            start = now
+        end = start + timedelta(days=365)
+        return start.astimezone(timezone.utc).isoformat(), end.astimezone(timezone.utc).isoformat()
+
+    def _grant_limits(self, *, compute_unit: str, money_limit: float | None, compute_limit: float | None) -> tuple[dict[str, Any], dict[str, Any]]:
+        limits: dict[str, Any] = {}
+        metadata: dict[str, Any] = {}
+        if money_limit is not None:
+            limits["max_cost_cents"] = max(0, int(round(float(money_limit) * 100)))
+        if compute_limit is not None:
+            if compute_unit == "tokens":
+                limits["max_tokens"] = max(0, int(round(float(compute_limit))))
+            elif compute_unit == "requests":
+                limits["max_requests"] = max(0, int(round(float(compute_limit))))
+            else:
+                metadata["compute_unit"] = compute_unit
+                metadata["max_compute_units"] = round(float(compute_limit), 6)
+        return limits, metadata
+
+    def _grant_record(
+        self,
+        *,
+        node_id: str,
+        scope_kind: str,
+        subject_id: str | None,
+        money_limit: float | None,
+        compute_limit: float | None,
+        compute_unit: str,
+        enforcement_mode: str,
+        period_start: str,
+        period_end: str,
+        governance_version: str | None,
+        policy_version: str,
+    ) -> NodeBudgetGrantRecord:
+        limits, metadata = self._grant_limits(compute_unit=compute_unit, money_limit=money_limit, compute_limit=compute_limit)
+        metadata.update({"scope_kind": scope_kind, "enforcement_mode": enforcement_mode})
+        if subject_id:
+            metadata["subject_id"] = subject_id
+        grant_suffix = scope_kind if not subject_id else f"{scope_kind}:{subject_id}"
+        status = "expired" if datetime.fromisoformat(period_end) <= datetime.now(timezone.utc) else "active"
+        return NodeBudgetGrantRecord(
+            grant_id=f"grant:{node_id}:{grant_suffix}",
+            consumer_node_id=node_id,
+            service=NODE_BUDGET_SERVICE_ID,
+            period_start=period_start,
+            period_end=period_end,
+            limits=limits,
+            status=status,
+            scope_kind=scope_kind,
+            subject_id=subject_id,
+            governance_version=governance_version,
+            budget_policy_version=policy_version,
+            metadata=metadata,
+            issued_at=period_start,
+        )
 
     def _committed_scope_amount(self, *, node_id: str, money: bool, customer_id: str | None = None, provider_id: str | None = None) -> float:
         total = 0.0

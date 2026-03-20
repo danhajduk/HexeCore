@@ -21,6 +21,9 @@ from app.system.onboarding.capability_acceptance import NodeCapabilityAcceptance
 from app.system.onboarding.capability_profiles import NodeCapabilityProfilesStore
 from app.system.onboarding.governance import NodeGovernanceService, NodeGovernanceStore
 from app.system.onboarding.governance_status import NodeGovernanceStatusService, NodeGovernanceStatusStore
+from app.system.onboarding.provider_model_policy import ProviderModelApprovalPolicyService, ProviderModelPolicyStore
+from app.system.onboarding.node_budgeting import NodeBudgetService, NodeBudgetStore
+from app.system.onboarding.model_routing_registry import ModelRoutingRegistryService, ModelRoutingRegistryStore
 from app.api import system as system_api
 
 
@@ -52,9 +55,22 @@ class TestNodeGovernanceApi(unittest.TestCase):
         self.trust_store = NodeTrustStore(path=Path(self.tmpdir.name) / "node_trust_records.json")
         self.trust_issuance = NodeTrustIssuanceService(self.trust_store)
         self.capability_profiles = NodeCapabilityProfilesStore(path=Path(self.tmpdir.name) / "node_capability_profiles.json")
-        self.capability_acceptance = NodeCapabilityAcceptanceService(self.capability_profiles)
+        self.provider_policy_store = ProviderModelPolicyStore(path=Path(self.tmpdir.name) / "provider_model_policy.json")
+        self.provider_policy = ProviderModelApprovalPolicyService(self.provider_policy_store)
+        self.capability_acceptance = NodeCapabilityAcceptanceService(
+            self.capability_profiles,
+            provider_model_policy=self.provider_policy,
+        )
+        self.routing_store = ModelRoutingRegistryStore(path=Path(self.tmpdir.name) / "model_routing_registry.json")
+        self.routing_service = ModelRoutingRegistryService(self.routing_store)
+        self.budget_store = NodeBudgetStore(path=Path(self.tmpdir.name) / "node_budgets.json")
+        self.budget_service = NodeBudgetService(self.budget_store, self.routing_service)
         self.governance_store = NodeGovernanceStore(path=Path(self.tmpdir.name) / "node_governance_bundles.json")
-        self.governance_service = NodeGovernanceService(self.governance_store)
+        self.governance_service = NodeGovernanceService(
+            self.governance_store,
+            provider_model_policy=self.provider_policy,
+            node_budget_service=self.budget_service,
+        )
         self.governance_status_store = NodeGovernanceStatusStore(path=Path(self.tmpdir.name) / "node_governance_status.json")
         self.governance_status_service = NodeGovernanceStatusService(self.governance_status_store)
         app = FastAPI()
@@ -67,6 +83,8 @@ class TestNodeGovernanceApi(unittest.TestCase):
                 node_capability_acceptance=self.capability_acceptance,
                 node_governance_service=self.governance_service,
                 node_governance_status_service=self.governance_status_service,
+                node_budget_service=self.budget_service,
+                provider_model_policy_service=self.provider_policy,
             ),
             prefix="/api",
         )
@@ -197,6 +215,45 @@ class TestNodeGovernanceApi(unittest.TestCase):
         self.assertEqual(node["governance_sync_status"], "issued")
         self.assertTrue(bool(node["operational_ready"]))
         self.assertEqual(node["active_governance_version"], governance_version)
+
+    def test_governance_bundle_includes_budget_policy_and_routing_constraints(self) -> None:
+        node_id, trust_token = self._trusted_node()
+        self.provider_policy.set_allowlist(provider="openai", allowed_models=["gpt-4o-mini"], updated_by="test")
+        declared = self.client.post(
+            "/api/system/nodes/capabilities/declaration",
+            json={"manifest": self._manifest(node_id)},
+            headers={"X-Node-Trust-Token": trust_token},
+        )
+        self.assertEqual(declared.status_code, 200, declared.text)
+
+        budget_declared = self.client.post(
+            "/api/system/nodes/budgets/declaration",
+            headers={"X-Node-Trust-Token": trust_token},
+            json={"node_id": node_id, "compute_unit": "tokens"},
+        )
+        self.assertEqual(budget_declared.status_code, 200, budget_declared.text)
+        configured = self.client.put(
+            f"/api/system/nodes/budgets/{node_id}",
+            headers={"X-Admin-Token": "test-token"},
+            json={"node_budget": {"node_money_limit": 10.0, "node_compute_limit": 5000.0, "compute_unit": "tokens"}},
+        )
+        self.assertEqual(configured.status_code, 200, configured.text)
+
+        res = self.client.get(
+            f"/api/system/nodes/governance/current?node_id={node_id}",
+            headers={"X-Node-Trust-Token": trust_token},
+        )
+        self.assertEqual(res.status_code, 200, res.text)
+        bundle = res.json()["governance_bundle"]
+        self.assertIn("routing_policy_constraints", bundle)
+        self.assertEqual(bundle["routing_policy_constraints"]["allowed_providers"], ["openai"])
+        self.assertEqual(bundle["routing_policy_constraints"]["allowed_task_families"], ["task.classification", "task.summarization"])
+        self.assertEqual(bundle["routing_policy_constraints"]["allowed_models"]["openai"], ["gpt-4o-mini"])
+        self.assertIn("budget_policy", bundle)
+        self.assertEqual(bundle["budget_policy"]["status"], "active")
+        self.assertEqual(bundle["budget_policy"]["service"], "ai.inference")
+        self.assertTrue(bundle["budget_policy"]["budget_policy_version"].startswith("nbp-"))
+        self.assertGreaterEqual(len(bundle["budget_policy"]["grants"]), 1)
 
     def test_governance_refresh_returns_updated_bundle_when_version_changes(self) -> None:
         node_id, trust_token = self._trusted_node()

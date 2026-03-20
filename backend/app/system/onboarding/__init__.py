@@ -30,9 +30,11 @@ from .node_budgeting import (
     NodeBudgetAllocationRecord,
     NodeBudgetCapabilityRecord,
     NodeBudgetConfigRecord,
+    NodeBudgetGrantRecord,
     NodeBudgetReservationRecord,
     NodeBudgetService,
     NodeBudgetStore,
+    NodeBudgetUsageReportRecord,
 )
 
 __all__ = [
@@ -78,7 +80,9 @@ __all__ = [
     "NodeBudgetAllocationRecord",
     "NodeBudgetCapabilityRecord",
     "NodeBudgetConfigRecord",
+    "NodeBudgetGrantRecord",
     "NodeBudgetReservationRecord",
     "NodeBudgetStore",
     "NodeBudgetService",
+    "NodeBudgetUsageReportRecord",
 ]

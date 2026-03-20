@@ -33,6 +33,7 @@ from ..system.onboarding import (
     normalize_provider_capability_report,
     validate_capability_declaration,
 )
+from ..system.onboarding.provider_capability_normalization import normalize_capacity_descriptor
 from ..system.runtime import StandaloneRuntimeService
 from .admin import require_admin_token
 
@@ -79,6 +80,7 @@ class ProviderModelPolicyUpdateRequest(BaseModel):
 class ProviderCapabilityReportRequest(BaseModel):
     node_id: str
     provider_intelligence: list[dict]
+    service_capacity: dict | None = None
     node_available: bool = True
     observed_at: str | None = None
 
@@ -129,6 +131,26 @@ class NodeBudgetUsageReportRequest(BaseModel):
     status: str
     actual_money_spend: float | None = None
     actual_compute_spend: float | None = None
+
+
+class NodeBudgetPolicyRefreshRequest(BaseModel):
+    node_id: str
+    current_budget_policy_version: str | None = None
+    current_governance_version: str | None = None
+
+
+class NodeBudgetUsageSummaryRequest(BaseModel):
+    node_id: str
+    service: str = "ai.inference"
+    grant_id: str
+    period_start: str | None = None
+    period_end: str | None = None
+    used_requests: int = 0
+    used_tokens: int = 0
+    used_cost_cents: int = 0
+    denials: int = 0
+    error_counts: dict | None = None
+    metadata: dict | None = None
 
 
 class NodeBudgetTopUpRequest(BaseModel):
@@ -256,6 +278,15 @@ def _utcnow_iso() -> str:
 def _node_topic_scope(node_id: str) -> str:
     node_key = str(node_id or "").strip()
     return f"synthia/nodes/{node_key}/#"
+
+
+def _profile_for_registration(node_capability_acceptance, registration):
+    if node_capability_acceptance is None or registration is None:
+        return None
+    profile_id = str(getattr(registration, "capability_profile_id", "") or "").strip()
+    if not profile_id:
+        return None
+    return node_capability_acceptance.get_profile(profile_id)
 
 
 _RATE_WINDOWS: dict[str, list[float]] = {}
@@ -388,6 +419,7 @@ def _session_payload(session) -> dict[str, object]:
 def build_system_router(
     registry: AddonRegistry,
     runtime_service: StandaloneRuntimeService | None = None,
+    mqtt_manager=None,
     mqtt_approval_service=None,
     mqtt_integration_state_store=None,
     mqtt_credential_store=None,
@@ -458,6 +490,53 @@ def build_system_router(
         if not configured:
             raise HTTPException(status_code=503, detail="mqtt_node_credential_write_failed")
         await _reconcile_mqtt_authority(reason=f"node_finalize:{node_id}")
+
+    def _ensure_node_governance_bundle(node_id: str):
+        if (
+            node_governance_service is None
+            or node_registrations_store is None
+            or node_capability_acceptance is None
+        ):
+            return None
+        registration = node_registrations_store.get(node_id)
+        profile = _profile_for_registration(node_capability_acceptance, registration)
+        if registration is None or profile is None:
+            return None
+        bundle = node_governance_service.ensure_current_for_node(
+            node_id=node_id,
+            node_type=str(getattr(registration, "node_type", "") or ""),
+            profile=profile,
+        )
+        if node_governance_status_service is not None:
+            node_governance_status_service.mark_issued(
+                node_id=node_id,
+                governance_version=bundle.governance_version,
+                issued_timestamp=bundle.issued_timestamp,
+            )
+        return bundle
+
+    async def _publish_budget_policy_snapshot(node_id: str):
+        if mqtt_manager is None or node_budget_service is None:
+            return []
+        bundle = _ensure_node_governance_bundle(node_id)
+        governance_version = str(getattr(bundle, "governance_version", "") or "") or None
+        payload = node_budget_service.budget_policy(node_id, governance_version=governance_version)
+        publishes = []
+        for topic in node_budget_service.budget_grant_topics(node_id):
+            publishes.append(await mqtt_manager.publish(topic=topic, payload=payload, retain=True, qos=1))
+        return publishes
+
+    async def _publish_budget_revocations(node_id: str, *, reason: str):
+        if mqtt_manager is None or node_budget_service is None:
+            return []
+        publishes = []
+        for payload in node_budget_service.budget_revocation_payloads(node_id, reason=reason):
+            for topic in node_budget_service.budget_revocation_topics(
+                node_id=node_id,
+                grant_id=str(payload.get("grant_id") or "").strip() or None,
+            ):
+                publishes.append(await mqtt_manager.publish(topic=topic, payload=payload, retain=True, qos=1))
+        return publishes
 
     async def _deprovision_node_mqtt_principal(node_id: str, *, reason: str) -> None:
         node_key = str(node_id or "").strip()
@@ -770,7 +849,7 @@ def build_system_router(
             )
         issued_governance = None
         if node_governance_service is not None and profile is not None:
-            issued_governance = node_governance_service.issue_baseline_for_profile(
+            issued_governance = node_governance_service.ensure_current_for_node(
                 node_id=node_id,
                 node_type=registration.node_type,
                 profile=profile,
@@ -883,6 +962,88 @@ def build_system_router(
             raise HTTPException(status_code=503, detail="node_budgeting_unavailable")
         return {"ok": True, "items": node_budget_service.list_bundles()}
 
+    @router.get("/system/nodes/budgets/policy/current")
+    def get_node_budget_policy_current(
+        response: Response,
+        node_id: str = Query(...),
+        x_node_trust_token: str | None = Header(default=None),
+    ):
+        node_token = str(x_node_trust_token or "").strip()
+        if not node_token:
+            raise HTTPException(status_code=401, detail="node_trust_token_required")
+        if node_budget_service is None:
+            raise HTTPException(status_code=503, detail="node_budgeting_unavailable")
+        if node_registrations_store is None:
+            raise HTTPException(status_code=503, detail="node_registrations_unavailable")
+        if node_trust_issuance is None:
+            raise HTTPException(status_code=503, detail="trust_issuance_unavailable")
+        if node_trust_issuance.authenticate_node(node_id, node_token) is None:
+            raise HTTPException(status_code=403, detail={"error": "untrusted_node", "message": "node not trusted"})
+        registration = node_registrations_store.get(node_id)
+        if registration is None or str(registration.trust_status or "").strip().lower() != "trusted":
+            raise HTTPException(status_code=403, detail={"error": "untrusted_node", "message": "node not registered"})
+        governance_bundle = _ensure_node_governance_bundle(node_id)
+        governance_version = str(getattr(governance_bundle, "governance_version", "") or "") or None
+        policy = node_budget_service.budget_policy(node_id, governance_version=governance_version)
+        response.headers["Cache-Control"] = "private, max-age=60"
+        return {
+            "ok": True,
+            "node_id": node_id,
+            "governance_version": governance_version,
+            "budget_policy_version": policy.get("budget_policy_version"),
+            "refresh_interval_s": 60,
+            "budget_policy": policy,
+        }
+
+    @router.post("/system/nodes/budgets/policy/refresh")
+    def refresh_node_budget_policy(
+        response: Response,
+        body: NodeBudgetPolicyRefreshRequest,
+        x_node_trust_token: str | None = Header(default=None),
+    ):
+        node_id = str(body.node_id or "").strip()
+        node_token = str(x_node_trust_token or "").strip()
+        if not node_id:
+            raise HTTPException(status_code=400, detail={"error": "node_id_required", "message": "node_id is required"})
+        if not node_token:
+            raise HTTPException(status_code=401, detail="node_trust_token_required")
+        if node_budget_service is None:
+            raise HTTPException(status_code=503, detail="node_budgeting_unavailable")
+        if node_registrations_store is None:
+            raise HTTPException(status_code=503, detail="node_registrations_unavailable")
+        if node_trust_issuance is None:
+            raise HTTPException(status_code=503, detail="trust_issuance_unavailable")
+        if node_trust_issuance.authenticate_node(node_id, node_token) is None:
+            raise HTTPException(status_code=403, detail={"error": "untrusted_node", "message": "node not trusted"})
+        registration = node_registrations_store.get(node_id)
+        if registration is None or str(registration.trust_status or "").strip().lower() != "trusted":
+            raise HTTPException(status_code=403, detail={"error": "untrusted_node", "message": "node not registered"})
+        governance_bundle = _ensure_node_governance_bundle(node_id)
+        governance_version = str(getattr(governance_bundle, "governance_version", "") or "") or None
+        policy = node_budget_service.budget_policy(node_id, governance_version=governance_version)
+        response.headers["Cache-Control"] = "private, max-age=5"
+        current_budget_policy_version = str(body.current_budget_policy_version or "").strip()
+        current_governance_version = str(body.current_governance_version or "").strip()
+        if current_budget_policy_version and current_budget_policy_version == str(policy.get("budget_policy_version") or ""):
+            if not current_governance_version or current_governance_version == str(governance_version or ""):
+                return {
+                    "ok": True,
+                    "node_id": node_id,
+                    "governance_version": governance_version,
+                    "budget_policy_version": policy.get("budget_policy_version"),
+                    "updated": False,
+                    "refresh_interval_s": 60,
+                }
+        return {
+            "ok": True,
+            "node_id": node_id,
+            "governance_version": governance_version,
+            "budget_policy_version": policy.get("budget_policy_version"),
+            "updated": True,
+            "refresh_interval_s": 60,
+            "budget_policy": policy,
+        }
+
     @router.get("/system/nodes/budgets/export")
     def export_node_budget_usage(
         request: Request,
@@ -946,7 +1107,7 @@ def build_system_router(
             raise HTTPException(status_code=404, detail=str(exc))
 
     @router.put("/system/nodes/budgets/{node_id}")
-    def upsert_node_budget_bundle(
+    async def upsert_node_budget_bundle(
         node_id: str,
         body: NodeBudgetBundleUpsertRequest,
         request: Request,
@@ -975,10 +1136,11 @@ def build_system_router(
                 "provider_allocation_count": len(bundle.get("provider_allocations") or []),
             },
         )
+        await _publish_budget_policy_snapshot(node_id)
         return {"ok": True, "budget": bundle}
 
     @router.delete("/system/nodes/budgets/{node_id}")
-    def delete_node_budget_bundle(
+    async def delete_node_budget_bundle(
         node_id: str,
         request: Request,
         x_admin_token: str | None = Header(default=None),
@@ -986,6 +1148,7 @@ def build_system_router(
         require_admin_token(x_admin_token, request)
         if node_budget_service is None:
             raise HTTPException(status_code=503, detail="node_budgeting_unavailable")
+        revocation_payloads = node_budget_service.budget_revocation_payloads(node_id, reason="budget_policy_removed")
         try:
             budget = node_budget_service.delete_node_budget(node_id)
         except ValueError as exc:
@@ -997,6 +1160,13 @@ def build_system_router(
             actor_id=_admin_actor(x_admin_token),
             details={"node_id": node_id},
         )
+        if mqtt_manager is not None:
+            for payload in revocation_payloads:
+                for topic in node_budget_service.budget_revocation_topics(
+                    node_id=node_id,
+                    grant_id=str(payload.get("grant_id") or "").strip() or None,
+                ):
+                    await mqtt_manager.publish(topic=topic, payload=payload, retain=True, qos=1)
         return {"ok": True, "budget": budget}
 
     @router.get("/system/nodes/budgets/{node_id}/customers")
@@ -1011,7 +1181,7 @@ def build_system_router(
         return {"ok": True, "items": node_budget_service.list_allocations(node_id=node_id, kind="customer")}
 
     @router.put("/system/nodes/budgets/{node_id}/customers/{customer_id}")
-    def upsert_customer_budget_allocation(
+    async def upsert_customer_budget_allocation(
         node_id: str,
         customer_id: str,
         body: BudgetAllocationUpsertRequest,
@@ -1034,10 +1204,11 @@ def build_system_router(
             actor_id=_admin_actor(x_admin_token),
             details={"node_id": node_id, "customer_id": customer_id},
         )
+        await _publish_budget_policy_snapshot(node_id)
         return {"ok": True, "allocation": item}
 
     @router.delete("/system/nodes/budgets/{node_id}/customers/{customer_id}")
-    def delete_customer_budget_allocation(
+    async def delete_customer_budget_allocation(
         node_id: str,
         customer_id: str,
         request: Request,
@@ -1057,6 +1228,7 @@ def build_system_router(
             actor_id=_admin_actor(x_admin_token),
             details={"node_id": node_id, "customer_id": customer_id},
         )
+        await _publish_budget_policy_snapshot(node_id)
         return {"ok": True, "allocation": item}
 
     @router.get("/system/nodes/budgets/{node_id}/providers")
@@ -1071,7 +1243,7 @@ def build_system_router(
         return {"ok": True, "items": node_budget_service.list_allocations(node_id=node_id, kind="provider")}
 
     @router.put("/system/nodes/budgets/{node_id}/providers/{provider_id}")
-    def upsert_provider_budget_allocation(
+    async def upsert_provider_budget_allocation(
         node_id: str,
         provider_id: str,
         body: BudgetAllocationUpsertRequest,
@@ -1094,10 +1266,11 @@ def build_system_router(
             actor_id=_admin_actor(x_admin_token),
             details={"node_id": node_id, "provider_id": provider_id},
         )
+        await _publish_budget_policy_snapshot(node_id)
         return {"ok": True, "allocation": item}
 
     @router.delete("/system/nodes/budgets/{node_id}/providers/{provider_id}")
-    def delete_provider_budget_allocation(
+    async def delete_provider_budget_allocation(
         node_id: str,
         provider_id: str,
         request: Request,
@@ -1117,6 +1290,7 @@ def build_system_router(
             actor_id=_admin_actor(x_admin_token),
             details={"node_id": node_id, "provider_id": provider_id},
         )
+        await _publish_budget_policy_snapshot(node_id)
         return {"ok": True, "allocation": item}
 
     @router.get("/system/nodes/budgets/{node_id}/usage")
@@ -1133,8 +1307,22 @@ def build_system_router(
         except ValueError as exc:
             raise HTTPException(status_code=404, detail={"error": str(exc), "message": str(exc)})
 
+    @router.get("/system/nodes/budgets/{node_id}/usage-reports")
+    def list_node_budget_usage_reports(
+        node_id: str,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        if node_budget_service is None:
+            raise HTTPException(status_code=503, detail="node_budgeting_unavailable")
+        try:
+            return {"ok": True, "items": node_budget_service.list_usage_reports(node_id=node_id)}
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail={"error": str(exc), "message": str(exc)})
+
     @router.post("/system/nodes/budgets/{node_id}/top-up")
-    def top_up_node_budget(
+    async def top_up_node_budget(
         node_id: str,
         body: NodeBudgetTopUpRequest,
         request: Request,
@@ -1158,10 +1346,11 @@ def build_system_router(
             actor_id=_admin_actor(x_admin_token),
             details={"node_id": node_id, "money_delta": body.money_delta, "compute_delta": body.compute_delta},
         )
+        await _publish_budget_policy_snapshot(node_id)
         return {"ok": True, "budget": budget}
 
     @router.post("/system/nodes/budgets/{node_id}/reset")
-    def reset_node_budget_usage(
+    async def reset_node_budget_usage(
         node_id: str,
         request: Request,
         x_admin_token: str | None = Header(default=None),
@@ -1180,10 +1369,11 @@ def build_system_router(
             actor_id=_admin_actor(x_admin_token),
             details={"node_id": node_id},
         )
+        await _publish_budget_policy_snapshot(node_id)
         return {"ok": True, "budget": budget}
 
     @router.post("/system/nodes/budgets/{node_id}/override")
-    def override_node_budget(
+    async def override_node_budget(
         node_id: str,
         body: NodeBudgetOverrideRequest,
         request: Request,
@@ -1207,6 +1397,7 @@ def build_system_router(
             actor_id=_admin_actor(x_admin_token),
             details={"node_id": node_id, "enforcement_mode": body.enforcement_mode, "overcommit_enabled": body.overcommit_enabled},
         )
+        await _publish_budget_policy_snapshot(node_id)
         return {"ok": True, "budget": budget}
 
     @router.post("/system/nodes/budgets/{node_id}/force-release")
@@ -1287,6 +1478,50 @@ def build_system_router(
         )
         return {"ok": True, "node_id": node_id, "reservation": reservation, "budget": node_budget_service.get_bundle(node_id)}
 
+    @router.post("/system/nodes/budgets/usage-summary")
+    def report_node_budget_usage_summary(
+        body: NodeBudgetUsageSummaryRequest,
+        request: Request,
+        x_node_trust_token: str | None = Header(default=None),
+    ):
+        node_token = str(x_node_trust_token or "").strip()
+        if not node_token:
+            raise HTTPException(status_code=401, detail="node_trust_token_required")
+        if node_budget_service is None:
+            raise HTTPException(status_code=503, detail="node_budgeting_unavailable")
+        if node_registrations_store is None:
+            raise HTTPException(status_code=503, detail="node_registrations_unavailable")
+        if node_trust_issuance is None:
+            raise HTTPException(status_code=503, detail="trust_issuance_unavailable")
+        node_id = str(body.node_id or "").strip()
+        trust_record = node_trust_issuance.authenticate_node(node_id, node_token)
+        if trust_record is None:
+            raise HTTPException(status_code=403, detail={"error": "untrusted_node", "message": "node not trusted"})
+        registration = node_registrations_store.get(node_id)
+        if registration is None or str(registration.trust_status or "").strip().lower() != "trusted":
+            raise HTTPException(status_code=403, detail={"error": "untrusted_node", "message": "node not registered"})
+        payload = body.model_dump(mode="json")
+        payload["error_counts"] = payload.get("error_counts") or {}
+        payload["metadata"] = payload.get("metadata") or {}
+        try:
+            report = node_budget_service.report_usage_summary(node_id=node_id, payload=payload)
+        except ValueError as exc:
+            error = str(exc)
+            raise HTTPException(status_code=400, detail={"error": error, "message": error})
+        _record_audit(
+            audit_store,
+            event_type="node_budget_usage_summary_reported",
+            actor_role="node",
+            actor_id=node_id,
+            details={
+                "node_id": node_id,
+                "grant_id": str(body.grant_id or "").strip(),
+                "service": str(body.service or "").strip() or "ai.inference",
+                "source_ip": str(request.client.host if request.client else "unknown"),
+            },
+        )
+        return {"ok": True, "node_id": node_id, "report": report}
+
     @router.post("/system/nodes/providers/capabilities/report")
     def report_provider_capabilities(
         body: ProviderCapabilityReportRequest,
@@ -1317,6 +1552,7 @@ def build_system_router(
             )
 
         try:
+            normalized_service_capacity = normalize_capacity_descriptor(body.service_capacity, scope="service")
             normalized_providers, unified_model_descriptors = normalize_provider_capability_report(
                 list(body.provider_intelligence or []),
                 node_available=bool(body.node_available),
@@ -1327,12 +1563,17 @@ def build_system_router(
                 detail={"error": str(exc) or "provider_capability_report_invalid", "message": "invalid provider capability report"},
             )
 
+        if normalized_service_capacity:
+            normalized_providers = [
+                {**dict(item), "service_capacity": dict(normalized_service_capacity)} for item in normalized_providers
+            ]
         registration.provider_intelligence = [dict(item) for item in normalized_providers]
         node_registrations_store.upsert(registration)
         if model_routing_registry_service is not None:
             model_routing_registry_service.record_provider_intelligence(
                 node_id=node_id,
                 provider_intelligence=[dict(item) for item in normalized_providers],
+                service_capacity=normalized_service_capacity,
                 node_available=bool(body.node_available),
                 source="provider_capability_report",
             )
@@ -1347,6 +1588,7 @@ def build_system_router(
                 "provider_count": len(normalized_providers),
                 "descriptor_count": len(unified_model_descriptors),
                 "node_available": bool(body.node_available),
+                "service_capacity_declared": bool(normalized_service_capacity),
                 "source_ip": str(request.client.host if request.client else "unknown"),
             },
         )
@@ -1356,6 +1598,7 @@ def build_system_router(
             "associated_node_id": registration.node_id,
             "provider_intelligence": [dict(item) for item in normalized_providers],
             "unified_model_descriptors": [dict(item) for item in unified_model_descriptors],
+            "service_capacity": normalized_service_capacity,
             "node_available": bool(body.node_available),
             "observed_at": str(body.observed_at or "").strip() or None,
         }
@@ -1506,7 +1749,11 @@ def build_system_router(
                 detail={"error": "capability_declaration_required", "message": "node capability declaration required"},
             )
 
-        bundle = node_governance_service.get_current_for_node(node_id=node_key, capability_profile_id=profile_id)
+        bundle = _ensure_node_governance_bundle(node_key)
+        if bundle is not None and str(bundle.capability_profile_id or "").strip() != profile_id:
+            bundle = None
+        if bundle is None:
+            bundle = node_governance_service.get_current_for_node(node_id=node_key, capability_profile_id=profile_id)
         if bundle is None:
             raise HTTPException(
                 status_code=404,
@@ -1571,7 +1818,11 @@ def build_system_router(
                 detail={"error": "capability_declaration_required", "message": "node capability declaration required"},
             )
 
-        bundle = node_governance_service.get_current_for_node(node_id=node_key, capability_profile_id=profile_id)
+        bundle = _ensure_node_governance_bundle(node_key)
+        if bundle is not None and str(bundle.capability_profile_id or "").strip() != profile_id:
+            bundle = None
+        if bundle is None:
+            bundle = node_governance_service.get_current_for_node(node_id=node_key, capability_profile_id=profile_id)
         if bundle is None:
             raise HTTPException(
                 status_code=404,

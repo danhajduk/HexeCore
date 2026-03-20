@@ -474,14 +474,18 @@ def create_app() -> FastAPI:
         node_capability_profiles_store,
         provider_model_policy=provider_model_policy_service,
     )
+    node_budget_store = NodeBudgetStore()
+    node_budget_service = NodeBudgetService(node_budget_store, model_routing_registry_service)
     node_governance_store = NodeGovernanceStore()
-    node_governance_service = NodeGovernanceService(node_governance_store)
+    node_governance_service = NodeGovernanceService(
+        node_governance_store,
+        provider_model_policy=provider_model_policy_service,
+        node_budget_service=node_budget_service,
+    )
     node_governance_status_store = NodeGovernanceStatusStore()
     node_governance_status_service = NodeGovernanceStatusService(node_governance_status_store)
     node_telemetry_store = NodeTelemetryStore()
     node_telemetry_service = NodeTelemetryService(node_telemetry_store)
-    node_budget_store = NodeBudgetStore()
-    node_budget_service = NodeBudgetService(node_budget_store, model_routing_registry_service)
     app.state.install_sessions_store = install_sessions_store
     app.state.node_onboarding_sessions_store = node_onboarding_sessions_store
     app.state.node_registrations_store = node_registrations_store
@@ -624,7 +628,8 @@ def create_app() -> FastAPI:
         build_system_router(
             registry,
             runtime_service,
-            mqtt_registration_approval,
+            mqtt_manager=mqtt_manager,
+            mqtt_approval_service=mqtt_registration_approval,
             mqtt_integration_state_store=mqtt_integration_state_store,
             mqtt_credential_store=mqtt_credential_store,
             mqtt_runtime_reconciler=mqtt_startup_reconciler,
