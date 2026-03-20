@@ -203,6 +203,9 @@ Operators can:
 - configure customer allocation JSON
 - configure provider allocation JSON when supported
 - save the resulting budget configuration back to Core
+- inspect node-level usage totals and threshold alerts
+- inspect explicit customer/provider scope summaries
+- run top-up, reset, override, and force-release actions from the same budget card
 
 ## Example
 

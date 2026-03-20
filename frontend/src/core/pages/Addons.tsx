@@ -123,6 +123,7 @@ type NodeBudgetBundle = {
   node_budget?: NodeBudgetConfig | null;
   customer_allocations?: NodeBudgetAllocation[];
   provider_allocations?: NodeBudgetAllocation[];
+  usage_summary?: NodeBudgetUsageSummary;
 };
 
 type NodeBudgetDraft = {
@@ -138,6 +139,49 @@ type NodeBudgetDraft = {
   nodeComputeLimit: string;
   customerAllocationsJson: string;
   providerAllocationsJson: string;
+};
+
+type BudgetAlert = {
+  scope_kind?: string;
+  subject_id?: string | null;
+  metric?: string;
+  threshold?: number;
+  severity?: string;
+  utilization?: number;
+  used?: number;
+  limit?: number;
+};
+
+type BudgetScopeUsage = {
+  scope_kind?: string;
+  subject_id?: string | null;
+  money_limit?: number | null;
+  compute_limit?: number | null;
+  reserved_money?: number;
+  reserved_compute?: number;
+  actual_money?: number;
+  actual_compute?: number;
+  remaining_money?: number | null;
+  remaining_compute?: number | null;
+  money_utilization?: number | null;
+  compute_utilization?: number | null;
+  alerts?: BudgetAlert[];
+};
+
+type NodeBudgetUsageSummary = {
+  node?: BudgetScopeUsage;
+  customers?: BudgetScopeUsage[];
+  providers?: BudgetScopeUsage[];
+  alerts?: BudgetAlert[];
+};
+
+type NodeBudgetManualDraft = {
+  topUpMoney: string;
+  topUpCompute: string;
+  overrideMode: string;
+  overrideOvercommit: boolean;
+  forceReleaseJobId: string;
+  forceReleaseReason: string;
 };
 
 type RoutingModelMetadata = {
@@ -276,6 +320,39 @@ function parseAllocationsJson(raw: string): NodeBudgetAllocation[] {
   }));
 }
 
+function buildBudgetManualDraft(bundle?: NodeBudgetBundle | null): NodeBudgetManualDraft {
+  return {
+    topUpMoney: "",
+    topUpCompute: "",
+    overrideMode: String(bundle?.node_budget?.enforcement_mode || "hard_stop"),
+    overrideOvercommit: Boolean(bundle?.node_budget?.overcommit_enabled),
+    forceReleaseJobId: "",
+    forceReleaseReason: "forced_release",
+  };
+}
+
+function formatBudgetNumber(value?: number | null, digits = 2): string {
+  if (value == null || !Number.isFinite(value)) return "-";
+  return Number(value).toFixed(digits);
+}
+
+function formatBudgetPercent(value?: number | null): string {
+  if (value == null || !Number.isFinite(value)) return "-";
+  return `${Math.round(value * 100)}%`;
+}
+
+function budgetAlertLabel(alert: BudgetAlert): string {
+  const scope = sentenceCase(alert.scope_kind || "node");
+  const subject = alert.subject_id ? ` ${alert.subject_id}` : "";
+  const metric = sentenceCase(alert.metric || "usage");
+  return `${scope}${subject}: ${metric} ${formatBudgetPercent(alert.utilization)} of ${formatBudgetNumber(alert.limit)}`;
+}
+
+function scopeBudgetLabel(scope: BudgetScopeUsage): string {
+  const kind = sentenceCase(scope.scope_kind || "scope");
+  return scope.subject_id ? `${kind}: ${scope.subject_id}` : kind;
+}
+
 export default function Addons() {
   const { authenticated: isAdmin } = useAdminSession();
   const [addons, setAddons] = useState<AddonInfo[]>([]);
@@ -292,6 +369,7 @@ export default function Addons() {
   const [routingBusy, setRoutingBusy] = useState(false);
   const [budgetsByNode, setBudgetsByNode] = useState<Record<string, NodeBudgetBundle>>({});
   const [budgetDraftByNode, setBudgetDraftByNode] = useState<Record<string, NodeBudgetDraft>>({});
+  const [budgetManualDraftByNode, setBudgetManualDraftByNode] = useState<Record<string, NodeBudgetManualDraft>>({});
   const [budgetBusyNode, setBudgetBusyNode] = useState<string | null>(null);
   const [budgetMessageByNode, setBudgetMessageByNode] = useState<Record<string, string | null>>({});
   const [nodesTab, setNodesTab] = useState<"installed" | "pending">("installed");
@@ -408,14 +486,20 @@ export default function Addons() {
       const items = Array.isArray(payload.items) ? payload.items : [];
       const mapped: Record<string, NodeBudgetBundle> = {};
       const drafts: Record<string, NodeBudgetDraft> = {};
+      const manualDrafts: Record<string, NodeBudgetManualDraft> = {};
       for (const item of items) {
         const key = String(item?.node_id || "").trim();
         if (!key) continue;
         mapped[key] = item;
         drafts[key] = buildBudgetDraft(item);
+        manualDrafts[key] = buildBudgetManualDraft(item);
       }
       setBudgetsByNode(mapped);
       setBudgetDraftByNode((prev) => ({ ...drafts, ...Object.fromEntries(Object.entries(prev).filter(([key]) => !(key in drafts))) }));
+      setBudgetManualDraftByNode((prev) => ({
+        ...manualDrafts,
+        ...Object.fromEntries(Object.entries(prev).filter(([key]) => !(key in manualDrafts))),
+      }));
     } catch (e: any) {
       setNodesErr(e?.message ?? String(e));
       setBudgetsByNode({});
@@ -500,6 +584,13 @@ export default function Addons() {
     }));
   }
 
+  function updateBudgetManualDraft(nodeId: string, patch: Partial<NodeBudgetManualDraft>) {
+    setBudgetManualDraftByNode((prev) => ({
+      ...prev,
+      [nodeId]: { ...(prev[nodeId] || buildBudgetManualDraft(budgetsByNode[nodeId])), ...patch },
+    }));
+  }
+
   async function saveNodeBudget(nodeId: string) {
     const target = String(nodeId || "").trim();
     if (!target) return;
@@ -535,8 +626,31 @@ export default function Addons() {
       if (payload.budget?.node_id) {
         setBudgetsByNode((prev) => ({ ...prev, [payload.budget!.node_id]: payload.budget! }));
         setBudgetDraftByNode((prev) => ({ ...prev, [payload.budget!.node_id]: buildBudgetDraft(payload.budget) }));
+        setBudgetManualDraftByNode((prev) => ({ ...prev, [payload.budget!.node_id]: buildBudgetManualDraft(payload.budget) }));
       }
       setBudgetMessageByNode((prev) => ({ ...prev, [target]: "Budget configuration saved." }));
+    } catch (e: any) {
+      setBudgetMessageByNode((prev) => ({ ...prev, [target]: e?.message ?? String(e) }));
+    } finally {
+      setBudgetBusyNode(null);
+    }
+  }
+
+  async function runBudgetAction(nodeId: string, path: string, body: Record<string, unknown>, successMessage: string) {
+    const target = String(nodeId || "").trim();
+    if (!target) return;
+    setBudgetBusyNode(target);
+    setBudgetMessageByNode((prev) => ({ ...prev, [target]: null }));
+    try {
+      const res = await fetch(`/api/system/nodes/budgets/${encodeURIComponent(target)}/${path}`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error(await readError(res));
+      await refreshBudgets();
+      setBudgetMessageByNode((prev) => ({ ...prev, [target]: successMessage }));
     } catch (e: any) {
       setBudgetMessageByNode((prev) => ({ ...prev, [target]: e?.message ?? String(e) }));
     } finally {
@@ -869,8 +983,10 @@ export default function Addons() {
               const routing = routingByNode[item.node_id];
               const budgetBundle = budgetsByNode[item.node_id];
               const budgetDraft = budgetDraftByNode[item.node_id] || buildBudgetDraft(budgetBundle);
+              const budgetManualDraft = budgetManualDraftByNode[item.node_id] || buildBudgetManualDraft(budgetBundle);
               const budgetDeclaration = budgetBundle?.declaration;
               const budgetMessage = budgetMessageByNode[item.node_id];
+              const budgetUsage = budgetBundle?.usage_summary;
               const stages = nodeLifecycle(item);
               const capabilityTags = providerCapabilities(item);
               const providers = routing?.providers ?? [];
@@ -1009,6 +1125,81 @@ export default function Addons() {
                     {budgetDeclaration?.setup_requirements?.length ? (
                       <div className="addon-meta">Setup requirements: {budgetDeclaration.setup_requirements.join(", ")}</div>
                     ) : null}
+                    {budgetUsage?.alerts?.length ? (
+                      <div className="budget-alerts">
+                        {budgetUsage.alerts.map((alert, index) => (
+                          <div key={`${item.node_id}-alert-${index}`} className={`budget-alert budget-alert-${String(alert.severity || "warn")}`}>
+                            {budgetAlertLabel(alert)}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                    {budgetUsage?.node ? (
+                      <div className="budget-usage-grid">
+                        <div className="inventory-detail">
+                          <span className="inventory-label">Reserved Money</span>
+                          <span>{formatBudgetNumber(budgetUsage.node.reserved_money)}</span>
+                        </div>
+                        <div className="inventory-detail">
+                          <span className="inventory-label">Actual Money</span>
+                          <span>{formatBudgetNumber(budgetUsage.node.actual_money)}</span>
+                        </div>
+                        <div className="inventory-detail">
+                          <span className="inventory-label">Remaining Money</span>
+                          <span>{formatBudgetNumber(budgetUsage.node.remaining_money)}</span>
+                        </div>
+                        <div className="inventory-detail">
+                          <span className="inventory-label">Money Use</span>
+                          <span>{formatBudgetPercent(budgetUsage.node.money_utilization)}</span>
+                        </div>
+                        <div className="inventory-detail">
+                          <span className="inventory-label">Reserved Compute</span>
+                          <span>{formatBudgetNumber(budgetUsage.node.reserved_compute, 0)}</span>
+                        </div>
+                        <div className="inventory-detail">
+                          <span className="inventory-label">Actual Compute</span>
+                          <span>{formatBudgetNumber(budgetUsage.node.actual_compute, 0)}</span>
+                        </div>
+                        <div className="inventory-detail">
+                          <span className="inventory-label">Remaining Compute</span>
+                          <span>{formatBudgetNumber(budgetUsage.node.remaining_compute, 0)}</span>
+                        </div>
+                        <div className="inventory-detail">
+                          <span className="inventory-label">Compute Use</span>
+                          <span>{formatBudgetPercent(budgetUsage.node.compute_utilization)}</span>
+                        </div>
+                      </div>
+                    ) : null}
+                    {budgetUsage?.customers?.length ? (
+                      <div className="budget-scope-list">
+                        {budgetUsage.customers.map((scope) => (
+                          <div key={`${item.node_id}-customer-${scope.subject_id}`} className="budget-scope-card">
+                            <div className="inventory-label">{scopeBudgetLabel(scope)}</div>
+                            <div className="addon-meta">
+                              Remaining money {formatBudgetNumber(scope.remaining_money)} • Remaining compute {formatBudgetNumber(scope.remaining_compute, 0)}
+                            </div>
+                            <div className="addon-meta">
+                              Used money {formatBudgetPercent(scope.money_utilization)} • Used compute {formatBudgetPercent(scope.compute_utilization)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                    {budgetUsage?.providers?.length ? (
+                      <div className="budget-scope-list">
+                        {budgetUsage.providers.map((scope) => (
+                          <div key={`${item.node_id}-provider-${scope.subject_id}`} className="budget-scope-card">
+                            <div className="inventory-label">{scopeBudgetLabel(scope)}</div>
+                            <div className="addon-meta">
+                              Remaining money {formatBudgetNumber(scope.remaining_money)} • Remaining compute {formatBudgetNumber(scope.remaining_compute, 0)}
+                            </div>
+                            <div className="addon-meta">
+                              Used money {formatBudgetPercent(scope.money_utilization)} • Used compute {formatBudgetPercent(scope.compute_utilization)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                     {budgetDeclaration ? (
                       <>
                         <div className="budget-grid">
@@ -1070,6 +1261,122 @@ export default function Addons() {
                           </label>
                         ) : null}
                         {budgetMessage ? <div className="addon-meta">{budgetMessage}</div> : null}
+                        {budgetBundle?.node_budget ? (
+                          <>
+                            <div className="budget-manual-grid">
+                              <label className="budget-field">
+                                <span className="inventory-label">Top-Up Money</span>
+                                <input
+                                  value={budgetManualDraft.topUpMoney}
+                                  onChange={(e) => updateBudgetManualDraft(item.node_id, { topUpMoney: e.target.value })}
+                                  placeholder="2.0"
+                                />
+                              </label>
+                              <label className="budget-field">
+                                <span className="inventory-label">Top-Up Compute</span>
+                                <input
+                                  value={budgetManualDraft.topUpCompute}
+                                  onChange={(e) => updateBudgetManualDraft(item.node_id, { topUpCompute: e.target.value })}
+                                  placeholder="25"
+                                />
+                              </label>
+                              <label className="budget-field">
+                                <span className="inventory-label">Override Mode</span>
+                                <input
+                                  value={budgetManualDraft.overrideMode}
+                                  onChange={(e) => updateBudgetManualDraft(item.node_id, { overrideMode: e.target.value })}
+                                />
+                              </label>
+                              <label className="budget-toggle">
+                                <input
+                                  type="checkbox"
+                                  checked={budgetManualDraft.overrideOvercommit}
+                                  onChange={(e) => updateBudgetManualDraft(item.node_id, { overrideOvercommit: e.target.checked })}
+                                />
+                                <span>Override overcommit</span>
+                              </label>
+                              <label className="budget-field">
+                                <span className="inventory-label">Force Release Job</span>
+                                <input
+                                  value={budgetManualDraft.forceReleaseJobId}
+                                  onChange={(e) => updateBudgetManualDraft(item.node_id, { forceReleaseJobId: e.target.value })}
+                                  placeholder="job-123"
+                                />
+                              </label>
+                              <label className="budget-field">
+                                <span className="inventory-label">Release Reason</span>
+                                <input
+                                  value={budgetManualDraft.forceReleaseReason}
+                                  onChange={(e) => updateBudgetManualDraft(item.node_id, { forceReleaseReason: e.target.value })}
+                                />
+                              </label>
+                            </div>
+                            <div className="addon-actions">
+                              <button
+                                className="addon-btn"
+                                type="button"
+                                disabled={budgetBusyNode === item.node_id}
+                                onClick={() =>
+                                  void runBudgetAction(
+                                    item.node_id,
+                                    "top-up",
+                                    {
+                                      money_delta: budgetManualDraft.topUpMoney === "" ? null : Number(budgetManualDraft.topUpMoney),
+                                      compute_delta: budgetManualDraft.topUpCompute === "" ? null : Number(budgetManualDraft.topUpCompute),
+                                    },
+                                    "Budget topped up.",
+                                  )
+                                }
+                              >
+                                Top Up
+                              </button>
+                              <button
+                                className="addon-btn"
+                                type="button"
+                                disabled={budgetBusyNode === item.node_id}
+                                onClick={() =>
+                                  void runBudgetAction(
+                                    item.node_id,
+                                    "override",
+                                    {
+                                      enforcement_mode: budgetManualDraft.overrideMode,
+                                      overcommit_enabled: budgetManualDraft.overrideOvercommit,
+                                    },
+                                    "Budget override applied.",
+                                  )
+                                }
+                              >
+                                Override
+                              </button>
+                              <button
+                                className="addon-btn"
+                                type="button"
+                                disabled={budgetBusyNode === item.node_id}
+                                onClick={() => void runBudgetAction(item.node_id, "reset", {}, "Budget usage reset.")}
+                              >
+                                Reset Usage
+                              </button>
+                              <button
+                                className="addon-btn addon-btn-danger"
+                                type="button"
+                                disabled={budgetBusyNode === item.node_id || !budgetManualDraft.forceReleaseJobId.trim()}
+                                onClick={() =>
+                                  void runBudgetAction(
+                                    item.node_id,
+                                    "force-release",
+                                    {
+                                      job_id: budgetManualDraft.forceReleaseJobId.trim(),
+                                      reason: budgetManualDraft.forceReleaseReason.trim() || "forced_release",
+                                    },
+                                    "Reservation released.",
+                                  )
+                                }
+                              >
+                                Force Release
+                              </button>
+                            </div>
+                          </>
+                        ) : null}
                         <div className="addon-actions">
                           <button
                             className="addon-btn addon-btn-primary"

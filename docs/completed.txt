@@ -610,3 +610,7 @@ Task 518: Add admin APIs to inspect current reservations, actual spend, remainin
 Task 519: Add audit logging for budget creation, edits, node declarations, setup actions, reservations, releases, consumption, denials, resets, and overrides - Completed on 03/19/2026 21:31
 Task 520: Add threshold alerts for node, customer, and provider budget usage - Completed on 03/19/2026 21:33
 Task 521: Add manual admin actions for top-up, reset, temporary override, and forced reservation release - Completed on 03/19/2026 21:35
+Task 522: Add admin UI to configure service-node money and compute budgets from node-declared budget capabilities - Completed on 03/19/2026 21:38
+Task 523: Add admin UI to configure per-customer budget allocations on a service node - Completed on 03/19/2026 21:38
+Task 524: Add admin UI to configure per-provider budget allocations on a multi-provider service node - Completed on 03/19/2026 21:38
+Task 525: Add admin UI to monitor current node, customer, and provider budget usage and blocked work - Completed on 03/19/2026 21:38
