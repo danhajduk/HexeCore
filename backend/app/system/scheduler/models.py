@@ -27,7 +27,12 @@ class JobPriority(str, Enum):
 def _coerce_priority(value: Any) -> JobPriority:
     if isinstance(value, JobPriority):
         return value
-    return JobPriority(str(value))
+    raw = str(value or "").strip()
+    if not raw:
+        return JobPriority.normal
+    if raw.startswith("JobPriority."):
+        raw = raw.split(".", 1)[1]
+    return JobPriority(raw)
 
 
 class QueueJobState(str, Enum):
@@ -42,7 +47,10 @@ class QueueJobState(str, Enum):
 def _coerce_queue_state(value: Any) -> QueueJobState:
     if isinstance(value, QueueJobState):
         return value
-    return QueueJobState(str(value))
+    raw = str(value or "").strip()
+    if raw.startswith("QueueJobState."):
+        raw = raw.split(".", 1)[1]
+    return QueueJobState(raw)
 
 
 class Job(BaseModel):

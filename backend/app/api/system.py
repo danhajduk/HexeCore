@@ -235,10 +235,10 @@ def _supported_protocol_versions() -> set[str]:
 
 
 def _supported_node_types() -> set[str]:
-    raw = str(os.getenv("SYNTHIA_NODE_ONBOARDING_SUPPORTED_TYPES", "ai-node")).strip()
+    raw = str(os.getenv("SYNTHIA_NODE_ONBOARDING_SUPPORTED_TYPES", "ai-node,email-node")).strip()
     values = {item.strip() for item in raw.split(",") if item.strip()}
     if not values:
-        values = {"ai-node"}
+        values = {"ai-node", "email-node"}
     aliases: set[str] = set()
     for value in values:
         canonical = _canonical_node_type(value)

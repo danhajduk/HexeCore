@@ -126,7 +126,7 @@ class QueuePersistStore:
                 job.addon_id,
                 job.job_type,
                 int(job.cost_units),
-                str(job.priority),
+                job.priority.value,
                 json.dumps(job.constraints or {}),
                 job.expected_duration_sec,
                 json.dumps(job.payload or {}),
@@ -135,7 +135,7 @@ class QueuePersistStore:
                 job.deadline_at.isoformat() if job.deadline_at else None,
                 job.max_runtime_sec,
                 json.dumps(job.tags or []),
-                str(job.state),
+                job.state.value,
                 int(job.attempts),
                 job.next_earliest_start_at.isoformat() if job.next_earliest_start_at else None,
                 job.lease_id,
@@ -160,8 +160,8 @@ class QueuePersistStore:
             (
                 _utcnow_iso(),
                 job_id,
-                str(from_state) if from_state else None,
-                str(to_state) if to_state else None,
+                from_state.value if from_state else None,
+                to_state.value if to_state else None,
                 reason,
             ),
         )

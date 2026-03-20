@@ -154,6 +154,15 @@ class TestNodeOnboardingStartApi(unittest.TestCase):
         self.assertEqual(resp.json()["session"]["node_type"], "sensor")
         self.assertEqual(resp.json()["session"]["requested_node_type"], "sensor-node")
 
+    def test_email_node_is_supported_by_default(self) -> None:
+        payload = self._payload()
+        payload["node_type"] = "email-node"
+        with patch.dict(os.environ, {"SYNTHIA_NODE_ONBOARDING_SUPPORTED_TYPES": ""}, clear=False):
+            resp = self.client.post("/api/system/nodes/onboarding/sessions", json=payload)
+        self.assertEqual(resp.status_code, 200, resp.text)
+        self.assertEqual(resp.json()["session"]["node_type"], "email")
+        self.assertEqual(resp.json()["session"]["requested_node_type"], "email-node")
+
     def test_protocol_version_unsupported(self) -> None:
         payload = self._payload()
         payload["protocol_version"] = "99.9"
