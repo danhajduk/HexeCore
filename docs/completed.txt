@@ -578,3 +578,6 @@ Task 487: Add responsive behavior for onboarding approval presentation layout - 
 Task 488: Implement presenter image state system - Completed on 03/18/2026 05:50
 Task 489: Add working presenter state during approval request - Completed on 03/18/2026 05:50
 Task 490: Add success presenter state after approval completes - Completed on 03/18/2026 05:50
+Task 491: Add explicit node trust-status contract for revoke/remove signaling - Completed on 03/19/2026 17:40
+Task 492: Preserve revoked trust records for formal node-side trust-loss reads - Completed on 03/19/2026 17:40
+Task 493: Add trusted-node revoke/remove status API coverage and docs - Completed on 03/19/2026 17:40

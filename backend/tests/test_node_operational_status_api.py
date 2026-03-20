@@ -192,6 +192,51 @@ class TestNodeOperationalStatusApi(unittest.TestCase):
         self.assertEqual(res.status_code, 403, res.text)
         self.assertEqual(res.json()["detail"]["error"], "untrusted_node")
 
+    def test_revoked_node_can_read_trust_status_with_old_token(self) -> None:
+        node_id, trust_token = self._trusted_node()
+        revoked = self.client.post(
+            f"/api/system/nodes/registrations/{node_id}/revoke",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(revoked.status_code, 200, revoked.text)
+
+        trust_status = self.client.get(
+            f"/api/system/nodes/trust-status/{node_id}",
+            headers={"X-Node-Trust-Token": trust_token},
+        )
+        self.assertEqual(trust_status.status_code, 200, trust_status.text)
+        payload = trust_status.json()
+        self.assertEqual(payload["trust_status"], "revoked")
+        self.assertEqual(payload["support_state"], "revoked")
+        self.assertEqual(payload["revocation_action"], "revoke")
+        self.assertFalse(bool(payload["supported"]))
+
+        op_status = self.client.get(
+            f"/api/system/nodes/operational-status/{node_id}",
+            headers={"X-Node-Trust-Token": trust_token},
+        )
+        self.assertEqual(op_status.status_code, 403, op_status.text)
+
+    def test_removed_node_can_read_formal_removal_status_with_old_token(self) -> None:
+        node_id, trust_token = self._trusted_node()
+        deleted = self.client.delete(
+            f"/api/system/nodes/registrations/{node_id}",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(deleted.status_code, 200, deleted.text)
+
+        trust_status = self.client.get(
+            f"/api/system/nodes/trust-status/{node_id}",
+            headers={"X-Node-Trust-Token": trust_token},
+        )
+        self.assertEqual(trust_status.status_code, 200, trust_status.text)
+        payload = trust_status.json()
+        self.assertEqual(payload["trust_status"], "revoked")
+        self.assertEqual(payload["support_state"], "removed")
+        self.assertEqual(payload["revocation_action"], "remove")
+        self.assertFalse(bool(payload["registry_present"]))
+        self.assertIn("removed by Core", str(payload["message"]))
+
 
 if __name__ == "__main__":
     unittest.main()

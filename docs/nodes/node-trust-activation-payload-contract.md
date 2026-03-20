@@ -1,7 +1,7 @@
 # Node Trust Activation Payload Contract
 
 Status: Implemented (baseline), Partial (profile extensions)
-Last updated: 2026-03-11
+Last updated: 2026-03-19
 
 ## Purpose
 
@@ -30,6 +30,7 @@ Returned under `activation`:
 - `operational_mqtt_port`
 - `issued_at`
 - `source_session_id`
+- `trust_status` (`trusted` on activation issue)
 
 ## Security Properties
 
@@ -59,6 +60,21 @@ Loopback values (for example `127.0.0.1`, `localhost`, `0.0.0.0`, `::1`) are rej
 
 After successful finalize+consume:
 - linked node registration trust status is promoted to `trusted`.
+- trust activation records now also persist canonical trust-state metadata used by the trust-status contract.
+
+## Post-Activation Trust Loss
+
+After activation, later trust changes are not communicated by replaying the activation payload.
+
+Core instead exposes:
+
+- `GET /api/system/nodes/trust-status/{node_id}`
+
+That route is the canonical explicit signal for:
+
+- active trust
+- trust revoked by Core
+- node removed by Core
 
 ## Validation Constraints
 
@@ -77,5 +93,6 @@ AI-node consumers can continue using existing baseline fields while migrating to
 
 - [Node Onboarding And Trust Terminology](./onboarding-trust-terminology.md)
 - [Node Onboarding API Contract](./node-onboarding-api-contract.md)
+- [Node Trust Status Contract](./node-trust-status-contract.md)
 - [Node Onboarding And Registration Architecture](./node-onboarding-registration-architecture.md)
 - [Node Onboarding Migration Guide](./node-onboarding-migration-guide.md)

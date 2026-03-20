@@ -308,7 +308,11 @@ class TestNodeRegistrationsApi(unittest.TestCase):
             headers={"X-Admin-Token": "test-token"},
         )
         self.assertEqual(gone.status_code, 404, gone.text)
-        self.assertIsNone(self.trust_store.get_by_node(node_id))
+        trust_record = self.trust_store.get_by_node(node_id)
+        self.assertIsNotNone(trust_record)
+        assert trust_record is not None
+        self.assertEqual(trust_record.trust_status, "revoked")
+        self.assertEqual(trust_record.revocation_action, "remove")
 
     def test_repeated_onboarding_same_nonce_is_rejected(self) -> None:
         first = self._start_and_approve("sticky-node", "ai-node", "nonce-sticky-1")
@@ -366,7 +370,11 @@ class TestNodeRegistrationsApi(unittest.TestCase):
         self.assertEqual(revoked.status_code, 200, revoked.text)
         self.assertEqual(revoked.json()["registration"]["registry_state"], "revoked")
         self.assertTrue(bool(revoked.json()["removed_trust_record"]))
-        self.assertIsNone(self.trust_store.get_by_node(node_id))
+        trust_record = self.trust_store.get_by_node(node_id)
+        self.assertIsNotNone(trust_record)
+        assert trust_record is not None
+        self.assertEqual(trust_record.trust_status, "revoked")
+        self.assertEqual(trust_record.revocation_action, "revoke")
 
 
 if __name__ == "__main__":

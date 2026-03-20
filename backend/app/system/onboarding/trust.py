@@ -95,6 +95,10 @@ class NodeTrustRecord:
     operational_mqtt_port: int
     issued_at: str
     source_session_id: str
+    trust_status: str = "trusted"
+    revoked_at: str | None = None
+    revocation_reason: str | None = None
+    revocation_action: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -111,6 +115,10 @@ class NodeTrustRecord:
             "operational_mqtt_port": self.operational_mqtt_port,
             "issued_at": self.issued_at,
             "source_session_id": self.source_session_id,
+            "trust_status": self.trust_status,
+            "revoked_at": self.revoked_at,
+            "revocation_reason": self.revocation_reason,
+            "revocation_action": self.revocation_action,
         }
 
 
@@ -157,6 +165,10 @@ class NodeTrustStore:
                         operational_mqtt_port=int(item.get("operational_mqtt_port") or 1883),
                         issued_at=str(item.get("issued_at") or _utcnow_iso()),
                         source_session_id=source_session_id,
+                        trust_status=str(item.get("trust_status") or "trusted").strip().lower() or "trusted",
+                        revoked_at=str(item.get("revoked_at") or "").strip() or None,
+                        revocation_reason=str(item.get("revocation_reason") or "").strip() or None,
+                        revocation_action=str(item.get("revocation_action") or "").strip() or None,
                     )
                 except Exception:
                     continue
@@ -220,6 +232,26 @@ class NodeTrustStore:
         self._save()
         return record
 
+    def revoke_by_node(
+        self,
+        node_id: str,
+        *,
+        reason: str | None = None,
+        action: str | None = None,
+    ) -> NodeTrustRecord | None:
+        node_key = str(node_id or "").strip()
+        if not node_key:
+            return None
+        record = self._records_by_node.get(node_key)
+        if record is None:
+            return None
+        record.trust_status = "revoked"
+        record.revoked_at = _utcnow_iso()
+        record.revocation_reason = str(reason or "").strip() or None
+        record.revocation_action = str(action or "").strip() or None
+        self._save()
+        return record
+
 
 class NodeTrustIssuanceService:
     def __init__(self, store: NodeTrustStore) -> None:
@@ -275,12 +307,13 @@ class NodeTrustIssuanceService:
             operational_mqtt_port=self._mqtt_port,
             issued_at=_utcnow_iso(),
             source_session_id=session.session_id,
+            trust_status="trusted",
         )
         self._store.upsert(record)
         return {"ok": True, "activation": record.to_dict()}
 
-    def revoke_node(self, node_id: str) -> bool:
-        return self._store.delete_by_node(node_id) is not None
+    def revoke_node(self, node_id: str, *, reason: str | None = None, action: str | None = None) -> bool:
+        return self._store.revoke_by_node(node_id, reason=reason, action=action) is not None
 
     def activation_for_session(self, session_id: str) -> dict[str, Any] | None:
         record = self._store.get_by_session(session_id)
@@ -293,6 +326,14 @@ class NodeTrustIssuanceService:
         return record.to_dict()
 
     def authenticate_node(self, node_id: str, node_trust_token: str) -> NodeTrustRecord | None:
+        record = self.authenticate_node_any_status(node_id, node_trust_token)
+        if record is None:
+            return None
+        if str(record.trust_status or "").strip().lower() != "trusted":
+            return None
+        return record
+
+    def authenticate_node_any_status(self, node_id: str, node_trust_token: str) -> NodeTrustRecord | None:
         node_key = str(node_id or "").strip()
         token = str(node_trust_token or "").strip()
         if not node_key or not token:

@@ -88,6 +88,43 @@ def _onboarding_error(error: str, message: str, *, retryable: bool = False) -> d
     }
 
 
+def _node_trust_status_payload(
+    *,
+    node_id: str,
+    trust_record,
+    registration,
+) -> dict[str, object]:
+    trust_status = str(getattr(trust_record, "trust_status", "") or "").strip().lower() or "unknown"
+    revocation_action = str(getattr(trust_record, "revocation_action", "") or "").strip() or None
+    revocation_reason = str(getattr(trust_record, "revocation_reason", "") or "").strip() or None
+    revoked_at = str(getattr(trust_record, "revoked_at", "") or "").strip() or None
+    registry_present = registration is not None
+    registry_state = None
+    if registration is not None:
+        registry_state = str(getattr(registration, "trust_status", "") or "").strip().lower() or None
+    support_state = "supported"
+    message = "Node trust is active."
+    if trust_status == "revoked":
+        support_state = "removed" if revocation_action == "remove" else "revoked"
+        if revocation_action == "remove":
+            message = "This node was removed by Core and is no longer trusted."
+        else:
+            message = "This node trust was revoked by Core and is no longer trusted."
+    return {
+        "ok": True,
+        "node_id": node_id,
+        "trust_status": trust_status,
+        "supported": bool(trust_status == "trusted"),
+        "support_state": support_state,
+        "registry_present": registry_present,
+        "registry_state": registry_state,
+        "revoked_at": revoked_at,
+        "revocation_reason": revocation_reason,
+        "revocation_action": revocation_action,
+        "message": message,
+    }
+
+
 def _onboarding_enabled() -> bool:
     raw = str(os.getenv("SYNTHIA_NODE_ONBOARDING_ENABLED", "")).strip()
     if not raw:
@@ -1096,6 +1133,36 @@ def build_system_router(
             "updated_at": node_payload.get("updated_at"),
         }
 
+    @router.get("/system/nodes/trust-status/{node_id}")
+    def get_node_trust_status(
+        node_id: str,
+        request: Request,
+        response: Response,
+        x_node_trust_token: str | None = Header(default=None),
+        x_admin_token: str | None = Header(default=None),
+    ):
+        node_key = str(node_id or "").strip()
+        if not node_key:
+            raise HTTPException(status_code=400, detail={"error": "node_id_required", "message": "node_id is required"})
+        if node_trust_issuance is None:
+            raise HTTPException(status_code=503, detail="trust_issuance_unavailable")
+
+        token = str(x_node_trust_token or "").strip()
+        trust_record = None
+        if token:
+            trust_record = node_trust_issuance.authenticate_node_any_status(node_key, token)
+            if trust_record is None:
+                raise HTTPException(status_code=403, detail={"error": "untrusted_node", "message": "node not trusted"})
+        else:
+            require_admin_token(x_admin_token, request)
+            trust_record = node_trust_issuance._store.get_by_node(node_key)
+            if trust_record is None:
+                raise HTTPException(status_code=404, detail="node_trust_not_found")
+
+        registration = node_registrations_store.get(node_key) if node_registrations_store is not None else None
+        response.headers["Cache-Control"] = "private, max-age=5"
+        return _node_trust_status_payload(node_id=node_key, trust_record=trust_record, registration=registration)
+
     @router.post("/system/nodes/telemetry")
     def ingest_node_telemetry(
         body: NodeTelemetryIngestRequest,
@@ -1181,7 +1248,13 @@ def build_system_router(
         trust_removed = False
         if node_trust_issuance is not None:
             try:
-                trust_removed = bool(node_trust_issuance.revoke_node(node_id))
+                trust_removed = bool(
+                    node_trust_issuance.revoke_node(
+                        node_id,
+                        reason="node_removed_by_admin",
+                        action="remove",
+                    )
+                )
             except Exception:
                 trust_removed = False
         await _deprovision_node_mqtt_principal(str(node_id or ""), reason=f"node_delete:{node_id}")
@@ -1221,7 +1294,13 @@ def build_system_router(
         trust_removed = False
         if node_trust_issuance is not None:
             try:
-                trust_removed = bool(node_trust_issuance.revoke_node(node_id))
+                trust_removed = bool(
+                    node_trust_issuance.revoke_node(
+                        node_id,
+                        reason="node_trust_revoked_by_admin",
+                        action="revoke",
+                    )
+                )
             except Exception:
                 trust_removed = False
         await _deprovision_node_mqtt_principal(str(node_id or ""), reason=f"node_revoke:{node_id}")

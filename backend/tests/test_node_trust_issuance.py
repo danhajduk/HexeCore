@@ -48,6 +48,7 @@ class TestNodeTrustIssuanceService(unittest.TestCase):
         self.assertEqual(first["activation"]["node_id"], "node-fixed-1")
         self.assertEqual(first["activation"]["node_type"], "ai-node")
         self.assertEqual(first["activation"]["activation_profile"]["node_type"], "ai-node")
+        self.assertEqual(first["activation"]["trust_status"], "trusted")
         self.assertEqual(first["activation"]["node_trust_token"], second["activation"]["node_trust_token"])
         self.assertEqual(first["activation"]["operational_mqtt_token"], second["activation"]["operational_mqtt_token"])
         self.assertEqual(first["activation"]["source_session_id"], approved.session_id)
@@ -73,6 +74,7 @@ class TestNodeTrustIssuanceService(unittest.TestCase):
         assert reloaded is not None
         self.assertEqual(reloaded.node_id, "node-fixed-2")
         self.assertEqual(reloaded.node_trust_token, issued["node_trust_token"])
+        self.assertEqual(reloaded.trust_status, "trusted")
 
     def test_sensor_node_type_activation_profile(self) -> None:
         session = self.sessions.start_session(

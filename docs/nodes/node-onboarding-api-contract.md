@@ -65,10 +65,17 @@ Deterministic behavior rules:
 
 - `GET /api/system/nodes/registrations` (admin auth)
 - `GET /api/system/nodes/registrations/{node_id}` (admin auth)
+- `GET /api/system/nodes/trust-status/{node_id}` (node trust token or admin auth)
 
 Supports optional list filters:
 - `node_type`
 - `trust_status`
+
+Trust-status behavior:
+
+- provides an explicit Core-side trust decision for active, revoked, or removed nodes
+- remains readable with the node's last issued trust token after revocation/removal
+- exists so nodes can distinguish deliberate Core trust loss from generic transport or auth failures
 
 ## Node Type Support
 
@@ -102,4 +109,5 @@ Status: Implemented (baseline)
 - [Node Onboarding Phase 1 Contract](./node-onboarding-phase1-contract.md)
 - [Node Onboarding And Registration Architecture](./node-onboarding-registration-architecture.md)
 - [Node Trust Activation Payload Contract](./node-trust-activation-payload-contract.md)
+- [Node Trust Status Contract](./node-trust-status-contract.md)
 - [Node Onboarding Migration Guide](./node-onboarding-migration-guide.md)

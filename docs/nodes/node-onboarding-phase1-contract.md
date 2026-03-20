@@ -1,7 +1,7 @@
 # Node Onboarding Phase 1 Contract
 
 Status: Implemented (current runtime behavior)
-Last updated: 2026-03-11
+Last updated: 2026-03-19
 
 ## Scope
 
@@ -108,8 +108,20 @@ Node lifecycle actions:
 
 - revoke/untrust: `POST /api/system/nodes/registrations/{node_id}/revoke` (alias `/untrust`)
 - remove node: `DELETE /api/system/nodes/registrations/{node_id}`
+- explicit trust-state read: `GET /api/system/nodes/trust-status/{node_id}`
 
-Both actions revoke stored node trust credential records; remove additionally deletes the registry record.
+Revoke/remove behavior:
+
+- both actions revoke node trust for normal trusted-node APIs
+- both actions deprovision the node MQTT principal
+- remove additionally deletes the registry record
+- Core retains a revoked trust-status record so the node can read a formal removal/revocation message through `GET /api/system/nodes/trust-status/{node_id}`
+
+Formal trust-loss signaling:
+
+- nodes should not need to infer deliberate removal only from auth failures
+- `GET /api/system/nodes/trust-status/{node_id}` remains readable with the last issued trust token after revoke/remove
+- `support_state=revoked|removed` is the explicit Core-side signal that the node is no longer trusted/supported
 
 ## Compatibility
 
@@ -123,5 +135,6 @@ Legacy alias responses include deprecation headers and migration warning.
 
 - [Node Onboarding API Contract](./node-onboarding-api-contract.md)
 - [Node Trust Activation Payload Contract](./node-trust-activation-payload-contract.md)
+- [Node Trust Status Contract](./node-trust-status-contract.md)
 - [Node Onboarding Migration Guide](./node-onboarding-migration-guide.md)
 - [MQTT Platform](../mqtt/mqtt-platform.md)
