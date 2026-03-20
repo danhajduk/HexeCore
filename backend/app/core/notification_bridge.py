@@ -5,6 +5,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from app.system.platform_identity import default_platform_identity
 from .notification_publisher import NotificationMqttPublisher
 from .notifications import NotificationMessage, external_notification_topic
 
@@ -81,12 +82,13 @@ class NotificationBridgeService:
             self._log.info("notification_bridge_skipped topic=%s reason=no_forwarded_targets message_id=%s", topic, message.id)
 
     def _to_external_payload(self, *, message: NotificationMessage, source_topic: str) -> dict[str, Any]:
+        branding = default_platform_identity()
         title = (
             (message.content.title if message.content is not None else None)
             or (message.event.summary if message.event is not None else None)
             or (message.event.event_type if message.event is not None else None)
             or (message.state.status if message.state is not None else None)
-            or "Synthia Notification"
+            or f"{branding.platform_name} Notification"
         )
         body_parts = [
             message.content.message if message.content is not None else None,

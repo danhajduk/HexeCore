@@ -1,6 +1,6 @@
-# Core Scheduler Docs
+# Hexe Core Scheduler Docs
 
-This folder is the canonical home for Core scheduler documentation.
+This folder is the canonical home for Hexe Core scheduler documentation.
 
 ## Included Docs
 

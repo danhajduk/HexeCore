@@ -4,7 +4,9 @@
 
 Status: Implemented (embedded authority/runtime foundation), Partial (future automation/federation)
 
-Synthia's MQTT platform provides Core-owned authority state, principal lifecycle controls, topic policy boundaries, and embedded broker runtime management.
+Hexe AI's MQTT platform provides Core-owned authority state, principal lifecycle controls, topic policy boundaries, and embedded broker runtime management.
+
+Compatibility note: the active MQTT topic root remains `synthia/...` in this phase. The public-facing product label changes, but topic literals do not.
 
 ## Authority Model
 

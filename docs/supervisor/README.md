@@ -1,6 +1,6 @@
-# Supervisor Docs
+# Hexe Supervisor Docs
 
-This is the canonical entrypoint for Supervisor documentation in the `Core -> Supervisor -> Nodes` structure.
+This is the canonical entrypoint for Hexe Supervisor documentation in the `Core -> Supervisor -> Nodes` structure.
 
 ## Status
 
@@ -36,9 +36,9 @@ Supervisor does not own these areas in the current repository state:
 
 - OS administration
 - package management
-- general service management outside Synthia-managed runtimes
+- general service management outside Hexe-managed runtimes
 - firewall and network policy management
-- non-Synthia workload orchestration
+- non-Hexe workload orchestration
 
 ## Future Expansion Path
 

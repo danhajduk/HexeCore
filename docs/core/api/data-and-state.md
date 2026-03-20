@@ -2,7 +2,7 @@
 
 ## Persistent State Overview
 
-Synthia persists control-plane state in SQLite and JSON documents.
+Hexe Core persists control-plane state in SQLite and JSON documents.
 
 Status: Implemented
 

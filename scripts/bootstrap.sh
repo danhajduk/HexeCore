@@ -12,6 +12,8 @@ fi
 
 REPO_URL_DEFAULT="https://github.com/danhajduk/SynthiaCore.git"
 REPO_URL="${REPO_URL:-$REPO_URL_DEFAULT}"
+PLATFORM_NAME="${PLATFORM_NAME:-Hexe AI}"
+CORE_NAME="${PLATFORM_SHORT:-Hexe} Core"
 
 INSTALL_DIR=""
 MODE=""
@@ -76,6 +78,7 @@ install_user_unit_from_template() {
 }
 
 echo "[bootstrap] mode=$MODE dir=$INSTALL_DIR"
+echo "[bootstrap] target platform=$PLATFORM_NAME"
 ensure_deps
 
 mkdir -p "$(dirname "$INSTALL_DIR")"
@@ -197,8 +200,9 @@ if [[ $FRONTEND_RC -ne 0 ]]; then
   exit 1
 fi
 
-echo "[bootstrap] Done."
+echo "[bootstrap] $PLATFORM_NAME bootstrap complete."
 echo "Backend:  http://$(hostname -I | awk '{print $1}'):9001/api/health"
 echo "Frontend: http://$(hostname -I | awk '{print $1}')"
 echo "Updater unit installed: synthia-updater.service (trigger via: systemctl --user start synthia-updater.service)"
 echo "Supervisor unit installed: synthia-supervisor.service (trigger via: systemctl --user start synthia-supervisor.service)"
+echo "Display name: $CORE_NAME"

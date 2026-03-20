@@ -1,6 +1,8 @@
-# Synthia Core Architecture
+# Hexe Core Architecture
 
 This document describes the current repository architecture as implemented in code. The migration foundation now treats `Core`, `Supervisor`, and `Nodes` as first-class domains without removing the existing subsystem layouts.
+
+Phase 0 compatibility note: the public display names now use Hexe AI / Hexe Core, while internal route paths, MQTT topic roots, and package/module identifiers remain on the existing `synthia` naming.
 
 ## Domain Boundaries
 

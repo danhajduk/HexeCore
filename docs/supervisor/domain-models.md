@@ -163,9 +163,9 @@ Explicit non-goals in the current repository state:
 
 - OS administration
 - package management
-- general service management outside Synthia-managed runtimes
+- general service management outside Hexe-managed runtimes
 - firewall and network policy
-- non-Synthia orchestration
+- non-Hexe orchestration
 
 Future expansion path:
 

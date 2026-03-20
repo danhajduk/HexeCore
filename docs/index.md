@@ -1,6 +1,8 @@
-# Synthia Core Documentation
+# Hexe Core Documentation
 
-This is the canonical documentation index for the repository. The top-level navigation now follows the `Core -> Supervisor -> Nodes` structure while existing subsystem documentation remains active underneath it.
+This is the canonical documentation index for the Hexe AI repository. The top-level navigation now follows the `Core -> Supervisor -> Nodes` structure while existing subsystem documentation remains active underneath it.
+
+Compatibility note: public-facing docs now use Hexe AI / Hexe Core naming, while internal identifiers such as `synthia/...` MQTT topics, `/api/...` paths, and Python package names remain unchanged in Phase 0.
 
 ## Start Here
 

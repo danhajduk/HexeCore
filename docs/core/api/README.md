@@ -1,6 +1,6 @@
-# Core API Docs
+# Hexe Core API Docs
 
-This folder is the canonical home for Core API and backend control-plane documentation.
+This folder is the canonical home for Hexe Core API and backend control-plane documentation.
 
 ## Included Docs
 

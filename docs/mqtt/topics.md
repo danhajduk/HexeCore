@@ -2,6 +2,8 @@
 
 This document describes the canonical MQTT topic families verified in the current runtime code.
 
+Compatibility note: Phase 0 keeps the `synthia/...` topic root unchanged even though the public-facing platform branding is now Hexe AI.
+
 Primary code:
 - `backend/app/system/mqtt/topic_families.py`
 
@@ -35,6 +37,12 @@ The current code recognizes these reserved top-level families under `synthia/`:
 - `nodes`
 
 The current bootstrap topic constant is `synthia/bootstrap/core`.
+
+Bootstrap listener note:
+
+- retained bootstrap discovery for node onboarding is served over the bootstrap MQTT listener
+- default bootstrap listener port: `1884`
+- default operational MQTT listener port: `1883`
 
 ## Topic Classification
 

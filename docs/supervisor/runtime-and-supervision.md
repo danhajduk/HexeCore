@@ -37,9 +37,9 @@ Supervisor does not currently implement:
 
 - OS administration
 - package management
-- general service supervision outside Synthia-managed runtimes
+- general service supervision outside Hexe-managed runtimes
 - firewall or network policy control
-- non-Synthia orchestration
+- non-Hexe orchestration
 
 ## Future Expansion Path
 

@@ -5,7 +5,7 @@ Last updated: 2026-03-11
 
 ## Purpose
 
-Defines the canonical global node onboarding session API contract used by Core.
+Defines the canonical global node onboarding session API contract used by Hexe Core.
 
 Terminology note:
 
@@ -84,6 +84,7 @@ Supported node types are configured by:
 
 Default:
 - `ai-node`
+- `email-node`
 
 ## Compatibility Layer
 

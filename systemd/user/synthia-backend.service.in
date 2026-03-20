@@ -1,5 +1,5 @@
 [Unit]
-Description=Synthia Backend Service
+Description=Hexe Core Backend Service
 After=network.target
 
 [Service]

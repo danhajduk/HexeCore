@@ -1,7 +1,7 @@
 # Node Phase 2 Lifecycle Contract
 
 Status: Implemented
-Last Updated: 2026-03-20 09:20
+Last Updated: 2026-03-20 10:16
 
 ## Purpose
 
@@ -12,6 +12,24 @@ Defines the implemented Core-side Phase 2 lifecycle contract after node trust ac
 - governance issuance and refresh
 - operational readiness state
 - runtime telemetry ingestion
+
+Public-facing naming note: Hexe Nodes / Hexe AI are display names only in this phase. Current API paths, trust tokens, and MQTT topic literals remain on the existing compatibility naming.
+
+## Canonical Phase 2 Sequence
+
+After Phase 1 trust activation, the canonical node readiness sequence is:
+
+7. `Provider Setup` -> `capability_setup_pending`
+8. `Capability Declaration` -> `capability_declaration_in_progress`
+9. `Governance Sync` after accepted declaration -> `capability_declaration_accepted`
+10. `Ready` -> `operational`
+
+Current Core-to-node mapping:
+
+- `Provider Setup`: node-local provider selection and provider readiness checks
+- `Capability Declaration`: node submits its capability manifest to Core while effectively in `capability_declaration_in_progress`
+- `Governance Sync`: node fetches or refreshes the effective governance bundle from Core after accepted declaration; current docs map accepted declaration to `capability_status=accepted`
+- `Ready`: Core projects `operational_ready=true`, which corresponds to the canonical lifecycle target state `operational`
 
 ## Readiness Model
 
@@ -43,15 +61,23 @@ Readiness projection note:
 
 ## Lifecycle States
 
-Status: Implemented (baseline)
+Status: Partially implemented
 
 Phase 2 introduces or depends on these post-trust lifecycle states:
 
 - `capability_setup_pending`
+- `capability_declaration_in_progress`
+- `capability_declaration_accepted`
+- `capability_declaration_failed_retry_pending`
 - `operational`
 - `degraded`
 
 `capability_setup_pending` is the expected blocked state while a trusted node has not yet completed capability acceptance and governance issuance.
+
+Current implementation note:
+
+- `capability_setup_pending`, `operational`, and `degraded` are clearly represented in current Core-side lifecycle docs
+- `capability_declaration_in_progress`, `capability_declaration_accepted`, and `capability_declaration_failed_retry_pending` are the canonical node lifecycle states for Phase 2 documentation, but current Core APIs still expose the related projection mainly through `capability_status` and `operational_ready`
 
 Trusted-startup fast path:
 
@@ -64,6 +90,11 @@ Transition guidance:
   - `capability_status=accepted`
   - `governance_sync_status=issued`
   - `operational_ready=true`
+- canonical intermediate interpretation:
+  - `capability_setup_pending -> capability_declaration_in_progress`
+  - successful declaration + accepted capability profile -> `capability_declaration_accepted`
+  - failed declaration awaiting retry -> `capability_declaration_failed_retry_pending`
+  - accepted declaration + issued governance + `operational_ready=true` -> `operational`
 - failure to complete declaration or governance sync keeps the node non-operational and may surface degraded indicators
 
 ## API Contract
@@ -204,6 +235,11 @@ Node UI setup/readiness payload note:
   - `blocking_reasons[]`
   - `declaration_allowed`
 - Core's `operational-status` contract remains the canonical readiness projection API, while the node-local setup payload is the canonical source for operator-facing setup gating details such as task capability selection readiness.
+
+Provider-setup note:
+
+- `Provider Setup` is currently reflected through the node-local `capability_setup.provider_selection` and related readiness flags rather than a dedicated Core-side provider-setup route
+- Core readiness depends on the later accepted capability declaration and governance issuance, while the node-local setup payload is the canonical operator view of provider readiness before declaration
 
 ### Telemetry Ingestion
 

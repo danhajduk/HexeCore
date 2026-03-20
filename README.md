@@ -1,6 +1,8 @@
-# Synthia Core
+# Hexe Core
 
-Synthia Core is the control-plane service for the Synthia platform. This repository now documents the migration foundation for the `Core -> Supervisor -> Nodes` structure while preserving the current runtime and API surface.
+Hexe Core is the control-plane service for the Hexe AI platform. This repository now documents the migration foundation for the `Core -> Supervisor -> Nodes` structure while preserving the current runtime and API surface.
+
+Compatibility note: Phase 0 is a cosmetic rebrand only. Internal identifiers such as `synthia/...` MQTT topics, `/api/...` paths, Python module names, and systemd unit filenames remain unchanged during this phase.
 
 ## Start Here
 
@@ -26,7 +28,7 @@ Core currently spans:
 - `backend/app/system/`
 - `frontend/`
 
-Core owns API hosting, UI hosting, embedded addon lifecycle authority, scheduler orchestration and workload admission, MQTT authority, and trusted-node governance flows.
+Hexe Core owns API hosting, UI hosting, embedded addon lifecycle authority, scheduler orchestration and workload admission, MQTT authority, and trusted-node governance flows.
 
 ### Supervisor
 
@@ -54,9 +56,9 @@ Current non-goals:
 
 - OS administration
 - package management
-- general service management outside Synthia-managed runtimes
+- general service management outside Hexe-managed runtimes
 - firewall/network policy
-- non-Synthia orchestration
+- non-Hexe orchestration
 
 ### Nodes
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiGet } from "../api/client";
 import { useAdminSession } from "../auth/AdminSessionContext";
+import { usePlatformBranding } from "../branding";
 import {
   canShowUninstallAction,
   confirmingUninstallState,
@@ -355,6 +356,7 @@ function scopeBudgetLabel(scope: BudgetScopeUsage): string {
 
 export default function Addons() {
   const { authenticated: isAdmin } = useAdminSession();
+  const { platformName } = usePlatformBranding();
   const [addons, setAddons] = useState<AddonInfo[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -760,7 +762,7 @@ export default function Addons() {
       <div className="addons-head addons-hero">
         <div className="addons-hero-copy">
           <h1 className="addons-title">Addons &amp; Nodes</h1>
-          <p className="addons-subtitle">Extensions that expand the Synthia platform.</p>
+          <p className="addons-subtitle">Extensions that expand the {platformName} platform.</p>
           <div className="addon-meta">Supervisor runtime details remain under System pages, not in this extension inventory.</div>
         </div>
         <div className="addons-head-actions">
@@ -915,7 +917,7 @@ export default function Addons() {
         <div className="addons-section-head">
           <div>
             <h2 className="addons-section-title">Nodes</h2>
-            <div className="addon-meta">Trusted external Synthia components with onboarding, governance, and provider status.</div>
+            <div className="addon-meta">Trusted external {platformName} components with onboarding, governance, and provider status.</div>
           </div>
           <div className="addon-inline">
             <button

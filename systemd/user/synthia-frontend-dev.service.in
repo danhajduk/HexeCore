@@ -1,5 +1,5 @@
 [Unit]
-Description=Synthia Frontend Dev Service (Vite on 80)
+Description=Hexe Frontend Dev Service (Vite on 80)
 After=network.target
 
 [Service]

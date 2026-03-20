@@ -4,7 +4,9 @@
 
 Status: Implemented
 
-Synthia Core exposes a canonical MQTT-backed notification bus for internal producers, local consumers, and bridge-owned external integrations.
+Hexe Core exposes a canonical MQTT-backed notification bus for internal producers, local consumers, and bridge-owned external integrations.
+
+Compatibility note: notification topics continue to use the `synthia/...` namespace during the Phase 0 cosmetic rebrand.
 
 Code anchors:
 - `backend/app/core/notifications.py`
@@ -153,7 +155,7 @@ Example popup-originated external payload:
 
 ```json
 {
-  "title": "Synthia Core Ready",
+  "title": "Hexe Core Ready",
   "message": "Core startup completed and notification publishing is active.\nStartup popup smoke test",
   "severity": "success",
   "tag": "core-startup-popup",
@@ -171,7 +173,7 @@ Example event-originated external payload:
 
 ```json
 {
-  "title": "Synthia Debug Alert",
+  "title": "Hexe Debug Alert",
   "message": "Developer-triggered alert for HA/mobile relay.\nDebug external alert",
   "severity": "warning",
   "tag": "dev-event-ha",

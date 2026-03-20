@@ -1,6 +1,6 @@
-# Core Frontend Docs
+# Hexe Core Frontend Docs
 
-This folder is the canonical home for Core frontend documentation.
+This folder is the canonical home for Hexe Core frontend documentation.
 
 ## Included Docs
 

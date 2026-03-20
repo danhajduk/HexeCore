@@ -5,6 +5,7 @@ import socket
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
+from app.system.platform_identity import default_platform_identity
 from .acl_compiler import MqttAclCompiler
 from .apply_pipeline import MqttApplyPipeline
 from .authority_audit import MqttAuthorityAuditStore
@@ -214,7 +215,7 @@ class EmbeddedMqttStartupReconciler:
         self._bootstrap_attempts += 1
         self._bootstrap_last_attempt_at = _utcnow_iso()
         core_id = "synthia-core"
-        core_name = "Synthia Core"
+        core_name = default_platform_identity().core_name
         core_version = str(os.getenv("SYNTHIA_CORE_VERSION", "0.1.0"))
         advertise_host = str(os.getenv("SYNTHIA_BOOTSTRAP_ADVERTISE_HOST", "")).strip() or _detect_advertise_host()
         api_base = str(os.getenv("SYNTHIA_API_BASE", "")).strip()

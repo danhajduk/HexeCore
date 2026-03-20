@@ -6,6 +6,7 @@ import ControlPlaneCard from "./settings/ControlPlaneCard";
 import UserManagementCard from "./settings/UserManagementCard";
 import MqttAdminFoundationCard from "./settings/MqttAdminFoundationCard";
 import { getTheme, setTheme as applyTheme } from "../../theme/theme";
+import { DEFAULT_PLATFORM_CONTROL_PLANE_NAME, usePlatformBranding } from "../branding";
 
 type SettingsResponse = {
   ok: boolean;
@@ -118,7 +119,8 @@ function relative(ts?: string | null): string {
 }
 
 export default function Settings() {
-  const [appName, setAppName] = useState("Synthia Core");
+  const { coreName } = usePlatformBranding();
+  const [appName, setAppName] = useState(DEFAULT_PLATFORM_CONTROL_PLANE_NAME);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [theme, setTheme] = useState("dark");
   const [err, setErr] = useState<string | null>(null);
@@ -222,6 +224,10 @@ export default function Settings() {
     void loadOnboardingSessions("all");
     setTheme(getTheme());
   }, []);
+
+  useEffect(() => {
+    setAppName((current) => (current === DEFAULT_PLATFORM_CONTROL_PLANE_NAME ? coreName : current));
+  }, [coreName]);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {

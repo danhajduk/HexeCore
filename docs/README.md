@@ -1,19 +1,21 @@
-# Synthia Core
+# Hexe Core
 
-Synthia is a modular automation and AI platform designed for home and
+Hexe AI is a modular automation and AI platform designed for home and
 edge environments.\
-**Synthia Core** is the central control‑plane service that orchestrates
+**Hexe Core** is the central control‑plane service that orchestrates
 the platform --- providing APIs, UI, scheduling, MQTT authority, addon
 lifecycle management, and node integration.
 
 This repository contains the main runtime responsible for operating and
-coordinating the Synthia ecosystem.
+coordinating the Hexe AI ecosystem.
+
+Compatibility note: internal identifiers such as `synthia/...` MQTT topic roots, `/api/...` route paths, Python modules, and systemd unit filenames remain unchanged during the Phase 0 cosmetic rebrand.
 
 ------------------------------------------------------------------------
 
-# What Is Synthia Core?
+# What Is Hexe Core?
 
-Synthia Core is the central service responsible for:
+Hexe Core is the central service responsible for:
 
 -   booting the platform
 -   hosting the main APIs
@@ -125,7 +127,7 @@ Responsibilities:
 
 ### Extension Platform
 
-Synthia currently documents three extension/runtime categories.
+Hexe AI currently documents three extension/runtime categories.
 
 **Embedded Addons**
 
@@ -156,7 +158,7 @@ Responsibilities include:
 
 ### Nodes
 
-Nodes are **external trusted systems** that integrate with Synthia Core.
+Nodes are **external trusted systems** that integrate with Hexe Core.
 
 Nodes can:
 
@@ -262,7 +264,7 @@ Installed services include:
 
 # Platform Extension Model
 
-Synthia supports three extension models:
+Hexe AI supports three extension models:
 
 **Embedded Addons**\
 Run directly inside the Core runtime.
@@ -321,7 +323,7 @@ Key entry points:
 
 # Related Repositories
 
-Synthia Core is part of the larger Synthia ecosystem which may include:
+Hexe Core is part of the larger Hexe AI ecosystem which may include:
 
 -   AI Nodes
 -   Vision services

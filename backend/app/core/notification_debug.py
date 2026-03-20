@@ -5,6 +5,7 @@ import logging
 import socket
 from typing import Any
 
+from app.system.platform_identity import default_platform_identity
 from .notification_publisher import CoreNotificationPublisher
 
 
@@ -15,6 +16,7 @@ class DevelopmentNotificationTrigger:
         self._log = logging.getLogger("synthia.core.notifications")
 
     async def emit_test_flow(self) -> list[dict[str, Any]]:
+        branding = default_platform_identity()
         hostname = socket.gethostname().strip() or "localhost"
         username = self._current_user()
 
@@ -23,7 +25,7 @@ class DevelopmentNotificationTrigger:
                 "source": {"kind": "core", "id": "synthia-core", "component": "debug", "host": hostname, "user": username},
                 "targets": {"hosts": [hostname], "users": [username] if username else []},
                 "delivery": {"severity": "info", "priority": "normal", "ttl_seconds": 300, "dedupe_key": "dev-popup"},
-                "content": {"title": "Synthia Debug Popup", "message": "Developer-triggered popup notification."},
+                "content": {"title": f"{branding.platform_short} Debug Popup", "message": "Developer-triggered popup notification."},
                 "event": {"event_type": "debug_popup", "summary": "Debug popup flow"},
                 "data": {"debug": True, "core_version": self._core_version},
             }
@@ -35,7 +37,7 @@ class DevelopmentNotificationTrigger:
                 "source": {"kind": "core", "id": "synthia-core", "component": "debug", "host": hostname, "user": username},
                 "targets": {"broadcast": True, "external": ["ha"]},
                 "delivery": {"severity": "warning", "priority": "high", "dedupe_key": "dev-event-ha"},
-                "content": {"title": "Synthia Debug Alert", "message": "Developer-triggered alert for HA/mobile relay."},
+                "content": {"title": f"{branding.platform_short} Debug Alert", "message": "Developer-triggered alert for HA/mobile relay."},
                 "event": {"event_type": "debug_external_alert", "summary": "Debug external alert", "attributes": {"target": "ha"}},
                 "data": {"debug": True, "bridge_expected": "synthia/notify/external/ha"},
             }
@@ -47,7 +49,7 @@ class DevelopmentNotificationTrigger:
                 "source": {"kind": "core", "id": "synthia-core", "component": "debug", "host": hostname, "user": username},
                 "targets": {"broadcast": True},
                 "delivery": {"severity": "success", "priority": "normal", "dedupe_key": "dev-state"},
-                "content": {"title": "Synthia Debug State", "message": "Developer-triggered state notification."},
+                "content": {"title": f"{branding.platform_short} Debug State", "message": "Developer-triggered state notification."},
                 "state": {"state_type": "debug_flow", "status": "ready", "current": "ready"},
                 "data": {"debug": True},
             },

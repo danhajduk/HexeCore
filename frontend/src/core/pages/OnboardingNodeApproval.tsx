@@ -8,6 +8,7 @@ import presentingImage from "../../assets/presenting.png";
 import successImage from "../../assets/success.png";
 import workingImage from "../../assets/working.png";
 import { useAdminSession } from "../auth/AdminSessionContext";
+import { usePlatformBranding } from "../branding";
 import "./onboarding-node-approval.css";
 
 type ApprovalSession = {
@@ -52,6 +53,7 @@ function maskSessionId(value?: string | null): string {
 }
 
 export default function OnboardingNodeApproval() {
+  const { platformName } = usePlatformBranding();
   const { ready, authenticated, login } = useAdminSession();
   const [params] = useSearchParams();
   const sid = (params.get("sid") || "").trim();
@@ -87,7 +89,7 @@ export default function OnboardingNodeApproval() {
     if (effectiveState === "denied") {
       return {
         image: deniedImage,
-        alt: "Synthia reporting an onboarding error or rejection",
+        alt: `${platformName} reporting an onboarding error or rejection`,
         eyebrow: "Approval denied",
         title: "Review required",
         copy: "This onboarding session was rejected or failed validation.",
@@ -96,7 +98,7 @@ export default function OnboardingNodeApproval() {
     if (effectiveState === "expired") {
       return {
         image: expiredImage,
-        alt: "Synthia reporting an expired onboarding session",
+        alt: `${platformName} reporting an expired onboarding session`,
         eyebrow: "Session expired",
         title: "Approval window closed",
         copy: "This onboarding session expired before trust could be granted.",
@@ -105,7 +107,7 @@ export default function OnboardingNodeApproval() {
     if (effectiveState === "working") {
       return {
         image: workingImage,
-        alt: "Synthia processing node approval",
+        alt: `${platformName} processing node approval`,
         eyebrow: "Approval in progress",
         title: "Establishing trust material",
         copy: "Core is validating approval state and waiting for node finalization.",
@@ -114,7 +116,7 @@ export default function OnboardingNodeApproval() {
     if (effectiveState === "success") {
       return {
         image: successImage,
-        alt: "Synthia approval completed successfully",
+        alt: `${platformName} approval completed successfully`,
         eyebrow: "Approval complete",
         title: "Trust granted",
         copy: "The node has been approved and the flow is wrapping up.",
@@ -122,12 +124,12 @@ export default function OnboardingNodeApproval() {
     }
     return {
       image: presentingImage,
-      alt: "Synthia presenting the node approval card",
+      alt: `${platformName} presenting the node approval card`,
       eyebrow: "Trust checkpoint",
       title: "Review before granting access",
       copy: "Approved nodes receive trust material and operational MQTT credentials.",
     };
-  }, [currentState, presenterState]);
+  }, [currentState, platformName, presenterState]);
 
   function notifyParent(action: "approve" | "reject", sessionId: string) {
     try {

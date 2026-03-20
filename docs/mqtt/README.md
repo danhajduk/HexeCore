@@ -1,6 +1,8 @@
 # MQTT Docs
 
-This folder contains the messaging and notification documentation for the Core-managed MQTT subsystem.
+This folder contains the messaging and notification documentation for the Hexe Core-managed MQTT subsystem.
+
+Compatibility note: the active MQTT namespace remains `synthia/...` in Phase 0 even though the public-facing product name is now Hexe AI.
 
 ## Included Docs
 

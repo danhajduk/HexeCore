@@ -2,11 +2,11 @@
 
 Status: Partial
 Implementation status: Partial (global registration domain model/store exists; onboarding accepts configured node types via `SYNTHIA_NODE_ONBOARDING_SUPPORTED_TYPES`)
-Last updated: 2026-03-11
+Last updated: 2026-03-20 10:16
 
 ## Purpose
 
-This document defines the canonical global node onboarding and registration architecture for Synthia Core.
+This document defines the canonical global node onboarding and registration architecture for Hexe Core.
 
 Canonical terminology for onboarding, registration, trust activation, and capability activation is defined in [Node Onboarding And Trust Terminology](./onboarding-trust-terminology.md).
 
@@ -34,13 +34,37 @@ Status: Implemented (baseline)
 
 Status: Implemented (baseline)
 
-1. Node starts onboarding session (`node_type` + identity metadata + nonce binding).
-2. Core creates pending onboarding session with expiry.
-3. Core returns approval URL for operator review.
-4. Operator authenticates in Core and approves/rejects.
-5. Node finalizes/polls using session binding.
-6. Core returns trust activation payload for approved sessions.
-7. Node registration record transitions to trusted/active lifecycle.
+Canonical end-to-end node lifecycle:
+
+1. `Node Identity` -> `unconfigured`
+Node presents `node_type`, node metadata, and nonce binding.
+
+2. `Core Connection` -> `bootstrap_connecting`
+Node reaches Core's bootstrap MQTT listener.
+
+3. `Bootstrap Discovery` -> `bootstrap_connected` then `core_discovered`
+Node reads retained bootstrap metadata from `synthia/bootstrap/core`.
+
+4. `Registration` -> `registration_pending`
+Node starts the onboarding session and Core persists the pending session.
+
+5. `Approval` -> `pending_approval`
+Operator authenticates in Core and approves or rejects the session.
+
+6. `Trust Activation` -> `trusted`
+Node finalizes with its session binding and receives trust material plus operational MQTT credentials.
+
+7. `Provider Setup` -> `capability_setup_pending`
+Node performs local provider selection and readiness checks.
+
+8. `Capability Declaration` -> `capability_declaration_in_progress`
+Node submits its capability manifest to Core.
+
+9. `Governance Sync` -> `capability_declaration_accepted`
+Node fetches or refreshes the effective governance bundle.
+
+10. `Ready` -> `operational`
+Core projects `operational_ready=true`.
 
 The onboarding model is operator-mediated rather than OAuth-style:
 

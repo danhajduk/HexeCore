@@ -1,5 +1,5 @@
 [Unit]
-Description=Synthia Updater (git pull + deps + restart)
+Description=Hexe Updater (git pull + deps + restart)
 After=network.target
 
 [Service]

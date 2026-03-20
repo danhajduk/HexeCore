@@ -671,3 +671,23 @@ Task 335: Extend node registry and operational-status views to expose governance
 Task 336: Prevent `outdated` nodes from receiving new budget policy, governance updates, or new node-to-service resolution/authorization material while preserving operator visibility into why they are blocked - Completed on 03/20/2026 09:29
 Task 337: Add admin and audit visibility for governance freshness transitions so operators can see when a node becomes `critical` or `outdated` - Completed on 03/20/2026 09:29
 Task 338: Add targeted tests and docs for governance freshness thresholds, including warning/critical/outdated transitions and the `outdated` policy block on new budgeting/service contracts - Completed on 03/20/2026 09:29
+Task 600: Create the canonical Phase 0 migration document for the Hexe AI cosmetic rebrand - Completed on 03/20/2026 11:15
+Task 601: Add public platform identity configuration with Hexe AI defaults and env/example support - Completed on 03/20/2026 11:15
+Task 602: Create the backend platform identity helper for public branding metadata - Completed on 03/20/2026 11:15
+Task 603: Add `GET /api/system/platform` for platform identity metadata - Completed on 03/20/2026 11:15
+Task 604: Update OpenAPI and API metadata branding to Hexe Core / Hexe AI - Completed on 03/20/2026 11:15
+Task 605: Replace backend user-facing branding strings with platform identity-driven display text - Completed on 03/20/2026 11:15
+Task 606: Replace frontend branding strings and consume platform metadata/config - Completed on 03/20/2026 11:15
+Task 607: Update the root README branding with Hexe AI / Hexe Core compatibility notes - Completed on 03/20/2026 11:15
+Task 608: Update top-level platform docs branding to Hexe AI / Hexe Core / Hexe Supervisor / Hexe Nodes - Completed on 03/20/2026 11:15
+Task 609: Update Core docs branding to Hexe Core - Completed on 03/20/2026 11:15
+Task 610: Update Supervisor docs branding to Hexe Supervisor - Completed on 03/20/2026 11:15
+Task 611: Update Nodes docs branding to Hexe Nodes / Hexe AI - Completed on 03/20/2026 11:15
+Task 612: Update MQTT, addons, and workers docs branding while preserving legacy internal namespaces - Completed on 03/20/2026 11:15
+Task 613: Update notification and onboarding display text to Hexe branding - Completed on 03/20/2026 11:15
+Task 614: Update installer, bootstrap, updater, and service-template printed branding - Completed on 03/20/2026 11:15
+Task 615: Add compatibility notes for retained legacy internal `synthia` naming - Completed on 03/20/2026 11:15
+Task 616: Add tests for platform identity configuration and metadata endpoint - Completed on 03/20/2026 11:15
+Task 617: Verify frontend branding no longer hardcodes Synthia on major visible screens - Completed on 03/20/2026 11:15
+Task 618: Run the final Phase 0 cosmetic rebrand verification pass - Completed on 03/20/2026 11:15
+Task 619: Create the Phase 0 completion report - Completed on 03/20/2026 11:15

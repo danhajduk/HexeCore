@@ -12,6 +12,7 @@ fi
 
 LOG_FILE="${LOG_FILE:-/tmp/synthia_update.log}"
 SERVICE_UPDATE=false
+PLATFORM_NAME="${PLATFORM_NAME:-Hexe AI}"
 
 usage() {
   cat <<EOF
@@ -33,7 +34,7 @@ done
 
 exec > >(tee -a "$LOG_FILE") 2>&1
 
-echo "=== [update] $(date -Is) starting ==="
+echo "=== [update] $(date -Is) starting ${PLATFORM_NAME} update ==="
 echo "[update] repo=$REPO_DIR"
 
 cd "$REPO_DIR"
@@ -125,4 +126,4 @@ if systemctl --user cat synthia-supervisor.service >/dev/null 2>&1; then
 fi
 
 
-echo "=== [update] $(date -Is) finished ==="
+echo "=== [update] $(date -Is) finished ${PLATFORM_NAME} update ==="

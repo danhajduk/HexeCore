@@ -1,6 +1,6 @@
-# Worker Docs
+# Hexe Worker Docs
 
-This folder is the worker landing page for execution helpers used with scheduled work.
+This folder is the worker landing page for execution helpers used with scheduled work in the Hexe AI platform.
 
 ## Status
 

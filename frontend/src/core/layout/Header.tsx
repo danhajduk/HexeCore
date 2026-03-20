@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { usePlatformBranding } from "../branding";
 import "./header.css";
 
 type RepoStatus = {
@@ -10,6 +11,7 @@ type RepoStatus = {
 
 export default function Header() {
   const [repoStatus, setRepoStatus] = useState<RepoStatus | null>(null);
+  const { platformName } = usePlatformBranding();
 
   async function loadRepoStatus() {
     try {
@@ -31,7 +33,7 @@ export default function Header() {
   return (
     <header className="header">
       <div>
-        <div className="header-title">Synthia</div>
+        <div className="header-title">{platformName}</div>
       </div>
       <div className="header-right">
         {repoStatus?.ok && repoStatus.update_available && (

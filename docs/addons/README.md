@@ -1,6 +1,6 @@
 # Addon Docs
 
-This folder contains the canonical documentation for the addon subsystem.
+This folder contains the canonical documentation for the Hexe AI addon subsystem.
 
 ## Included Docs
 

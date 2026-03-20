@@ -7,6 +7,7 @@ from typing import Any
 
 from app.api.admin import require_admin_token
 from app.system.audit import AuditLogStore
+from app.system.platform_identity import load_platform_identity
 from app.system.security import AuthRole
 from .store import SettingsStore
 
@@ -17,6 +18,11 @@ class SetSettingRequest(BaseModel):
 
 def build_settings_router(store: SettingsStore, audit_store: AuditLogStore | None = None) -> APIRouter:
     router = APIRouter()
+
+    @router.get("/platform")
+    async def get_platform_identity():
+        identity = await load_platform_identity(store)
+        return {"ok": True, **identity.to_dict()}
 
     @router.get("/settings")
     async def get_all():

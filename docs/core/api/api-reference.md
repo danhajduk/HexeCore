@@ -1,4 +1,4 @@
-# API Reference
+# Hexe Core API Reference
 
 All routes are mounted by `backend/app/main.py`.
 
@@ -18,6 +18,7 @@ Status: Implemented
   - `GET /api/system-stats/current`
   - `GET /api/system/stack/summary`
 - Settings and repo/system status:
+  - `GET /api/system/platform`
   - `GET /api/system/settings`
   - `PUT /api/system/settings/{key}`
   - `GET /api/system/repo/status`

@@ -1,6 +1,8 @@
-# Synthia Platform Overview
+# Hexe AI Platform Overview
 
-Synthia is a modular automation and AI platform for home and edge environments. In the current repository, the platform is moving toward a `Core -> Supervisor -> Nodes` structure that makes control-plane, host-runtime, and external-execution boundaries explicit.
+Hexe AI is a modular automation and AI platform for home and edge environments. In the current repository, the platform is moving toward a `Core -> Supervisor -> Nodes` structure that makes control-plane, host-runtime, and external-execution boundaries explicit.
+
+Compatibility note: the public-facing product name is now Hexe AI, but internal identifiers such as `synthia/...` topic roots and `/api/...` route paths remain active during this migration phase.
 
 ## Domain Model
 

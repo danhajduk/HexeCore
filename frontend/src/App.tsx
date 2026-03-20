@@ -2,6 +2,7 @@ import { useLocation, useRoutes } from "react-router-dom";
 import { buildRoutes } from "./core/router/routes";
 import Shell from "./core/layout/Shell";
 import { AdminSessionProvider, useAdminSession } from "./core/auth/AdminSessionContext";
+import { PlatformBrandingProvider } from "./core/branding";
 
 function AppLayout() {
   const { ready, authenticated } = useAdminSession();
@@ -18,8 +19,10 @@ function AppLayout() {
 
 export default function App() {
   return (
-    <AdminSessionProvider>
-      <AppLayout />
-    </AdminSessionProvider>
+    <PlatformBrandingProvider>
+      <AdminSessionProvider>
+        <AppLayout />
+      </AdminSessionProvider>
+    </PlatformBrandingProvider>
   );
 }

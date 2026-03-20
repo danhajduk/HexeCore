@@ -1,6 +1,6 @@
 # Core Docs
 
-This is the canonical entrypoint for Core documentation in the `Core -> Supervisor -> Nodes` structure.
+This is the canonical entrypoint for Hexe Core documentation in the `Core -> Supervisor -> Nodes` structure.
 
 ## Status
 
