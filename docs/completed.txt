@@ -615,3 +615,7 @@ Task 523: Add admin UI to configure per-customer budget allocations on a service
 Task 524: Add admin UI to configure per-provider budget allocations on a multi-provider service node - Completed on 03/19/2026 21:38
 Task 525: Add admin UI to monitor current node, customer, and provider budget usage and blocked work - Completed on 03/19/2026 21:38
 Task 526: Add reporting and export for budget usage by service node, provider, customer, and period - Completed on 03/19/2026 21:41
+Task 527: Add tests for budget allocation math including node total 10-dollar split across three 3.3-dollar customers - Completed on 03/19/2026 21:42
+Task 528: Add tests for provider-sliced budgets on multi-provider service nodes - Completed on 03/19/2026 21:42
+Task 529: Add tests for reservation race conditions and double-spend prevention - Completed on 03/19/2026 21:42
+Task 530: Add tests for node, customer, and provider budget enforcement behavior - Completed on 03/19/2026 21:42
