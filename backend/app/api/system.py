@@ -121,6 +121,14 @@ class NodeBudgetBundleUpsertRequest(BaseModel):
     provider_allocations: list[BudgetAllocationUpsertRequest] = []
 
 
+class NodeBudgetUsageReportRequest(BaseModel):
+    node_id: str
+    job_id: str
+    status: str
+    actual_money_spend: float | None = None
+    actual_compute_spend: float | None = None
+
+
 def _onboarding_error(error: str, message: str, *, retryable: bool = False) -> dict[str, object]:
     return {
         "error": error,
@@ -912,6 +920,54 @@ def build_system_router(
             },
         )
         return {"ok": True, "budget": bundle}
+
+    @router.post("/system/nodes/budgets/usage-report")
+    def report_node_budget_usage(
+        body: NodeBudgetUsageReportRequest,
+        request: Request,
+        x_node_trust_token: str | None = Header(default=None),
+    ):
+        node_token = str(x_node_trust_token or "").strip()
+        if not node_token:
+            raise HTTPException(status_code=401, detail="node_trust_token_required")
+        if node_budget_service is None:
+            raise HTTPException(status_code=503, detail="node_budgeting_unavailable")
+        if node_registrations_store is None:
+            raise HTTPException(status_code=503, detail="node_registrations_unavailable")
+        if node_trust_issuance is None:
+            raise HTTPException(status_code=503, detail="trust_issuance_unavailable")
+
+        node_id = str(body.node_id or "").strip()
+        trust_record = node_trust_issuance.authenticate_node(node_id, node_token)
+        if trust_record is None:
+            raise HTTPException(status_code=403, detail={"error": "untrusted_node", "message": "node not trusted"})
+        registration = node_registrations_store.get(node_id)
+        if registration is None or str(registration.trust_status or "").strip().lower() != "trusted":
+            raise HTTPException(status_code=403, detail={"error": "untrusted_node", "message": "node not registered"})
+        try:
+            reservation = node_budget_service.report_actual_usage(
+                job_id=str(body.job_id or "").strip(),
+                status=str(body.status or "").strip(),
+                actual_money_spend=body.actual_money_spend,
+                actual_compute_spend=body.actual_compute_spend,
+            )
+        except ValueError as exc:
+            error = str(exc)
+            status_code = 404 if error == "budget_reservation_not_found" else 400
+            raise HTTPException(status_code=status_code, detail={"error": error, "message": error})
+        _record_audit(
+            audit_store,
+            event_type="node_budget_usage_reported",
+            actor_role="node",
+            actor_id=node_id,
+            details={
+                "node_id": node_id,
+                "job_id": str(body.job_id or "").strip(),
+                "status": str(body.status or "").strip(),
+                "source_ip": str(request.client.host if request.client else "unknown"),
+            },
+        )
+        return {"ok": True, "node_id": node_id, "reservation": reservation, "budget": node_budget_service.get_bundle(node_id)}
 
     @router.post("/system/nodes/providers/capabilities/report")
     def report_provider_capabilities(

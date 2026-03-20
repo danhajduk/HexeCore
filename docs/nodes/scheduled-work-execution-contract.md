@@ -15,7 +15,7 @@ This document defines the canonical execution contract for scheduled work when a
 
 The current node execution contract reuses the existing scheduler lease protocol rather than introducing a second node-only schema.
 
-Queue-based admission in Core also supports an optional budget-reservation envelope through the existing job-intent payload. Budget-aware queue submissions can include `payload.budget_scope` so Core persists node/customer/provider reservations before work dispatch. Successful queue completion may also report optional `actual_money_spend` and `actual_compute_spend` values when finalizing those reservations.
+Queue-based admission in Core also supports an optional budget-reservation envelope through the existing job-intent payload. Budget-aware queue submissions can include `payload.budget_scope` so Core persists node/customer/provider reservations before work dispatch. When explicit reservation values are omitted, Core may estimate money/compute reservations from job payload fields and stored routing-metadata pricing. Successful queue completion may also report optional `actual_money_spend` and `actual_compute_spend` values when finalizing those reservations.
 
 Current routes:
 

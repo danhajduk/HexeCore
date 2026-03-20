@@ -6,7 +6,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.system.onboarding import NodeBudgetService, NodeBudgetStore
+from app.system.onboarding import ModelRoutingRegistryService, ModelRoutingRegistryStore, NodeBudgetService, NodeBudgetStore
 from app.system.scheduler.engine import SchedulerEngine
 from app.system.scheduler.router import build_scheduler_router
 from app.system.scheduler.store import SchedulerStore
@@ -17,7 +17,9 @@ class TestSchedulerBudgetReservations(unittest.TestCase):
         self.tmpdir = tempfile.TemporaryDirectory()
         base = Path(self.tmpdir.name)
         self.budget_store = NodeBudgetStore(path=base / "node_budgets.json")
-        self.budget_service = NodeBudgetService(self.budget_store)
+        self.routing_store = ModelRoutingRegistryStore(path=base / "model_routing_registry.json")
+        self.routing_service = ModelRoutingRegistryService(self.routing_store)
+        self.budget_service = NodeBudgetService(self.budget_store, self.routing_service)
         self.budget_service.declare_budget_capabilities(
             node_id="node-budget-1",
             payload={
@@ -44,27 +46,49 @@ class TestSchedulerBudgetReservations(unittest.TestCase):
         )
         self.client = TestClient(app)
 
+        self.routing_service.record_provider_intelligence(
+            node_id="node-budget-1",
+            provider_intelligence=[
+                {
+                    "provider": "openai",
+                    "available_models": [
+                        {
+                            "model_id": "gpt-4o-mini",
+                            "pricing": {"input_per_1k": 0.002, "output_per_1k": 0.004, "per_request": 0.01},
+                            "latency_metrics": {"p50_ms": 120.0},
+                        }
+                    ],
+                }
+            ],
+            node_available=True,
+            source="provider_capability_report",
+        )
+
     def _configure_budget(
         self,
         *,
         shared_customer_pool: bool = False,
         shared_provider_pool: bool = False,
+        compute_unit: str = "cost_units",
+        node_compute_limit: float = 100.0,
+        customer_compute_limit: float = 30.0,
+        provider_compute_limit: float = 80.0,
     ) -> None:
         self.budget_service.configure_node_budget(
             node_id="node-budget-1",
             node_budget={
                 "currency": "USD",
-                "compute_unit": "cost_units",
+                "compute_unit": compute_unit,
                 "period": "monthly",
                 "reset_policy": "calendar",
                 "enforcement_mode": "hard_stop",
                 "shared_customer_pool": shared_customer_pool,
                 "shared_provider_pool": shared_provider_pool,
                 "node_money_limit": 10.0,
-                "node_compute_limit": 100.0,
+                "node_compute_limit": node_compute_limit,
             },
-            customer_allocations=[{"subject_id": "cust-a", "money_limit": 3.3, "compute_limit": 30.0}],
-            provider_allocations=[{"subject_id": "openai", "money_limit": 8.0, "compute_limit": 80.0}],
+            customer_allocations=[{"subject_id": "cust-a", "money_limit": 3.3, "compute_limit": customer_compute_limit}],
+            provider_allocations=[{"subject_id": "openai", "money_limit": 8.0, "compute_limit": provider_compute_limit}],
         )
 
     def tearDown(self) -> None:
@@ -212,6 +236,82 @@ class TestSchedulerBudgetReservations(unittest.TestCase):
 
         created = self._submit_budgeted_job(customer_id=None, provider="anthropic")
         self.assertEqual(created.status_code, 200, created.text)
+
+    def test_estimates_money_and_compute_from_routing_metadata_and_payload(self) -> None:
+        created = self.client.post(
+            "/api/system/scheduler/queue/jobs/submit",
+            json={
+                "addon_id": "vision",
+                "job_type": "generate",
+                "cost_units": 9,
+                "payload": {
+                    "budget_scope": {
+                        "node_id": "node-budget-1",
+                        "customer_id": "cust-a",
+                        "provider": "openai",
+                        "model_id": "gpt-4o-mini",
+                    },
+                    "input_tokens": 1000,
+                    "output_tokens": 500,
+                },
+            },
+        )
+        self.assertEqual(created.status_code, 200, created.text)
+        reservation = self.budget_service.get_reservation_by_job(created.json()["job_id"])
+        self.assertIsNotNone(reservation)
+        assert reservation is not None
+        self.assertEqual(reservation["money_reserved"], 0.014)
+        self.assertEqual(reservation["compute_reserved"], 9.0)
+
+    def test_usage_summary_reflects_reserved_and_actual_amounts(self) -> None:
+        created = self._submit_budgeted_job(money_estimate=2.0, compute_units=6.0)
+        self.assertEqual(created.status_code, 200, created.text)
+        job_id = created.json()["job_id"]
+
+        summary = self.budget_service.get_bundle("node-budget-1")["usage_summary"]["node"]
+        self.assertEqual(summary["reserved_money"], 2.0)
+        self.assertEqual(summary["remaining_money"], 8.0)
+
+        finalized = self.client.post(
+            f"/api/system/scheduler/queue/jobs/{job_id}/complete",
+            json={"status": "DONE", "actual_money_spend": 1.25, "actual_compute_spend": 4.0},
+        )
+        self.assertEqual(finalized.status_code, 200, finalized.text)
+        summary = self.budget_service.get_bundle("node-budget-1")["usage_summary"]["node"]
+        self.assertEqual(summary["reserved_money"], 0.0)
+        self.assertEqual(summary["actual_money"], 1.25)
+        self.assertEqual(summary["remaining_money"], 8.75)
+
+    def test_estimates_compute_from_tokens_when_budget_uses_token_units(self) -> None:
+        self._configure_budget(
+            compute_unit="tokens",
+            node_compute_limit=5000.0,
+            customer_compute_limit=5000.0,
+            provider_compute_limit=5000.0,
+        )
+        created = self.client.post(
+            "/api/system/scheduler/queue/jobs/submit",
+            json={
+                "addon_id": "vision",
+                "job_type": "generate",
+                "cost_units": 9,
+                "payload": {
+                    "budget_scope": {
+                        "node_id": "node-budget-1",
+                        "customer_id": "cust-a",
+                        "provider": "openai",
+                        "model_id": "gpt-4o-mini",
+                    },
+                    "input_tokens": 1000,
+                    "output_tokens": 500,
+                },
+            },
+        )
+        self.assertEqual(created.status_code, 200, created.text)
+        reservation = self.budget_service.get_reservation_by_job(created.json()["job_id"])
+        self.assertIsNotNone(reservation)
+        assert reservation is not None
+        self.assertEqual(reservation["compute_reserved"], 1500.0)
 
 
 if __name__ == "__main__":

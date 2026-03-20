@@ -17,6 +17,8 @@ except Exception:  # pragma: no cover
     FASTAPI_STACK_AVAILABLE = False
 
 from app.system.onboarding import (
+    ModelRoutingRegistryService,
+    ModelRoutingRegistryStore,
     NodeBudgetService,
     NodeBudgetStore,
     NodeOnboardingSessionsStore,
@@ -56,7 +58,9 @@ class TestNodeBudgetApi(unittest.TestCase):
         self.trust_store = NodeTrustStore(path=base / "node_trust_records.json")
         self.trust_issuance = NodeTrustIssuanceService(self.trust_store)
         self.budget_store = NodeBudgetStore(path=base / "node_budgets.json")
-        self.budget_service = NodeBudgetService(self.budget_store)
+        self.routing_store = ModelRoutingRegistryStore(path=base / "model_routing_registry.json")
+        self.routing_service = ModelRoutingRegistryService(self.routing_store)
+        self.budget_service = NodeBudgetService(self.budget_store, self.routing_service)
 
         app = FastAPI()
         app.include_router(
@@ -240,6 +244,47 @@ class TestNodeBudgetApi(unittest.TestCase):
         )
         self.assertEqual(configured.status_code, 400, configured.text)
         self.assertEqual(configured.json()["detail"]["error"], "provider_budget_subject_not_supported")
+
+    def test_trusted_node_can_report_actual_budget_usage(self) -> None:
+        node_id, trust_token = self._trusted_node()
+        declared = self.client.post(
+            "/api/system/nodes/budgets/declaration",
+            headers={"X-Node-Trust-Token": trust_token},
+            json={"node_id": node_id},
+        )
+        self.assertEqual(declared.status_code, 200, declared.text)
+        configured = self.client.put(
+            f"/api/system/nodes/budgets/{node_id}",
+            headers={"X-Admin-Token": "test-token"},
+            json={"node_budget": {"node_money_limit": 10.0, "node_compute_limit": 100.0}},
+        )
+        self.assertEqual(configured.status_code, 200, configured.text)
+
+        reservation = self.budget_service.reserve_scheduler_budget(
+            job_id="job-usage-1",
+            addon_id="vision",
+            cost_units=6,
+            payload={"budget_scope": {"node_id": node_id, "money_estimate": 2.0}},
+            constraints={},
+        )
+        self.assertIsNotNone(reservation)
+
+        reported = self.client.post(
+            "/api/system/nodes/budgets/usage-report",
+            headers={"X-Node-Trust-Token": trust_token},
+            json={
+                "node_id": node_id,
+                "job_id": "job-usage-1",
+                "status": "completed",
+                "actual_money_spend": 1.5,
+                "actual_compute_spend": 4.0,
+            },
+        )
+        self.assertEqual(reported.status_code, 200, reported.text)
+        payload = reported.json()
+        self.assertEqual(payload["reservation"]["state"], "finalized")
+        self.assertEqual(payload["reservation"]["money_actual"], 1.5)
+        self.assertEqual(payload["budget"]["usage_summary"]["node"]["actual_money"], 1.5)
 
 
 if __name__ == "__main__":

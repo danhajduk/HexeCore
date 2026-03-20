@@ -45,11 +45,7 @@ if it is not present and should be node-owned create a file with the new data in
 Do not edit above this line:
 #######################################################################
 
-[WIP] Task 511: Add cost-estimation hooks used to reserve money budget before dispatch
-[TODO] Task 512: Add compute-estimation hooks used to reserve compute budget before dispatch
-[TODO] Task 513: Add actual usage ingestion contract for service nodes to report final money and compute consumption
-[TODO] Task 514: Persist node, customer, and provider budget usage totals with remaining-budget calculations
-[TODO] Task 515: Add admin APIs to create, read, update, and delete service-node budgets
+[WIP] Task 515: Add admin APIs to create, read, update, and delete service-node budgets
 [TODO] Task 516: Add admin APIs to create, read, update, and delete per-customer budget allocations
 [TODO] Task 517: Add admin APIs to create, read, update, and delete per-provider budget allocations
 [TODO] Task 518: Add admin APIs to inspect current reservations, actual spend, remaining budget, and next reset window

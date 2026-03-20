@@ -174,6 +174,23 @@ class ModelRoutingRegistryService:
     def list(self, *, node_id: str | None = None, provider: str | None = None) -> list[ModelRoutingRecord]:
         return self._store.list(node_id=node_id, provider=provider)
 
+    def find_model(
+        self,
+        *,
+        node_id: str,
+        provider: str,
+        model_id: str,
+    ) -> ModelRoutingRecord | None:
+        node_key = str(node_id or "").strip()
+        provider_key = str(provider or "").strip().lower()
+        model_key = str(model_id or "").strip().lower()
+        if not (node_key and provider_key and model_key):
+            return None
+        for item in self._store.list(node_id=node_key, provider=provider_key):
+            if item.normalized_model_id == model_key or item.model_id.strip().lower() == model_key:
+                return item
+        return None
+
     def list_grouped_by_node(self, *, node_id: str | None = None, provider: str | None = None) -> list[dict[str, Any]]:
         grouped: dict[str, dict[str, list[ModelRoutingRecord]]] = {}
         availability: dict[str, bool] = {}

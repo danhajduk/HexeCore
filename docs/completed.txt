@@ -599,3 +599,7 @@ Task 507: Add scheduler admission checks for provider-level budget exhaustion wh
 Task 508: Add shared-pool versus hard-slice policy for customer and provider budgets - Completed on 03/19/2026 21:21
 Task 509: Add default behavior for customers without explicit budget assignments - Completed on 03/19/2026 21:21
 Task 510: Add default behavior for providers without explicit budget assignments on multi-provider service nodes - Completed on 03/19/2026 21:21
+Task 511: Add cost-estimation hooks used to reserve money budget before dispatch - Completed on 03/19/2026 21:26
+Task 512: Add compute-estimation hooks used to reserve compute budget before dispatch - Completed on 03/19/2026 21:26
+Task 513: Add actual usage ingestion contract for service nodes to report final money and compute consumption - Completed on 03/19/2026 21:26
+Task 514: Persist node, customer, and provider budget usage totals with remaining-budget calculations - Completed on 03/19/2026 21:26

@@ -17,6 +17,8 @@ This foundation covers:
 - scheduler reservation ledger for scoped work reservations across node, customer, and provider dimensions
 - reservation finalization for successful work and release handling for canceled or failed work
 - hard-stop scheduler admission checks for node totals and configured customer/provider slices
+- cost and compute estimation hooks used when the caller does not provide explicit reservation values
+- trusted-node actual usage reporting and persisted usage summaries with remaining-budget calculations
 
 This document does not yet define:
 
@@ -41,12 +43,21 @@ Used by a trusted node to declare the budget controls it supports and the setup 
 
 Node trust-token reads are also allowed for `GET /api/system/nodes/budgets/{node_id}` while the node remains trusted.
 
+Budget read responses now include `usage_summary` when a configured node budget exists.
+
 ### Admin Setup
 
 - `PUT /api/system/nodes/budgets/{node_id}`
 - Auth: admin session/token
 
 Used by operators to configure node totals and optional customer/provider allocations.
+
+### Trusted Node Usage Report
+
+- `POST /api/system/nodes/budgets/usage-report`
+- Auth: `X-Node-Trust-Token`
+
+Used by a trusted node to report final money and compute usage for an existing reservation.
 
 ## Node Budget Declaration Contract
 
@@ -203,6 +214,38 @@ Implemented fields:
 
 If `compute_units` is omitted, Core reserves the queue job's `cost_units` value.
 
+### Estimation Hooks
+
+When explicit reservation values are missing, Core estimates reservation values before dispatch.
+
+Money estimation order:
+
+1. explicit values from `budget_scope.money_estimate`, `budget_scope.money_reserved`, `payload.estimated_cost`, `payload.cost_estimate`, or `constraints.estimated_cost`
+2. provider/model pricing stored in Core routing metadata using:
+   - `provider`
+   - `model_id`
+   - `input_tokens` / `prompt_tokens`
+   - `output_tokens` / `completion_tokens` / `max_output_tokens`
+   - optional `request_count`
+
+Implemented routing-pricing keys used for estimation:
+
+- `pricing.input_per_1k`
+- `pricing.output_per_1k`
+- `pricing.prompt_per_1k`
+- `pricing.completion_per_1k`
+- `pricing.per_request`
+- `pricing.request`
+
+Compute estimation order:
+
+1. explicit values from `budget_scope.compute_units`, `payload.compute_units`, or `constraints.compute_units`
+2. computed from the configured node `compute_unit`:
+   - `cost_units`: queue job `cost_units`
+   - `requests`: request count, default `1`
+   - `tokens`: total token estimate or input + output token estimate
+   - `cpu_seconds` / `gpu_seconds`: duration estimate from `expected_duration_sec`, `estimated_duration_sec`, or `max_runtime_sec`
+
 ### Reservation Lifecycle
 
 When `payload.budget_scope.node_id` is present and the node already has a configured budget:
@@ -264,6 +307,57 @@ Default behavior for subjects without explicit configured allocations:
 - `actual_compute_spend`
 
 If omitted on successful completion, Core finalizes the reservation using the originally reserved amounts.
+
+### Trusted Node Usage Report Contract
+
+Trusted nodes may also report actual usage directly through:
+
+```json
+{
+  "node_id": "node-abc123",
+  "job_id": "job-123",
+  "status": "completed",
+  "actual_money_spend": 1.5,
+  "actual_compute_spend": 4.0
+}
+```
+
+Implemented status values:
+
+- `completed`
+- `done`
+- `finalized`
+- `failed`
+- `canceled`
+- `cancelled`
+- `released`
+
+Behavior:
+
+- completed-like statuses finalize the reservation
+- failed/canceled-like statuses release the reservation
+- unknown reservation ids return `budget_reservation_not_found`
+
+### Usage Summary Contract
+
+Configured budget bundle reads now include:
+
+- `usage_summary.node`
+- `usage_summary.customers[]`
+- `usage_summary.providers[]`
+
+Each scope summary currently includes:
+
+- `money_limit`
+- `compute_limit`
+- `reserved_money`
+- `reserved_compute`
+- `actual_money`
+- `actual_compute`
+- `released_money`
+- `released_compute`
+- `remaining_money`
+- `remaining_compute`
 
 ### Current Limitations
 

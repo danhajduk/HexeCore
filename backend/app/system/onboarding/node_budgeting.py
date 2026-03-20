@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .model_routing_registry import ModelRoutingRegistryService
+
 
 NODE_BUDGET_SCHEMA_VERSION = "1"
 ALLOCATION_KINDS = {"customer", "provider"}
@@ -426,8 +428,9 @@ class NodeBudgetStore:
 
 
 class NodeBudgetService:
-    def __init__(self, store: NodeBudgetStore) -> None:
+    def __init__(self, store: NodeBudgetStore, model_routing_registry: ModelRoutingRegistryService | None = None) -> None:
         self._store = store
+        self._model_routing_registry = model_routing_registry
 
     def declare_budget_capabilities(self, *, node_id: str, payload: dict[str, Any]) -> dict[str, Any]:
         node_key = _clean_text(node_id)
@@ -537,12 +540,14 @@ class NodeBudgetService:
         return self._store.bundle(node_key)
 
     def list_bundles(self) -> list[dict[str, Any]]:
-        return self._store.list_bundles()
+        return [self.get_bundle(item["node_id"]) for item in self._store.list_bundles()]
 
     def get_bundle(self, node_id: str) -> dict[str, Any]:
         bundle = self._store.bundle(node_id)
         if not bundle.get("declaration") and not bundle.get("node_budget"):
             raise ValueError("node_budget_not_found")
+        if bundle.get("node_budget"):
+            bundle["usage_summary"] = self.usage_summary(node_id)
         return bundle
 
     def reserve_scheduler_budget(
@@ -568,8 +573,18 @@ class NodeBudgetService:
         if existing is not None:
             return existing.to_dict()
 
-        money_reserved = _coerce_optional_float(scope.get("money_estimate") or scope.get("money_reserved"))
-        compute_reserved = _coerce_optional_float(scope.get("compute_units")) if scope.get("compute_units") is not None else float(cost_units)
+        money_reserved = self._estimate_money_reservation(
+            node_id=node_id,
+            payload=payload_obj,
+            constraints=constraints_obj,
+            fallback_cost_units=cost_units,
+        )
+        compute_reserved = self._estimate_compute_reservation(
+            compute_unit=config.compute_unit,
+            payload=payload_obj,
+            constraints=constraints_obj,
+            fallback_cost_units=cost_units,
+        )
         self._enforce_scheduler_scope_limits(
             config=config,
             node_id=node_id,
@@ -646,6 +661,71 @@ class NodeBudgetService:
         record = self._store.get_reservation_by_job(job_id)
         return record.to_dict() if record is not None else None
 
+    def report_actual_usage(
+        self,
+        *,
+        job_id: str,
+        status: str,
+        actual_money_spend: float | None = None,
+        actual_compute_spend: float | None = None,
+    ) -> dict[str, Any]:
+        status_key = _clean_text(status, lower=True)
+        if status_key in {"completed", "done", "finalized"}:
+            record = self.finalize_scheduler_budget(
+                job_id=job_id,
+                actual_money_spend=actual_money_spend,
+                actual_compute_spend=actual_compute_spend,
+            )
+        elif status_key in {"failed", "canceled", "cancelled", "released"}:
+            record = self.release_scheduler_budget(job_id=job_id, reason=status_key)
+        else:
+            raise ValueError("unsupported_usage_report_status")
+        if record is None:
+            raise ValueError("budget_reservation_not_found")
+        return record
+
+    def usage_summary(self, node_id: str) -> dict[str, Any]:
+        node_key = _clean_text(node_id)
+        config = self._store.get_config(node_key)
+        if config is None:
+            raise ValueError("node_budget_not_found")
+
+        reservations = self._store.list_reservations(node_id=node_key)
+        customer_allocations = self._store.list_allocations(node_key, kind="customer")
+        provider_allocations = self._store.list_allocations(node_key, kind="provider")
+
+        summary = {
+            "node": self._scope_usage_summary(
+                money_limit=config.node_money_limit,
+                compute_limit=config.node_compute_limit,
+                reservations=reservations,
+            ),
+            "customers": [],
+            "providers": [],
+        }
+
+        for item in customer_allocations:
+            scoped_reservations = [record for record in reservations if record.customer_id == item.subject_id]
+            scope_summary = self._scope_usage_summary(
+                money_limit=item.money_limit,
+                compute_limit=item.compute_limit,
+                reservations=scoped_reservations,
+            )
+            scope_summary["subject_id"] = item.subject_id
+            summary["customers"].append(scope_summary)
+
+        for item in provider_allocations:
+            scoped_reservations = [record for record in reservations if record.provider_id == item.subject_id]
+            scope_summary = self._scope_usage_summary(
+                money_limit=item.money_limit,
+                compute_limit=item.compute_limit,
+                reservations=scoped_reservations,
+            )
+            scope_summary["subject_id"] = item.subject_id
+            summary["providers"].append(scope_summary)
+
+        return summary
+
     def _committed_scope_amount(self, *, node_id: str, money: bool, customer_id: str | None = None, provider_id: str | None = None) -> float:
         total = 0.0
         for item in self._store.list_reservations(node_id=node_id):
@@ -662,6 +742,164 @@ class NodeBudgetService:
                     value = actual_value
             total += float(value or 0.0)
         return round(total, 6)
+
+    def _scope_usage_summary(
+        self,
+        *,
+        money_limit: float | None,
+        compute_limit: float | None,
+        reservations: list[NodeBudgetReservationRecord],
+    ) -> dict[str, Any]:
+        reserved_money = round(sum(float(item.money_reserved or 0.0) for item in reservations if item.state == "reserved"), 6)
+        reserved_compute = round(sum(float(item.compute_reserved or 0.0) for item in reservations if item.state == "reserved"), 6)
+        actual_money = round(
+            sum(
+                float((item.money_actual if item.money_actual is not None else item.money_reserved) or 0.0)
+                for item in reservations
+                if item.state == "finalized"
+            ),
+            6,
+        )
+        actual_compute = round(
+            sum(
+                float((item.compute_actual if item.compute_actual is not None else item.compute_reserved) or 0.0)
+                for item in reservations
+                if item.state == "finalized"
+            ),
+            6,
+        )
+        released_money = round(sum(float(item.money_reserved or 0.0) for item in reservations if item.state == "released"), 6)
+        released_compute = round(sum(float(item.compute_reserved or 0.0) for item in reservations if item.state == "released"), 6)
+        remaining_money = None if money_limit is None else round(float(money_limit) - reserved_money - actual_money, 6)
+        remaining_compute = None if compute_limit is None else round(float(compute_limit) - reserved_compute - actual_compute, 6)
+        return {
+            "money_limit": money_limit,
+            "compute_limit": compute_limit,
+            "reserved_money": reserved_money,
+            "reserved_compute": reserved_compute,
+            "actual_money": actual_money,
+            "actual_compute": actual_compute,
+            "released_money": released_money,
+            "released_compute": released_compute,
+            "remaining_money": remaining_money,
+            "remaining_compute": remaining_compute,
+        }
+
+    def _estimate_money_reservation(
+        self,
+        *,
+        node_id: str,
+        payload: dict[str, Any],
+        constraints: dict[str, Any],
+        fallback_cost_units: int,
+    ) -> float | None:
+        scope = payload.get("budget_scope") if isinstance(payload.get("budget_scope"), dict) else {}
+        direct = (
+            scope.get("money_estimate")
+            or scope.get("money_reserved")
+            or payload.get("estimated_cost")
+            or payload.get("cost_estimate")
+            or constraints.get("estimated_cost")
+        )
+        direct_value = _coerce_optional_float(direct)
+        if direct_value is not None:
+            return direct_value
+
+        provider = _clean_text(scope.get("provider") or scope.get("provider_id") or payload.get("provider"), lower=True)
+        model_id = _clean_text(scope.get("model_id") or payload.get("model_id") or payload.get("model") or constraints.get("model_id"))
+        if not (self._model_routing_registry and provider and model_id):
+            return None
+        model = self._model_routing_registry.find_model(node_id=node_id, provider=provider, model_id=model_id)
+        if model is None:
+            return None
+
+        pricing = dict(model.pricing or {})
+        input_tokens = self._estimate_token_value(payload=payload, constraints=constraints, keys=["input_tokens", "prompt_tokens", "estimated_input_tokens"])
+        output_tokens = self._estimate_token_value(
+            payload=payload,
+            constraints=constraints,
+            keys=["output_tokens", "completion_tokens", "estimated_output_tokens", "max_output_tokens"],
+        )
+        request_count = self._estimate_request_count(payload=payload, constraints=constraints)
+
+        total = 0.0
+        if input_tokens is not None:
+            total += (input_tokens / 1000.0) * float(pricing.get("input_per_1k") or pricing.get("prompt_per_1k") or 0.0)
+        if output_tokens is not None:
+            total += (output_tokens / 1000.0) * float(pricing.get("output_per_1k") or pricing.get("completion_per_1k") or 0.0)
+        total += request_count * float(pricing.get("per_request") or pricing.get("request") or 0.0)
+
+        if total <= 0:
+            return None
+        return round(total, 6)
+
+    def _estimate_compute_reservation(
+        self,
+        *,
+        compute_unit: str,
+        payload: dict[str, Any],
+        constraints: dict[str, Any],
+        fallback_cost_units: int,
+    ) -> float | None:
+        scope = payload.get("budget_scope") if isinstance(payload.get("budget_scope"), dict) else {}
+        direct = scope.get("compute_units") or payload.get("compute_units") or constraints.get("compute_units")
+        direct_value = _coerce_optional_float(direct)
+        if direct_value is not None:
+            return direct_value
+
+        if compute_unit == "cost_units":
+            return float(fallback_cost_units)
+        if compute_unit == "requests":
+            return float(self._estimate_request_count(payload=payload, constraints=constraints))
+        if compute_unit == "tokens":
+            total_tokens = self._estimate_token_value(
+                payload=payload,
+                constraints=constraints,
+                keys=[
+                    "total_tokens",
+                    "estimated_total_tokens",
+                ],
+            )
+            if total_tokens is not None:
+                return total_tokens
+            input_tokens = self._estimate_token_value(payload=payload, constraints=constraints, keys=["input_tokens", "prompt_tokens", "estimated_input_tokens"])
+            output_tokens = self._estimate_token_value(
+                payload=payload,
+                constraints=constraints,
+                keys=["output_tokens", "completion_tokens", "estimated_output_tokens", "max_output_tokens"],
+            )
+            if input_tokens is not None or output_tokens is not None:
+                return float(input_tokens or 0.0) + float(output_tokens or 0.0)
+            return None
+        if compute_unit in {"cpu_seconds", "gpu_seconds"}:
+            duration = self._estimate_token_value(
+                payload=payload,
+                constraints=constraints,
+                keys=["expected_duration_sec", "estimated_duration_sec", "max_runtime_sec"],
+            )
+            return duration
+        return None
+
+    def _estimate_token_value(self, *, payload: dict[str, Any], constraints: dict[str, Any], keys: list[str]) -> float | None:
+        scope = payload.get("budget_scope") if isinstance(payload.get("budget_scope"), dict) else {}
+        for key in keys:
+            if key in scope:
+                value = _coerce_optional_float(scope.get(key))
+                if value is not None:
+                    return value
+            if key in payload:
+                value = _coerce_optional_float(payload.get(key))
+                if value is not None:
+                    return value
+            if key in constraints:
+                value = _coerce_optional_float(constraints.get(key))
+                if value is not None:
+                    return value
+        return None
+
+    def _estimate_request_count(self, *, payload: dict[str, Any], constraints: dict[str, Any]) -> float:
+        count = self._estimate_token_value(payload=payload, constraints=constraints, keys=["request_count", "estimated_requests"])
+        return float(count if count is not None else 1.0)
 
     def _enforce_scheduler_scope_limits(
         self,

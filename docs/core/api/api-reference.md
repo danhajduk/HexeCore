@@ -39,6 +39,7 @@ Status: Implemented
   - `GET /api/system/nodes/budgets` (admin session/token required; budget declaration + setup overview)
   - `GET /api/system/nodes/budgets/{node_id}` (trusted node token or admin session/token; node budget bundle)
   - `PUT /api/system/nodes/budgets/{node_id}` (admin session/token required; operator budget setup)
+  - `POST /api/system/nodes/budgets/usage-report` (trusted node token required via `X-Node-Trust-Token`; actual budget usage finalization/release report)
   - `POST /api/system/nodes/capabilities/declaration` (trusted node token required via `X-Node-Trust-Token`)
   - `POST /api/system/nodes/providers/capabilities/report` (trusted node token required via `X-Node-Trust-Token`; provider/model capability report ingestion)
   - `GET /api/system/nodes/providers/routing-metadata` (admin session/token required; model cost/latency + node availability view)
@@ -120,6 +121,7 @@ Status: Implemented
 
 - Scheduler queue/lease/history routes under `/api/system/scheduler/*`.
 - Queue job submissions may include `payload.budget_scope` to create persisted node/customer/provider budget reservations when node budgeting is configured.
+- Budget-aware queue submission now supports Core-side money/compute estimation from payload fields and stored routing-metadata pricing when explicit reservation values are omitted.
 - Stack/system health and metrics endpoints under `/api/system/*` and `/api/system-stats/*`.
 - Store lifecycle and status routes under `/api/store/*`.
 
