@@ -776,3 +776,30 @@ Task 704: Add tests for Cloudflare config rendering - Completed on 03/20/2026 17
 Task 705: Add tests for reconcile and status flows - Completed on 03/20/2026 17:16
 Task 706: Add Phase 4 verification - Completed on 03/20/2026 17:16
 Task 707: Create Phase 4 completion report - Completed on 03/20/2026 17:16
+Task 710: Create Phase 5 Cloudflare auto-provisioning document - Completed on 03/20/2026 17:42
+Task 711: Define Cloudflare API integration model - Completed on 03/20/2026 17:42
+Task 712: Add secure Cloudflare credential configuration support - Completed on 03/20/2026 17:42
+Task 713: Create Cloudflare API client wrapper - Completed on 03/20/2026 17:42
+Task 714: Implement tunnel creation and lookup flow - Completed on 03/20/2026 17:42
+Task 715: Define canonical V1 tunnel naming convention - Completed on 03/20/2026 17:42
+Task 716: Implement DNS reconciliation for Core UI/API hostnames - Completed on 03/20/2026 17:42
+Task 717: Create public hostname provisioning state model - Completed on 03/20/2026 17:42
+Task 718: Integrate Cloudflare provisioning into edge reconcile flow - Completed on 03/20/2026 17:42
+Task 719: Extend Cloudflare config renderer to use provisioned tunnel metadata - Completed on 03/20/2026 17:42
+Task 720: Define Supervisor handoff contract for auto-provisioned tunnel runtime - Completed on 03/20/2026 17:42
+Task 721: Update Supervisor cloudflared adapter for provisioned tunnel runtime - Completed on 03/20/2026 17:42
+Task 722: Add provisioning dry-run validation endpoint - Completed on 03/20/2026 17:42
+Task 723: Add live provisioning action endpoint - Completed on 03/20/2026 17:42
+Task 724: Add provisioning status and history reporting - Completed on 03/20/2026 17:42
+Task 725: Add frontend provisioning UX for Cloudflare automation - Completed on 03/20/2026 17:42
+Task 726: Add masked Cloudflare settings management UI - Completed on 03/20/2026 17:42
+Task 727: Add observability and audit events for provisioning actions - Completed on 03/20/2026 17:42
+Task 728: Add retry-safe idempotent provisioning behavior - Completed on 03/20/2026 17:42
+Task 729: Add cleanup/recovery logic for broken persisted Cloudflare state - Completed on 03/20/2026 17:42
+Task 730: Add tests for Cloudflare API client wrapper - Completed on 03/20/2026 17:42
+Task 731: Add tests for provisioning and reconcile flow - Completed on 03/20/2026 17:42
+Task 732: Add tests for provisioning UI/status behavior - Completed on 03/20/2026 17:42
+Task 733: Add operator documentation for Cloudflare auto-provisioning - Completed on 03/20/2026 17:42
+Task 734: Add security review and safeguards for Cloudflare automation - Completed on 03/20/2026 17:42
+Task 735: Add Phase 5 verification pass - Completed on 03/20/2026 17:42
+Task 736: Create Phase 5 completion report - Completed on 03/20/2026 17:42

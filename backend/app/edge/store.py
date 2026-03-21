@@ -5,7 +5,7 @@ import json
 import os
 from typing import Any
 
-from .models import CloudflareSettings, EdgePublication, EdgeTunnelStatus, utcnow_iso
+from .models import CloudflareSettings, EdgePublication, EdgeProvisioningState, EdgeTunnelStatus, utcnow_iso
 
 
 class EdgeGatewayStore:
@@ -74,6 +74,19 @@ class EdgeGatewayStore:
         payload["updated_at"] = utcnow_iso()
         await self.save(payload)
         return dict(state)
+
+    async def get_provisioning_state(self) -> EdgeProvisioningState:
+        raw = (await self.load()).get("provisioning")
+        if isinstance(raw, dict):
+            return EdgeProvisioningState.model_validate(raw)
+        return EdgeProvisioningState()
+
+    async def set_provisioning_state(self, state: EdgeProvisioningState) -> EdgeProvisioningState:
+        payload = await self.load()
+        payload["provisioning"] = state.model_dump(mode="json")
+        payload["updated_at"] = utcnow_iso()
+        await self.save(payload)
+        return state
 
     def _read_sync(self) -> dict[str, Any]:
         if not os.path.exists(self.path):

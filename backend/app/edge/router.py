@@ -70,6 +70,18 @@ def build_edge_router(service: EdgeGatewayService) -> APIRouter:
         require_admin_token(x_admin_token, request)
         return await service.dry_run()
 
+    @router.post("/edge/cloudflare/provision")
+    async def cloudflare_provision(
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        return await service.provision()
+
+    @router.get("/edge/cloudflare")
+    async def cloudflare_status():
+        return await service.cloudflare_status()
+
     @router.get("/edge/cloudflare/settings")
     async def get_cloudflare_settings():
         return await service.get_cloudflare_settings()

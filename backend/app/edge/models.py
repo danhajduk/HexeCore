@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from enum import Enum
 from datetime import datetime, timezone
 from typing import Literal
 
@@ -8,6 +9,14 @@ from pydantic import BaseModel, Field, field_validator
 
 def utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+class ProvisioningState(str, Enum):
+    not_configured = "not_configured"
+    pending = "pending"
+    provisioned = "provisioned"
+    degraded = "degraded"
+    error = "error"
 
 
 class CorePublicIdentity(BaseModel):
@@ -22,11 +31,19 @@ class CloudflareSettings(BaseModel):
     enabled: bool = False
     account_id: str | None = None
     zone_id: str | None = None
+    api_token_ref: str | None = None
+    api_token_configured: bool = False
     tunnel_id: str | None = None
     tunnel_name: str | None = None
+    tunnel_token_ref: str | None = None
     credentials_reference: str | None = None
+    ui_dns_record_id: str | None = None
+    api_dns_record_id: str | None = None
     managed_domain_base: str = "hexe-ai.com"
     hostname_publication_mode: Literal["core_id_managed"] = "core_id_managed"
+    provisioning_state: ProvisioningState = ProvisioningState.not_configured
+    last_provisioned_at: str | None = None
+    last_provision_error: str | None = None
     config_version: str | None = None
     updated_at: str = Field(default_factory=utcnow_iso)
 
@@ -77,6 +94,22 @@ class EdgeTunnelStatus(BaseModel):
     updated_at: str | None = None
 
 
+class EdgeProvisioningState(BaseModel):
+    overall_state: ProvisioningState = ProvisioningState.not_configured
+    tunnel_state: ProvisioningState = ProvisioningState.not_configured
+    ui_hostname_state: ProvisioningState = ProvisioningState.not_configured
+    api_hostname_state: ProvisioningState = ProvisioningState.not_configured
+    dns_state: ProvisioningState = ProvisioningState.not_configured
+    runtime_config_state: ProvisioningState = ProvisioningState.not_configured
+    last_action: str | None = None
+    last_success_at: str | None = None
+    last_error: str | None = None
+    tunnel_id: str | None = None
+    tunnel_name: str | None = None
+    ui_dns_record_id: str | None = None
+    api_dns_record_id: str | None = None
+
+
 class EdgeTargetHealth(BaseModel):
     target_type: str
     target_id: str
@@ -88,6 +121,7 @@ class EdgeStatus(BaseModel):
     public_identity: CorePublicIdentity
     cloudflare: CloudflareSettings
     tunnel: EdgeTunnelStatus
+    provisioning: EdgeProvisioningState = Field(default_factory=EdgeProvisioningState)
     publications: list[EdgePublication] = Field(default_factory=list)
     target_health: list[EdgeTargetHealth] = Field(default_factory=list)
     reconcile_state: dict[str, object] = Field(default_factory=dict)
@@ -115,3 +149,29 @@ class EdgeDryRunResult(BaseModel):
     public_identity: CorePublicIdentity
     validation_errors: list[str] = Field(default_factory=list)
     rendered_config: dict[str, object] = Field(default_factory=dict)
+    tunnel_name: str | None = None
+    dns_target: str | None = None
+
+
+class CloudflareTunnelResult(BaseModel):
+    tunnel_id: str
+    tunnel_name: str
+    tunnel_token_ref: str | None = None
+
+
+class CloudflareDnsResult(BaseModel):
+    hostname: str
+    dns_record_id: str | None = None
+    content: str
+    proxied: bool = True
+
+
+class CloudflareProvisionResult(BaseModel):
+    ok: bool
+    public_identity: CorePublicIdentity
+    settings: CloudflareSettings
+    provisioning: EdgeProvisioningState
+    tunnel: CloudflareTunnelResult | None = None
+    dns_records: list[CloudflareDnsResult] = Field(default_factory=list)
+    rendered_config: dict[str, object] = Field(default_factory=dict)
+    validation_errors: list[str] = Field(default_factory=list)

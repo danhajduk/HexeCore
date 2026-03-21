@@ -136,6 +136,14 @@
   border: 1px solid hsl(var(--sx-danger) / 0.4);
 }
 
+.settings-success {
+  margin-top: var(--sx-space-3);
+  padding: calc(var(--sx-space-2) + 2px) var(--sx-space-3);
+  border-radius: calc(var(--sx-radius-sm) + 2px);
+  background: hsl(var(--sx-accent) / 0.12);
+  border: 1px solid hsl(var(--sx-accent) / 0.35);
+}
+
 .settings-loading {
   margin-top: var(--sx-space-3);
   opacity: 0.7;

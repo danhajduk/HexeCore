@@ -14,11 +14,35 @@ type CloudflareSettings = {
   enabled: boolean;
   account_id?: string | null;
   zone_id?: string | null;
+  api_token_ref?: string | null;
+  api_token_configured?: boolean;
   tunnel_id?: string | null;
   tunnel_name?: string | null;
+  tunnel_token_ref?: string | null;
   credentials_reference?: string | null;
+  ui_dns_record_id?: string | null;
+  api_dns_record_id?: string | null;
+  provisioning_state?: string;
+  last_provisioned_at?: string | null;
+  last_provision_error?: string | null;
   managed_domain_base: string;
   hostname_publication_mode: string;
+};
+
+type ProvisioningState = {
+  overall_state: string;
+  tunnel_state: string;
+  ui_hostname_state: string;
+  api_hostname_state: string;
+  dns_state: string;
+  runtime_config_state: string;
+  last_action?: string | null;
+  last_success_at?: string | null;
+  last_error?: string | null;
+  tunnel_id?: string | null;
+  tunnel_name?: string | null;
+  ui_dns_record_id?: string | null;
+  api_dns_record_id?: string | null;
 };
 
 type EdgePublication = {
@@ -41,9 +65,12 @@ type EdgeStatus = {
     configured: boolean;
     runtime_state: string;
     healthy: boolean;
+    tunnel_id?: string | null;
+    tunnel_name?: string | null;
     config_path?: string | null;
     last_error?: string | null;
   };
+  provisioning: ProvisioningState;
   publications: EdgePublication[];
   reconcile_state: Record<string, unknown>;
   validation_errors: string[];
@@ -53,8 +80,10 @@ const EMPTY_SETTINGS: CloudflareSettings = {
   enabled: false,
   account_id: "",
   zone_id: "",
+  api_token_ref: "",
   tunnel_id: "",
   tunnel_name: "",
+  tunnel_token_ref: "",
   credentials_reference: "",
   managed_domain_base: "hexe-ai.com",
   hostname_publication_mode: "core_id_managed",
@@ -65,6 +94,7 @@ export default function EdgeGateway() {
   const [status, setStatus] = useState<EdgeStatus | null>(null);
   const [settings, setSettings] = useState<CloudflareSettings>(EMPTY_SETTINGS);
   const [err, setErr] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [publicationForm, setPublicationForm] = useState({
     hostname: "",
@@ -95,6 +125,7 @@ export default function EdgeGateway() {
   async function saveSettings() {
     setBusy(true);
     setErr(null);
+    setMessage(null);
     try {
       const res = await fetch("/api/edge/cloudflare/settings", {
         method: "PUT",
@@ -104,6 +135,7 @@ export default function EdgeGateway() {
       });
       if (!res.ok) throw new Error(`save HTTP ${res.status}`);
       await load();
+      setMessage("Cloudflare settings saved.");
     } catch (e: any) {
       setErr(e?.message ?? String(e));
     } finally {
@@ -111,13 +143,20 @@ export default function EdgeGateway() {
     }
   }
 
-  async function runAction(path: string) {
+  async function runAction(path: string, successMessage: string) {
     setBusy(true);
     setErr(null);
+    setMessage(null);
     try {
       const res = await fetch(path, { method: "POST", credentials: "include" });
       if (!res.ok) throw new Error(`action HTTP ${res.status}`);
+      const payload = await res.json().catch(() => null);
       await load();
+      const detail =
+        typeof payload?.ok === "boolean" && !payload.ok
+          ? "Action reported an error."
+          : successMessage;
+      setMessage(detail);
     } catch (e: any) {
       setErr(e?.message ?? String(e));
     } finally {
@@ -128,6 +167,7 @@ export default function EdgeGateway() {
   async function createPublication() {
     setBusy(true);
     setErr(null);
+    setMessage(null);
     try {
       const res = await fetch("/api/edge/publications", {
         method: "POST",
@@ -155,6 +195,7 @@ export default function EdgeGateway() {
         upstream_base_url: "http://127.0.0.1:8081",
       });
       await load();
+      setMessage("Publication created.");
     } catch (e: any) {
       setErr(e?.message ?? String(e));
     } finally {
@@ -165,6 +206,7 @@ export default function EdgeGateway() {
   async function togglePublication(item: EdgePublication) {
     setBusy(true);
     setErr(null);
+    setMessage(null);
     try {
       const res = await fetch(`/api/edge/publications/${encodeURIComponent(item.publication_id)}`, {
         method: "PATCH",
@@ -174,6 +216,7 @@ export default function EdgeGateway() {
       });
       if (!res.ok) throw new Error(`patch HTTP ${res.status}`);
       await load();
+      setMessage(`Publication ${!item.enabled ? "enabled" : "disabled"}.`);
     } catch (e: any) {
       setErr(e?.message ?? String(e));
     } finally {
@@ -184,6 +227,7 @@ export default function EdgeGateway() {
   async function deletePublication(publicationId: string) {
     setBusy(true);
     setErr(null);
+    setMessage(null);
     try {
       const res = await fetch(`/api/edge/publications/${encodeURIComponent(publicationId)}`, {
         method: "DELETE",
@@ -191,6 +235,7 @@ export default function EdgeGateway() {
       });
       if (!res.ok) throw new Error(`delete HTTP ${res.status}`);
       await load();
+      setMessage("Publication deleted.");
     } catch (e: any) {
       setErr(e?.message ?? String(e));
     } finally {
@@ -209,6 +254,7 @@ export default function EdgeGateway() {
         Public ingress for {branding.coreName} using platform-managed Cloudflare hostnames in V1 single-owner mode.
       </p>
       {err && <div className="settings-error">Edge Gateway error: {err}</div>}
+      {message && <div className="settings-success">{message}</div>}
 
       <section className="settings-section">
         <div className="settings-section-head">
@@ -252,7 +298,7 @@ export default function EdgeGateway() {
               />
               <span>Enable Cloudflare publication</span>
             </label>
-            {["account_id", "zone_id", "tunnel_id", "tunnel_name", "credentials_reference"].map((field) => (
+            {["account_id", "zone_id", "api_token_ref", "credentials_reference"].map((field) => (
               <label key={field} className="settings-label">
                 <div className="settings-label-text">{field.replace(/_/g, " ")}</div>
                 <input
@@ -262,6 +308,16 @@ export default function EdgeGateway() {
                 />
               </label>
             ))}
+            <div className="settings-kv-grid">
+              <div className="settings-kv-item">
+                <div className="settings-label-text">Token state</div>
+                <span className="settings-pill">{settings.api_token_configured ? "Configured" : "Missing"}</span>
+              </div>
+              <div className="settings-kv-item">
+                <div className="settings-label-text">Managed tunnel name</div>
+                <div className="settings-mono">{status?.provisioning.tunnel_name || status?.tunnel.tunnel_name || "Will derive from core id"}</div>
+              </div>
+            </div>
             <label className="settings-label">
               <div className="settings-label-text">Managed domain base</div>
               <input
@@ -274,13 +330,19 @@ export default function EdgeGateway() {
               <button className="settings-btn" disabled={busy} onClick={saveSettings}>
                 {busy ? "Saving..." : "Save Cloudflare settings"}
               </button>
-              <button className="settings-btn secondary" disabled={busy} onClick={() => void runAction("/api/edge/cloudflare/test")}>
+              <button className="settings-btn secondary" disabled={busy} onClick={() => void runAction("/api/edge/cloudflare/test", "Dry-run completed.")}>
                 Dry-run test
               </button>
-              <button className="settings-btn secondary" disabled={busy} onClick={() => void runAction("/api/edge/reconcile")}>
+              <button className="settings-btn secondary" disabled={busy} onClick={() => void runAction("/api/edge/cloudflare/provision", "Provisioning completed.")}>
+                Provision
+              </button>
+              <button className="settings-btn secondary" disabled={busy} onClick={() => void runAction("/api/edge/reconcile", "Reconcile completed.")}>
                 Reconcile
               </button>
             </div>
+            <p className="settings-muted">
+              V1 uses a single platform-managed Cloudflare owner and accepts only a token reference, not a raw token value.
+            </p>
           </div>
         </div>
       </section>
@@ -293,12 +355,12 @@ export default function EdgeGateway() {
         <div className="settings-card">
           <div className="settings-kv-grid">
             <div className="settings-kv-item">
-              <div className="settings-label-text">Tunnel state</div>
-              <span className="settings-pill">{status?.tunnel.runtime_state || "unknown"}</span>
+              <div className="settings-label-text">Provisioning state</div>
+              <span className="settings-pill">{status?.provisioning.overall_state || "not_configured"}</span>
             </div>
             <div className="settings-kv-item">
-              <div className="settings-label-text">Configured</div>
-              <span className="settings-pill">{status?.tunnel.configured ? "Configured" : "Not configured"}</span>
+              <div className="settings-label-text">Tunnel runtime</div>
+              <span className="settings-pill">{status?.tunnel.runtime_state || "unknown"}</span>
             </div>
             <div className="settings-kv-item">
               <div className="settings-label-text">Validation errors</div>
@@ -307,6 +369,26 @@ export default function EdgeGateway() {
             <div className="settings-kv-item">
               <div className="settings-label-text">Config path</div>
               <div className="settings-mono">{status?.tunnel.config_path || "Not written yet"}</div>
+            </div>
+            <div className="settings-kv-item">
+              <div className="settings-label-text">Tunnel ID</div>
+              <div className="settings-mono">{status?.provisioning.tunnel_id || status?.tunnel.tunnel_id || "Not provisioned"}</div>
+            </div>
+            <div className="settings-kv-item">
+              <div className="settings-label-text">UI DNS record</div>
+              <div className="settings-mono">{status?.provisioning.ui_dns_record_id || status?.cloudflare.ui_dns_record_id || "Not provisioned"}</div>
+            </div>
+            <div className="settings-kv-item">
+              <div className="settings-label-text">API DNS record</div>
+              <div className="settings-mono">{status?.provisioning.api_dns_record_id || status?.cloudflare.api_dns_record_id || "Not provisioned"}</div>
+            </div>
+            <div className="settings-kv-item">
+              <div className="settings-label-text">Last success</div>
+              <div>{status?.provisioning.last_success_at || status?.cloudflare.last_provisioned_at || "Never"}</div>
+            </div>
+            <div className="settings-kv-item">
+              <div className="settings-label-text">Last error</div>
+              <div>{status?.provisioning.last_error || status?.cloudflare.last_provision_error || status?.tunnel.last_error || "None"}</div>
             </div>
           </div>
         </div>

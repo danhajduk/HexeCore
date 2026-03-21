@@ -29,5 +29,7 @@ class CloudflareConfigRenderer:
         return {
             "tunnel": settings.tunnel_id,
             "credentials-file": settings.credentials_reference,
+            "tunnel-token-ref": settings.tunnel_token_ref,
+            "managed-domain-base": settings.managed_domain_base,
             "ingress": ingress,
         }

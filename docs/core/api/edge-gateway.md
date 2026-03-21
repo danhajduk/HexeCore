@@ -1,6 +1,6 @@
 # Edge Gateway
 
-Status: Implemented for Phase 4 V1 single-owner foundations
+Status: Implemented for Phase 5 V1 single-owner auto-provisioning
 
 ## Overview
 
@@ -39,8 +39,10 @@ Core:
 - owns the canonical public identity
 - validates and stores publication records
 - derives Core-owned UI/API hostnames
+- stores Cloudflare owner/account/zone/token-reference settings
+- provisions or repairs the managed tunnel and DNS state
 - renders desired Cloudflare tunnel ingress config
-- exposes edge status, dry-run validation, and reconcile APIs
+- exposes edge status, dry-run validation, live provision, and reconcile APIs
 
 Supervisor:
 
@@ -81,6 +83,30 @@ Validated publication rules include:
 - Cloudflare ownership is single-owner and platform-managed in V1
 - Core-derived UI/API hostnames cannot be replaced by operator-defined publications
 
+## Cloudflare Provisioning
+
+V1 uses a deterministic managed tunnel name:
+
+- `hexe-core-<core-id>`
+
+Live provisioning flow:
+
+1. validate settings and token reference
+2. ensure the stable `core_id` and hostnames exist
+3. find or create the deterministic tunnel
+4. upsert DNS for:
+   - `<core-id>.hexe-ai.com`
+   - `api.<core-id>.hexe-ai.com`
+5. render desired `cloudflared` config
+6. hand runtime config to Supervisor
+7. persist provisioning status and resource ids
+
+Settings notes:
+
+- `api_token_ref` is stored, not the raw token
+- only `hexe-ai.com` is allowed as the managed base in V1
+- changing the Cloudflare owner context clears stale persisted remote ids so reprovisioning is clean
+
 ## Status And Observability
 
 `GET /api/edge/status` exposes:
@@ -88,14 +114,28 @@ Validated publication rules include:
 - public UI/API hostnames
 - Cloudflare settings projection
 - tunnel/configured runtime state
+- provisioning state projection
 - publication list
 - validation errors
 - reconcile outcome
 
+`GET /api/edge/cloudflare` exposes the Cloudflare-focused status slice:
+
+- settings projection
+- tunnel/runtime state
+- provisioning state
+- reconcile state
+- validation errors
+
 Edge changes emit audit events for:
 
 - Cloudflare settings updates
+- dry-run attempts
+- provision attempts
 - publication create/update/delete
+- tunnel creation
+- DNS reconciliation
+- Supervisor runtime apply
 - reconcile completion
 
 ## Cloudflare Ownership Model

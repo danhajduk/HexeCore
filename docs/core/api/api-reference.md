@@ -202,6 +202,7 @@ Status: Planned
 
 - [Core Platform](./core-platform.md)
 - [Edge Gateway](./edge-gateway.md)
+- [Phase 5 Cloudflare Auto-Provisioning](../../migration/phase-5-cloudflare-auto-provisioning.md)
 - [Node Provider Intelligence Contract](./node-provider-intelligence-contract.md)
 - [Node Service Resolution And Budgeting](../node-service-resolution-and-budgeting.md)
 - [Telemetry And Usage](./telemetry-and-usage.md)
