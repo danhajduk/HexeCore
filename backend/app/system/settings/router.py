@@ -18,6 +18,7 @@ class SetSettingRequest(BaseModel):
 
 class PlatformIdentityResponse(BaseModel):
     ok: bool = True
+    core_id: str
     platform_name: str
     platform_short: str
     platform_domain: str
@@ -28,6 +29,8 @@ class PlatformIdentityResponse(BaseModel):
     docs_name: str
     legacy_internal_namespace: str
     legacy_compatibility_note: str
+    public_ui_hostname: str
+    public_api_hostname: str
 
 
 def build_settings_router(store: SettingsStore, audit_store: AuditLogStore | None = None) -> APIRouter:

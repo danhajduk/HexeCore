@@ -44,292 +44,75 @@ if it is not present and should be node-owned create a file with the new data in
 
 Do not edit above this line:
 #######################################################################
+# Phase 4 Tasks — Edge Gateway + Cloudflare Integration (Core-ID Hostnames, V1 Single-Owner Model)
+# Start at Task 680
 
-# Phase 3 Tasks — Internal Identifier and Codebase Rename Cleanup
-# Start at Task 660
+## Scope
 
-Scope
+This phase introduces the **Core Edge Gateway** and integrates **Cloudflare Tunnel** as the public ingress layer, using a **stable per-Core public hostname model**.
 
-This phase performs the **internal codebase migration** from legacy `synthia` naming to `hexe` naming across active implementation code.
+### Core Hostname Model
 
-#Goal
-Rename internal identifiers so the codebase aligns with the new Hexe platform identity, after the public branding and MQTT namespace migration are already complete.
+Each Core instance must have a stable unique ID and public hostnames derived from it.
 
-#This phase SHOULD
-- rename internal constants, helpers, labels, and service-facing identifiers
-- reduce or eliminate active `synthia` references in implementation code
-- update scripts, service descriptions, env examples, and generated labels
-- keep the system functional during the refactor
+Canonical pattern:
 
-#This phase should NOT
-- casually break stable contracts without explicit migration
-- rename historical/archive references unless they are still active
-- change route paths unless they are explicitly product-facing and safe to migrate now
+```text
+<core-id>.hexe-ai.com
+api.<core-id>.hexe-ai.com
+```
 
----
+Example:
 
-[COMPLETED] Task 660: Create Phase 3 internal rename migration document
+```text
+7f3c91ab42de8f10.hexe-ai.com
+api.7f3c91ab42de8f10.hexe-ai.com
+```
 
-Create the canonical Phase 3 document for internal identifier/codebase cleanup.
+### Goal
 
-Include:
-- scope
-- what counts as an internal identifier
-- allowed vs disallowed renames
-- risks
-- validation requirements
-- rollback notes
-
-Deliverables:
-- `docs/migration/phase-3-internal-rename-hexe.md`
+- every Core gets a stable unique public identity
+- Cloudflare routes traffic to the correct Core by Core-specific hostname
+- Core becomes the public entry point for UI and API
+- Core routes traffic internally to:
+  - Core services
+  - Supervisor-managed runtimes
+  - Nodes
 
 ---
 
-[COMPLETED] Task 661: Perform full repository audit for remaining active `Synthia` / `synthia` references
+## V1 Ownership Constraint
 
-Audit the repo and classify remaining references into:
-- active runtime code
-- user-facing text
-- tests
-- scripts/config
-- archive/history/reference-only
+This phase is intentionally **single-owner / platform-managed only**.
 
-Deliverables:
-- audit report
-- categorized cleanup checklist
+### V1 assumptions
+- one Cloudflare owner
+- one managed domain base: `hexe-ai.com`
+- one Cloudflare token source
+- one Cloudflare account context
+- one Cloudflare zone context
+- Core creates/manages public hostnames only under the platform-owned domain
 
----
+### V1 non-goals
+- no per-user Cloudflare ownership
+- no bring-your-own-domain
+- no per-tenant token selection
+- no multi-tenant zone management
+- no user-facing Cloudflare account linking
 
-[COMPLETED] Task 662: Rename backend internal naming helpers and constants to Hexe
-
-Rename internal helpers/constants that still use legacy synthia naming where safe.
-
-Examples:
-- platform helper names
-- constant identifiers
-- runtime labels
-- helper function names
-- internal service identifiers
-
-Deliverables:
-- backend helper cleanup
-- imports fixed
-- tests updated
+Future multi-user / multi-tenant support may be added later, but this phase must stay intentionally simple.
 
 ---
 
-[COMPLETED] Task 663: Rename service labels and component display identifiers
+## Design Rules
 
-Update active service/component labels to Hexe naming.
-
-Examples:
-- `Synthia Core` -> `Hexe Core`
-- `Synthia Supervisor` -> `Hexe Supervisor`
-- `Synthia Nodes` -> `Hexe Nodes`
-
-This includes:
-- health summaries
-- status cards
-- runtime info labels
-- logs/printed labels where appropriate
-
-Deliverables:
-- component labels updated
-- stable behavior preserved
+- `core_id` must be stable once created
+- `core_id` must be URL-safe
+- recommended format: **16-character lowercase hex**
+- hostname must be derived from persisted Core identity, not regenerated on reboot
+- hostname is an address, not the trust mechanism
+- trust/auth must still rely on persisted identity, tokens, and stored credentials
 
 ---
 
-[COMPLETED] Task 664: Rename backend startup/runtime/log branding that still uses legacy identifiers
-
-Update backend startup/runtime/logging messages so active logs and runtime output use Hexe naming where appropriate.
-
-Do not rename machine-parseable identifiers unless safe.
-
-Deliverables:
-- startup/runtime message cleanup
-- no broken log parsing expectations where known
-
----
-
-[COMPLETED] Task 665: Rename frontend app/package branding assets and metadata
-
-Update frontend package/app metadata and active branding assets.
-
-Includes:
-- HTML titles
-- manifest/app labels
-- package metadata where product-facing
-- page shell naming
-- favicon/app-name references if applicable
-
-Deliverables:
-- frontend metadata cleanup
-- consistent Hexe branding
-
----
-
-[COMPLETED] Task 666: Rename installer/bootstrap/dev-helper identity from Synthia to Hexe
-
-Update:
-- bootstrap script naming/comments/output
-- dev helper script output
-- installer text
-- shell helper text
-- service descriptions where safe
-
-Deliverables:
-- scripts and templates updated
-- operator-facing output aligned
-
----
-
-[COMPLETED] Task 667: Rename environment/config sample identifiers where appropriate
-
-Update sample config files, docs, and examples from Synthia naming to Hexe naming.
-
-Includes:
-- `.env` examples
-- setup snippets
-- example domains
-- operator docs
-
-Deliverables:
-- updated examples
-- doc consistency
-
----
-
-[COMPLETED] Task 668: Review API routes and payload fields for product-facing rename opportunities
-
-Audit API routes and payload fields that may still expose old product naming.
-
-Classify:
-- safe to leave as technical contract
-- safe to alias
-- should be renamed now
-- should be deferred
-
-Deliverables:
-- route/payload naming review
-- migration decision notes
-
----
-
-[COMPLETED] Task 669: Add Hexe-branded aliases for clearly product-facing routes if needed
-
-Where there are clearly product-facing URLs or aliases that include legacy branding, add Hexe-branded replacements if safe.
-
-Preserve compatibility where needed.
-
-Deliverables:
-- route alias updates if applicable
-- docs updated
-
----
-
-[COMPLETED] Task 670: Rename file/folder/module paths where safe and high-value
-
-Evaluate and rename active file/folder/module names that still use legacy branding, where the value justifies the churn and import-path changes are manageable.
-
-Do NOT rename blindly.
-
-Priority:
-- high-visibility modules
-- central helpers
-- service wrappers
-- runtime metadata modules
-
-Deliverables:
-- selective path/module rename
-- imports fixed
-- tests updated
-
----
-
-[COMPLETED] Task 671: Rename systemd/service template descriptions and unit-facing names where safe
-
-Update service descriptions and operator-facing systemd labels to Hexe naming.
-
-Be cautious with actual service filenames/identifiers if they are depended on externally; classify before changing.
-
-Deliverables:
-- service template review
-- descriptions updated
-- filename/id changes only if safe
-
----
-
-[COMPLETED] Task 672: Rename docs references still describing the platform as Synthia in active architecture files
-
-Update remaining active architecture and subsystem docs to remove old product naming from current-state descriptions.
-
-Historical/archive docs may retain old naming only when explicitly marked historical.
-
-Deliverables:
-- active docs cleanup
-- archive note additions where needed
-
----
-
-[COMPLETED] Task 673: Isolate or archive historical/legacy references that must remain
-
-For references that must stay:
-- add archive/historical note
-- move out of active docs if appropriate
-- prevent them from looking like current canonical naming
-
-Deliverables:
-- archive cleanup
-- clearer separation between current and historical material
-
----
-
-[COMPLETED] Task 674: Update tests and fixtures that still depend on legacy branding
-
-Update tests/fixtures for:
-- service labels
-- platform metadata
-- docs snapshots
-- naming helpers
-- branding strings
-
-Deliverables:
-- tests updated
-- fixtures refreshed
-
----
-
-[COMPLETED] Task 675: Add repository-wide validation to prevent reintroducing old branding in active code
-
-Add a lightweight validation rule, grep script, or test that flags newly introduced active `Synthia` branding in non-archival code where appropriate.
-
-Deliverables:
-- validation script/test
-- developer guidance
-
----
-
-[COMPLETED] Task 676: Perform Phase 3 verification pass
-
-Verify:
-- active codebase branding is primarily Hexe
-- remaining `synthia` references are intentional and documented
-- service labels/docs/scripts are aligned
-- system behavior remains stable
-
-Deliverables:
-- verification notes
-- unresolved leftovers list
-
----
-
-[COMPLETED] Task 677: Create Phase 3 completion report
-
-Summarize:
-- what was renamed internally
-- what remains intentionally legacy
-- any deferred technical-contract items
-- readiness for next phase
-
-Deliverables:
-- `docs/migration/phase-3-completion-report.md`
+No Active Tasks

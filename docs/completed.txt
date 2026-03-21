@@ -748,3 +748,31 @@ Task 636: Add tests for frontend platform identity consumption - Completed on 03
 Task 637: Add tests for backend naming helper usage - Completed on 03/20/2026 12:09
 Task 638: Add verification pass for naming abstraction coverage - Completed on 03/20/2026 12:09
 Task 639: Create the Phase 1 completion report - Completed on 03/20/2026 12:09
+Task 680: Create Edge Gateway architecture document - Completed on 03/20/2026 17:16
+Task 681: Define canonical Core identity model - Completed on 03/20/2026 17:16
+Task 682: Add Core hostname derivation helpers - Completed on 03/20/2026 17:16
+Task 683: Expose Core public identity in platform metadata - Completed on 03/20/2026 17:16
+Task 684: Create edge domain models - Completed on 03/20/2026 17:16
+Task 685: Create edge persistence layer - Completed on 03/20/2026 17:16
+Task 686: Create edge service layer - Completed on 03/20/2026 17:16
+Task 687: Create edge proxy service - Completed on 03/20/2026 17:16
+Task 688: Add edge API routes - Completed on 03/20/2026 17:16
+Task 689: Implement publication validation - Completed on 03/20/2026 17:16
+Task 690: Implement Cloudflare config renderer - Completed on 03/20/2026 17:16
+Task 691: Add Cloudflare settings model - Completed on 03/20/2026 17:16
+Task 692: Define Core to Supervisor contract for cloudflared runtime - Completed on 03/20/2026 17:16
+Task 693: Implement cloudflared runtime adapter in Supervisor - Completed on 03/20/2026 17:16
+Task 694: Implement reconcile flow - Completed on 03/20/2026 17:16
+Task 695: Add Cloudflare dry-run test endpoint - Completed on 03/20/2026 17:16
+Task 696: Add edge status reporting - Completed on 03/20/2026 17:16
+Task 697: Add frontend Edge Gateway UI - Completed on 03/20/2026 17:16
+Task 698: Add publication editor UI - Completed on 03/20/2026 17:16
+Task 699: Add Cloudflare settings UI - Completed on 03/20/2026 17:16
+Task 700: Add observability and logging - Completed on 03/20/2026 17:16
+Task 701: Add security safeguards - Completed on 03/20/2026 17:16
+Task 702: Add documentation for Core-ID hostname model - Completed on 03/20/2026 17:16
+Task 703: Add tests for Core identity and hostname derivation - Completed on 03/20/2026 17:16
+Task 704: Add tests for Cloudflare config rendering - Completed on 03/20/2026 17:16
+Task 705: Add tests for reconcile and status flows - Completed on 03/20/2026 17:16
+Task 706: Add Phase 4 verification - Completed on 03/20/2026 17:16
+Task 707: Create Phase 4 completion report - Completed on 03/20/2026 17:16

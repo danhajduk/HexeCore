@@ -290,6 +290,39 @@ class SupervisorDomainService:
         self._set_runtime_state(snapshot, "running", lifecycle_state="running", last_action="restart")
         return self._action_result("restart", node_id)
 
+    def _cloudflared_runtime_root(self) -> Path:
+        return Path(os.getenv("SYNTHIA_EDGE_RUNTIME_DIR", Path(os.getcwd()) / "var" / "edge" / "cloudflared"))
+
+    def apply_cloudflared_config(self, config: dict[str, Any]) -> dict[str, Any]:
+        root = self._cloudflared_runtime_root()
+        root.mkdir(parents=True, exist_ok=True)
+        config_path = root / "config.json"
+        runtime_path = root / "runtime.json"
+        self._write_json(config_path, config)
+        runtime_payload = {
+            "runtime_id": "cloudflared",
+            "state": "configured",
+            "healthy": True,
+            "last_action": "reconcile",
+            "last_action_at": self._now_iso(),
+            "config_path": str(config_path),
+        }
+        self._write_json(runtime_path, runtime_payload)
+        return {"ok": True, "runtime_state": "configured", "config_path": str(config_path)}
+
+    def get_runtime_state(self, runtime_id: str) -> dict[str, Any]:
+        if runtime_id != "cloudflared":
+            return {"exists": False}
+        runtime_path = self._cloudflared_runtime_root() / "runtime.json"
+        if not runtime_path.exists():
+            return {"exists": False}
+        try:
+            payload = json.loads(runtime_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            return {"exists": True, "healthy": False, "error": str(exc) or type(exc).__name__}
+        payload["exists"] = True
+        return payload
+
     def health_summary(self) -> SupervisorHealthSummary:
         managed_nodes = self._managed_nodes()
         healthy = sum(1 for item in managed_nodes if str(item.health_status or "").strip().lower() == "healthy")

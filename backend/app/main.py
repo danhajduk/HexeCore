@@ -20,6 +20,7 @@ from .core import (
 from .core.logging import setup_logging
 from .core.health import router as health_router
 from .architecture import build_architecture_router
+from .edge import EdgeGatewayService, EdgeGatewayStore, build_edge_router
 from .addons.registry import build_registry, register_addons
 from .addons.install_sessions import InstallSessionsStore
 from .addons.proxy import AddonProxy, build_proxy_router
@@ -381,6 +382,11 @@ def create_app() -> FastAPI:
         os.path.join(os.getcwd(), "var", "service_catalogs.json"),
     )
     service_catalog_store = ServiceCatalogStore(service_catalog_db)
+    edge_gateway_db = os.getenv(
+        "EDGE_GATEWAY_DB",
+        os.path.join(os.getcwd(), "var", "edge_gateway.json"),
+    )
+    edge_gateway_store = EdgeGatewayStore(edge_gateway_db)
     mqtt_integration_state_db = os.getenv(
         "MQTT_INTEGRATION_STATE_DB",
         os.path.join(os.getcwd(), "var", "mqtt_integration_state.json"),
@@ -457,6 +463,7 @@ def create_app() -> FastAPI:
     app.state.settings_store = settings_store
     app.state.service_token_keys = service_token_keys
     app.state.service_catalog_store = service_catalog_store
+    app.state.edge_gateway_store = edge_gateway_store
     app.state.mqtt_integration_state_store = mqtt_integration_state_store
     app.state.mqtt_authority_audit = mqtt_authority_audit
     app.state.mqtt_observability_store = mqtt_observability_store
@@ -521,6 +528,14 @@ def create_app() -> FastAPI:
     app.state.standalone_runtime_service = runtime_service
     supervisor_service = SupervisorDomainService(runtime_service)
     app.state.supervisor_service = supervisor_service
+    edge_gateway_service = EdgeGatewayService(
+        edge_gateway_store,
+        settings_store=settings_store,
+        node_registrations_store=node_registrations_store,
+        supervisor_service=supervisor_service,
+        audit_store=audit_store,
+    )
+    app.state.edge_gateway_service = edge_gateway_service
 
     scheduler_router = build_scheduler_router(
         engine,
@@ -628,6 +643,10 @@ def create_app() -> FastAPI:
     )
     app.include_router(
         build_nodes_router(NodesDomainService(node_registrations_store, node_governance_status_service)),
+        prefix="/api",
+    )
+    app.include_router(
+        build_edge_router(edge_gateway_service),
         prefix="/api",
     )
     app.include_router(

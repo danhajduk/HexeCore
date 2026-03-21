@@ -6,6 +6,7 @@ import Addons from "../pages/Addons";
 import AddonFrame from "../pages/AddonFrame";
 import NodeDetails from "../pages/NodeDetails";
 import Settings from "../pages/Settings";
+import EdgeGateway from "../pages/EdgeGateway";
 import SettingsJobs from "../pages/SettingsJobs";
 import SettingsMetrics from "../pages/SettingsMetrics";
 import SettingsStatistics from "../pages/SettingsStatistics";
@@ -32,6 +33,7 @@ export function buildRoutes(isAdmin: boolean, ready: boolean): RouteObject[] {
     { path: "/onboarding/registrations/approve", element: <OnboardingNodeApproval /> },
     { path: "/onboarding/nodes/approve", element: <OnboardingNodeApproval /> },
     { path: "/settings", element: protectedRoute(<Settings />) },
+    { path: "/settings/edge", element: protectedRoute(<EdgeGateway />) },
     { path: "/settings/jobs", element: protectedRoute(<SettingsJobs />) },
     { path: "/settings/metrics", element: protectedRoute(<SettingsMetrics />) },
     { path: "/settings/statistics", element: protectedRoute(<SettingsStatistics />) },

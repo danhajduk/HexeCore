@@ -22,6 +22,17 @@ Status: Implemented
   - `GET /api/system/settings`
   - `PUT /api/system/settings/{key}`
   - `GET /api/system/repo/status`
+- Edge gateway:
+  - `GET /api/edge/status`
+  - `GET /api/edge/publications`
+  - `POST /api/edge/publications` (admin session/token required)
+  - `PATCH /api/edge/publications/{publication_id}` (admin session/token required)
+  - `DELETE /api/edge/publications/{publication_id}` (admin session/token required)
+  - `GET /api/edge/public-identity`
+  - `GET /api/edge/cloudflare/settings`
+  - `PUT /api/edge/cloudflare/settings` (admin session/token required)
+  - `POST /api/edge/reconcile` (admin session/token required)
+  - `POST /api/edge/cloudflare/test` (admin session/token required)
 - Events/services:
   - `GET /api/system/events`
   - `POST /api/system/nodes/onboarding/sessions`
@@ -77,6 +88,7 @@ Status: Implemented
 
 Platform metadata currently includes:
 
+- `core_id`
 - `platform_name`
 - `platform_short`
 - `platform_domain`
@@ -87,6 +99,8 @@ Platform metadata currently includes:
 - `docs_name`
 - `legacy_internal_namespace`
 - `legacy_compatibility_note`
+- `public_ui_hostname`
+- `public_api_hostname`
 
 ## Addon APIs
 
@@ -187,6 +201,7 @@ Status: Planned
 ## See Also
 
 - [Core Platform](./core-platform.md)
+- [Edge Gateway](./edge-gateway.md)
 - [Node Provider Intelligence Contract](./node-provider-intelligence-contract.md)
 - [Node Service Resolution And Budgeting](../node-service-resolution-and-budgeting.md)
 - [Telemetry And Usage](./telemetry-and-usage.md)

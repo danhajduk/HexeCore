@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import re
+import secrets
 from dataclasses import dataclass
 from typing import Any
 
@@ -16,10 +18,41 @@ DEFAULT_PLATFORM_NODES_NAME = "Hexe Nodes"
 DEFAULT_PLATFORM_ADDONS_NAME = "Hexe Addons"
 DEFAULT_PLATFORM_DOCS_NAME = "Hexe Docs"
 DEFAULT_LEGACY_INTERNAL_NAMESPACE = "synthia"
+DEFAULT_CORE_ID = "synthia-core"
+CORE_ID_PATTERN = re.compile(r"^[a-f0-9]{16}$")
+
+
+def is_valid_core_id(value: str) -> bool:
+    return bool(CORE_ID_PATTERN.fullmatch(str(value or "").strip().lower()))
+
+
+def generate_core_id() -> str:
+    return secrets.token_hex(8)
+
+
+def derive_public_ui_hostname(core_id: str, platform_domain: str) -> str:
+    normalized = str(core_id or "").strip().lower()
+    domain = str(platform_domain or "").strip().lower()
+    if not is_valid_core_id(normalized):
+        raise ValueError("core_id_invalid")
+    if not domain:
+        raise ValueError("platform_domain_invalid")
+    return f"{normalized}.{domain}"
+
+
+def derive_public_api_hostname(core_id: str, platform_domain: str) -> str:
+    normalized = str(core_id or "").strip().lower()
+    domain = str(platform_domain or "").strip().lower()
+    if not is_valid_core_id(normalized):
+        raise ValueError("core_id_invalid")
+    if not domain:
+        raise ValueError("platform_domain_invalid")
+    return f"api.{normalized}.{domain}"
 
 
 @dataclass(frozen=True)
 class PlatformIdentity:
+    core_id: str
     platform_name: str
     platform_short: str
     platform_domain: str
@@ -30,9 +63,12 @@ class PlatformIdentity:
     docs_name: str
     legacy_internal_namespace: str
     legacy_compatibility_note: str
+    public_ui_hostname: str
+    public_api_hostname: str
 
     def to_dict(self) -> dict[str, str]:
         return {
+            "core_id": self.core_id,
             "platform_name": self.platform_name,
             "platform_short": self.platform_short,
             "platform_domain": self.platform_domain,
@@ -43,6 +79,8 @@ class PlatformIdentity:
             "docs_name": self.docs_name,
             "legacy_internal_namespace": self.legacy_internal_namespace,
             "legacy_compatibility_note": self.legacy_compatibility_note,
+            "public_ui_hostname": self.public_ui_hostname,
+            "public_api_hostname": self.public_api_hostname,
         }
 
 
@@ -84,11 +122,22 @@ class PlatformNamingService:
     def compatibility_note(self) -> str:
         return self._identity.legacy_compatibility_note
 
+    def core_id(self) -> str:
+        return self._identity.core_id
+
+    def public_ui_hostname(self) -> str:
+        return self._identity.public_ui_hostname
+
+    def public_api_hostname(self) -> str:
+        return self._identity.public_api_hostname
+
 
 async def load_platform_identity(settings_store: SettingsStore | None = None) -> PlatformIdentity:
     values: dict[str, Any] = {}
     if settings_store is not None:
         try:
+            values = await settings_store.get_all()
+            await _ensure_core_identity_settings(settings_store, values)
             values = await settings_store.get_all()
         except Exception:
             values = {}
@@ -152,7 +201,15 @@ def platform_identity_from_values(values: dict[str, Any] | None = None) -> Platf
         os.getenv("PLATFORM_LEGACY_COMPATIBILITY_NOTE"),
         f"Internal legacy identifiers may still use `{legacy_internal_namespace}` during migration.",
     )
+    core_id = _pick_core_id(
+        data.get("platform.core_id"),
+        data.get("core.id"),
+        os.getenv("SYNTHIA_CORE_ID"),
+    )
+    public_ui_hostname = derive_public_ui_hostname(core_id, platform_domain)
+    public_api_hostname = derive_public_api_hostname(core_id, platform_domain)
     return PlatformIdentity(
+        core_id=core_id,
         platform_name=platform_name,
         platform_short=platform_short,
         platform_domain=platform_domain,
@@ -163,6 +220,8 @@ def platform_identity_from_values(values: dict[str, Any] | None = None) -> Platf
         docs_name=docs_name,
         legacy_internal_namespace=legacy_internal_namespace,
         legacy_compatibility_note=legacy_compatibility_note,
+        public_ui_hostname=public_ui_hostname,
+        public_api_hostname=public_api_hostname,
     )
 
 
@@ -180,3 +239,28 @@ def _pick_text(*values: Any) -> str:
         if text:
             return text
     return ""
+
+
+def _pick_core_id(*values: Any) -> str:
+    for value in values:
+        text = str(value or "").strip().lower()
+        if not text:
+            continue
+        if is_valid_core_id(text):
+            return text
+        if text == DEFAULT_CORE_ID:
+            return generate_core_id()
+    return generate_core_id()
+
+
+async def _ensure_core_identity_settings(settings_store: SettingsStore, values: dict[str, Any]) -> None:
+    current = str(values.get("platform.core_id") or values.get("core.id") or "").strip().lower()
+    if is_valid_core_id(current):
+        return
+    env_value = str(os.getenv("SYNTHIA_CORE_ID", "")).strip().lower()
+    if is_valid_core_id(env_value):
+        core_id = env_value
+    else:
+        core_id = generate_core_id()
+    await settings_store.set("platform.core_id", core_id)
+    await settings_store.set("core.id", core_id)
