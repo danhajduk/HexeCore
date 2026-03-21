@@ -21,6 +21,8 @@ class CloudflareTunnel:
     tunnel_id: str
     tunnel_name: str
     created_at: str | None = None
+    config_source: str | None = None
+    remote_config: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -63,6 +65,8 @@ class CloudflareApiClient:
             tunnel_id=str(item.get("id") or "").strip(),
             tunnel_name=str(item.get("name") or "").strip(),
             created_at=str(item.get("created_at") or "").strip() or None,
+            config_source=str(item.get("config_src") or "").strip() or None,
+            remote_config=bool(item.get("remote_config")) if item.get("remote_config") is not None else None,
         )
 
     async def get_tunnel(self, tunnel_id: str) -> CloudflareTunnel | None:
@@ -78,6 +82,8 @@ class CloudflareApiClient:
             tunnel_id=str(payload.get("id") or "").strip(),
             tunnel_name=str(payload.get("name") or "").strip(),
             created_at=str(payload.get("created_at") or "").strip() or None,
+            config_source=str(payload.get("config_src") or "").strip() or None,
+            remote_config=bool(payload.get("remote_config")) if payload.get("remote_config") is not None else None,
         )
 
     async def create_tunnel(self, tunnel_name: str) -> CloudflareTunnel:
@@ -86,12 +92,14 @@ class CloudflareApiClient:
             "POST",
             f"/accounts/{self._account_id}/cfd_tunnel",
             operation="create_tunnel",
-            json={"name": tunnel_name, "config_src": "local", "tunnel_secret": secret},
+            json={"name": tunnel_name, "config_src": "cloudflare", "tunnel_secret": secret},
         )
         return CloudflareTunnel(
             tunnel_id=str(payload.get("id") or "").strip(),
             tunnel_name=str(payload.get("name") or "").strip(),
             created_at=str(payload.get("created_at") or "").strip() or None,
+            config_source=str(payload.get("config_src") or "").strip() or None,
+            remote_config=bool(payload.get("remote_config")) if payload.get("remote_config") is not None else None,
         )
 
     async def get_tunnel_token(self, tunnel_id: str) -> str | None:
@@ -159,6 +167,20 @@ class CloudflareApiClient:
             f"/zones/{self._zone_id}/dns_records/{record_id}",
             operation="delete_dns_record",
         )
+
+    async def update_tunnel_configuration(self, *, tunnel_id: str, ingress: list[dict[str, Any]]) -> dict[str, Any]:
+        payload = await self._request(
+            "PUT",
+            f"/accounts/{self._account_id}/cfd_tunnel/{tunnel_id}/configurations",
+            operation="update_tunnel_configuration",
+            json={
+                "config": {
+                    "ingress": ingress,
+                    "warp-routing": {"enabled": False},
+                }
+            },
+        )
+        return payload if isinstance(payload, dict) else {}
 
     async def _request(
         self,

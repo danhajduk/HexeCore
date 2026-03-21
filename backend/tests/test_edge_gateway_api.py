@@ -49,6 +49,9 @@ class FakeCloudflareClient:
     async def get_tunnel_token(self, tunnel_id: str):
         return f"token-{tunnel_id}"
 
+    async def update_tunnel_configuration(self, *, tunnel_id: str, ingress: list[dict[str, object]]):
+        return {"tunnel_id": tunnel_id, "version": 1, "config": {"ingress": ingress}, "source": "cloudflare"}
+
     async def find_dns_record(self, hostname: str):
         record = self.dns_records.get(hostname)
         if record is None:
@@ -113,6 +116,7 @@ class TestEdgeGatewayApi(unittest.TestCase):
             {
                 "SYNTHIA_ADMIN_TOKEN": "test-token",
                 "SYNTHIA_EDGE_RUNTIME_DIR": str(base / "edge-runtime"),
+                "SYNTHIA_CLOUDFLARED_PROVIDER": "disabled",
                 "CLOUDFLARE_API_TOKEN": "test-cloudflare-token",
                 "CLOUDFLARE_ACCOUNT_ID": "acct-env",
                 "CLOUDFLARE_ZONE_ID": "zone-env",
@@ -176,7 +180,7 @@ class TestEdgeGatewayApi(unittest.TestCase):
         self.assertEqual(provisioned.status_code, 200, provisioned.text)
         self.assertTrue(provisioned.json()["ok"])
         first_tunnel_id = provisioned.json()["provisioning"]["tunnel_id"]
-        self.assertEqual(provisioned.json()["provisioning"]["overall_state"], "provisioned")
+        self.assertEqual(provisioned.json()["provisioning"]["overall_state"], "degraded")
 
         repeat = self.client.post("/api/edge/cloudflare/provision", headers={"X-Admin-Token": "test-token"})
         self.assertEqual(repeat.status_code, 200, repeat.text)
@@ -192,13 +196,15 @@ class TestEdgeGatewayApi(unittest.TestCase):
         self.assertEqual(status.status_code, 200, status.text)
         payload = status.json()
         self.assertTrue(payload["tunnel"]["configured"])
-        self.assertEqual(payload["provisioning"]["overall_state"], "provisioned")
+        self.assertEqual(payload["provisioning"]["overall_state"], "degraded")
         self.assertTrue(payload["cloudflare"]["api_token_configured"])
         self.assertEqual(payload["cloudflare"]["account_id"], "acct-env")
         self.assertEqual(payload["cloudflare"]["zone_id"], "zone-env")
         self.assertEqual(payload["cloudflare"]["tunnel_id"], first_tunnel_id)
         self.assertTrue(payload["cloudflare"]["ui_dns_record_id"])
         self.assertTrue(payload["cloudflare"]["api_dns_record_id"])
+        self.assertEqual(payload["tunnel"]["runtime_state"], "configured")
+        self.assertFalse(payload["tunnel"]["healthy"])
         self.assertIn("last_reconcile_at", payload["reconcile_state"])
 
     def test_settings_context_change_clears_stale_cloudflare_metadata(self) -> None:

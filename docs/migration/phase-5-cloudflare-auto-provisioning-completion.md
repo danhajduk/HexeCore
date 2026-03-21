@@ -12,11 +12,12 @@ Delivered:
 - secure token-reference based Cloudflare settings
 - deterministic managed tunnel naming: `hexe-core-<core-id>`
 - idempotent tunnel lookup or creation
+- tunnel configuration push through the Cloudflare configurations API
 - idempotent DNS reconciliation for the canonical UI and API hostnames
 - persisted provisioning state and operator-facing status
 - live provision and dry-run API actions
 - Edge Gateway UI support for token refs, dry-run, provision, and status feedback
-- Supervisor handoff for rendered `cloudflared` desired config
+- Supervisor-managed `cloudflared` connector runtime
 
 ## Verification
 
@@ -30,6 +31,7 @@ Verified in this phase:
 Coverage includes:
 
 - tunnel lookup and tunnel creation
+- tunnel configuration updates
 - DNS upsert behavior
 - API error mapping
 - dry-run validation
@@ -47,7 +49,7 @@ This phase keeps the earlier Phase 4 boundary in place:
 - Supervisor owns host-local runtime realization
 - V1 remains single-owner and platform-managed only
 
-The current Supervisor adapter still stores and reports desired `cloudflared` runtime state locally rather than performing a full external Cloudflare runtime integration test during automated verification.
+Automated verification covers the Core-side configuration and Supervisor runtime contract, but it does not run a live external Cloudflare connectivity test as part of the backend suite.
 
 ## Future Work
 

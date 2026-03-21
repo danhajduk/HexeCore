@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -74,6 +76,67 @@ class TestSupervisorServiceLifecycle(unittest.TestCase):
                 restarted = json.loads(runtime_path.read_text(encoding="utf-8"))
                 self.assertEqual(restarted["lifecycle_state"], "running")
                 self.assertEqual(restarted["last_action"], "restart")
+
+    def test_apply_cloudflared_config_starts_docker_runtime(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch.dict(
+                os.environ,
+                {
+                    "SYNTHIA_EDGE_RUNTIME_DIR": tmpdir,
+                    "SYNTHIA_CLOUDFLARED_PROVIDER": "docker",
+                },
+                clear=False,
+            ):
+                service = SupervisorDomainService(self._runtime_service(Path(tmpdir) / "services"))
+                completed = [
+                    subprocess.CompletedProcess(["docker"], 0, stdout="", stderr=""),
+                    subprocess.CompletedProcess(["docker"], 0, stdout="container-123\n", stderr=""),
+                    subprocess.CompletedProcess(["docker"], 0, stdout="true\n", stderr=""),
+                ]
+                with patch("app.supervisor.service.shutil.which", return_value="/usr/bin/docker"), patch(
+                    "app.supervisor.service.subprocess.run", side_effect=completed
+                ) as run_mock:
+                    result = service.apply_cloudflared_config(
+                        {
+                            "tunnel": "tunnel-123",
+                            "tunnel-token": "token-123",
+                            "desired_enabled": True,
+                        }
+                    )
+                    runtime = service.get_runtime_state("cloudflared")
+                self.assertTrue(result["ok"])
+                self.assertEqual(result["runtime_state"], "running")
+                self.assertTrue(runtime["exists"])
+                self.assertEqual(runtime["provider"], "docker")
+                self.assertEqual(runtime["state"], "running")
+                docker_run = next(
+                    " ".join(call.args[0])
+                    for call in run_mock.call_args_list
+                    if len(call.args) == 1 and isinstance(call.args[0], list) and "run" in call.args[0]
+                )
+                self.assertIn("--network host", docker_run)
+                self.assertIn("cloudflare/cloudflared:latest", docker_run)
+
+    def test_apply_cloudflared_config_disabled_provider_keeps_runtime_off(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch.dict(
+                os.environ,
+                {
+                    "SYNTHIA_EDGE_RUNTIME_DIR": tmpdir,
+                    "SYNTHIA_CLOUDFLARED_PROVIDER": "disabled",
+                },
+                clear=False,
+            ):
+                service = SupervisorDomainService(self._runtime_service(Path(tmpdir) / "services"))
+                result = service.apply_cloudflared_config(
+                    {
+                        "tunnel": "tunnel-123",
+                        "tunnel-token": "token-123",
+                        "desired_enabled": True,
+                    }
+                )
+                self.assertFalse(result["ok"])
+                self.assertEqual(result["error"], "cloudflared_runtime_disabled")
 
 
 if __name__ == "__main__":

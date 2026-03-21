@@ -16,6 +16,7 @@ Phase 5 covers:
 - deterministic tunnel naming derived from the stable `core_id`
 - tunnel lookup or creation through the Cloudflare API
 - DNS reconciliation for the canonical UI and API hostnames
+- tunnel configuration reconciliation through the Cloudflare configurations API
 - persisted provisioning state and operator-visible status
 - rendered `cloudflared` runtime config handoff to Supervisor
 - dry-run validation and live provision actions from API and UI
@@ -64,9 +65,10 @@ Out of scope:
    - resolves the token reference from the environment
    - looks up an existing deterministic tunnel
    - creates the tunnel if missing
-   - fetches the tunnel token reference metadata
+   - pushes the canonical ingress configuration to Cloudflare
+   - fetches the live tunnel token
    - upserts the UI and API DNS records
-   - renders the `cloudflared` config
+   - renders the `cloudflared` runtime config
    - hands desired runtime config to Supervisor
 6. Core persists the provisioned tunnel and DNS metadata and exposes the result through edge status APIs.
 
@@ -112,11 +114,19 @@ Core hands Supervisor a rendered desired config that includes:
 - tunnel id
 - canonical ingress config
 - managed domain base
-- tunnel token reference
+- live tunnel token in-memory for the apply call only
 - desired enabled state
 - provisioning state
 
 Supervisor remains responsible for host-local `cloudflared` runtime realization and runtime-state reporting.
+
+Implemented V1 runtime behavior:
+
+- Supervisor defaults to `SYNTHIA_CLOUDFLARED_PROVIDER=auto`
+- `auto` prefers a Docker-managed `cloudflare/cloudflared:latest` connector
+- Docker launches with host networking so remote ingress rules can target `127.0.0.1:8080` and `127.0.0.1:9001`
+- a native `cloudflared` binary is used only if Docker is unavailable
+- the persisted on-disk config redacts the live tunnel token
 
 ## Rollback And Reprovision
 

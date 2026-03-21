@@ -47,8 +47,9 @@ Core:
 Supervisor:
 
 - owns host-local `cloudflared` runtime state
-- stores rendered runtime config on disk
-- reports runtime/configured status back to Core
+- stores rendered runtime config on disk with the live tunnel token redacted
+- realizes the connector process locally, using Docker by default in V1
+- reports real runtime status back to Core instead of a config-only placeholder
 - does not perform multi-tenant Cloudflare selection in V1
 
 Nodes:
@@ -94,12 +95,13 @@ Live provisioning flow:
 1. validate settings and token reference
 2. ensure the stable `core_id` and hostnames exist
 3. find or create the deterministic tunnel
-4. upsert DNS for:
+4. push the canonical ingress configuration to Cloudflare through the tunnel configurations API
+5. upsert DNS for:
    - `<core-id>.hexe-ai.com`
    - `api.<core-id>.hexe-ai.com`
-5. render desired `cloudflared` config
-6. hand runtime config to Supervisor
-7. persist provisioning status and resource ids
+6. resolve the live tunnel token in-memory
+7. hand runtime config to Supervisor
+8. persist provisioning status and resource ids
 
 Settings notes:
 
@@ -109,6 +111,13 @@ Settings notes:
 - Core stores the fixed env-backed token reference, not the raw token
 - only `hexe-ai.com` is allowed as the managed base in V1
 - changing the Cloudflare owner context clears stale persisted remote ids so reprovisioning is clean
+
+Runtime notes:
+
+- Supervisor defaults to `SYNTHIA_CLOUDFLARED_PROVIDER=auto`
+- `auto` prefers Docker and falls back to a native `cloudflared` binary if available
+- tests and non-runtime environments can set `SYNTHIA_CLOUDFLARED_PROVIDER=disabled`
+- the Docker runtime uses host networking so the tunnel can reach Core services at `127.0.0.1`
 
 ## Status And Observability
 
@@ -121,6 +130,7 @@ Settings notes:
 - publication list
 - validation errors
 - reconcile outcome
+- real connector runtime state from Supervisor
 
 `GET /api/edge/cloudflare` exposes the Cloudflare-focused status slice:
 

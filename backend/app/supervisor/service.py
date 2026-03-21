@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 import socket
 import json
+import shutil
+import subprocess
 from datetime import datetime, timezone
 from typing import Any
 from pathlib import Path
@@ -293,35 +295,257 @@ class SupervisorDomainService:
     def _cloudflared_runtime_root(self) -> Path:
         return Path(os.getenv("SYNTHIA_EDGE_RUNTIME_DIR", Path(os.getcwd()) / "var" / "edge" / "cloudflared"))
 
+    def _cloudflared_provider(self) -> str:
+        provider = str(os.getenv("SYNTHIA_CLOUDFLARED_PROVIDER", "auto")).strip().lower() or "auto"
+        if provider in {"disabled", "docker", "binary"}:
+            return provider
+        return "auto"
+
+    def _cloudflared_container_name(self) -> str:
+        return str(os.getenv("SYNTHIA_CLOUDFLARED_CONTAINER_NAME", "hexe-cloudflared")).strip() or "hexe-cloudflared"
+
+    def _cloudflared_image(self) -> str:
+        return str(os.getenv("SYNTHIA_CLOUDFLARED_IMAGE", "cloudflare/cloudflared:latest")).strip() or "cloudflare/cloudflared:latest"
+
+    def _cloudflared_restart_policy(self) -> str:
+        policy = str(os.getenv("SYNTHIA_CLOUDFLARED_RESTART_POLICY", "unless-stopped")).strip().lower()
+        return policy if policy in {"no", "on-failure", "always", "unless-stopped"} else "unless-stopped"
+
+    def _cloudflared_log_path(self) -> Path:
+        return self._cloudflared_runtime_root() / "cloudflared.log"
+
+    def _cloudflared_pid_path(self) -> Path:
+        return self._cloudflared_runtime_root() / "cloudflared.pid"
+
+    def _docker_available(self) -> bool:
+        return shutil.which("docker") is not None
+
+    def _cloudflared_binary_available(self) -> bool:
+        return shutil.which("cloudflared") is not None
+
+    def _write_runtime_payload(self, payload: dict[str, Any]) -> None:
+        runtime_path = self._cloudflared_runtime_root() / "runtime.json"
+        self._write_json(runtime_path, payload)
+
+    def _read_runtime_payload(self) -> dict[str, Any]:
+        runtime_path = self._cloudflared_runtime_root() / "runtime.json"
+        if not runtime_path.exists():
+            return {}
+        try:
+            raw = json.loads(runtime_path.read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+        return raw if isinstance(raw, dict) else {}
+
+    def _docker_cmd(self, args: list[str], *, check: bool = False) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(["docker", *args], capture_output=True, text=True, check=check)
+
+    def _cloudflared_container_exists(self) -> bool:
+        if not self._docker_available():
+            return False
+        result = self._docker_cmd(["ps", "-a", "--filter", f"name=^{self._cloudflared_container_name()}$", "--format", "{{.Names}}"])
+        if result.returncode != 0:
+            return False
+        names = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+        return self._cloudflared_container_name() in names
+
+    def _cloudflared_container_running(self) -> bool:
+        if not self._docker_available():
+            return False
+        result = self._docker_cmd(["inspect", "-f", "{{.State.Running}}", self._cloudflared_container_name()])
+        return result.returncode == 0 and str(result.stdout or "").strip().lower() == "true"
+
+    def _remove_cloudflared_container(self) -> None:
+        if self._cloudflared_container_exists():
+            self._docker_cmd(["rm", "-f", self._cloudflared_container_name()])
+
+    def _stop_cloudflared_native(self) -> None:
+        pid_path = self._cloudflared_pid_path()
+        if not pid_path.exists():
+            return
+        try:
+            pid = int(pid_path.read_text(encoding="utf-8").strip())
+        except Exception:
+            pid_path.unlink(missing_ok=True)
+            return
+        try:
+            os.kill(pid, 15)
+        except ProcessLookupError:
+            pass
+        except Exception:
+            pass
+        pid_path.unlink(missing_ok=True)
+
+    def _ensure_cloudflared_stopped(self) -> None:
+        self._remove_cloudflared_container()
+        self._stop_cloudflared_native()
+
+    def _cloudflared_runtime_status(self) -> dict[str, Any]:
+        root = self._cloudflared_runtime_root()
+        runtime_path = root / "runtime.json"
+        payload = self._read_runtime_payload()
+        if not runtime_path.exists():
+            return {"exists": False}
+        provider = str(payload.get("provider") or self._cloudflared_provider() or "unknown")
+        if provider == "docker":
+            if not self._docker_available():
+                payload.update({"state": "error", "healthy": False, "last_error": "docker_binary_not_found"})
+            elif self._cloudflared_container_running():
+                payload.update({"state": "running", "healthy": True, "last_error": None})
+            elif self._cloudflared_container_exists():
+                inspect = self._docker_cmd(["inspect", "-f", "{{.State.Status}}", self._cloudflared_container_name()])
+                payload.update(
+                    {
+                        "state": str(inspect.stdout or "").strip().lower() or "stopped",
+                        "healthy": False,
+                        "last_error": str(payload.get("last_error") or "cloudflared_container_not_running"),
+                    }
+                )
+            else:
+                payload.update({"state": "stopped", "healthy": False, "last_error": str(payload.get("last_error") or "runtime_not_started")})
+        elif provider == "binary":
+            pid_path = self._cloudflared_pid_path()
+            try:
+                pid = int(pid_path.read_text(encoding="utf-8").strip()) if pid_path.exists() else 0
+            except Exception:
+                pid = 0
+            running = False
+            if pid > 0:
+                try:
+                    os.kill(pid, 0)
+                    running = True
+                except Exception:
+                    running = False
+            payload.update(
+                {
+                    "state": "running" if running else "stopped",
+                    "healthy": running,
+                    "last_error": None if running else str(payload.get("last_error") or "runtime_not_started"),
+                }
+            )
+        payload["exists"] = True
+        payload["checked_at"] = self._now_iso()
+        self._write_runtime_payload(payload)
+        return payload
+
     def apply_cloudflared_config(self, config: dict[str, Any]) -> dict[str, Any]:
         root = self._cloudflared_runtime_root()
         root.mkdir(parents=True, exist_ok=True)
         config_path = root / "config.json"
-        runtime_path = root / "runtime.json"
-        self._write_json(config_path, config)
+        config_payload = dict(config)
+        config_payload.pop("tunnel-token", None)
+        self._write_json(config_path, config_payload)
+        desired_enabled = bool(config.get("desired_enabled"))
+        tunnel_id = str(config.get("tunnel") or "").strip()
+        tunnel_token = str(config.get("tunnel-token") or "").strip()
+        provider = self._cloudflared_provider()
+        if provider == "auto":
+            if self._docker_available():
+                provider = "docker"
+            elif self._cloudflared_binary_available():
+                provider = "binary"
+            else:
+                provider = "disabled"
+
         runtime_payload = {
             "runtime_id": "cloudflared",
+            "provider": provider,
             "state": "configured",
-            "healthy": True,
+            "healthy": False,
             "last_action": "reconcile",
             "last_action_at": self._now_iso(),
             "config_path": str(config_path),
+            "tunnel_id": tunnel_id or None,
+            "container_name": self._cloudflared_container_name() if provider == "docker" else None,
         }
-        self._write_json(runtime_path, runtime_payload)
-        return {"ok": True, "runtime_state": "configured", "config_path": str(config_path)}
+
+        if not desired_enabled:
+            self._ensure_cloudflared_stopped()
+            runtime_payload.update({"state": "stopped", "healthy": False, "last_error": None})
+            self._write_runtime_payload(runtime_payload)
+            return {"ok": True, "runtime_state": "stopped", "config_path": str(config_path)}
+
+        if not tunnel_id:
+            runtime_payload.update({"state": "error", "last_error": "cloudflare_tunnel_missing"})
+            self._write_runtime_payload(runtime_payload)
+            return {"ok": False, "runtime_state": "error", "config_path": str(config_path), "error": "cloudflare_tunnel_missing"}
+        if provider == "disabled":
+            runtime_payload.update({"state": "configured", "healthy": False, "last_error": "cloudflared_runtime_disabled"})
+            self._write_runtime_payload(runtime_payload)
+            return {"ok": False, "runtime_state": "configured", "config_path": str(config_path), "error": "cloudflared_runtime_disabled"}
+        if not tunnel_token:
+            runtime_payload.update({"state": "error", "last_error": "cloudflare_tunnel_token_missing"})
+            self._write_runtime_payload(runtime_payload)
+            return {"ok": False, "runtime_state": "error", "config_path": str(config_path), "error": "cloudflare_tunnel_token_missing"}
+
+        try:
+            self._ensure_cloudflared_stopped()
+            if provider == "docker":
+                if not self._docker_available():
+                    raise RuntimeError("docker_binary_not_found")
+                result = self._docker_cmd(
+                    [
+                        "run",
+                        "-d",
+                        "--name",
+                        self._cloudflared_container_name(),
+                        "--network",
+                        "host",
+                        "--restart",
+                        self._cloudflared_restart_policy(),
+                        "-e",
+                        f"TUNNEL_TOKEN={tunnel_token}",
+                        self._cloudflared_image(),
+                        "tunnel",
+                        "--no-autoupdate",
+                        "run",
+                    ]
+                )
+                if result.returncode != 0:
+                    raise RuntimeError(str(result.stderr or result.stdout or "cloudflared_docker_run_failed").strip())
+                runtime_payload.update(
+                    {
+                        "state": "running",
+                        "healthy": True,
+                        "last_error": None,
+                        "last_started_at": self._now_iso(),
+                        "container_id": str(result.stdout or "").strip() or None,
+                    }
+                )
+            else:
+                if not self._cloudflared_binary_available():
+                    raise RuntimeError("cloudflared_binary_not_found")
+                log_path = self._cloudflared_log_path()
+                log_path.touch(mode=0o600, exist_ok=True)
+                with log_path.open("ab") as handle:
+                    proc = subprocess.Popen(
+                        ["cloudflared", "tunnel", "--no-autoupdate", "run", "--token", tunnel_token],
+                        stdout=handle,
+                        stderr=subprocess.STDOUT,
+                        start_new_session=True,
+                    )
+                self._cloudflared_pid_path().write_text(f"{proc.pid}\n", encoding="utf-8")
+                runtime_payload.update(
+                    {
+                        "state": "running",
+                        "healthy": True,
+                        "last_error": None,
+                        "last_started_at": self._now_iso(),
+                        "pid": proc.pid,
+                    }
+                )
+        except Exception as exc:
+            runtime_payload.update({"state": "error", "healthy": False, "last_error": str(exc) or type(exc).__name__})
+            self._write_runtime_payload(runtime_payload)
+            return {"ok": False, "runtime_state": runtime_payload["state"], "config_path": str(config_path), "error": runtime_payload["last_error"]}
+
+        self._write_runtime_payload(runtime_payload)
+        return {"ok": True, "runtime_state": str(runtime_payload["state"]), "config_path": str(config_path)}
 
     def get_runtime_state(self, runtime_id: str) -> dict[str, Any]:
         if runtime_id != "cloudflared":
             return {"exists": False}
-        runtime_path = self._cloudflared_runtime_root() / "runtime.json"
-        if not runtime_path.exists():
-            return {"exists": False}
-        try:
-            payload = json.loads(runtime_path.read_text(encoding="utf-8"))
-        except Exception as exc:
-            return {"exists": True, "healthy": False, "error": str(exc) or type(exc).__name__}
-        payload["exists"] = True
-        return payload
+        return self._cloudflared_runtime_status()
 
     def health_summary(self) -> SupervisorHealthSummary:
         managed_nodes = self._managed_nodes()

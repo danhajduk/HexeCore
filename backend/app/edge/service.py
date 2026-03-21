@@ -444,6 +444,7 @@ class EdgeGatewayService:
         )
         await self._store.set_provisioning_state(provisioning)
         client = self._cloudflare_client_factory(settings)
+        tunnel_token: str | None = None
         if live and settings.enabled and client is not None:
             try:
                 tunnel_result = await self._ensure_tunnel(identity, settings, client)
@@ -454,6 +455,12 @@ class EdgeGatewayService:
                         "tunnel_token_ref": tunnel_result.tunnel_token_ref,
                     }
                 )
+                rendered_for_cloudflare = self._renderer.render(identity=identity, settings=settings, publications=publications)
+                ingress_rules = rendered_for_cloudflare.get("ingress")
+                if not isinstance(ingress_rules, list):
+                    raise CloudflareApiError("update_tunnel_configuration", "cloudflare_ingress_invalid")
+                await self._push_tunnel_configuration(tunnel_id=tunnel_result.tunnel_id, ingress=ingress_rules, client=client)
+                tunnel_token = await client.get_tunnel_token(tunnel_result.tunnel_id)
                 dns_results = await self._ensure_dns(identity, settings, client)
                 settings = settings.model_copy(
                     update={
@@ -516,6 +523,7 @@ class EdgeGatewayService:
                     **rendered,
                     "desired_enabled": bool(settings.enabled),
                     "provisioning_state": provisioning.overall_state.value,
+                    "tunnel-token": tunnel_token,
                 }
             )
             tunnel_status = (await self._store.get_tunnel_status()).model_copy(
@@ -618,6 +626,17 @@ class EdgeGatewayService:
             tunnel_name=tunnel.tunnel_name or desired_name,
             tunnel_token_ref=tunnel_token_ref,
         )
+
+    async def _push_tunnel_configuration(
+        self,
+        *,
+        tunnel_id: str,
+        ingress: list[dict[str, object]],
+        client: CloudflareApiClient,
+    ) -> dict[str, object]:
+        result = await client.update_tunnel_configuration(tunnel_id=tunnel_id, ingress=ingress)
+        await self._audit("edge_cloudflare_tunnel_config_updated", {"tunnel_id": tunnel_id, "ingress_rule_count": len(ingress)})
+        return result if isinstance(result, dict) else {}
 
     async def _ensure_dns(
         self,
