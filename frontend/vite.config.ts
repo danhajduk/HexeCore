@@ -15,6 +15,14 @@ export default defineConfig(({ mode }) => {
           target: apiTarget,
           changeOrigin: true,
         },
+        "/ui": {
+          target: apiTarget,
+          changeOrigin: true,
+        },
+        "/addons": {
+          target: apiTarget,
+          changeOrigin: true,
+        },
       },
     },
   };
