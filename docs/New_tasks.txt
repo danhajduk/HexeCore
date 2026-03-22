@@ -113,7 +113,7 @@ Create a reusable proxy service to forward requests to node/addon backends.
 
 ---
 
-[TODO] Task 740 — Implement WebSocket proxy support
+[DONE] Task 740 — Implement WebSocket proxy support
 
 ### Goal
 Enable websocket passthrough for node/addon UIs.

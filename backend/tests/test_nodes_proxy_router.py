@@ -12,6 +12,7 @@ from app.reverse_proxy import ReverseProxyService
 class _FakeNodeProxy:
     def __init__(self) -> None:
         self.calls: list[tuple[str, str, str, str]] = []
+        self.websocket_calls: list[tuple[str, str, str]] = []
 
     async def forward(self, request: Request, node_id: str, path: str = "", *, public_prefix: str = "") -> JSONResponse:
         self.calls.append((request.method, node_id, path, public_prefix))
@@ -23,6 +24,12 @@ class _FakeNodeProxy:
                 "public_prefix": public_prefix,
             }
         )
+
+    async def forward_websocket(self, websocket, node_id: str, path: str = "", *, public_prefix: str = "") -> None:
+        self.websocket_calls.append((node_id, path, public_prefix))
+        await websocket.accept()
+        await websocket.send_text(f"{node_id}:{path}:{public_prefix}")
+        await websocket.close()
 
 
 class TestNodeUiProxyRouter(unittest.TestCase):
@@ -66,6 +73,21 @@ class TestNodeUiProxyRouter(unittest.TestCase):
         self.assertEqual(head.status_code, 200, head.text)
 
         self.assertEqual(self.proxy.calls, [("HEAD", "node-1", "status", "/nodes/node-1/ui")])
+
+    def test_node_ui_websocket_routes_forward(self) -> None:
+        with self.client.websocket_connect("/nodes/node-1/ui/ws") as ws:
+            self.assertEqual(ws.receive_text(), "node-1:ws:/nodes/node-1/ui")
+
+        with self.client.websocket_connect("/ui/nodes/node-1/live") as ws:
+            self.assertEqual(ws.receive_text(), "node-1:live:/ui/nodes/node-1")
+
+        self.assertEqual(
+            self.proxy.websocket_calls,
+            [
+                ("node-1", "ws", "/nodes/node-1/ui"),
+                ("node-1", "live", "/ui/nodes/node-1"),
+            ],
+        )
 
 
 class TestNodeUiProxyHtmlRewrite(unittest.TestCase):

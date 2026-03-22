@@ -10,6 +10,7 @@ from app.addons.proxy import build_proxy_router
 class _FakeProxy:
     def __init__(self) -> None:
         self.calls: list[tuple[str, str, str, str]] = []
+        self.websocket_calls: list[tuple[str, str, str]] = []
 
     async def forward(self, request: Request, addon_id: str, path: str = "", *, public_prefix: str = "") -> JSONResponse:
         self.calls.append((request.method, addon_id, path, public_prefix))
@@ -21,6 +22,12 @@ class _FakeProxy:
                 "public_prefix": public_prefix,
             }
         )
+
+    async def forward_websocket(self, websocket, addon_id: str, path: str = "", *, public_prefix: str = "") -> None:
+        self.websocket_calls.append((addon_id, path, public_prefix))
+        await websocket.accept()
+        await websocket.send_text(f"{addon_id}:{path}:{public_prefix}")
+        await websocket.close()
 
 
 class TestAddonsProxyRouter(unittest.TestCase):
@@ -64,6 +71,21 @@ class TestAddonsProxyRouter(unittest.TestCase):
         self.assertEqual(head.status_code, 200, head.text)
 
         self.assertEqual(self.proxy.calls, [("HEAD", "mqtt", "status", "/addons/mqtt")])
+
+    def test_websocket_routes_forward(self) -> None:
+        with self.client.websocket_connect("/addons/mqtt/ws") as ws:
+            self.assertEqual(ws.receive_text(), "mqtt:ws:/addons/mqtt")
+
+        with self.client.websocket_connect("/ui/addons/mqtt/live") as ws:
+            self.assertEqual(ws.receive_text(), "mqtt:live:/ui/addons/mqtt")
+
+        self.assertEqual(
+            self.proxy.websocket_calls,
+            [
+                ("mqtt", "ws", "/addons/mqtt"),
+                ("mqtt", "live", "/ui/addons/mqtt"),
+            ],
+        )
 
 
 if __name__ == "__main__":

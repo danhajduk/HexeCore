@@ -7,7 +7,7 @@ from typing import Dict
 from urllib.parse import quote
 
 import httpx
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, HTTPException, Request, Response, WebSocket
 from fastapi.responses import RedirectResponse
 
 from app.reverse_proxy import ReverseProxyService
@@ -165,6 +165,22 @@ class AddonProxy:
             raise HTTPException(status_code=502, detail=f"addon_proxy_error: {type(last_exc).__name__}")
         raise HTTPException(status_code=502, detail="addon_proxy_error")
 
+    async def forward_websocket(self, websocket: WebSocket, addon_id: str, path: str = "", *, public_prefix: str = "") -> None:
+        if addon_id in self._registry.addons and addon_id not in self._registry.registered:
+            await websocket.close(code=1008, reason="embedded_addon_websocket_proxy_unsupported")
+            return
+        target_base = self._target_base(addon_id, websocket)
+        target = self._proxy.build_websocket_target_url(target_base, path, websocket.url.query)
+        await self._proxy.proxy_websocket(
+            websocket,
+            target_url=target,
+            public_prefix=public_prefix or f"/addons/{addon_id}",
+            extra_headers={
+                **self._auth_headers(addon_id),
+                "X-Hexe-Addon-Id": addon_id,
+            },
+        )
+
 
 def build_proxy_router(proxy: AddonProxy) -> APIRouter:
     router = APIRouter()
@@ -196,5 +212,21 @@ def build_proxy_router(proxy: AddonProxy) -> APIRouter:
     @router.api_route("/ui/addons/{addon_id}", methods=["GET", "HEAD"])
     async def proxy_ui_root(addon_id: str, request: Request):
         return await proxy.forward(request, addon_id, "", public_prefix=f"/ui/addons/{addon_id}")
+
+    @router.websocket("/addons/{addon_id}/{path:path}")
+    async def proxy_ui_canonical_websocket(addon_id: str, path: str, websocket: WebSocket):
+        await proxy.forward_websocket(websocket, addon_id, path, public_prefix=f"/addons/{addon_id}")
+
+    @router.websocket("/addons/{addon_id}/")
+    async def proxy_ui_canonical_root_websocket(addon_id: str, websocket: WebSocket):
+        await proxy.forward_websocket(websocket, addon_id, "", public_prefix=f"/addons/{addon_id}")
+
+    @router.websocket("/ui/addons/{addon_id}/{path:path}")
+    async def proxy_ui_websocket(addon_id: str, path: str, websocket: WebSocket):
+        await proxy.forward_websocket(websocket, addon_id, path, public_prefix=f"/ui/addons/{addon_id}")
+
+    @router.websocket("/ui/addons/{addon_id}")
+    async def proxy_ui_root_websocket(addon_id: str, websocket: WebSocket):
+        await proxy.forward_websocket(websocket, addon_id, "", public_prefix=f"/ui/addons/{addon_id}")
 
     return router

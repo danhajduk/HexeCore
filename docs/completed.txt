@@ -1,3 +1,4 @@
+Task 740: Implement WebSocket proxy support - Completed on 03/22/2026 15:01
 Task 739: Implement HTTP reverse proxy service (Core → Node/Addons) - Completed on 03/22/2026 15:01
 Task 738: Extend registry models with UI proxy metadata - Completed on 03/22/2026 15:01
 Task 004: Define Supervisor domain models and service boundaries - Completed on 03/16/2026 02:33

@@ -4,7 +4,7 @@ import re
 from urllib.parse import urlsplit
 
 import httpx
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, HTTPException, Request, Response, WebSocket
 
 from app.proxy_routes import node_ui_proxy_base
 from app.reverse_proxy import ReverseProxyService
@@ -95,6 +95,16 @@ class NodeUiProxy:
             headers=response_headers,
         )
 
+    async def forward_websocket(self, websocket: WebSocket, node_id: str, path: str = "", *, public_prefix: str = "") -> None:
+        target_base = self._target_base(node_id, websocket)
+        target = self._proxy.build_websocket_target_url(target_base, path, websocket.url.query)
+        await self._proxy.proxy_websocket(
+            websocket,
+            target_url=target,
+            public_prefix=public_prefix or node_ui_proxy_base(node_id),
+            extra_headers={"X-Hexe-Node-Id": node_id},
+        )
+
 
 def build_node_ui_proxy_router(proxy: NodeUiProxy) -> APIRouter:
     router = APIRouter()
@@ -118,5 +128,21 @@ def build_node_ui_proxy_router(proxy: NodeUiProxy) -> APIRouter:
     @router.api_route("/ui/nodes/{node_id}", methods=["GET", "HEAD"])
     async def proxy_node_ui_root(node_id: str, request: Request):
         return await proxy.forward(request, node_id, "", public_prefix=f"/ui/nodes/{node_id}")
+
+    @router.websocket("/nodes/{node_id}/ui/{path:path}")
+    async def proxy_node_ui_canonical_websocket(node_id: str, path: str, websocket: WebSocket):
+        await proxy.forward_websocket(websocket, node_id, path, public_prefix=f"/nodes/{node_id}/ui")
+
+    @router.websocket("/nodes/{node_id}/ui/")
+    async def proxy_node_ui_canonical_root_websocket(node_id: str, websocket: WebSocket):
+        await proxy.forward_websocket(websocket, node_id, "", public_prefix=f"/nodes/{node_id}/ui")
+
+    @router.websocket("/ui/nodes/{node_id}/{path:path}")
+    async def proxy_node_ui_websocket(node_id: str, path: str, websocket: WebSocket):
+        await proxy.forward_websocket(websocket, node_id, path, public_prefix=f"/ui/nodes/{node_id}")
+
+    @router.websocket("/ui/nodes/{node_id}")
+    async def proxy_node_ui_root_websocket(node_id: str, websocket: WebSocket):
+        await proxy.forward_websocket(websocket, node_id, "", public_prefix=f"/ui/nodes/{node_id}")
 
     return router
