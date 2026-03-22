@@ -24,7 +24,7 @@ from .edge import EdgeGatewayService, EdgeGatewayStore, build_edge_router
 from .addons.registry import build_registry, register_addons
 from .addons.install_sessions import InstallSessionsStore
 from .addons.proxy import AddonProxy, build_proxy_router
-from .nodes import build_nodes_router, NodesDomainService
+from .nodes import NodeUiProxy, build_node_ui_proxy_router, build_nodes_router, NodesDomainService
 from .supervisor import build_supervisor_router, SupervisorDomainService
 from .api.system import build_system_router
 from .api.admin_registry import build_admin_registry_router
@@ -666,10 +666,12 @@ def create_app() -> FastAPI:
         build_supervisor_router(supervisor_service),
         prefix="/api",
     )
+    nodes_service = NodesDomainService(node_registrations_store, node_governance_status_service)
     app.include_router(
-        build_nodes_router(NodesDomainService(node_registrations_store, node_governance_status_service)),
+        build_nodes_router(nodes_service),
         prefix="/api",
     )
+    app.state.node_ui_proxy = NodeUiProxy(nodes_service)
     app.include_router(
         build_edge_router(edge_gateway_service),
         prefix="/api",
@@ -750,6 +752,7 @@ def create_app() -> FastAPI:
         tags=["store"],
     )
     app.include_router(build_proxy_router(addon_proxy))
+    app.include_router(build_node_ui_proxy_router(app.state.node_ui_proxy))
 
     return app
 

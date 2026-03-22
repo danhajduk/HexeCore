@@ -65,30 +65,13 @@ export default function NodeFrame() {
     };
   }, [nodeId]);
 
-  const title = useMemo(() => {
-    const fallbackTitle = nodeId || "unknown-node";
-    return String(payload?.node?.node_name || fallbackTitle).trim() || fallbackTitle;
-  }, [nodeId, payload]);
   const src = useMemo(
-    () => nodeUiFrameSrc(payload?.node?.requested_ui_endpoint, payload?.node?.requested_hostname),
-    [payload],
+    () => nodeUiFrameSrc(nodeId, payload?.node?.requested_ui_endpoint, payload?.node?.requested_hostname),
+    [nodeId, payload],
   );
 
   return (
     <section className="addon-frame-page">
-      <header className="addon-frame-head">
-        <h1 className="addon-frame-title">Node UI: {title}</h1>
-        <div className="addon-frame-actions">
-          <Link to={`/nodes/${encodeURIComponent(nodeId)}`} className="addon-frame-link">
-            Back to {branding.nodesName}
-          </Link>
-          {src ? (
-            <a href={src} target="_blank" rel="noreferrer" className="addon-frame-link">
-              Open in new tab
-            </a>
-          ) : null}
-        </div>
-      </header>
       {loading ? (
         <div className="addon-frame-status">
           <strong>Loading node UI...</strong>
@@ -102,7 +85,12 @@ export default function NodeFrame() {
       ) : !src ? (
         <div className="addon-frame-status addon-frame-status-error">
           <strong>Node UI is not available.</strong>
-          <span>This node has no registered hostname yet, so Core cannot open its UI.</span>
+          <span>
+            This node has no registered UI endpoint or hostname yet.{" "}
+            <Link to={`/nodes/${encodeURIComponent(nodeId)}`} className="addon-frame-link">
+              Back to {branding.nodesName}
+            </Link>
+          </span>
         </div>
       ) : (
         <div className="addon-frame-embed-wrap">

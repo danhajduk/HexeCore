@@ -1,17 +1,11 @@
-export function nodeUiFrameSrc(rawEndpoint?: string | null, rawHost?: string | null): string {
+export function nodeUiFrameSrc(nodeId: string, rawEndpoint?: string | null, rawHost?: string | null): string {
+  const safeNodeId = String(nodeId || "").trim();
+  if (!safeNodeId) return "";
   const endpoint = String(rawEndpoint || "").trim();
   if (endpoint) {
-    if (/^https?:\/\//i.test(endpoint)) {
-      return endpoint.replace(/\/+$/, "");
-    }
-    return "";
+    return /^https?:\/\//i.test(endpoint) ? `/ui/nodes/${encodeURIComponent(safeNodeId)}` : "";
   }
   const host = String(rawHost || "").trim();
   if (!host) return "";
-  if (/^https?:\/\//i.test(host)) {
-    return host.replace(/\/+$/, "");
-  }
-  const protocol =
-    typeof window !== "undefined" && window.location.protocol === "https:" ? "https:" : "http:";
-  return `${protocol}//${host.replace(/\/+$/, "")}`;
+  return `/ui/nodes/${encodeURIComponent(safeNodeId)}`;
 }

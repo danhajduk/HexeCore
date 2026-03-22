@@ -92,6 +92,7 @@ type NodeOnboardingSessionSummary = {
   requested_node_type: string;
   requested_node_software_version: string;
   requested_hostname?: string | null;
+  requested_ui_endpoint?: string | null;
   created_at: string;
   expires_at: string;
   approved_by_user_id?: string | null;
@@ -484,6 +485,7 @@ export default function Settings() {
                   {(item.node_software_version || item.requested_node_software_version)} • hostname{" "}
                   {item.requested_hostname || "-"}
                 </div>
+                <div className="settings-help">UI endpoint {item.requested_ui_endpoint || "-"}</div>
                 <div className="settings-help">
                   Created {relative(item.created_at)} • Expires {relative(item.expires_at)}
                 </div>

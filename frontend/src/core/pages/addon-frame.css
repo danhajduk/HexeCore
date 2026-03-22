@@ -3,14 +3,8 @@
   grid-template-rows: auto minmax(0, 1fr);
   gap: var(--sx-space-3);
   height: calc(100vh - 64px);
-  width: 90%;
-  margin: 0 auto;
-}
-
-@media (max-width: 900px) {
-  .addon-frame-page {
-    width: 100%;
-  }
+  width: 100%;
+  min-width: 0;
 }
 
 .addon-frame-head {
@@ -55,6 +49,7 @@
 .addon-frame-embed-wrap {
   position: relative;
   min-height: 0;
+  height: 100%;
 }
 
 .addon-frame-status {

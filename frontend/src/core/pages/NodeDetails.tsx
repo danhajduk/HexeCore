@@ -200,8 +200,8 @@ export default function NodeDetails() {
   const capabilityCategories = useMemo(() => node?.capabilities.taxonomy.categories || [], [node]);
   const routingProviders = useMemo(() => routing?.providers || [], [routing]);
   const nodeUiHref = useMemo(
-    () => nodeUiFrameSrc(node?.requested_ui_endpoint, node?.requested_hostname),
-    [node?.requested_hostname, node?.requested_ui_endpoint],
+    () => nodeUiFrameSrc(nodeId, node?.requested_ui_endpoint, node?.requested_hostname),
+    [nodeId, node?.requested_hostname, node?.requested_ui_endpoint],
   );
 
   return (

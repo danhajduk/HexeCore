@@ -14,6 +14,7 @@ from .models_resolution import (
     TaskExecutionResolutionRequest,
     TaskExecutionResolutionResponse,
 )
+from .proxy import NodeUiProxy, build_node_ui_proxy_router
 from .registry import NodeRegistry
 from .router import build_nodes_router
 from .service import NodesDomainService
@@ -33,5 +34,7 @@ __all__ = [
     "NodeEffectiveBudgetView",
     "NodeServiceAuthorizeRequest",
     "build_nodes_router",
+    "build_node_ui_proxy_router",
+    "NodeUiProxy",
     "NodesDomainService",
 ]

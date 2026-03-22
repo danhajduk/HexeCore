@@ -21,6 +21,7 @@ type ApprovalSession = {
   requested_node_type: string;
   requested_node_software_version: string;
   requested_hostname?: string | null;
+  requested_ui_endpoint?: string | null;
   requested_from_ip?: string | null;
   created_at: string;
   expires_at: string;
@@ -396,6 +397,10 @@ export default function OnboardingNodeApproval() {
                     <div className="onboard-field">
                       <strong>Hostname</strong>
                       <span>{session.requested_hostname || "-"}</span>
+                    </div>
+                    <div className="onboard-field">
+                      <strong>UI Endpoint</strong>
+                      <span>{session.requested_ui_endpoint || "-"}</span>
                     </div>
                   </div>
                 </section>

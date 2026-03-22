@@ -3,18 +3,18 @@ import { nodeUiFrameSrc } from "./nodeFrameUrl";
 
 describe("nodeUiFrameSrc", () => {
   it("returns empty string for empty hostname", () => {
-    expect(nodeUiFrameSrc("   ", "   ")).toBe("");
+    expect(nodeUiFrameSrc("node-1", "   ", "   ")).toBe("");
   });
 
-  it("prefers the provided absolute endpoint url", () => {
-    expect(nodeUiFrameSrc("https://node.example.test/ui/", "node.local")).toBe("https://node.example.test/ui");
+  it("uses the Core node proxy when an endpoint exists", () => {
+    expect(nodeUiFrameSrc("node-1", "https://node.example.test/ui/", "node.local")).toBe("/ui/nodes/node-1");
   });
 
-  it("adds the browser protocol for bare hostnames when no endpoint is provided", () => {
-    expect(nodeUiFrameSrc("", "node.local")).toBe("http://node.local");
+  it("uses the Core node proxy when only a hostname exists", () => {
+    expect(nodeUiFrameSrc("node-1", "", "node.local")).toBe("/ui/nodes/node-1");
   });
 
   it("returns empty string for invalid non-absolute endpoints", () => {
-    expect(nodeUiFrameSrc("/ui", "node.local")).toBe("");
+    expect(nodeUiFrameSrc("node-1", "/ui", "node.local")).toBe("");
   });
 });
