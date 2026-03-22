@@ -10,6 +10,7 @@ import httpx
 from fastapi import APIRouter, HTTPException, Request, Response, WebSocket
 from fastapi.responses import RedirectResponse
 
+from app.api.admin import require_admin_request
 from app.reverse_proxy import ReverseProxyService
 
 from .registry import AddonRegistry
@@ -317,46 +318,73 @@ def build_proxy_router(proxy: AddonProxy) -> APIRouter:
 
     @router.api_route("/api/addons/{addon_id}/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"])
     async def proxy_api(addon_id: str, path: str, request: Request):
+        require_admin_request(request)
         return await proxy.forward_api(request, addon_id, path)
 
     @router.api_route("/api/addons/{addon_id}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"])
     async def proxy_api_root(addon_id: str, request: Request):
+        require_admin_request(request)
         return await proxy.forward_api(request, addon_id, "")
 
     @router.api_route("/addons/{addon_id}/{path:path}", methods=["GET", "HEAD"])
     async def proxy_ui_canonical(addon_id: str, path: str, request: Request):
+        require_admin_request(request)
         return await proxy.forward_ui(request, addon_id, path, public_prefix=f"/addons/{addon_id}")
 
     @router.api_route("/addons/{addon_id}/", methods=["GET", "HEAD"])
     async def proxy_ui_canonical_root(addon_id: str, request: Request):
+        require_admin_request(request)
         return await proxy.forward_ui(request, addon_id, "", public_prefix=f"/addons/{addon_id}")
 
     @router.api_route("/addons/{addon_id}", methods=["GET", "HEAD"])
     async def proxy_ui_canonical_root_no_slash(addon_id: str, request: Request):
+        require_admin_request(request)
         return await proxy.forward_ui(request, addon_id, "", public_prefix=f"/addons/{addon_id}")
 
     @router.api_route("/ui/addons/{addon_id}/{path:path}", methods=["GET", "HEAD"])
     async def proxy_ui(addon_id: str, path: str, request: Request):
+        require_admin_request(request)
         return await proxy.forward_ui(request, addon_id, path, public_prefix=f"/ui/addons/{addon_id}")
 
     @router.api_route("/ui/addons/{addon_id}", methods=["GET", "HEAD"])
     async def proxy_ui_root(addon_id: str, request: Request):
+        require_admin_request(request)
         return await proxy.forward_ui(request, addon_id, "", public_prefix=f"/ui/addons/{addon_id}")
 
     @router.websocket("/addons/{addon_id}/{path:path}")
     async def proxy_ui_canonical_websocket(addon_id: str, path: str, websocket: WebSocket):
+        try:
+            require_admin_request(websocket)
+        except HTTPException:
+            await websocket.close(code=4401, reason="Unauthorized")
+            return
         await proxy.forward_websocket(websocket, addon_id, path, public_prefix=f"/addons/{addon_id}")
 
     @router.websocket("/addons/{addon_id}/")
     async def proxy_ui_canonical_root_websocket(addon_id: str, websocket: WebSocket):
+        try:
+            require_admin_request(websocket)
+        except HTTPException:
+            await websocket.close(code=4401, reason="Unauthorized")
+            return
         await proxy.forward_websocket(websocket, addon_id, "", public_prefix=f"/addons/{addon_id}")
 
     @router.websocket("/ui/addons/{addon_id}/{path:path}")
     async def proxy_ui_websocket(addon_id: str, path: str, websocket: WebSocket):
+        try:
+            require_admin_request(websocket)
+        except HTTPException:
+            await websocket.close(code=4401, reason="Unauthorized")
+            return
         await proxy.forward_websocket(websocket, addon_id, path, public_prefix=f"/ui/addons/{addon_id}")
 
     @router.websocket("/ui/addons/{addon_id}")
     async def proxy_ui_root_websocket(addon_id: str, websocket: WebSocket):
+        try:
+            require_admin_request(websocket)
+        except HTTPException:
+            await websocket.close(code=4401, reason="Unauthorized")
+            return
         await proxy.forward_websocket(websocket, addon_id, "", public_prefix=f"/ui/addons/{addon_id}")
 
     return router

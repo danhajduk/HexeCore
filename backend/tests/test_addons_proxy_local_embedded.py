@@ -16,7 +16,7 @@ class _FakeRegistry:
 
 class TestAddonsProxyLocalEmbedded(unittest.TestCase):
     def setUp(self) -> None:
-        self.env_patch = patch.dict(os.environ, {}, clear=False)
+        self.env_patch = patch.dict(os.environ, {"SYNTHIA_ADMIN_TOKEN": "test-token"}, clear=False)
         self.env_patch.start()
         self.proxy = AddonProxy(_FakeRegistry())
         app = FastAPI()
@@ -33,20 +33,20 @@ class TestAddonsProxyLocalEmbedded(unittest.TestCase):
 
     def test_ui_proxy_uses_local_embedded_target(self) -> None:
         with patch.object(self.proxy._client, "request") as request_mock:
-            res = self.client.get("/ui/addons/mqtt")
+            res = self.client.get("/ui/addons/mqtt", headers={"X-Admin-Token": "test-token"})
         self.assertEqual(res.status_code, 200, res.text)
         self.assertIn("mqtt local ui", res.text)
         request_mock.assert_not_called()
 
     def test_alias_proxy_uses_local_embedded_target(self) -> None:
         with patch.object(self.proxy._client, "request") as request_mock:
-            res = self.client.get("/addons/mqtt")
+            res = self.client.get("/addons/mqtt", headers={"X-Admin-Token": "test-token"})
         self.assertEqual(res.status_code, 200, res.text)
         self.assertIn("mqtt local ui", res.text)
         request_mock.assert_not_called()
 
     def test_missing_addon_still_returns_not_found(self) -> None:
-        res = self.client.get("/ui/addons/missing")
+        res = self.client.get("/ui/addons/missing", headers={"X-Admin-Token": "test-token"})
         self.assertEqual(res.status_code, 404, res.text)
         self.assertIn("Addon UI Unavailable", res.text)
         self.assertIn("registered_addon_not_found", res.text)

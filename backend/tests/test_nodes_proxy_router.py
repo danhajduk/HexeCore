@@ -1,9 +1,11 @@
 import unittest
+from unittest.mock import patch
 
 from fastapi import HTTPException
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
 from app.nodes.proxy import NodeUiProxy
 from app.nodes.proxy import build_node_ui_proxy_router
@@ -40,10 +42,15 @@ class _FakeNodeProxy:
 
 class TestNodeUiProxyRouter(unittest.TestCase):
     def setUp(self) -> None:
+        self.env_patch = patch.dict("os.environ", {"SYNTHIA_ADMIN_TOKEN": "test-token"}, clear=False)
+        self.env_patch.start()
         self.proxy = _FakeNodeProxy()
         app = FastAPI()
         app.include_router(build_node_ui_proxy_router(self.proxy))
         self.client = TestClient(app)
+
+    def tearDown(self) -> None:
+        self.env_patch.stop()
 
     def test_node_ui_routes_forward(self) -> None:
         checks = [
@@ -54,7 +61,7 @@ class TestNodeUiProxyRouter(unittest.TestCase):
         ]
 
         for url, expected_path in checks:
-            resp = self.client.get(url)
+            resp = self.client.get(url, headers={"X-Admin-Token": "test-token"})
             self.assertEqual(resp.status_code, 200, resp.text)
             payload = resp.json()
             self.assertEqual(payload["node_id"], "node-1")
@@ -72,19 +79,19 @@ class TestNodeUiProxyRouter(unittest.TestCase):
         )
 
     def test_node_ui_routes_remain_get_head_only(self) -> None:
-        denied = self.client.post("/nodes/node-1/ui/")
+        denied = self.client.post("/nodes/node-1/ui/", headers={"X-Admin-Token": "test-token"})
         self.assertEqual(denied.status_code, 405, denied.text)
 
-        head = self.client.head("/nodes/node-1/ui/status")
+        head = self.client.head("/nodes/node-1/ui/status", headers={"X-Admin-Token": "test-token"})
         self.assertEqual(head.status_code, 200, head.text)
 
         self.assertEqual(self.proxy.calls, [("HEAD", "node-1", "status", "/nodes/node-1/ui")])
 
     def test_node_ui_websocket_routes_forward(self) -> None:
-        with self.client.websocket_connect("/nodes/node-1/ui/ws") as ws:
+        with self.client.websocket_connect("/nodes/node-1/ui/ws", headers={"X-Admin-Token": "test-token"}) as ws:
             self.assertEqual(ws.receive_text(), "node-1:ws:/nodes/node-1/ui")
 
-        with self.client.websocket_connect("/ui/nodes/node-1/live") as ws:
+        with self.client.websocket_connect("/ui/nodes/node-1/live", headers={"X-Admin-Token": "test-token"}) as ws:
             self.assertEqual(ws.receive_text(), "node-1:live:/ui/nodes/node-1")
 
         self.assertEqual(
@@ -102,7 +109,7 @@ class TestNodeUiProxyRouter(unittest.TestCase):
             ("GET", "/api/nodes/node-1/", ""),
         ]
         for method, url, expected_path in checks:
-            resp = self.client.request(method, url)
+            resp = self.client.request(method, url, headers={"X-Admin-Token": "test-token"})
             self.assertEqual(resp.status_code, 200, resp.text)
             payload = resp.json()
             self.assertEqual(payload["node_id"], "node-1")
@@ -116,6 +123,16 @@ class TestNodeUiProxyRouter(unittest.TestCase):
                 ("GET", "node-1", ""),
             ],
         )
+
+    def test_proxy_routes_require_admin_auth(self) -> None:
+        denied = self.client.get("/nodes/node-1/ui/")
+        self.assertEqual(denied.status_code, 401, denied.text)
+
+    def test_websocket_proxy_requires_admin_auth(self) -> None:
+        with self.assertRaises(WebSocketDisconnect) as exc:
+            with self.client.websocket_connect("/nodes/node-1/ui/ws"):
+                pass
+        self.assertEqual(exc.exception.code, 4401)
 
 
 class TestNodeUiProxyHtmlRewrite(unittest.TestCase):
@@ -278,12 +295,12 @@ class TestNodeUiProxyTargetSelection(unittest.TestCase):
         )
         app = FastAPI()
         app.include_router(build_node_ui_proxy_router(proxy))
-        client = TestClient(app)
-
-        response = client.get("/nodes/node-1/ui/")
-        self.assertEqual(response.status_code, 404, response.text)
-        self.assertIn("Node UI Unavailable", response.text)
-        self.assertIn("node_ui_not_enabled", response.text)
+        with patch.dict("os.environ", {"SYNTHIA_ADMIN_TOKEN": "test-token"}, clear=False):
+            client = TestClient(app)
+            response = client.get("/nodes/node-1/ui/", headers={"X-Admin-Token": "test-token"})
+            self.assertEqual(response.status_code, 404, response.text)
+            self.assertIn("Node UI Unavailable", response.text)
+            self.assertIn("node_ui_not_enabled", response.text)
 
 
 if __name__ == "__main__":

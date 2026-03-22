@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from fastapi import HTTPException
 from fastapi import FastAPI
@@ -128,12 +129,12 @@ class TestAddonProxyTargetSelection(unittest.TestCase):
         )
         app = FastAPI()
         app.include_router(build_proxy_router(proxy))
-        client = TestClient(app)
-
-        response = client.get("/addons/mqtt/")
-        self.assertEqual(response.status_code, 404, response.text)
-        self.assertIn("Addon UI Unavailable", response.text)
-        self.assertIn("addon_ui_not_enabled", response.text)
+        with patch.dict("os.environ", {"SYNTHIA_ADMIN_TOKEN": "test-token"}, clear=False):
+            client = TestClient(app)
+            response = client.get("/addons/mqtt/", headers={"X-Admin-Token": "test-token"})
+            self.assertEqual(response.status_code, 404, response.text)
+            self.assertIn("Addon UI Unavailable", response.text)
+            self.assertIn("addon_ui_not_enabled", response.text)
 
 
 if __name__ == "__main__":

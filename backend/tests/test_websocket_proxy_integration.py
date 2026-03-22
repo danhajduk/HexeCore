@@ -1,6 +1,7 @@
 import threading
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -78,44 +79,54 @@ class _FakeNodesService:
 
 class TestWebSocketProxyIntegration(unittest.TestCase):
     def test_addon_websocket_proxy_round_trip_and_forwarded_headers(self) -> None:
-        with _EchoServer() as upstream:
-            assert upstream.port is not None
-            proxy = AddonProxy(_FakeAddonRegistry(f"http://127.0.0.1:{upstream.port}"))
-            app = FastAPI()
-            app.include_router(build_proxy_router(proxy))
-            client = TestClient(app)
+        with patch.dict("os.environ", {"SYNTHIA_ADMIN_TOKEN": "test-token"}, clear=False):
+            with _EchoServer() as upstream:
+                assert upstream.port is not None
+                proxy = AddonProxy(_FakeAddonRegistry(f"http://127.0.0.1:{upstream.port}"))
+                app = FastAPI()
+                app.include_router(build_proxy_router(proxy))
+                client = TestClient(app)
 
-            with client.websocket_connect("/addons/mqtt/ws", subprotocols=["chat"]) as ws:
-                ws.send_text("hello-addon")
-                self.assertEqual(ws.receive_text(), "hello-addon")
-                ws.send_bytes(b"addon-bytes")
-                self.assertEqual(ws.receive_bytes(), b"addon-bytes")
+                with client.websocket_connect(
+                    "/addons/mqtt/ws",
+                    subprotocols=["chat"],
+                    headers={"X-Admin-Token": "test-token"},
+                ) as ws:
+                    ws.send_text("hello-addon")
+                    self.assertEqual(ws.receive_text(), "hello-addon")
+                    ws.send_bytes(b"addon-bytes")
+                    self.assertEqual(ws.receive_bytes(), b"addon-bytes")
 
-            self.assertTrue(upstream.requests)
-            headers = upstream.requests[-1]
-            self.assertEqual(headers.get("x-forwarded-prefix"), "/addons/mqtt")
-            self.assertEqual(headers.get("x-hexe-addon-id"), "mqtt")
-            self.assertEqual(headers.get("sec-websocket-protocol"), "chat")
+                self.assertTrue(upstream.requests)
+                headers = upstream.requests[-1]
+                self.assertEqual(headers.get("x-forwarded-prefix"), "/addons/mqtt")
+                self.assertEqual(headers.get("x-hexe-addon-id"), "mqtt")
+                self.assertEqual(headers.get("sec-websocket-protocol"), "chat")
 
     def test_node_websocket_proxy_round_trip_and_forwarded_headers(self) -> None:
-        with _EchoServer() as upstream:
-            assert upstream.port is not None
-            proxy = NodeUiProxy(_FakeNodesService(f"http://127.0.0.1:{upstream.port}"))
-            app = FastAPI()
-            app.include_router(build_node_ui_proxy_router(proxy))
-            client = TestClient(app)
+        with patch.dict("os.environ", {"SYNTHIA_ADMIN_TOKEN": "test-token"}, clear=False):
+            with _EchoServer() as upstream:
+                assert upstream.port is not None
+                proxy = NodeUiProxy(_FakeNodesService(f"http://127.0.0.1:{upstream.port}"))
+                app = FastAPI()
+                app.include_router(build_node_ui_proxy_router(proxy))
+                client = TestClient(app)
 
-            with client.websocket_connect("/nodes/node-1/ui/ws", subprotocols=["chat"]) as ws:
-                ws.send_text("hello-node")
-                self.assertEqual(ws.receive_text(), "hello-node")
-                ws.send_bytes(b"node-bytes")
-                self.assertEqual(ws.receive_bytes(), b"node-bytes")
+                with client.websocket_connect(
+                    "/nodes/node-1/ui/ws",
+                    subprotocols=["chat"],
+                    headers={"X-Admin-Token": "test-token"},
+                ) as ws:
+                    ws.send_text("hello-node")
+                    self.assertEqual(ws.receive_text(), "hello-node")
+                    ws.send_bytes(b"node-bytes")
+                    self.assertEqual(ws.receive_bytes(), b"node-bytes")
 
-            self.assertTrue(upstream.requests)
-            headers = upstream.requests[-1]
-            self.assertEqual(headers.get("x-forwarded-prefix"), "/nodes/node-1/ui")
-            self.assertEqual(headers.get("x-hexe-node-id"), "node-1")
-            self.assertEqual(headers.get("sec-websocket-protocol"), "chat")
+                self.assertTrue(upstream.requests)
+                headers = upstream.requests[-1]
+                self.assertEqual(headers.get("x-forwarded-prefix"), "/nodes/node-1/ui")
+                self.assertEqual(headers.get("x-hexe-node-id"), "node-1")
+                self.assertEqual(headers.get("sec-websocket-protocol"), "chat")
 
 
 if __name__ == "__main__":

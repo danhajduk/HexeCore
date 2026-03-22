@@ -253,7 +253,7 @@ Ensure node/addon UIs function correctly under prefixed paths.
 
 ---
 
-[TODO] Task 747 — Add access control layer
+[DONE] Task 747 — Add access control layer
 
 ### Goal
 Ensure only authorized users can access node/addon UIs.

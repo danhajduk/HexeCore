@@ -7,7 +7,7 @@ import secrets
 import subprocess
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, Header, HTTPException, Request, Response
 from pydantic import BaseModel
@@ -105,6 +105,23 @@ def require_admin_token(x_admin_token: str | None, request: Request | None = Non
         cookie = request.cookies.get(ADMIN_SESSION_COOKIE)
         if _is_valid_session_cookie(cookie, expected_token=expected):
             return
+    raise HTTPException(status_code=401, detail="Unauthorized")
+
+
+def is_admin_request_authenticated(request: Any) -> bool:
+    expected = _admin_token_expected()
+    headers = getattr(request, "headers", {}) or {}
+    cookies = getattr(request, "cookies", {}) or {}
+    header_token = str(headers.get("x-admin-token", "") or "").strip()
+    if expected and header_token and header_token == expected:
+        return True
+    cookie = cookies.get(ADMIN_SESSION_COOKIE)
+    return _is_valid_session_cookie(cookie, expected_token=expected)
+
+
+def require_admin_request(request: Any) -> None:
+    if is_admin_request_authenticated(request):
+        return
     raise HTTPException(status_code=401, detail="Unauthorized")
 
 
