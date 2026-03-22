@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import Iterable
 from typing import Any
 import re
@@ -184,6 +185,25 @@ class ReverseProxyService:
             headers=self.safe_response_headers(upstream.headers),
             background=BackgroundTask(upstream.aclose),
         )
+
+    async def probe_health(self, url: str, *, timeout: httpx.Timeout | float | None = 2.0) -> tuple[bool, str | None]:
+        try:
+            response = await self._client.get(url, timeout=timeout)
+        except httpx.HTTPError as exc:
+            return False, f"health_probe_error: {type(exc).__name__}"
+        if response.status_code >= 400:
+            return False, f"health_probe_http_{response.status_code}"
+        content_type = str(response.headers.get("content-type") or "").lower()
+        if "json" in content_type:
+            try:
+                payload = response.json()
+            except (json.JSONDecodeError, ValueError):
+                payload = None
+            if isinstance(payload, dict):
+                raw_status = str(payload.get("status") or payload.get("health_status") or payload.get("health") or "").strip().lower()
+                if raw_status in {"unhealthy", "error", "failed", "failing", "down", "offline"}:
+                    return False, f"health_probe_status_{raw_status}"
+        return True, None
 
     @staticmethod
     def build_ui_error_response(

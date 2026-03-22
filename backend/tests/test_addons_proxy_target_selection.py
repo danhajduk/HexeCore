@@ -136,6 +136,30 @@ class TestAddonProxyTargetSelection(unittest.TestCase):
             self.assertIn("Addon UI Unavailable", response.text)
             self.assertIn("addon_ui_not_enabled", response.text)
 
+    def test_ui_route_returns_html_error_page_when_addon_health_is_unhealthy(self) -> None:
+        proxy = AddonProxy(
+            _FakeRegistry(
+                RegisteredAddon(
+                    id="mqtt",
+                    name="MQTT",
+                    version="0.1.0",
+                    base_url="http://127.0.0.1:9100/api",
+                    ui_enabled=True,
+                    ui_base_url="http://127.0.0.1:9100/ui",
+                    ui_mode="server",
+                    health_status="unhealthy",
+                )
+            )
+        )
+        app = FastAPI()
+        app.include_router(build_proxy_router(proxy))
+        with patch.dict("os.environ", {"SYNTHIA_ADMIN_TOKEN": "test-token"}, clear=False):
+            client = TestClient(app)
+            response = client.get("/addons/mqtt/", headers={"X-Admin-Token": "test-token"})
+            self.assertEqual(response.status_code, 503, response.text)
+            self.assertIn("Addon UI Unavailable", response.text)
+            self.assertIn("addon_health_unhealthy", response.text)
+
 
 if __name__ == "__main__":
     unittest.main()

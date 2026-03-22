@@ -271,7 +271,7 @@ Ensure only authorized users can access node/addon UIs.
 
 ---
 
-[TODO] Task 748 — Add health-aware proxy behavior
+[DONE] Task 748 — Add health-aware proxy behavior
 
 ### Requirements
 - optional health check before proxy

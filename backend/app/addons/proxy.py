@@ -137,6 +137,15 @@ class AddonProxy:
             state.open_until_monotonic = 0.0
         return False
 
+    def _ui_health_state(self, addon_id: str) -> tuple[bool, str | None]:
+        addon = self._registry.registered.get(addon_id)
+        if addon is None:
+            return True, None
+        status = str(getattr(addon, "health_status", "") or "").strip().lower()
+        if status in {"unhealthy", "error", "failed", "failing", "down", "offline", "circuit_open"}:
+            return False, f"addon_health_{status}"
+        return True, None
+
     async def forward_ui(self, request: Request, addon_id: str, path: str = "", *, public_prefix: str = "") -> Response:
         effective_public_prefix = public_prefix or f"/addons/{addon_id}"
         if addon_id in self._registry.addons and addon_id not in self._registry.registered:
@@ -153,6 +162,15 @@ class AddonProxy:
             return self._proxy.build_ui_error_response(
                 status_code=exc.status_code,
                 detail=str(exc.detail),
+                title="Addon UI Unavailable",
+                target_label=addon_id,
+                public_prefix=effective_public_prefix,
+            )
+        healthy, health_detail = self._ui_health_state(addon_id)
+        if not healthy:
+            return self._proxy.build_ui_error_response(
+                status_code=503,
+                detail=str(health_detail or "addon_unhealthy"),
                 title="Addon UI Unavailable",
                 target_label=addon_id,
                 public_prefix=effective_public_prefix,
@@ -299,6 +317,10 @@ class AddonProxy:
     async def forward_websocket(self, websocket: WebSocket, addon_id: str, path: str = "", *, public_prefix: str = "") -> None:
         if addon_id in self._registry.addons and addon_id not in self._registry.registered:
             await websocket.close(code=1008, reason="embedded_addon_websocket_proxy_unsupported")
+            return
+        healthy, health_detail = self._ui_health_state(addon_id)
+        if not healthy:
+            await websocket.close(code=1013, reason=str(health_detail or "addon_unhealthy"))
             return
         target_base = self._ui_target_base(addon_id, websocket)
         target = self._proxy.build_websocket_target_url(target_base, path, websocket.url.query)

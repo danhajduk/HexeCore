@@ -30,6 +30,7 @@ Status: Implemented
 - Root-relative HTML, JS, and CSS asset references are rewritten through the active proxy prefix so proxied UIs continue working under `/nodes/.../ui` and `/addons/...` style mounts.
 - When a proxied node/addon UI is unavailable, Core now returns an operator-readable HTML error shell instead of a blank iframe, and proxy timeouts are configurable for both node and addon targets.
 - Proxy access uses the same admin token or signed admin session cookie model as the rest of Core admin surfaces, including websocket upgrades for proxied UIs.
+- Proxy UI entrypoints also consult target health before forwarding when health metadata is available, so obviously unhealthy node/addon UIs fail fast into the fallback shell.
 
 ## Addon UI Conventions
 

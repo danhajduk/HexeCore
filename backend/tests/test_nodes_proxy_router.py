@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import AsyncMock
 from unittest.mock import patch
 
 from fastapi import HTTPException
@@ -301,6 +302,30 @@ class TestNodeUiProxyTargetSelection(unittest.TestCase):
             self.assertEqual(response.status_code, 404, response.text)
             self.assertIn("Node UI Unavailable", response.text)
             self.assertIn("node_ui_not_enabled", response.text)
+
+    def test_ui_route_returns_html_error_page_when_health_probe_fails(self) -> None:
+        proxy = NodeUiProxy(
+            _TargetService(
+                type(
+                    "Node",
+                    (),
+                    {
+                        "ui_enabled": True,
+                        "ui_base_url": "http://10.0.0.9:8765/ui",
+                        "ui_health_endpoint": "http://10.0.0.9:8765/health",
+                    },
+                )()
+            )
+        )
+        proxy._proxy.probe_health = AsyncMock(return_value=(False, "health_probe_status_unhealthy"))
+        app = FastAPI()
+        app.include_router(build_node_ui_proxy_router(proxy))
+        with patch.dict("os.environ", {"SYNTHIA_ADMIN_TOKEN": "test-token"}, clear=False):
+            client = TestClient(app)
+            response = client.get("/nodes/node-1/ui/", headers={"X-Admin-Token": "test-token"})
+            self.assertEqual(response.status_code, 503, response.text)
+            self.assertIn("Node UI Unavailable", response.text)
+            self.assertIn("health_probe_status_unhealthy", response.text)
 
 
 if __name__ == "__main__":

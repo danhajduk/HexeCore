@@ -19,6 +19,7 @@ def _env_float(name: str, default: float) -> float:
 
 
 NODE_PROXY_TIMEOUT_SECONDS = 10.0
+NODE_UI_HEALTH_TIMEOUT_SECONDS = 2.0
 
 
 class NodeUiProxy:
@@ -51,6 +52,16 @@ class NodeUiProxy:
         parsed = urlsplit(ui_base)
         return urlunsplit((parsed.scheme, parsed.netloc, "", "", ""))
 
+    async def _ui_health_state(self, node_id: str) -> tuple[bool, str | None]:
+        node = self._service.get_node(node_id)
+        raw_endpoint = str(getattr(node, "ui_health_endpoint", "") or "").strip()
+        if not raw_endpoint:
+            return True, None
+        return await self._proxy.probe_health(
+            raw_endpoint,
+            timeout=httpx.Timeout(_env_float("SYNTHIA_NODE_UI_HEALTH_TIMEOUT_SECONDS", NODE_UI_HEALTH_TIMEOUT_SECONDS)),
+        )
+
     async def forward(self, request: Request, node_id: str, path: str = "", *, public_prefix: str = "") -> Response:
         effective_public_prefix = public_prefix or f"/nodes/{node_id}/ui"
         try:
@@ -59,6 +70,15 @@ class NodeUiProxy:
             return self._proxy.build_ui_error_response(
                 status_code=exc.status_code,
                 detail=str(exc.detail),
+                title="Node UI Unavailable",
+                target_label=node_id,
+                public_prefix=effective_public_prefix,
+            )
+        healthy, health_detail = await self._ui_health_state(node_id)
+        if not healthy:
+            return self._proxy.build_ui_error_response(
+                status_code=503,
+                detail=str(health_detail or "node_unhealthy"),
                 title="Node UI Unavailable",
                 target_label=node_id,
                 public_prefix=effective_public_prefix,
@@ -115,6 +135,10 @@ class NodeUiProxy:
         )
 
     async def forward_websocket(self, websocket: WebSocket, node_id: str, path: str = "", *, public_prefix: str = "") -> None:
+        healthy, health_detail = await self._ui_health_state(node_id)
+        if not healthy:
+            await websocket.close(code=1013, reason=str(health_detail or "node_unhealthy"))
+            return
         target_base = self._target_base(node_id, websocket)
         target = self._proxy.build_websocket_target_url(target_base, path, websocket.url.query)
         await self._proxy.proxy_websocket(
