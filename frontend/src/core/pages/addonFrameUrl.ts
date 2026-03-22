@@ -1,6 +1,11 @@
 import { API_BASE } from "../api/client";
 import { addonUiProxyPath } from "../router/proxyRoutes";
 
+function isManagedPublicHostname(hostname: string): boolean {
+  const normalized = String(hostname || "").trim().toLowerCase();
+  return normalized === "hexe-ai.com" || normalized.endsWith(".hexe-ai.com");
+}
+
 function defaultBackendBase(locationLike?: Pick<Location, "origin" | "hostname" | "protocol" | "port">): string {
   const activeLocation =
     locationLike ||
@@ -11,7 +16,7 @@ function defaultBackendBase(locationLike?: Pick<Location, "origin" | "hostname" 
     return "http://127.0.0.1:9001";
   }
   const port = String(activeLocation.port || "").trim();
-  if (!port || port === "80" || port === "443" || port === "9001") {
+  if ((port === "" || port === "80" || port === "443") && isManagedPublicHostname(activeLocation.hostname)) {
     return String(activeLocation.origin || "").replace(/\/+$/, "") || "http://127.0.0.1:9001";
   }
   const host = activeLocation.hostname || "127.0.0.1";

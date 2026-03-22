@@ -18,7 +18,7 @@ describe("addonUiFrameSrc", () => {
     expect(addonUiFrameSrc("mqtt")).toContain("/addons/mqtt/");
   });
 
-  it("uses the same origin for tunneled or default-port deployments", () => {
+  it("uses the same origin for managed public tunnel hostnames", () => {
     expect(
       addonUiFrameSrc("mqtt", "", {
         origin: "https://a75d480287c33cab.hexe-ai.com",
@@ -27,6 +27,17 @@ describe("addonUiFrameSrc", () => {
         port: "",
       }),
     ).toBe("https://a75d480287c33cab.hexe-ai.com/addons/mqtt/");
+  });
+
+  it("keeps the backend port fallback for LAN/default-port access", () => {
+    expect(
+      addonUiFrameSrc("mqtt", "", {
+        origin: "http://10.0.0.100",
+        hostname: "10.0.0.100",
+        protocol: "http:",
+        port: "",
+      }),
+    ).toBe("http://10.0.0.100:9001/addons/mqtt/");
   });
 
   it("keeps the backend port fallback for frontend dev servers", () => {

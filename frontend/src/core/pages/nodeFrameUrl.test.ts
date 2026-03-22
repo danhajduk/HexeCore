@@ -18,7 +18,7 @@ describe("nodeUiFrameSrc", () => {
     expect(nodeUiFrameSrc("node-1", "/ui", "node.local")).toBe("");
   });
 
-  it("uses the same origin for tunneled or default-port deployments", () => {
+  it("uses the same origin for managed public tunnel hostnames", () => {
     expect(
       nodeUiFrameSrc(
         "node-1",
@@ -32,6 +32,22 @@ describe("nodeUiFrameSrc", () => {
         },
       ),
     ).toBe("https://a75d480287c33cab.hexe-ai.com/nodes/node-1/ui/");
+  });
+
+  it("keeps the backend port fallback for LAN/default-port access", () => {
+    expect(
+      nodeUiFrameSrc(
+        "node-1",
+        "https://node.example.test/ui/",
+        "node.local",
+        {
+          origin: "http://10.0.0.100",
+          hostname: "10.0.0.100",
+          protocol: "http:",
+          port: "",
+        },
+      ),
+    ).toBe("http://10.0.0.100:9001/nodes/node-1/ui/");
   });
 
   it("keeps the backend port fallback for frontend dev servers", () => {
