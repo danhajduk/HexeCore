@@ -286,42 +286,6 @@ Ensure only authorized users can access node/addon UIs.
 
 # Core Tasks — Proxied UI Contract for Nodes and Addons
 
-[TODO] Task 751 — Define proxied UI contract for all externally mounted UIs
-
-### Goal
-Define the contract that any node UI or addon UI must follow when mounted behind the Core reverse proxy.
-
-### Scope
-This task defines the runtime and frontend behavior required so a UI can be safely exposed through:
-
-#### Nodes
-- /nodes/{node_id}/ui/
-- /api/nodes/{node_id}/{path:path}
-
-#### Addons
-- /addons/{addon_id}/
-- /api/addons/{addon_id}/{path:path}
-
-### Rules
-- the UI must not assume it is hosted at /
-- the UI must not require direct browser access to the internal node/addon URL
-- the browser must talk only to the Core public origin
-- all frontend API calls must use the Core public proxy path
-- all asset and link resolution must work when mounted under a path prefix
-- websocket usage must work through the Core public proxy path
-
-### Deliverables
-- proxied UI contract document
-- frontend/runtime requirements list
-- compatibility checklist for node and addon authors
-
-### Acceptance Criteria
-- contract is documented in Core docs
-- contract is explicit enough for new nodes and addons to implement without ambiguity
-- path-prefix behavior is clearly defined
-
----
-
 [TODO] Task 752 — Define required UI metadata for nodes and addons
 
 ### Goal

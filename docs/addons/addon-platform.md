@@ -89,6 +89,7 @@ Status: Archived Legacy
 - [Core Platform](../core/api/core-platform.md)
 - [API Reference](../core/api/api-reference.md)
 - [Frontend and UI](../core/frontend/frontend-and-ui.md)
+- [Proxied UI Contract](../core/frontend/proxied-ui-contract.md)
 - [Data and State](../core/api/data-and-state.md)
 - [addon-lifecycle.md](./addon-lifecycle.md)
 - [standalone-archive/README.md](./standalone-archive/README.md)
