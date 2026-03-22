@@ -3,6 +3,7 @@ from __future__ import annotations
 from enum import Enum
 from datetime import datetime, timezone
 from typing import Literal
+from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -49,7 +50,7 @@ class CloudflareSettings(BaseModel):
 
 
 class EdgeTarget(BaseModel):
-    target_type: Literal["core_ui", "core_api", "local_service", "supervisor_runtime", "node"]
+    target_type: Literal["core_ui", "core_api", "local_service", "supervisor_runtime", "node", "frigate"]
     target_id: str
     upstream_base_url: str
     enabled: bool = True
@@ -62,6 +63,16 @@ class EdgeTarget(BaseModel):
         items = [str(item or "").strip() for item in value]
         normalized = [item if item.startswith("/") else f"/{item}" for item in items if item]
         return normalized or ["/"]
+
+    @field_validator("upstream_base_url")
+    @classmethod
+    def _normalize_upstream_base_url(cls, value: str) -> str:
+        text = str(value or "").strip()
+        parsed = urlsplit(text)
+        if parsed.scheme in {"http", "https"} and parsed.netloc:
+            normalized_path = "" if parsed.path in {"", "/"} else parsed.path
+            return urlunsplit((parsed.scheme, parsed.netloc, normalized_path, parsed.query, parsed.fragment))
+        return text
 
 
 class EdgePublication(BaseModel):

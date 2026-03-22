@@ -264,3 +264,56 @@ class TestEdgeGatewayApi(unittest.TestCase):
             )
         self.assertEqual(response.status_code, 400, response.text)
         self.assertEqual(response.json()["detail"], "cloudflare_settings_incomplete")
+
+    def test_create_frigate_publication_normalizes_upstream_base_url(self) -> None:
+        identity = self.client.get("/api/edge/public-identity").json()
+        created = self.client.post(
+            "/api/edge/publications",
+            headers={"X-Admin-Token": "test-token"},
+            json={
+                "hostname": f"frigate.{identity['core_id']}.hexe-ai.com",
+                "path_prefix": "/",
+                "enabled": True,
+                "source": "operator_defined",
+                "target": {
+                    "target_type": "frigate",
+                    "target_id": "frigate",
+                    "upstream_base_url": "http://localhost:5000/",
+                    "allowed_path_prefixes": ["/"],
+                },
+            },
+        )
+        self.assertEqual(created.status_code, 200, created.text)
+        payload = created.json()["publication"]
+        self.assertEqual(payload["target"]["target_type"], "frigate")
+        self.assertEqual(payload["target"]["upstream_base_url"], "http://localhost:5000")
+
+        dry_run = self.client.post("/api/edge/cloudflare/test", headers={"X-Admin-Token": "test-token"})
+        self.assertEqual(dry_run.status_code, 200, dry_run.text)
+        frigate_rules = [
+            item for item in dry_run.json()["rendered_config"]["ingress"]
+            if item.get("hostname") == f"frigate.{identity['core_id']}.hexe-ai.com"
+        ]
+        self.assertEqual(len(frigate_rules), 1)
+        self.assertEqual(frigate_rules[0]["service"], "http://localhost:5000")
+
+    def test_rejects_upstream_base_url_with_non_root_path(self) -> None:
+        identity = self.client.get("/api/edge/public-identity").json()
+        created = self.client.post(
+            "/api/edge/publications",
+            headers={"X-Admin-Token": "test-token"},
+            json={
+                "hostname": f"frigate.{identity['core_id']}.hexe-ai.com",
+                "path_prefix": "/",
+                "enabled": True,
+                "source": "operator_defined",
+                "target": {
+                    "target_type": "frigate",
+                    "target_id": "frigate",
+                    "upstream_base_url": "http://localhost:5000/api",
+                    "allowed_path_prefixes": ["/"],
+                },
+            },
+        )
+        self.assertEqual(created.status_code, 400, created.text)
+        self.assertEqual(created.json()["detail"], "edge_target_upstream_path_not_allowed")

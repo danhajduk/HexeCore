@@ -100,6 +100,29 @@ export default function EdgeGateway() {
     upstream_base_url: "http://127.0.0.1:8081",
   });
 
+  function applyTargetTypeDefaults(targetType: string) {
+    setPublicationForm((current) => {
+      if (targetType === "frigate") {
+        return {
+          ...current,
+          target_type: targetType,
+          target_id: current.target_id.trim() ? current.target_id : "frigate",
+          upstream_base_url: "http://127.0.0.1:5000",
+        };
+      }
+      if (current.target_type === "frigate") {
+        return {
+          ...current,
+          target_type: targetType,
+          target_id: current.target_id === "frigate" ? "" : current.target_id,
+          upstream_base_url:
+            current.upstream_base_url === "http://127.0.0.1:5000" ? "http://127.0.0.1:8081" : current.upstream_base_url,
+        };
+      }
+      return { ...current, target_type: targetType };
+    });
+  }
+
   async function load() {
     setErr(null);
     try {
@@ -261,6 +284,9 @@ export default function EdgeGateway() {
       <h1 className="settings-title">Edge Gateway</h1>
       <p className="settings-page-subtitle">
         Public ingress for {branding.coreName} using platform-managed Cloudflare hostnames in V1 single-owner mode.
+      </p>
+      <p className="settings-muted">
+        Additional publications reuse the same managed Cloudflare tunnel; they add ingress rules and DNS, not separate tunnels.
       </p>
       {err && <div className="settings-error">Edge Gateway error: {err}</div>}
       {message && <div className="settings-success">{message}</div>}
@@ -443,10 +469,11 @@ export default function EdgeGateway() {
               <div className="settings-label-text">Target type</div>
               <select
                 value={publicationForm.target_type}
-                onChange={(e) => setPublicationForm((current) => ({ ...current, target_type: e.target.value }))}
+                onChange={(e) => applyTargetTypeDefaults(e.target.value)}
                 className="settings-select-input"
               >
                 <option value="local_service">Local service</option>
+                <option value="frigate">Frigate</option>
                 <option value="supervisor_runtime">Supervisor runtime</option>
                 <option value="node">Node</option>
               </select>

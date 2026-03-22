@@ -67,6 +67,12 @@ Built-in Core-owned publications always exist logically:
 
 Additional publications are operator-defined and constrained to the platform-owned base domain.
 
+Operator note:
+
+- additional publications reuse the same managed Cloudflare tunnel; they add ingress rules and hostnames rather than creating separate tunnels
+- origin `upstream_base_url` values must be plain `http(s)://host[:port]` bases with no path suffix
+- V1 includes a dedicated `frigate` target type as a convenience for Frigate-style local services while still enforcing local-loopback origin rules
+
 Validated publication rules include:
 
 - hostname must stay under `hexe-ai.com`

@@ -273,6 +273,10 @@ class EdgeGatewayService:
                 if not runtime.get("exists"):
                     state = "unavailable"
                     detail = "runtime_not_found"
+            elif item.target.target_type == "frigate":
+                if item.target.target_id.strip() == "":
+                    state = "degraded"
+                    detail = "frigate_target_id_missing"
             parsed = urlsplit(item.target.upstream_base_url)
             if parsed.hostname not in {"127.0.0.1", "localhost"}:
                 state = "degraded"
@@ -378,9 +382,13 @@ class EdgeGatewayService:
             runtime = self._supervisor_service.get_runtime_state(publication.target.target_id)
             if not runtime.get("exists"):
                 raise HTTPException(status_code=400, detail="edge_target_runtime_not_found")
+        if publication.target.target_type == "frigate" and not publication.target.target_id.strip():
+            raise HTTPException(status_code=400, detail="edge_target_frigate_id_missing")
         parsed = urlsplit(publication.target.upstream_base_url)
         if parsed.scheme not in {"http", "https"} or parsed.hostname not in {"127.0.0.1", "localhost"}:
             raise HTTPException(status_code=400, detail="edge_target_upstream_not_allowed")
+        if parsed.path not in {"", "/"} or parsed.query or parsed.fragment:
+            raise HTTPException(status_code=400, detail="edge_target_upstream_path_not_allowed")
         for item in existing:
             if item.hostname == hostname and item.path_prefix == publication.path_prefix:
                 raise HTTPException(status_code=409, detail="edge_publication_conflict")
