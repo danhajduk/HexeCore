@@ -1,4 +1,5 @@
 import { API_BASE } from "../api/client";
+import { addonUiProxyPath } from "../router/proxyRoutes";
 
 function defaultBackendBase(): string {
   if (typeof window === "undefined") {
@@ -13,6 +14,6 @@ export function addonUiFrameSrc(addonId: string, backendBase?: string): string {
   const trimmed = String(addonId || "").trim();
   if (!trimmed) return "";
   const base = String(backendBase || API_BASE || defaultBackendBase()).trim().replace(/\/+$/, "");
-  const path = `/ui/addons/${encodeURIComponent(trimmed)}`;
+  const path = addonUiProxyPath(trimmed);
   return `${base}${path}`;
 }

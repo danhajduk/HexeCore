@@ -32,6 +32,8 @@ class TestNodeUiProxyRouter(unittest.TestCase):
 
     def test_node_ui_routes_forward(self) -> None:
         checks = [
+            ("/nodes/node-1/ui/", ""),
+            ("/nodes/node-1/ui/assets/main.js", "assets/main.js"),
             ("/ui/nodes/node-1", ""),
             ("/ui/nodes/node-1/assets/main.js", "assets/main.js"),
         ]
@@ -48,14 +50,16 @@ class TestNodeUiProxyRouter(unittest.TestCase):
             [
                 ("GET", "node-1", ""),
                 ("GET", "node-1", "assets/main.js"),
+                ("GET", "node-1", ""),
+                ("GET", "node-1", "assets/main.js"),
             ],
         )
 
     def test_node_ui_routes_remain_get_head_only(self) -> None:
-        denied = self.client.post("/ui/nodes/node-1")
+        denied = self.client.post("/nodes/node-1/ui/")
         self.assertEqual(denied.status_code, 405, denied.text)
 
-        head = self.client.head("/ui/nodes/node-1/status")
+        head = self.client.head("/nodes/node-1/ui/status")
         self.assertEqual(head.status_code, 200, head.text)
 
         self.assertEqual(self.proxy.calls, [("HEAD", "node-1", "status")])
@@ -92,11 +96,11 @@ class TestNodeUiProxyHtmlRewrite(unittest.TestCase):
             "node-123",
         ).decode("utf-8")
 
-        self.assertIn('from "/ui/nodes/node-123/@react-refresh"', rewritten)
-        self.assertIn('src="/ui/nodes/node-123/@vite/client"', rewritten)
-        self.assertIn('href="/ui/nodes/node-123/src/index.css"', rewritten)
-        self.assertIn('action="/ui/nodes/node-123/submit"', rewritten)
-        self.assertIn('src="/ui/nodes/node-123/logo.svg"', rewritten)
+        self.assertIn('from "/nodes/node-123/ui/@react-refresh"', rewritten)
+        self.assertIn('src="/nodes/node-123/ui/@vite/client"', rewritten)
+        self.assertIn('href="/nodes/node-123/ui/src/index.css"', rewritten)
+        self.assertIn('action="/nodes/node-123/ui/submit"', rewritten)
+        self.assertIn('src="/nodes/node-123/ui/logo.svg"', rewritten)
 
     def test_leaves_non_html_responses_unchanged(self) -> None:
         original = b'{"ok":true,"path":"/status"}'
@@ -120,9 +124,9 @@ class TestNodeUiProxyHtmlRewrite(unittest.TestCase):
             "node-123",
         ).decode("utf-8")
 
-        self.assertIn('"/ui/nodes/node-123/node_modules/vite/dist/client/env.mjs"', rewritten)
-        self.assertIn('"/ui/nodes/node-123/src/App.jsx?t=123"', rewritten)
-        self.assertIn('"/ui/nodes/node-123/src/theme/index.css"', rewritten)
+        self.assertIn('"/nodes/node-123/ui/node_modules/vite/dist/client/env.mjs"', rewritten)
+        self.assertIn('"/nodes/node-123/ui/src/App.jsx?t=123"', rewritten)
+        self.assertIn('"/nodes/node-123/ui/src/theme/index.css"', rewritten)
 
 
 if __name__ == "__main__":

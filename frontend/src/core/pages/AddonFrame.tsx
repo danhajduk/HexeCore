@@ -59,9 +59,12 @@ export default function AddonFrame() {
           }
           const resolved = resolveAddonUiEmbedState(addonId, payload);
           let nextSrc = resolved.frameSrc;
-          if (addonId === "mqtt" && requestedSection && nextSrc.includes(`/ui/addons/${encodeURIComponent(addonId)}`)) {
+          if (addonId === "mqtt" && requestedSection) {
+            const canonicalBase = addonUiFrameSrc(addonId).replace(/\/+$/, "");
+            if (nextSrc.replace(/\/+$/, "").startsWith(canonicalBase)) {
             const clean = nextSrc.replace(/\/+$/, "");
             nextSrc = `${clean}/${encodeURIComponent(requestedSection)}`;
+            }
           }
           setSrc(nextSrc);
           setReason(resolved.reason);

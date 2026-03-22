@@ -29,12 +29,12 @@ class TestAddonsProxyRouter(unittest.TestCase):
         app.include_router(build_proxy_router(self.proxy))
         self.client = TestClient(app)
 
-    def test_ui_legacy_and_alias_routes_forward(self) -> None:
+    def test_ui_legacy_and_canonical_routes_forward(self) -> None:
         checks = [
+            ("/addons/mqtt/", ""),
+            ("/addons/mqtt/assets/main.js", "assets/main.js"),
             ("/ui/addons/mqtt", ""),
             ("/ui/addons/mqtt/assets/main.js", "assets/main.js"),
-            ("/addons/mqtt", ""),
-            ("/addons/mqtt/assets/main.js", "assets/main.js"),
         ]
 
         for url, expected_path in checks:
@@ -54,8 +54,8 @@ class TestAddonsProxyRouter(unittest.TestCase):
             ],
         )
 
-    def test_alias_routes_remain_get_head_only(self) -> None:
-        denied = self.client.post("/addons/mqtt")
+    def test_canonical_routes_remain_get_head_only(self) -> None:
+        denied = self.client.post("/addons/mqtt/")
         self.assertEqual(denied.status_code, 405, denied.text)
 
         head = self.client.head("/addons/mqtt/status")

@@ -1,4 +1,5 @@
 import { API_BASE } from "../api/client";
+import { nodeUiProxyPath } from "../router/proxyRoutes";
 
 function defaultBackendBase(): string {
   if (typeof window === "undefined") {
@@ -15,9 +16,9 @@ export function nodeUiFrameSrc(nodeId: string, rawEndpoint?: string | null, rawH
   const base = String(API_BASE || defaultBackendBase()).trim().replace(/\/+$/, "");
   const endpoint = String(rawEndpoint || "").trim();
   if (endpoint) {
-    return /^https?:\/\//i.test(endpoint) ? `${base}/ui/nodes/${encodeURIComponent(safeNodeId)}` : "";
+    return /^https?:\/\//i.test(endpoint) ? `${base}${nodeUiProxyPath(safeNodeId)}` : "";
   }
   const host = String(rawHost || "").trim();
   if (!host) return "";
-  return `${base}/ui/nodes/${encodeURIComponent(safeNodeId)}`;
+  return `${base}${nodeUiProxyPath(safeNodeId)}`;
 }

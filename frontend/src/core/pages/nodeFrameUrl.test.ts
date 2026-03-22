@@ -7,11 +7,11 @@ describe("nodeUiFrameSrc", () => {
   });
 
   it("uses the Core node proxy when an endpoint exists", () => {
-    expect(nodeUiFrameSrc("node-1", "https://node.example.test/ui/", "node.local")).toContain("/ui/nodes/node-1");
+    expect(nodeUiFrameSrc("node-1", "https://node.example.test/ui/", "node.local")).toContain("/nodes/node-1/ui/");
   });
 
   it("uses the Core node proxy when only a hostname exists", () => {
-    expect(nodeUiFrameSrc("node-1", "", "node.local")).toContain("/ui/nodes/node-1");
+    expect(nodeUiFrameSrc("node-1", "", "node.local")).toContain("/nodes/node-1/ui/");
   });
 
   it("returns empty string for invalid non-absolute endpoints", () => {

@@ -44,4 +44,987 @@ if it is not present and should be node-owned create a file with the new data in
 
 Do not edit above this line:
 #######################################################################
-No Active Tasks
+
+# Core Tasks — Unified UI Reverse Proxy (Nodes + Addons)
+
+[TODO] Task 738 — Extend registry models with UI proxy metadata
+
+### Goal
+Allow Core to know how to proxy UI for nodes and addons.
+
+### Node fields
+- ui_enabled: bool
+- ui_base_url: str (internal, e.g. http://10.0.0.100:8081)
+- ui_mode: str (spa | server)
+- ui_health_endpoint: optional
+
+### Addon fields
+- ui_enabled: bool
+- ui_base_url: str
+- ui_mode: str
+
+### Rules
+- ui_base_url must never be exposed externally
+- validation must enforce http/https only
+- default ui_enabled = false
+
+### Deliverables
+- Pydantic model updates
+- validation logic
+- migration/default handling
+
+### Acceptance Criteria
+- registry returns correct metadata
+- invalid URLs rejected
+- missing fields handled safely
+
+---
+
+[TODO] Task 739 — Implement HTTP reverse proxy service (Core → Node/Addons)
+
+### Goal
+Create a reusable proxy service to forward requests to node/addon backends.
+
+### Requirements
+- support GET, POST, PUT, DELETE, PATCH
+- stream request/response bodies
+- preserve headers
+- support large payloads
+
+### Headers to inject
+- X-Forwarded-Host
+- X-Forwarded-Proto
+- X-Forwarded-Prefix
+- X-Hexe-Node-Id or X-Hexe-Addon-Id
+
+### Path handling
+- strip public prefix before forwarding
+- forward remaining path to target base_url
+
+### Deliverables
+- proxy service module
+- request forwarding logic
+- error handling
+
+### Acceptance Criteria
+- full request lifecycle works
+- no broken headers
+- correct path forwarding
+
+---
+
+[TODO] Task 740 — Implement WebSocket proxy support
+
+### Goal
+Enable websocket passthrough for node/addon UIs.
+
+### Requirements
+- support WS and WSS
+- upgrade connection correctly
+- bidirectional streaming
+- preserve headers
+
+### Deliverables
+- websocket proxy handler
+- route integration
+
+### Acceptance Criteria
+- websocket connects successfully
+- no dropped frames
+- stable long-lived connections
+
+---
+
+[TODO] Task 741 — Add Node UI proxy routes
+
+### Routes
+- /nodes/{node_id}/ui/
+- /nodes/{node_id}/ui/{path:path}
+
+### Behavior
+- validate node exists and ui_enabled
+- resolve ui_base_url
+- proxy request to node
+- inject forwarded headers
+- support websocket upgrade
+
+### Deliverables
+- FastAPI router
+- proxy integration
+
+### Acceptance Criteria
+- node UI loads fully
+- assets resolve correctly
+- SPA routing works
+
+---
+
+[TODO] Task 742 — Add Node API proxy routes
+
+### Routes
+- /api/nodes/{node_id}/{path:path}
+
+### Behavior
+- validate node
+- strip /api/nodes/{node_id}
+- forward to node API
+
+### Deliverables
+- API proxy router
+
+### Acceptance Criteria
+- API calls succeed
+- no CORS issues
+- responses identical to direct call
+
+---
+
+[TODO] Task 743 — Add Addon UI proxy routes
+
+### Routes
+- /addons/{addon_id}/
+- /addons/{addon_id}/{path:path}
+
+### Behavior
+- validate addon exists and ui_enabled
+- proxy to addon ui_base_url
+- inject headers
+
+### Deliverables
+- addon UI router
+
+### Acceptance Criteria
+- addon UI loads correctly
+- assets and routing functional
+
+---
+
+[TODO] Task 744 — Add Addon API proxy routes
+
+### Routes
+- /api/addons/{addon_id}/{path:path}
+
+### Behavior
+- strip prefix
+- forward to addon API
+
+### Deliverables
+- addon API router
+
+### Acceptance Criteria
+- API works through proxy
+- no direct exposure of addon URL
+
+---
+
+[TODO] Task 745 — Implement prefix-aware forwarding logic
+
+### Goal
+Ensure node/addon UIs function correctly under prefixed paths.
+
+### Requirements
+- inject X-Forwarded-Prefix
+- support base path rewriting if needed
+- ensure assets resolve under prefix
+
+### Deliverables
+- prefix handling utility
+
+### Acceptance Criteria
+- UI works under nested path
+- no broken assets or links
+
+---
+
+[TODO] Task 746 — Add timeout, retry, and failure handling
+
+### Requirements
+- configurable timeout per proxy
+- graceful error responses
+- retry policy (optional)
+
+### Deliverables
+- timeout config
+- error response templates
+
+### Acceptance Criteria
+- slow node does not hang Core
+- failures return meaningful response
+
+---
+
+[TODO] Task 747 — Add access control layer
+
+### Goal
+Ensure only authorized users can access node/addon UIs.
+
+### Requirements
+- validate session before proxying
+- enforce role/permission checks
+
+### Deliverables
+- auth middleware integration
+
+### Acceptance Criteria
+- unauthorized access blocked
+- authorized users pass through
+
+---
+
+[TODO] Task 748 — Add health-aware proxy behavior
+
+### Requirements
+- optional health check before proxy
+- fallback UI if node/addon unavailable
+
+### Deliverables
+- health check integration
+
+### Acceptance Criteria
+- unhealthy targets handled gracefully
+- user sees proper error state
+
+---
+
+[TODO] Task 749 — Logging and observability
+
+### Requirements
+- log proxied requests
+- log failures and latency
+- include node/addon identifiers
+
+### Deliverables
+- structured logs
+
+### Acceptance Criteria
+- logs show full proxy lifecycle
+- debugging possible from logs alone
+
+---
+
+[TODO] Task 750 — Integration and validation tests
+
+### Scope
+End-to-end validation of proxy system.
+
+### Tests
+- UI load for node and addon
+- API passthrough
+- websocket connection
+- failure scenarios
+
+### Acceptance Criteria
+- all proxy paths validated
+- no regressions in Core API
+- stable under repeated use
+
+# Core Tasks — Proxied UI Contract for Nodes and Addons
+
+[TODO] Task 751 — Define proxied UI contract for all externally mounted UIs
+
+### Goal
+Define the contract that any node UI or addon UI must follow when mounted behind the Core reverse proxy.
+
+### Scope
+This task defines the runtime and frontend behavior required so a UI can be safely exposed through:
+
+#### Nodes
+- /nodes/{node_id}/ui/
+- /api/nodes/{node_id}/{path:path}
+
+#### Addons
+- /addons/{addon_id}/
+- /api/addons/{addon_id}/{path:path}
+
+### Rules
+- the UI must not assume it is hosted at /
+- the UI must not require direct browser access to the internal node/addon URL
+- the browser must talk only to the Core public origin
+- all frontend API calls must use the Core public proxy path
+- all asset and link resolution must work when mounted under a path prefix
+- websocket usage must work through the Core public proxy path
+
+### Deliverables
+- proxied UI contract document
+- frontend/runtime requirements list
+- compatibility checklist for node and addon authors
+
+### Acceptance Criteria
+- contract is documented in Core docs
+- contract is explicit enough for new nodes and addons to implement without ambiguity
+- path-prefix behavior is clearly defined
+
+---
+
+[TODO] Task 752 — Define required UI metadata for nodes and addons
+
+### Goal
+Standardize the metadata Core uses to determine whether and how a UI may be proxied.
+
+### Required metadata fields
+- ui_enabled: bool
+- ui_mode: spa | server
+- ui_base_url: internal URL reachable by Core
+- ui_health_url: optional internal health endpoint
+- ui_supports_prefix: bool
+- ui_entry_path: optional, default /
+- ui_websocket_enabled: optional bool
+
+### Rules
+- ui_enabled must default to false
+- ui_base_url must be internal-only and must never be exposed in public API responses intended for browsers
+- ui_supports_prefix should be true for all new UIs
+- ui_entry_path must resolve relative to ui_base_url
+
+### Deliverables
+- metadata field definitions
+- validation rules
+- defaults for missing optional fields
+
+### Acceptance Criteria
+- metadata is sufficient for Core to proxy UI safely
+- missing metadata fails safe
+- unsupported configurations are rejected or clearly marked unavailable
+
+---
+
+[TODO] Task 753 — Define frontend path-prefix behavior requirements
+
+### Goal
+Ensure proxied UIs work correctly when mounted below a Core-owned path prefix.
+
+### Requirements
+- all frontend routing must work under a non-root base path
+- all static assets must resolve under the public mounted path
+- internal navigation must preserve the mounted prefix
+- redirects must preserve the mounted prefix
+- deep links must load correctly through the proxied public path
+
+### Node public base
+- /nodes/{node_id}/ui/
+
+### Addon public base
+- /addons/{addon_id}/
+
+### Rules
+- UIs must not hardcode /
+- UIs must not hardcode absolute paths that escape the mounted prefix
+- UIs should prefer relative paths where practical
+- SPA routers must support configurable basename/base
+- server-rendered UIs must support a configurable root path or forwarded prefix
+
+### Deliverables
+- path-prefix compatibility guide
+- examples for SPA and server-rendered UIs
+
+### Acceptance Criteria
+- direct browser load of a nested UI route works
+- refresh on a deep-linked UI path works
+- no broken asset URLs under proxied paths
+
+---
+
+[TODO] Task 754 — Define frontend API base-path requirements
+
+### Goal
+Ensure frontend code calls its backend only through Core public proxy routes.
+
+### Node API base
+- /api/nodes/{node_id}/
+
+### Addon API base
+- /api/addons/{addon_id}/
+
+### Rules
+- frontend code must not call the internal ui_base_url directly
+- frontend code must not embed LAN IP addresses
+- frontend code must derive or receive the public API base path at runtime
+- all API requests from browser clients must target the Core public origin
+
+### Recommended runtime config fields
+- public_ui_base_path
+- public_api_base_path
+- websocket_base_path
+- node_id or addon_id
+
+### Deliverables
+- API base-path contract
+- runtime config contract
+- frontend integration examples
+
+### Acceptance Criteria
+- proxied browser sessions never call internal addresses
+- browser network traffic stays on the Core public origin
+- API calls remain functional when node_id or addon_id changes
+
+---
+
+[TODO] Task 755 — Define websocket proxy compatibility requirements
+
+### Goal
+Ensure proxied UIs that require websocket connections work through Core.
+
+### Requirements
+- websocket URLs must be derived from the public Core origin
+- websocket paths must remain under the mounted public prefix or public API prefix
+- UI code must not hardcode ws://10.x.x.x or localhost URLs
+- UI code must support secure websocket usage when Core is exposed via HTTPS
+
+### Rules
+- prefer deriving websocket endpoint from window.location
+- prefer path-based websocket URLs rather than fixed hostnames
+- websocket routing must support proxied headers and path prefixes
+
+### Deliverables
+- websocket compatibility guidance
+- frontend implementation guidance
+
+### Acceptance Criteria
+- websocket UI features work through Core proxy
+- no direct browser websocket connection to internal targets exists
+- HTTPS public deployment upgrades correctly to WSS
+
+---
+
+[TODO] Task 756 — Define forwarded-header contract from Core to proxied targets
+
+### Goal
+Standardize the headers Core sends so nodes and addons can understand their public mounting context.
+
+### Required forwarded headers
+- X-Forwarded-Host
+- X-Forwarded-Proto
+- X-Forwarded-Prefix
+
+### Optional contextual headers
+- X-Hexe-Node-Id
+- X-Hexe-Addon-Id
+- X-Request-Id
+
+### Rules
+- targets may use X-Forwarded-Prefix to construct correct links, redirects, and routing behavior
+- targets must not trust arbitrary external values for these headers unless they come from Core
+- headers should be set consistently for both UI and API proxy traffic
+
+### Deliverables
+- forwarded-header contract documentation
+- backend header injection standard
+
+### Acceptance Criteria
+- nodes/addons can determine their public mount path from forwarded headers
+- headers are consistent across all proxy routes
+- downstream applications can use the prefix safely
+
+---
+
+[TODO] Task 757 — Define runtime config injection contract for proxied UIs
+
+### Goal
+Allow Core or the proxied backend to provide runtime config to frontend apps without requiring per-node or per-addon rebuilds.
+
+### Recommended runtime config fields
+- publicOrigin
+- publicUiBasePath
+- publicApiBasePath
+- websocketBasePath
+- uiMountKind: node | addon
+- mountId
+
+### Delivery options
+- inline JSON config in HTML shell
+- dedicated config endpoint under the proxied public path
+- server-rendered template injection
+
+### Rules
+- runtime config must be derived from the public Core route
+- runtime config must not expose internal URLs or secrets
+- runtime config should be preferred over hardcoded build-time paths when node_id or addon_id is dynamic
+
+### Deliverables
+- runtime config schema
+- config delivery strategy
+- example config payloads
+
+### Acceptance Criteria
+- frontend can boot correctly without knowing its node_id/addon_id at build time
+- same UI build can be reused for multiple mounted instances where appropriate
+- no internal addresses leak to browser-visible config
+
+---
+
+[TODO] Task 758 — Define redirect and link-generation behavior for proxied targets
+
+### Goal
+Prevent proxied UIs from generating redirects or links that break the mounted public prefix.
+
+### Requirements
+- redirects generated by node/addon backends must preserve forwarded prefix
+- relative redirects should be preferred where possible
+- absolute redirects to internal URLs must be blocked or rewritten
+- generated links in HTML responses must remain valid under mounted paths
+
+### Rules
+- a target must never redirect a browser to its internal ui_base_url
+- Core may rewrite unsafe Location headers when necessary
+- targets should support prefix-aware redirect generation
+
+### Deliverables
+- redirect-handling rules
+- proxy rewrite rules for Location headers
+
+### Acceptance Criteria
+- login redirects, app redirects, and post-action redirects remain inside the Core public origin
+- no redirect leaks internal hosts
+- browser navigation remains stable
+
+---
+
+[TODO] Task 759 — Define compatibility requirements for SPA-based UIs
+
+### Goal
+Provide explicit requirements for React/Vite or other SPA-based proxied UIs.
+
+### Requirements
+- support configurable router basename/base path
+- support configurable asset base path
+- support runtime API base injection
+- support reload on nested routes
+- avoid hardcoded root-relative asset references unless rewritten safely
+
+### Recommended patterns
+- router basename from runtime config
+- fetch base path from runtime config or current location
+- websocket path from runtime config or current location
+- avoid embedding direct hostnames in frontend bundles
+
+### Deliverables
+- SPA compatibility checklist
+- reference integration notes for Vite/React
+
+### Acceptance Criteria
+- SPA loads and navigates under mounted prefix
+- refresh works on nested routes through Core
+- browser network panel shows only Core-origin requests
+
+---
+
+[TODO] Task 760 — Define compatibility requirements for server-rendered UIs
+
+### Goal
+Provide explicit requirements for FastAPI, Flask, Django, or similar server-rendered proxied UIs.
+
+### Requirements
+- support configurable root path or forwarded prefix
+- generate links and redirects relative to mounted public prefix
+- serve assets relative to mounted public prefix
+- support websocket path derivation if applicable
+
+### Recommended patterns
+- honor forwarded prefix header
+- honor forwarded proto and host
+- use application root_path or equivalent when supported
+- avoid absolute internal URL generation
+
+### Deliverables
+- server-rendered compatibility checklist
+- framework notes for prefix-aware deployment
+
+### Acceptance Criteria
+- server-rendered UI works under mounted public prefix
+- redirects and links remain correct
+- no internal URLs leak into responses
+
+---
+
+[TODO] Task 761 — Add compatibility validation checks in Core for proxied UI targets
+
+### Goal
+Prevent obviously incompatible UIs from being exposed through the Core proxy without warning.
+
+### Checks
+- ui_enabled must be true
+- ui_base_url must be valid and reachable by Core
+- target scheme must be http or https
+- optional health endpoint must pass if configured
+- ui_supports_prefix must be true for standard proxied mounting
+- required metadata must be present
+
+### Behavior
+- Core should reject invalid proxy targets
+- Core should surface a clear reason when UI proxy is unavailable
+- Core may allow an explicit compatibility override only for trusted development use
+
+### Deliverables
+- validation logic
+- availability state reporting
+- operator-facing error reasons
+
+### Acceptance Criteria
+- broken targets fail closed
+- operators can see why a UI is unavailable
+- compatible targets are proxied successfully
+
+---
+
+[TODO] Task 762 — Add proxied UI author documentation and examples
+
+### Goal
+Document how node and addon authors should build UIs that work behind Core.
+
+### Required sections
+- public route model
+- path-prefix behavior
+- API base-path rules
+- websocket behavior
+- forwarded headers
+- runtime config
+- redirects and link generation
+- common failure cases
+
+### Common failure cases
+- assets loading from /
+- API calls to localhost or LAN IP
+- redirects escaping the public prefix
+- websocket host hardcoded to internal address
+- SPA router not configured with basename
+- HTML base href or asset paths not matching mounted prefix
+
+### Deliverables
+- author guide
+- compatibility checklist
+- example runtime config usage
+
+### Acceptance Criteria
+- new node/addon UI authors can implement against the contract without needing Core internals explained manually
+- common proxy-related bugs are documented up front
+- examples match actual Core route behavior
+
+# Core Tasks — FastAPI Implementation Skeleton for Proxied UIs
+
+[TODO] Task 763 — Create shared proxy module for HTTP forwarding
+
+### Goal
+Implement a reusable Core service for forwarding HTTP traffic to proxied node and addon targets.
+
+### Scope
+- request forwarding
+- response forwarding
+- header filtering
+- forwarded-header injection
+- timeout handling
+- response streaming
+- redirect header rewrite support
+
+### Deliverables
+- proxy service module
+- target resolution interface
+- request/response transformation helpers
+
+### Acceptance Criteria
+- shared proxy service is used by both node and addon routes
+- duplicated forwarding logic is avoided
+- streaming responses are supported
+
+---
+
+[TODO] Task 764 — Create shared proxy module for websocket forwarding
+
+### Goal
+Implement reusable websocket passthrough support for proxied UIs.
+
+### Scope
+- websocket upgrade handling
+- upstream websocket connection
+- bidirectional frame forwarding
+- disconnect/error handling
+- timeout/cancellation behavior
+
+### Deliverables
+- websocket proxy helper
+- route integration hooks
+
+### Acceptance Criteria
+- websocket support works for node and addon routes
+- shared logic is reusable
+- graceful shutdown/disconnect behavior exists
+
+---
+
+[TODO] Task 765 — Add target resolver service for nodes and addons
+
+### Goal
+Provide a unified way to resolve the proxy target for a node or addon.
+
+### Responsibilities
+- validate target exists
+- validate ui_enabled
+- fetch ui_base_url
+- fetch optional health endpoint
+- return public prefix metadata
+- return target kind and identifier
+
+### Deliverables
+- target resolver service
+- typed resolver result model
+
+### Acceptance Criteria
+- routes do not resolve proxy targets manually
+- target resolution is centralized
+- node and addon behavior is consistent
+
+---
+
+[TODO] Task 766 — Implement node UI HTTP routes
+
+### Routes
+- /nodes/{node_id}/ui
+- /nodes/{node_id}/ui/
+- /nodes/{node_id}/ui/{path:path}
+
+### Requirements
+- normalize canonical trailing slash
+- resolve target through shared resolver
+- inject forwarded headers
+- strip public prefix before forwarding
+- support HTML, JS, CSS, images, fonts, and other assets
+- rewrite unsafe redirect Location headers if needed
+
+### Deliverables
+- node UI router
+- integration with shared proxy service
+
+### Acceptance Criteria
+- node UI entry page loads
+- nested asset paths work
+- redirect normalization works
+
+---
+
+[TODO] Task 767 — Implement node API HTTP proxy routes
+
+### Routes
+- /api/nodes/{node_id}/{path:path}
+
+### Requirements
+- resolve node target
+- strip public API prefix before forwarding
+- support all common HTTP methods
+- preserve expected request/response behavior
+
+### Deliverables
+- node API proxy router
+
+### Acceptance Criteria
+- browser and Core-origin API requests succeed
+- no CORS workaround is needed
+- target internal URL remains hidden
+
+---
+
+[TODO] Task 768 — Implement addon UI HTTP routes
+
+### Routes
+- /addons/{addon_id}
+- /addons/{addon_id}/
+- /addons/{addon_id}/{path:path}
+
+### Requirements
+- normalize canonical trailing slash
+- resolve target through shared resolver
+- inject forwarded headers
+- strip public prefix before forwarding
+- support assets and nested paths
+- rewrite unsafe redirect Location headers if needed
+
+### Deliverables
+- addon UI router
+- integration with shared proxy service
+
+### Acceptance Criteria
+- addon UI loads through Core
+- nested asset paths work
+- browser stays on Core origin
+
+---
+
+[TODO] Task 769 — Implement addon API HTTP proxy routes
+
+### Routes
+- /api/addons/{addon_id}/{path:path}
+
+### Requirements
+- resolve addon target
+- strip public API prefix before forwarding
+- support all common HTTP methods
+
+### Deliverables
+- addon API proxy router
+
+### Acceptance Criteria
+- addon browser API calls work through Core
+- no direct addon public origin is needed
+- internal URL remains hidden
+
+---
+
+[TODO] Task 770 — Implement websocket routes for node and addon UIs
+
+### Routes
+- /nodes/{node_id}/ui/{path:path} for websocket-capable subpaths as needed
+- /addons/{addon_id}/{path:path} for websocket-capable subpaths as needed
+- optional API websocket paths if required by target implementations
+
+### Requirements
+- detect websocket upgrade requests
+- route to shared websocket proxy module
+- preserve forwarded headers/context
+- support secure public deployment
+
+### Deliverables
+- websocket-capable route handlers
+- websocket routing strategy documentation
+
+### Acceptance Criteria
+- websocket-dependent UIs work through Core
+- public HTTPS deployment upgrades correctly to WSS
+- websocket path handling is consistent
+
+---
+
+[TODO] Task 771 — Implement redirect-safe response handling
+
+### Goal
+Prevent proxied targets from redirecting browsers to internal addresses or wrong public paths.
+
+### Requirements
+- inspect Location response headers
+- block or rewrite redirects to internal target origins
+- preserve public prefix for safe redirects
+- ensure redirects remain on Core public origin
+
+### Deliverables
+- redirect rewrite utility
+- integration into HTTP proxy response flow
+
+### Acceptance Criteria
+- internal URLs never leak through redirects
+- browser remains on Core origin after redirects
+- prefix-aware redirects work correctly
+
+---
+
+[TODO] Task 772 — Implement proxy configuration for timeout and size limits
+
+### Goal
+Prevent slow or broken proxied targets from degrading Core.
+
+### Requirements
+- configurable connect timeout
+- configurable read timeout
+- configurable websocket timeout behavior
+- configurable request body size handling where applicable
+
+### Deliverables
+- proxy config settings
+- sane defaults
+- environment/configuration integration
+
+### Acceptance Criteria
+- slow targets fail in a controlled way
+- timeouts are observable in logs
+- Core remains responsive
+
+---
+
+[TODO] Task 773 — Implement structured logging and traceability for proxied requests
+
+### Goal
+Make proxied UI issues diagnosable from Core logs.
+
+### Log fields
+- target kind: node | addon
+- target id
+- upstream base URL
+- public path
+- request method
+- status code
+- latency
+- failure reason
+- request id if available
+
+### Deliverables
+- structured proxy logs
+- error logs for failed proxy attempts
+- optional debug logging mode
+
+### Acceptance Criteria
+- operators can trace a failed proxied request from logs
+- latency hotspots are visible
+- node/addon identifier is always present in proxy logs
+
+---
+
+[TODO] Task 774 — Implement availability state and user-facing error handling
+
+### Goal
+Show useful UI failures when a proxied target is unavailable or invalid.
+
+### Requirements
+- return clear 404 when target does not exist
+- return clear unavailable state when ui_enabled is false
+- return clear upstream-unreachable state when target cannot be contacted
+- avoid leaking internal host details in user-facing errors
+
+### Deliverables
+- error response templates
+- UI-friendly unavailable responses
+- operator log details separate from public messages
+
+### Acceptance Criteria
+- users get meaningful failure messages
+- internal details are not leaked
+- operators still get enough detail in logs
+
+---
+
+[TODO] Task 775 — Add integration tests for HTTP proxy behavior
+
+### Coverage
+- node UI entry route
+- node UI nested asset route
+- node API proxy route
+- addon UI entry route
+- addon UI nested asset route
+- addon API proxy route
+- redirect rewrite behavior
+- unavailable target behavior
+
+### Deliverables
+- HTTP integration tests
+- test fixtures for mock upstream services
+
+### Acceptance Criteria
+- all proxy path classes are covered
+- route normalization is tested
+- redirect behavior is tested
+
+---
+
+[TODO] Task 776 — Add integration tests for websocket proxy behavior
+
+### Coverage
+- node websocket passthrough
+- addon websocket passthrough
+- disconnect handling
+- upstream unavailable behavior
+
+### Deliverables
+- websocket integration tests
+- mock websocket upstream fixtures
+
+### Acceptance Criteria
+- websocket proxy behavior is validated
+- failure cases are covered
+- long-lived connections do not regress silently
+
+[TODO] Task 777 — update or create a json schemas in the docs/json_schema/ folder 

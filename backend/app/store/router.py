@@ -16,6 +16,7 @@ from fastapi import APIRouter, Header, HTTPException, Query, Request
 
 from app.addons.registry import AddonRegistry
 from app.api.admin import require_admin_token
+from app.proxy_routes import addon_ui_proxy_base
 from app.system.events import PlatformEventService
 from app.system.runtime import StandaloneRuntimeService
 from .audit import StoreAuditLogStore
@@ -564,7 +565,7 @@ def _standalone_ui_redirect_info(
     embedded_installed: bool = False,
 ) -> dict[str, Any]:
     runtime_state = str(runtime_payload.get("runtime_state") or "unknown").strip() or "unknown"
-    ui_embed_target = f"/ui/addons/{addon_id}"
+    ui_embed_target = addon_ui_proxy_base(addon_id)
     if embedded_installed:
         return {
             "ui_reachable": True,

@@ -21,6 +21,10 @@ Status: Implemented
 - Admin-gated routes: `/store`, `/addons`, `/settings`, `/settings/jobs`, `/settings/metrics`, `/settings/statistics`, and addon routes.
 - Node routes: `/nodes/:nodeId` for registry details and `/nodes/:nodeId/UI` for the Core-proxied node UI iframe when the node registration includes `requested_ui_endpoint` or `requested_hostname`.
 - Addon frame routes: `/addons/:addonId` and `/addons/:addonId/:section`.
+- Canonical backend proxy paths:
+  - nodes: `/nodes/{node_id}/ui/` and `/nodes/{node_id}/ui/{path}`
+  - addons: `/addons/{addon_id}/` and `/addons/{addon_id}/{path}`
+  - legacy `/ui/nodes/...` and `/ui/addons/...` paths redirect to the canonical forms
 
 ## Addon UI Conventions
 

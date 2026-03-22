@@ -30,6 +30,7 @@ from .api.system import build_system_router
 from .api.admin_registry import build_admin_registry_router
 from .api.addons_registry import build_addons_registry_router
 from .api.addons_install import build_addons_install_router
+from .proxy_routes import ProxyRouteRedirectMiddleware
 from .system.api_metrics import ApiMetricsCollector, ApiMetricsMiddleware
 from app.system.sampler import (
     stats_fast_sampler_loop,
@@ -122,6 +123,7 @@ def create_app() -> FastAPI:
         collector=api_metrics,
         trust_proxy_headers=False,
     )
+    app.add_middleware(ProxyRouteRedirectMiddleware)
 
     @app.on_event("startup")
     async def start_background_tasks():

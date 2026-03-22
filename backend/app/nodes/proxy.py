@@ -6,6 +6,7 @@ from urllib.parse import quote, urlsplit
 import httpx
 from fastapi import APIRouter, HTTPException, Request, Response
 
+from app.proxy_routes import node_ui_proxy_base
 from .service import NodesDomainService
 
 HOP_BY_HOP_HEADERS = {
@@ -36,7 +37,7 @@ REQUEST_HEADER_ALLOWLIST = {
 }
 
 HTML_ROOT_URL_ATTR_RE = re.compile(r'(?P<prefix>\b(?:src|href|action)=["\'])(?P<path>/[^"\']*)')
-ROOT_URL_STRING_RE = re.compile(r'(?P<quote>["\'])(?P<path>/(?!ui/nodes/|/)[^"\']*)(?P=quote)')
+ROOT_URL_STRING_RE = re.compile(r'(?P<quote>["\'])(?P<path>/(?!(?:nodes/[^/]+/ui(?:/|$)|ui/nodes/|/))[^"\']*)(?P=quote)')
 
 
 class NodeUiProxy:
@@ -100,7 +101,7 @@ class NodeUiProxy:
             text = content.decode("utf-8")
         except UnicodeDecodeError:
             return content
-        proxy_prefix = f"/ui/nodes/{quote(node_id, safe='')}"
+        proxy_prefix = node_ui_proxy_base(node_id).rstrip("/")
         rewritten = text
         if is_html:
             rewritten = HTML_ROOT_URL_ATTR_RE.sub(
@@ -140,6 +141,18 @@ class NodeUiProxy:
 
 def build_node_ui_proxy_router(proxy: NodeUiProxy) -> APIRouter:
     router = APIRouter()
+
+    @router.api_route("/nodes/{node_id}/ui/{path:path}", methods=["GET", "HEAD"])
+    async def proxy_node_ui_canonical(node_id: str, path: str, request: Request):
+        return await proxy.forward(request, node_id, path)
+
+    @router.api_route("/nodes/{node_id}/ui/", methods=["GET", "HEAD"])
+    async def proxy_node_ui_canonical_root(node_id: str, request: Request):
+        return await proxy.forward(request, node_id, "")
+
+    @router.api_route("/nodes/{node_id}/ui", methods=["GET", "HEAD"])
+    async def proxy_node_ui_canonical_root_no_slash(node_id: str, request: Request):
+        return await proxy.forward(request, node_id, "")
 
     @router.api_route("/ui/nodes/{node_id}/{path:path}", methods=["GET", "HEAD"])
     async def proxy_node_ui(node_id: str, path: str, request: Request):
