@@ -13,7 +13,7 @@ from fastapi.responses import RedirectResponse
 
 from app.api.admin import require_admin_request
 from app.reverse_proxy import ReverseProxyService
-from app.ui_targets import UiProxyTarget, validate_ui_proxy_target
+from app.ui_target_resolver import UiTargetResolver
 
 from .registry import AddonRegistry
 
@@ -54,38 +54,16 @@ class AddonProxy:
         self._proxy = ReverseProxyService()
         self._client = self._proxy._client
         self._circuits: Dict[str, CircuitState] = {}
+        self._targets = UiTargetResolver(addon_registry=registry)
 
     async def aclose(self) -> None:
         await self._proxy.aclose()
 
     def _api_target_base(self, addon_id: str, request: Request) -> str:
-        addon = self._registry.registered.get(addon_id)
-        if addon is not None:
-            return addon.base_url.rstrip("/")
-        if addon_id in self._registry.addons:
-            return f"{str(request.base_url).rstrip('/')}/api/addons/{quote(addon_id, safe='')}"
-        raise HTTPException(status_code=404, detail="registered_addon_not_found")
+        return self._targets.resolve_addon_api(addon_id, request_base_url=str(request.base_url)).target_base
 
     def _ui_target_base(self, addon_id: str, request: Request) -> str:
-        addon = self._registry.registered.get(addon_id)
-        if addon is not None:
-            availability = validate_ui_proxy_target(
-                UiProxyTarget(
-                    kind="addon",
-                    target_id=addon_id,
-                    public_prefix=f"/addons/{addon_id}",
-                    ui_enabled=bool(getattr(addon, "ui_enabled", False)),
-                    ui_base_url=str(getattr(addon, "ui_base_url", "") or "").strip() or None,
-                    ui_supports_prefix=getattr(addon, "ui_supports_prefix", None),
-                    ui_entry_path=getattr(addon, "ui_entry_path", None),
-                )
-            )
-            if not availability.available:
-                raise HTTPException(status_code=availability.status_code, detail=availability.detail)
-            return str(availability.ui_base_url or "").rstrip("/")
-        if addon_id in self._registry.addons:
-            return f"{str(request.base_url).rstrip('/')}/api/addons/{quote(addon_id, safe='')}"
-        raise HTTPException(status_code=404, detail="registered_addon_not_found")
+        return self._targets.resolve_addon_ui(addon_id, request_base_url=str(request.base_url)).target_base
 
     def _auth_headers(self, addon_id: str) -> dict[str, str]:
         addon = self._registry.registered.get(addon_id)
@@ -185,26 +163,8 @@ class AddonProxy:
     async def forward_ui(self, request: Request, addon_id: str, path: str = "", *, public_prefix: str = "") -> Response:
         started_at = time.perf_counter()
         effective_public_prefix = public_prefix or f"/addons/{addon_id}"
-        if addon_id in self._registry.addons and addon_id not in self._registry.registered:
-            local_path = f"/api/addons/{quote(addon_id, safe='')}"
-            if path:
-                local_path = f"{local_path}/{quote(path.lstrip('/'), safe='/')}"
-            if request.url.query:
-                local_path = f"{local_path}?{request.url.query}"
-            self._log_proxy_result(
-                addon_id=addon_id,
-                surface="ui",
-                method=request.method,
-                path=path,
-                public_prefix=effective_public_prefix,
-                status_code=307,
-                latency_ms=(time.perf_counter() - started_at) * 1000.0,
-                outcome="embedded_redirect",
-            )
-            return RedirectResponse(url=local_path, status_code=307)
-
         try:
-            target_base = self._ui_target_base(addon_id, request)
+            resolved_ui_target = self._targets.resolve_addon_ui(addon_id, request_base_url=str(request.base_url))
         except HTTPException as exc:
             self._log_proxy_result(
                 addon_id=addon_id,
@@ -223,6 +183,26 @@ class AddonProxy:
                 target_label=addon_id,
                 public_prefix=effective_public_prefix,
             )
+
+        if resolved_ui_target.source == "embedded_local":
+            local_path = f"/api/addons/{quote(addon_id, safe='')}"
+            if path:
+                local_path = f"{local_path}/{quote(path.lstrip('/'), safe='/')}"
+            if request.url.query:
+                local_path = f"{local_path}?{request.url.query}"
+            self._log_proxy_result(
+                addon_id=addon_id,
+                surface="ui",
+                method=request.method,
+                path=path,
+                public_prefix=effective_public_prefix,
+                status_code=307,
+                latency_ms=(time.perf_counter() - started_at) * 1000.0,
+                outcome="embedded_redirect",
+            )
+            return RedirectResponse(url=local_path, status_code=307)
+
+        target_base = resolved_ui_target.target_base
         healthy, health_detail = self._ui_health_state(addon_id)
         if not healthy:
             self._log_proxy_result(

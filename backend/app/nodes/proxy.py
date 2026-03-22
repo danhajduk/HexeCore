@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException, Request, Response, WebSocket
 
 from app.api.admin import require_admin_request
 from app.reverse_proxy import ReverseProxyService
-from app.ui_targets import UiProxyTarget, validate_ui_proxy_target
+from app.ui_target_resolver import UiTargetResolver
 from .service import NodesDomainService
 
 log = logging.getLogger("synthia.proxy")
@@ -30,6 +30,7 @@ NODE_UI_HEALTH_TIMEOUT_SECONDS = 2.0
 class NodeUiProxy:
     def __init__(self, service: NodesDomainService) -> None:
         self._service = service
+        self._targets = UiTargetResolver(nodes_service=service)
         self._proxy = ReverseProxyService(
             client=httpx.AsyncClient(
                 follow_redirects=False,
@@ -41,27 +42,10 @@ class NodeUiProxy:
         await self._proxy.aclose()
 
     def _target_base(self, node_id: str, request: Request) -> str:
-        node = self._service.get_node(node_id)
-        availability = validate_ui_proxy_target(
-            UiProxyTarget(
-                kind="node",
-                target_id=node_id,
-                public_prefix=f"/nodes/{node_id}/ui",
-                ui_enabled=bool(getattr(node, "ui_enabled", False)),
-                ui_base_url=str(getattr(node, "ui_base_url", "") or "").strip() or None,
-                ui_health_endpoint=str(getattr(node, "ui_health_endpoint", "") or "").strip() or None,
-                ui_supports_prefix=getattr(node, "ui_supports_prefix", None),
-                ui_entry_path=getattr(node, "ui_entry_path", None),
-            )
-        )
-        if not availability.available:
-            raise HTTPException(status_code=availability.status_code, detail=availability.detail)
-        return str(availability.ui_base_url or "").rstrip("/")
+        return self._targets.resolve_node_ui(node_id).target_base
 
     def _api_target_base(self, node_id: str, request: Request) -> str:
-        ui_base = self._target_base(node_id, request)
-        parsed = urlsplit(ui_base)
-        return urlunsplit((parsed.scheme, parsed.netloc, "", "", ""))
+        return self._targets.resolve_node_api(node_id).target_base
 
     @staticmethod
     def _log_proxy_result(
@@ -88,8 +72,7 @@ class NodeUiProxy:
         )
 
     async def _ui_health_state(self, node_id: str) -> tuple[bool, str | None]:
-        node = self._service.get_node(node_id)
-        raw_endpoint = str(getattr(node, "ui_health_endpoint", "") or "").strip()
+        raw_endpoint = self._targets.resolve_node_ui(node_id).health_endpoint
         if not raw_endpoint:
             return True, None
         return await self._proxy.probe_health(
@@ -101,7 +84,8 @@ class NodeUiProxy:
         started_at = time.perf_counter()
         effective_public_prefix = public_prefix or f"/nodes/{node_id}/ui"
         try:
-            target_base = self._target_base(node_id, request)
+            resolved_target = self._targets.resolve_node_ui(node_id)
+            target_base = resolved_target.target_base
         except HTTPException as exc:
             self._log_proxy_result(
                 node_id=node_id,

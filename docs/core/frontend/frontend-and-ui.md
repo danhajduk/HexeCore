@@ -33,6 +33,7 @@ Status: Implemented
 - Proxy UI entrypoints also consult target health before forwarding when health metadata is available, so obviously unhealthy node/addon UIs fail fast into the fallback shell.
 - Addon and node proxy flows emit structured `synthia.proxy` logs for UI, API, and websocket surfaces, including target id, public prefix, latency, status, and failure outcome for operator debugging.
 - Before forwarding proxied UIs, Core now runs shared compatibility validation over the target metadata and returns explicit unavailable reasons for disabled UIs, missing endpoints, invalid endpoints, or prefix-incompatible targets.
+- Target resolution for proxied node/addon UI and API surfaces is now centralized through a shared resolver service so route handlers no longer duplicate lookup and metadata interpretation logic.
 - The canonical author-facing runtime/frontend requirements for externally mounted UIs are documented in [Proxied UI Contract](./proxied-ui-contract.md).
 
 ## Addon UI Conventions
