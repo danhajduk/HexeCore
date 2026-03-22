@@ -450,3 +450,4 @@
 2026-03-22 - Task 756: documented the forwarded-header contract that Core sends to proxied node and addon targets.
 2026-03-22 - Task 757: documented the runtime config contract for proxied node and addon UIs.
 2026-03-22 - Task 758: documented the redirect and link-generation contract for proxied node and addon UIs.
+2026-03-22 - Task 759: documented the SPA compatibility requirements for proxied node and addon UIs.
