@@ -58,6 +58,21 @@ class TestReverseProxyService(unittest.TestCase):
         self.assertEqual(headers["X-Hexe-Addon-Id"], "mqtt")
         self.assertNotIn("Cookie", headers)
 
+    def test_rewrite_root_relative_urls_respects_proxy_prefix_and_ignore_list(self) -> None:
+        original = b"""
+        <script src="/assets/main.js"></script>
+        <a href="/addons/mqtt/already-proxied"></a>
+        """
+        rewritten = ReverseProxyService.rewrite_root_relative_urls(
+            original,
+            "text/html",
+            proxy_prefix="/addons/mqtt",
+            ignore_prefixes=("/addons/",),
+        ).decode("utf-8")
+
+        self.assertIn('src="/addons/mqtt/assets/main.js"', rewritten)
+        self.assertIn('href="/addons/mqtt/already-proxied"', rewritten)
+
 
 if __name__ == "__main__":
     unittest.main()

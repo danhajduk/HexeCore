@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Iterable
 from typing import Any
+import re
 from urllib.parse import quote, urlsplit, urlunsplit
 
 import httpx
@@ -40,6 +41,9 @@ DEFAULT_REQUEST_HEADER_ALLOWLIST = {
     "range",
     "user-agent",
 }
+
+HTML_ROOT_URL_ATTR_RE = re.compile(r'(?P<prefix>\b(?:src|href|action)=["\'])(?P<path>/[^"\']*)')
+ROOT_URL_STRING_RE = re.compile(r'(?P<quote>["\'])(?P<path>/[^"\']*)(?P=quote)')
 
 
 class ReverseProxyService:
@@ -97,6 +101,58 @@ class ReverseProxyService:
                 continue
             headers[key] = value
         return headers
+
+    @staticmethod
+    def rewrite_root_relative_urls(
+        content: bytes,
+        content_type: str | None,
+        *,
+        proxy_prefix: str,
+        ignore_prefixes: tuple[str, ...] = (),
+    ) -> bytes:
+        normalized_type = str(content_type or "").lower()
+        is_html = "text/html" in normalized_type
+        is_js = "javascript" in normalized_type
+        is_css = "text/css" in normalized_type
+        if not (is_html or is_js or is_css):
+            return content
+        try:
+            text = content.decode("utf-8")
+        except UnicodeDecodeError:
+            return content
+
+        normalized_proxy_prefix = proxy_prefix.rstrip("/")
+
+        def should_rewrite(path: str) -> bool:
+            if not path.startswith("/"):
+                return False
+            if path == "/":
+                return False
+            for prefix in ignore_prefixes:
+                normalized = str(prefix or "").rstrip("/")
+                if normalized and (path == normalized or path.startswith(f"{normalized}/")):
+                    return False
+            return True
+
+        rewritten = text
+        if is_html:
+            rewritten = HTML_ROOT_URL_ATTR_RE.sub(
+                lambda match: (
+                    f"{match.group('prefix')}{normalized_proxy_prefix}{match.group('path')}"
+                    if should_rewrite(match.group("path"))
+                    else match.group(0)
+                ),
+                rewritten,
+            )
+        rewritten = ROOT_URL_STRING_RE.sub(
+            lambda match: (
+                f"{match.group('quote')}{normalized_proxy_prefix}{match.group('path')}{match.group('quote')}"
+                if should_rewrite(match.group("path"))
+                else match.group(0)
+            ),
+            rewritten,
+        )
+        return rewritten.encode("utf-8")
 
     async def send(
         self,

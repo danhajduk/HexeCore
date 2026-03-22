@@ -146,7 +146,7 @@ class TestNodeUiProxyHtmlRewrite(unittest.TestCase):
         rewritten = NodeUiProxy._rewrite_root_urls(
             original,
             "text/html; charset=utf-8",
-            "node-123",
+            public_prefix="/nodes/node-123/ui",
         ).decode("utf-8")
 
         self.assertIn('from "/nodes/node-123/ui/@react-refresh"', rewritten)
@@ -160,7 +160,7 @@ class TestNodeUiProxyHtmlRewrite(unittest.TestCase):
         rewritten = NodeUiProxy._rewrite_root_urls(
             original,
             "application/json",
-            "node-123",
+            public_prefix="/nodes/node-123/ui",
         )
         self.assertEqual(rewritten, original)
 
@@ -174,7 +174,7 @@ class TestNodeUiProxyHtmlRewrite(unittest.TestCase):
         rewritten = NodeUiProxy._rewrite_root_urls(
             original,
             "text/javascript",
-            "node-123",
+            public_prefix="/nodes/node-123/ui",
         ).decode("utf-8")
 
         self.assertIn('"/nodes/node-123/ui/node_modules/vite/dist/client/env.mjs"', rewritten)

@@ -69,6 +69,47 @@ class TestAddonProxyTargetSelection(unittest.TestCase):
         self.assertEqual(exc.exception.status_code, 404)
         self.assertEqual(exc.exception.detail, "addon_ui_not_enabled")
 
+    def test_rewrites_root_absolute_html_urls_to_proxy_prefix(self) -> None:
+        original = b"""
+        <!doctype html>
+        <html>
+          <head>
+            <script type="module" src="/@vite/client"></script>
+            <link rel="stylesheet" href="/src/index.css" />
+          </head>
+          <body>
+            <form action="/submit"></form>
+            <img src="/logo.svg" />
+          </body>
+        </html>
+        """
+
+        rewritten = AddonProxy._rewrite_root_urls(
+            original,
+            "text/html; charset=utf-8",
+            public_prefix="/addons/mqtt",
+        ).decode("utf-8")
+
+        self.assertIn('src="/addons/mqtt/@vite/client"', rewritten)
+        self.assertIn('href="/addons/mqtt/src/index.css"', rewritten)
+        self.assertIn('action="/addons/mqtt/submit"', rewritten)
+        self.assertIn('src="/addons/mqtt/logo.svg"', rewritten)
+
+    def test_rewrites_root_absolute_javascript_imports_to_proxy_prefix(self) -> None:
+        original = b"""
+        import "/src/main.ts";
+        import "/src/theme/index.css";
+        """
+
+        rewritten = AddonProxy._rewrite_root_urls(
+            original,
+            "text/javascript",
+            public_prefix="/ui/addons/mqtt",
+        ).decode("utf-8")
+
+        self.assertIn('"/ui/addons/mqtt/src/main.ts"', rewritten)
+        self.assertIn('"/ui/addons/mqtt/src/theme/index.css"', rewritten)
+
 
 if __name__ == "__main__":
     unittest.main()

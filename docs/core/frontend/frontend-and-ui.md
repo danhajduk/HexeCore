@@ -27,6 +27,7 @@ Status: Implemented
   - legacy `/ui/nodes/...` and `/ui/addons/...` paths redirect to the canonical forms
 - Backend proxy transport is shared through `backend/app/reverse_proxy.py`, which centralizes path joining, safe header forwarding, `X-Forwarded-*` injection, and Hexe target identity headers for addon/node proxy routes.
 - The same proxy layer also handles websocket passthrough on those canonical and legacy UI paths for browser-driven realtime channels.
+- Root-relative HTML, JS, and CSS asset references are rewritten through the active proxy prefix so proxied UIs continue working under `/nodes/.../ui` and `/addons/...` style mounts.
 
 ## Addon UI Conventions
 

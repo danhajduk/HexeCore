@@ -217,7 +217,7 @@ Enable websocket passthrough for node/addon UIs.
 
 ---
 
-[TODO] Task 745 — Implement prefix-aware forwarding logic
+[DONE] Task 745 — Implement prefix-aware forwarding logic
 
 ### Goal
 Ensure node/addon UIs function correctly under prefixed paths.

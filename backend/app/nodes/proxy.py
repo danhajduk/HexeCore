@@ -1,17 +1,12 @@
 from __future__ import annotations
 
-import re
 from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request, Response, WebSocket
 
-from app.proxy_routes import node_ui_proxy_base
 from app.reverse_proxy import ReverseProxyService
 from .service import NodesDomainService
-
-HTML_ROOT_URL_ATTR_RE = re.compile(r'(?P<prefix>\b(?:src|href|action)=["\'])(?P<path>/[^"\']*)')
-ROOT_URL_STRING_RE = re.compile(r'(?P<quote>["\'])(?P<path>/(?!(?:nodes/[^/]+/ui(?:/|$)|ui/nodes/|/))[^"\']*)(?P=quote)')
 
 
 class NodeUiProxy:
@@ -39,31 +34,6 @@ class NodeUiProxy:
         parsed = urlsplit(ui_base)
         return urlunsplit((parsed.scheme, parsed.netloc, "", "", ""))
 
-    @staticmethod
-    def _rewrite_root_urls(content: bytes, content_type: str | None, node_id: str) -> bytes:
-        normalized_type = str(content_type or "").lower()
-        is_html = "text/html" in normalized_type
-        is_js = "javascript" in normalized_type
-        is_css = "text/css" in normalized_type
-        if not (is_html or is_js or is_css):
-            return content
-        try:
-            text = content.decode("utf-8")
-        except UnicodeDecodeError:
-            return content
-        proxy_prefix = node_ui_proxy_base(node_id).rstrip("/")
-        rewritten = text
-        if is_html:
-            rewritten = HTML_ROOT_URL_ATTR_RE.sub(
-                lambda match: f"{match.group('prefix')}{proxy_prefix}{match.group('path')}",
-                rewritten,
-            )
-        rewritten = ROOT_URL_STRING_RE.sub(
-            lambda match: f"{match.group('quote')}{proxy_prefix}{match.group('path')}{match.group('quote')}",
-            rewritten,
-        )
-        return rewritten.encode("utf-8")
-
     async def forward(self, request: Request, node_id: str, path: str = "", *, public_prefix: str = "") -> Response:
         target_base = self._target_base(node_id, request)
         target = self._proxy.build_target_url(target_base, path, request.url.query)
@@ -88,12 +58,21 @@ class NodeUiProxy:
         content = self._rewrite_root_urls(
             content,
             response_headers.get("content-type"),
-            node_id,
+            public_prefix=public_prefix or f"/nodes/{node_id}/ui",
         )
         return Response(
             content=content,
             status_code=upstream.status_code,
             headers=response_headers,
+        )
+
+    @staticmethod
+    def _rewrite_root_urls(content: bytes, content_type: str | None, *, public_prefix: str) -> bytes:
+        return ReverseProxyService.rewrite_root_relative_urls(
+            content,
+            content_type,
+            proxy_prefix=public_prefix,
+            ignore_prefixes=("/nodes/", "/ui/nodes/"),
         )
 
     async def forward_websocket(self, websocket: WebSocket, node_id: str, path: str = "", *, public_prefix: str = "") -> None:
@@ -102,7 +81,7 @@ class NodeUiProxy:
         await self._proxy.proxy_websocket(
             websocket,
             target_url=target,
-            public_prefix=public_prefix or node_ui_proxy_base(node_id),
+            public_prefix=public_prefix or f"/nodes/{node_id}/ui",
             extra_headers={"X-Hexe-Node-Id": node_id},
         )
 

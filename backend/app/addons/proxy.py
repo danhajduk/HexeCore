@@ -160,7 +160,19 @@ class AddonProxy:
                         continue
                 else:
                     self._record_success(addon_id)
-                return await self._proxy.stream_response(upstream)
+                content = await upstream.aread()
+                response_headers = self._proxy.safe_response_headers(upstream.headers)
+                await upstream.aclose()
+                content = self._rewrite_root_urls(
+                    content,
+                    response_headers.get("content-type"),
+                    public_prefix=public_prefix or f"/addons/{addon_id}",
+                )
+                return Response(
+                    content=content,
+                    status_code=upstream.status_code,
+                    headers=response_headers,
+                )
             except HTTPException as exc:
                 if exc.status_code != 502:
                     raise
@@ -177,6 +189,15 @@ class AddonProxy:
         if last_exc is not None:
             raise HTTPException(status_code=502, detail=f"addon_proxy_error: {type(last_exc).__name__}")
         raise HTTPException(status_code=502, detail="addon_proxy_error")
+
+    @staticmethod
+    def _rewrite_root_urls(content: bytes, content_type: str | None, *, public_prefix: str) -> bytes:
+        return ReverseProxyService.rewrite_root_relative_urls(
+            content,
+            content_type,
+            proxy_prefix=public_prefix,
+            ignore_prefixes=("/addons/", "/ui/addons/"),
+        )
 
     async def forward_api(self, request: Request, addon_id: str, path: str = "") -> Response:
         target_base = self._api_target_base(addon_id, request)
