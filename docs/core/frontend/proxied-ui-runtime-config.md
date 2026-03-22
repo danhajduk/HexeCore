@@ -70,3 +70,4 @@ Common runtime-config failures:
 - [Proxied UI Contract](./proxied-ui-contract.md)
 - [Proxied UI API Base-Path Requirements](./proxied-ui-api-base-path.md)
 - [Proxied UI Websocket Compatibility Requirements](./proxied-ui-websocket-compatibility.md)
+- [proxied_ui_runtime_config.schema.json](../../json_schema/proxied_ui_runtime_config.schema.json)

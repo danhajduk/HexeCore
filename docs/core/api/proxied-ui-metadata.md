@@ -135,5 +135,6 @@ The reserved fields above define the forward contract for future metadata expans
 - [Proxied UI Contract](../frontend/proxied-ui-contract.md)
 - [Frontend and UI](../frontend/frontend-and-ui.md)
 - [API Reference](./api-reference.md)
+- [proxied_ui_metadata.schema.json](../../json_schema/proxied_ui_metadata.schema.json)
 - [Addon Platform](../../addons/addon-platform.md)
 - [Node Onboarding API Contract](../../nodes/node-onboarding-api-contract.md)

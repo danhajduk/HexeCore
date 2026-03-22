@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hexe.local/schemas/proxied_ui_runtime_config.schema.json",
+  "title": "Proxied UI Runtime Config",
+  "description": "Canonical JSON Schema for browser-visible runtime config consumed by proxied node and addon UIs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "publicOrigin",
+    "publicUiBasePath",
+    "publicApiBasePath",
+    "websocketBasePath",
+    "uiMountKind",
+    "mountId"
+  ],
+  "properties": {
+    "publicOrigin": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https?://"
+    },
+    "publicUiBasePath": {
+      "type": "string",
+      "pattern": "^/"
+    },
+    "publicApiBasePath": {
+      "type": "string",
+      "pattern": "^/"
+    },
+    "websocketBasePath": {
+      "type": "string",
+      "pattern": "^/"
+    },
+    "uiMountKind": {
+      "type": "string",
+      "enum": [
+        "node",
+        "addon"
+      ]
+    },
+    "mountId": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

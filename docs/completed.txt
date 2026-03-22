@@ -831,3 +831,4 @@ Task 760: Define compatibility requirements for server-rendered UIs - Completed 
 Task 761: Add compatibility validation checks in Core for proxied UI targets - Completed on 03/22/2026 16:25
 Task 762: Add proxied UI author documentation and examples - Completed on 03/22/2026 16:28
 Task 765: Add target resolver service for nodes and addons - Completed on 03/22/2026 16:32
+Task 767: Update or create JSON schemas in docs/json_schema/ - Completed on 03/22/2026 16:35
