@@ -9,7 +9,7 @@ from urllib.parse import quote, urlsplit, urlunsplit
 import httpx
 from fastapi import HTTPException, Request
 from starlette.background import BackgroundTask
-from starlette.responses import Response, StreamingResponse
+from starlette.responses import HTMLResponse, Response, StreamingResponse
 from starlette.websockets import WebSocket, WebSocketDisconnect
 from websockets.asyncio.client import connect as websocket_connect
 from websockets.exceptions import ConnectionClosed
@@ -183,6 +183,39 @@ class ReverseProxyService:
             status_code=upstream.status_code,
             headers=self.safe_response_headers(upstream.headers),
             background=BackgroundTask(upstream.aclose),
+        )
+
+    @staticmethod
+    def build_ui_error_response(
+        *,
+        status_code: int,
+        detail: str,
+        title: str,
+        target_label: str,
+        public_prefix: str,
+    ) -> HTMLResponse:
+        escaped_title = str(title)
+        escaped_detail = str(detail)
+        escaped_label = str(target_label)
+        escaped_prefix = str(public_prefix)
+        return HTMLResponse(
+            status_code=status_code,
+            content=(
+                "<!doctype html><html><head><meta charset='utf-8'>"
+                f"<title>{escaped_title}</title>"
+                "<style>"
+                "body{font-family:system-ui,sans-serif;background:#f6f7f9;color:#1f2937;"
+                "margin:0;padding:24px;}main{max-width:720px;margin:0 auto;background:#fff;"
+                "border:1px solid #d1d5db;border-radius:14px;padding:24px;}"
+                "h1{margin:0 0 12px;font-size:1.2rem;}p{margin:8px 0;line-height:1.5;}"
+                "code{background:#f3f4f6;padding:2px 6px;border-radius:6px;}"
+                "</style></head><body><main>"
+                f"<h1>{escaped_title}</h1>"
+                f"<p>The proxied UI for <strong>{escaped_label}</strong> is currently unavailable.</p>"
+                f"<p>Reason: <code>{escaped_detail}</code></p>"
+                f"<p>Proxy path: <code>{escaped_prefix}</code></p>"
+                "</main></body></html>"
+            ),
         )
 
     @staticmethod

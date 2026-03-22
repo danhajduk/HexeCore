@@ -263,6 +263,28 @@ class TestNodeUiProxyTargetSelection(unittest.TestCase):
         self.assertEqual(exc.exception.status_code, 404)
         self.assertEqual(exc.exception.detail, "node_ui_endpoint_not_configured")
 
+    def test_ui_route_returns_html_error_page_when_ui_disabled(self) -> None:
+        proxy = NodeUiProxy(
+            _TargetService(
+                type(
+                    "Node",
+                    (),
+                    {
+                        "ui_enabled": False,
+                        "ui_base_url": "http://10.0.0.9:8765/ui",
+                    },
+                )()
+            )
+        )
+        app = FastAPI()
+        app.include_router(build_node_ui_proxy_router(proxy))
+        client = TestClient(app)
+
+        response = client.get("/nodes/node-1/ui/")
+        self.assertEqual(response.status_code, 404, response.text)
+        self.assertIn("Node UI Unavailable", response.text)
+        self.assertIn("node_ui_not_enabled", response.text)
+
 
 if __name__ == "__main__":
     unittest.main()

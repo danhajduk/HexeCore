@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from urllib.parse import urlsplit, urlunsplit
 
 import httpx
@@ -9,10 +10,25 @@ from app.reverse_proxy import ReverseProxyService
 from .service import NodesDomainService
 
 
+def _env_float(name: str, default: float) -> float:
+    try:
+        return max(0.1, float(os.getenv(name, str(default)).strip()))
+    except Exception:
+        return default
+
+
+NODE_PROXY_TIMEOUT_SECONDS = 10.0
+
+
 class NodeUiProxy:
     def __init__(self, service: NodesDomainService) -> None:
         self._service = service
-        self._proxy = ReverseProxyService(client=httpx.AsyncClient(follow_redirects=False, timeout=httpx.Timeout(10.0)))
+        self._proxy = ReverseProxyService(
+            client=httpx.AsyncClient(
+                follow_redirects=False,
+                timeout=httpx.Timeout(_env_float("SYNTHIA_NODE_PROXY_TIMEOUT_SECONDS", NODE_PROXY_TIMEOUT_SECONDS)),
+            )
+        )
 
     async def aclose(self) -> None:
         await self._proxy.aclose()
@@ -35,11 +51,21 @@ class NodeUiProxy:
         return urlunsplit((parsed.scheme, parsed.netloc, "", "", ""))
 
     async def forward(self, request: Request, node_id: str, path: str = "", *, public_prefix: str = "") -> Response:
-        target_base = self._target_base(node_id, request)
+        effective_public_prefix = public_prefix or f"/nodes/{node_id}/ui"
+        try:
+            target_base = self._target_base(node_id, request)
+        except HTTPException as exc:
+            return self._proxy.build_ui_error_response(
+                status_code=exc.status_code,
+                detail=str(exc.detail),
+                title="Node UI Unavailable",
+                target_label=node_id,
+                public_prefix=effective_public_prefix,
+            )
         target = self._proxy.build_target_url(target_base, path, request.url.query)
         headers = self._proxy.build_request_headers(
             request,
-            public_prefix=public_prefix or node_ui_proxy_base(node_id),
+            public_prefix=effective_public_prefix,
             extra_headers={"X-Hexe-Node-Id": node_id},
         )
         try:
@@ -50,15 +76,27 @@ class NodeUiProxy:
             )
         except HTTPException as exc:
             if exc.status_code == 502:
-                raise HTTPException(status_code=502, detail=f"node_ui_proxy_error: {str(exc.detail).removeprefix('proxy_error: ')}")
-            raise
+                return self._proxy.build_ui_error_response(
+                    status_code=502,
+                    detail=f"node_ui_proxy_error: {str(exc.detail).removeprefix('proxy_error: ')}",
+                    title="Node UI Unavailable",
+                    target_label=node_id,
+                    public_prefix=effective_public_prefix,
+                )
+            return self._proxy.build_ui_error_response(
+                status_code=exc.status_code,
+                detail=str(exc.detail),
+                title="Node UI Unavailable",
+                target_label=node_id,
+                public_prefix=effective_public_prefix,
+            )
         content = await upstream.aread()
         response_headers = self._proxy.safe_response_headers(upstream.headers)
         await upstream.aclose()
         content = self._rewrite_root_urls(
             content,
             response_headers.get("content-type"),
-            public_prefix=public_prefix or f"/nodes/{node_id}/ui",
+            public_prefix=effective_public_prefix,
         )
         return Response(
             content=content,

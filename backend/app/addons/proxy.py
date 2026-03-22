@@ -20,6 +20,20 @@ LOCAL_PROXY_CIRCUIT_FAIL_THRESHOLD = 3
 LOCAL_PROXY_CIRCUIT_OPEN_SECONDS = 30
 
 
+def _env_float(name: str, default: float) -> float:
+    try:
+        return max(0.1, float(os.getenv(name, str(default)).strip()))
+    except Exception:
+        return default
+
+
+def _env_int(name: str, default: int, *, minimum: int = 0) -> int:
+    try:
+        return max(minimum, int(os.getenv(name, str(default)).strip()))
+    except Exception:
+        return default
+
+
 @dataclass
 class CircuitState:
     failures: int = 0
@@ -79,10 +93,14 @@ class AddonProxy:
         addon = self._registry.registered.get(addon_id)
         if addon is None:
             return (
-                LOCAL_PROXY_RETRIES,
-                httpx.Timeout(LOCAL_PROXY_TIMEOUT_SECONDS),
-                LOCAL_PROXY_CIRCUIT_FAIL_THRESHOLD,
-                LOCAL_PROXY_CIRCUIT_OPEN_SECONDS,
+                _env_int("SYNTHIA_ADDON_PROXY_RETRIES", LOCAL_PROXY_RETRIES, minimum=0),
+                httpx.Timeout(_env_float("SYNTHIA_ADDON_PROXY_TIMEOUT_SECONDS", LOCAL_PROXY_TIMEOUT_SECONDS)),
+                _env_int(
+                    "SYNTHIA_ADDON_PROXY_CIRCUIT_FAIL_THRESHOLD",
+                    LOCAL_PROXY_CIRCUIT_FAIL_THRESHOLD,
+                    minimum=1,
+                ),
+                _env_int("SYNTHIA_ADDON_PROXY_CIRCUIT_OPEN_SECONDS", LOCAL_PROXY_CIRCUIT_OPEN_SECONDS, minimum=1),
             )
         return (
             max(0, int(addon.proxy_retries)),
@@ -119,6 +137,7 @@ class AddonProxy:
         return False
 
     async def forward_ui(self, request: Request, addon_id: str, path: str = "", *, public_prefix: str = "") -> Response:
+        effective_public_prefix = public_prefix or f"/addons/{addon_id}"
         if addon_id in self._registry.addons and addon_id not in self._registry.registered:
             local_path = f"/api/addons/{quote(addon_id, safe='')}"
             if path:
@@ -127,16 +146,31 @@ class AddonProxy:
                 local_path = f"{local_path}?{request.url.query}"
             return RedirectResponse(url=local_path, status_code=307)
 
-        target_base = self._ui_target_base(addon_id, request)
+        try:
+            target_base = self._ui_target_base(addon_id, request)
+        except HTTPException as exc:
+            return self._proxy.build_ui_error_response(
+                status_code=exc.status_code,
+                detail=str(exc.detail),
+                title="Addon UI Unavailable",
+                target_label=addon_id,
+                public_prefix=effective_public_prefix,
+            )
         if self._is_circuit_open(addon_id):
-            raise HTTPException(status_code=503, detail="addon_circuit_open")
+            return self._proxy.build_ui_error_response(
+                status_code=503,
+                detail="addon_circuit_open",
+                title="Addon UI Unavailable",
+                target_label=addon_id,
+                public_prefix=effective_public_prefix,
+            )
 
         body = await request.body()
         retries, timeout, _, _ = self._proxy_tuning(addon_id)
         last_exc: Exception | None = None
         headers = self._proxy.build_request_headers(
             request,
-            public_prefix=public_prefix or f"/api/addons/{addon_id}",
+            public_prefix=effective_public_prefix,
             extra_headers={
                 **self._auth_headers(addon_id),
                 "X-Hexe-Addon-Id": addon_id,
@@ -166,7 +200,7 @@ class AddonProxy:
                 content = self._rewrite_root_urls(
                     content,
                     response_headers.get("content-type"),
-                    public_prefix=public_prefix or f"/addons/{addon_id}",
+                    public_prefix=effective_public_prefix,
                 )
                 return Response(
                     content=content,
@@ -175,7 +209,13 @@ class AddonProxy:
                 )
             except HTTPException as exc:
                 if exc.status_code != 502:
-                    raise
+                    return self._proxy.build_ui_error_response(
+                        status_code=exc.status_code,
+                        detail=str(exc.detail),
+                        title="Addon UI Unavailable",
+                        target_label=addon_id,
+                        public_prefix=effective_public_prefix,
+                    )
                 last_exc = RuntimeError(str(exc.detail))
                 self._open_circuit(addon_id)
                 if attempt < retries:
@@ -187,8 +227,20 @@ class AddonProxy:
                     continue
 
         if last_exc is not None:
-            raise HTTPException(status_code=502, detail=f"addon_proxy_error: {type(last_exc).__name__}")
-        raise HTTPException(status_code=502, detail="addon_proxy_error")
+            return self._proxy.build_ui_error_response(
+                status_code=502,
+                detail=f"addon_proxy_error: {type(last_exc).__name__}",
+                title="Addon UI Unavailable",
+                target_label=addon_id,
+                public_prefix=effective_public_prefix,
+            )
+        return self._proxy.build_ui_error_response(
+            status_code=502,
+            detail="addon_proxy_error",
+            title="Addon UI Unavailable",
+            target_label=addon_id,
+            public_prefix=effective_public_prefix,
+        )
 
     @staticmethod
     def _rewrite_root_urls(content: bytes, content_type: str | None, *, public_prefix: str) -> bytes:

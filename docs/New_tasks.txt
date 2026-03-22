@@ -236,7 +236,7 @@ Ensure node/addon UIs function correctly under prefixed paths.
 
 ---
 
-[TODO] Task 746 — Add timeout, retry, and failure handling
+[DONE] Task 746 — Add timeout, retry, and failure handling
 
 ### Requirements
 - configurable timeout per proxy

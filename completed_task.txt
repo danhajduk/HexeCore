@@ -1,3 +1,4 @@
+2026-03-22 - Task 746: added configurable proxy timeouts plus HTML error responses for unavailable node/addon UIs so iframe failures stay operator-readable.
 2026-03-22 - Task 745: centralized root-relative asset rewriting so node and addon UIs stay functional under canonical and legacy proxy prefixes.
 2026-03-22 - Task 744: split addon API passthrough onto registered `base_url` while preserving embedded addon routing.
 2026-03-22 - Task 743: aligned addon UI proxy routes to canonical addon UI metadata (`ui_enabled` and `ui_base_url`).

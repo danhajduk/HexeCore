@@ -48,7 +48,8 @@ class TestAddonsProxyLocalEmbedded(unittest.TestCase):
     def test_missing_addon_still_returns_not_found(self) -> None:
         res = self.client.get("/ui/addons/missing")
         self.assertEqual(res.status_code, 404, res.text)
-        self.assertEqual(res.json()["detail"], "registered_addon_not_found")
+        self.assertIn("Addon UI Unavailable", res.text)
+        self.assertIn("registered_addon_not_found", res.text)
 
 
 if __name__ == "__main__":

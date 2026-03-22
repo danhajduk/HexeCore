@@ -1,9 +1,11 @@
 import unittest
 
 from fastapi import HTTPException
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 from app.addons.models import RegisteredAddon
-from app.addons.proxy import AddonProxy
+from app.addons.proxy import AddonProxy, build_proxy_router
 
 
 class _FakeRegistry:
@@ -109,6 +111,29 @@ class TestAddonProxyTargetSelection(unittest.TestCase):
 
         self.assertIn('"/ui/addons/mqtt/src/main.ts"', rewritten)
         self.assertIn('"/ui/addons/mqtt/src/theme/index.css"', rewritten)
+
+    def test_ui_route_returns_html_error_page_when_ui_disabled(self) -> None:
+        proxy = AddonProxy(
+            _FakeRegistry(
+                RegisteredAddon(
+                    id="mqtt",
+                    name="MQTT",
+                    version="0.1.0",
+                    base_url="http://127.0.0.1:9100/api",
+                    ui_enabled=False,
+                    ui_base_url="http://127.0.0.1:9100/ui",
+                    ui_mode="server",
+                )
+            )
+        )
+        app = FastAPI()
+        app.include_router(build_proxy_router(proxy))
+        client = TestClient(app)
+
+        response = client.get("/addons/mqtt/")
+        self.assertEqual(response.status_code, 404, response.text)
+        self.assertIn("Addon UI Unavailable", response.text)
+        self.assertIn("addon_ui_not_enabled", response.text)
 
 
 if __name__ == "__main__":
