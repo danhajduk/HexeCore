@@ -35,7 +35,7 @@ Status: Implemented
   - `POST /api/edge/cloudflare/test` (admin session/token required)
 - Events/services:
   - `GET /api/system/events`
-  - `POST /api/system/nodes/onboarding/sessions` (request may include optional `hostname` and optional absolute `ui_endpoint` for node-hosted operator UI discovery)
+  - `POST /api/system/nodes/onboarding/sessions` (request may include optional `hostname`, optional absolute `ui_endpoint`, and optional absolute `api_base_url` for node-hosted UI/API discovery)
   - `GET /api/system/nodes/onboarding/sessions` (admin session/token required)
   - `GET /api/system/nodes/onboarding/sessions/{session_id}` (admin session/token required)
   - `POST /api/system/nodes/onboarding/sessions/{session_id}/approve` (admin session/token required)
@@ -118,7 +118,7 @@ Status: Implemented
 
 Registry payloads include canonical UI proxy metadata for Core-managed embedding:
 - addons: `ui_enabled`, `ui_base_url`, `ui_mode`
-- nodes: `ui_enabled`, `ui_base_url`, `ui_mode`, `ui_health_endpoint`
+- nodes: `ui_enabled`, `ui_base_url`, `ui_mode`, `ui_health_endpoint`, `api_base_url`
 - the broader proxied-UI metadata contract, fail-safe defaults, and reserved extension fields are documented in [Proxied UI Metadata](./proxied-ui-metadata.md)
 - Install sessions:
   - `POST /api/addons/install/start`

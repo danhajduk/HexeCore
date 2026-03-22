@@ -94,13 +94,15 @@ Global registration record should include:
 - `node_name`
 - `software_version`
 - trust status and lifecycle state
-- optional operator-facing location metadata such as `requested_hostname` and `requested_ui_endpoint`
+- optional operator-facing location metadata such as `requested_hostname`, `requested_ui_endpoint`, and `requested_api_base_url`
+- canonical Core-facing proxy metadata such as `ui_base_url` and `api_base_url`
 - provenance fields (onboarding session, approval actor/timestamps)
 
 Implemented baseline:
 - persisted global registration store (`data/node_registrations.json`)
 - onboarding approval binds approved sessions to registration records
-- onboarding persists optional `requested_hostname` and `requested_ui_endpoint` metadata for later operator UI linking
+- onboarding persists optional `requested_hostname`, `requested_ui_endpoint`, and `requested_api_base_url` metadata for later operator visibility
+- registration persistence derives canonical `ui_base_url` and `api_base_url` metadata, with legacy fallback from older UI-only records
 - schema/version marker and compatibility aliases for legacy AI-node field names
 
 ## Security And Trust Boundary

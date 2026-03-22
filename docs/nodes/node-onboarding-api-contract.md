@@ -25,15 +25,18 @@ Terminology note:
   - `node_nonce`
   - `hostname` (optional)
   - `ui_endpoint` (optional absolute `http://` or `https://` URL for the node-hosted operator UI)
+  - `api_base_url` (optional absolute `http://` or `https://` URL for the node-hosted API origin)
 - Response includes canonical and compatibility fields:
   - `node_name`, `node_type`, `node_software_version`
   - `requested_node_name`, `requested_node_type`, `requested_node_software_version` (compatibility aliases)
-  - `requested_hostname`, `requested_ui_endpoint`
+  - `requested_hostname`, `requested_ui_endpoint`, `requested_api_base_url`
   - `approval_url`, `session_id`, `expires_at`, `finalize`
 
-UI endpoint rules:
+Node endpoint rules:
 - Core accepts `ui_endpoint` only as an absolute `http(s)` URL.
+- Core accepts `api_base_url` only as an absolute `http(s)` URL.
 - Core persists the value as `requested_ui_endpoint` on the onboarding session and registration record.
+- Core persists `api_base_url` as `requested_api_base_url` on the onboarding session and registration record.
 - Core node UI route `/nodes/:nodeId/UI` prefers `requested_ui_endpoint` and falls back to `requested_hostname` when no explicit endpoint was provided.
 - Core serves that route through the node UI proxy so root-relative node assets are requested back through `/nodes/{node_id}/ui/...`.
 - `hostname` remains supported as a lightweight identity/location hint and fallback UI target source.
@@ -81,17 +84,20 @@ Registration payloads include canonical Core-side UI metadata:
 - `ui_base_url`
 - `ui_mode`
 - `ui_health_endpoint`
+- `api_base_url`
 
-Registry UI metadata rules:
+Registry node metadata rules:
 - `ui_base_url` is normalized to an absolute `http://` or `https://` URL when present.
+- `api_base_url` is normalized to an absolute `http://` or `https://` URL when present.
 - for legacy records, Core derives UI metadata from `requested_ui_endpoint` first and then `requested_hostname`
+- for legacy records, Core derives `api_base_url` from explicit stored API metadata first and then falls back to the UI-origin metadata path
 - `ui_mode` defaults to `spa` for nodes
 - missing UI metadata remains safe and explicit through `ui_enabled = false`
 
-Current node API proxy assumption:
-- `GET|POST|PUT|PATCH|DELETE /api/nodes/{node_id}/{path...}` proxies to the same node origin as `ui_base_url`
+Current node API proxy behavior:
+- `GET|POST|PUT|PATCH|DELETE /api/nodes/{node_id}/{path...}` proxies to the node `api_base_url`
 - Core strips the `/api/nodes/{node_id}` prefix before forwarding
-- until nodes publish a dedicated API base field, Core derives the upstream API base from the `ui_base_url` origin
+- legacy node records without explicit API metadata still fall back to the UI-origin-derived API base so older nodes remain proxyable
 
 Supports optional list filters:
 - `node_type`
