@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException, Request, Response, WebSocket
 
 from app.api.admin import require_admin_request
 from app.reverse_proxy import ReverseProxyService
+from app.ui_targets import UiProxyTarget, validate_ui_proxy_target
 from .service import NodesDomainService
 
 log = logging.getLogger("synthia.proxy")
@@ -41,15 +42,21 @@ class NodeUiProxy:
 
     def _target_base(self, node_id: str, request: Request) -> str:
         node = self._service.get_node(node_id)
-        if not bool(getattr(node, "ui_enabled", False)):
-            raise HTTPException(status_code=404, detail="node_ui_not_enabled")
-        raw_endpoint = str(getattr(node, "ui_base_url", "") or "").strip()
-        if raw_endpoint:
-            parsed = urlsplit(raw_endpoint)
-            if parsed.scheme in {"http", "https"} and parsed.netloc:
-                return raw_endpoint.rstrip("/")
-            raise HTTPException(status_code=502, detail="node_ui_endpoint_invalid")
-        raise HTTPException(status_code=404, detail="node_ui_endpoint_not_configured")
+        availability = validate_ui_proxy_target(
+            UiProxyTarget(
+                kind="node",
+                target_id=node_id,
+                public_prefix=f"/nodes/{node_id}/ui",
+                ui_enabled=bool(getattr(node, "ui_enabled", False)),
+                ui_base_url=str(getattr(node, "ui_base_url", "") or "").strip() or None,
+                ui_health_endpoint=str(getattr(node, "ui_health_endpoint", "") or "").strip() or None,
+                ui_supports_prefix=getattr(node, "ui_supports_prefix", None),
+                ui_entry_path=getattr(node, "ui_entry_path", None),
+            )
+        )
+        if not availability.available:
+            raise HTTPException(status_code=availability.status_code, detail=availability.detail)
+        return str(availability.ui_base_url or "").rstrip("/")
 
     def _api_target_base(self, node_id: str, request: Request) -> str:
         ui_base = self._target_base(node_id, request)

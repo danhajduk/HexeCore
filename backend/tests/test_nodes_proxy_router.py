@@ -281,6 +281,26 @@ class TestNodeUiProxyTargetSelection(unittest.TestCase):
         self.assertEqual(exc.exception.status_code, 404)
         self.assertEqual(exc.exception.detail, "node_ui_endpoint_not_configured")
 
+    def test_rejects_prefix_incompatible_node_ui(self) -> None:
+        proxy = NodeUiProxy(
+            _TargetService(
+                type(
+                    "Node",
+                    (),
+                    {
+                        "ui_enabled": True,
+                        "ui_base_url": "http://10.0.0.9:8765/ui",
+                        "ui_supports_prefix": False,
+                    },
+                )()
+            )
+        )
+        request = type("Req", (), {"url": type("Url", (), {"scheme": "http"})()})()
+        with self.assertRaises(HTTPException) as exc:
+            proxy._target_base("node-1", request)
+        self.assertEqual(exc.exception.status_code, 409)
+        self.assertEqual(exc.exception.detail, "node_ui_prefix_not_supported")
+
     def test_ui_route_returns_html_error_page_when_ui_disabled(self) -> None:
         proxy = NodeUiProxy(
             _TargetService(

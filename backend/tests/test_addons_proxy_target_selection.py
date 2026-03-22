@@ -72,6 +72,25 @@ class TestAddonProxyTargetSelection(unittest.TestCase):
         self.assertEqual(exc.exception.status_code, 404)
         self.assertEqual(exc.exception.detail, "addon_ui_not_enabled")
 
+    def test_ui_target_rejects_prefix_incompatible_addon(self) -> None:
+        addon = type(
+            "Addon",
+            (),
+            {
+                "id": "mqtt",
+                "base_url": "http://127.0.0.1:9100/api",
+                "ui_enabled": True,
+                "ui_base_url": "http://127.0.0.1:9100/ui",
+                "ui_supports_prefix": False,
+            },
+        )()
+        proxy = AddonProxy(_FakeRegistry(addon))
+        request = type("Req", (), {"base_url": "http://core.local:9001/"})()
+        with self.assertRaises(HTTPException) as exc:
+            proxy._ui_target_base("mqtt", request)
+        self.assertEqual(exc.exception.status_code, 409)
+        self.assertEqual(exc.exception.detail, "addon_ui_prefix_not_supported")
+
     def test_rewrites_root_absolute_html_urls_to_proxy_prefix(self) -> None:
         original = b"""
         <!doctype html>

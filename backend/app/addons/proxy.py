@@ -13,6 +13,7 @@ from fastapi.responses import RedirectResponse
 
 from app.api.admin import require_admin_request
 from app.reverse_proxy import ReverseProxyService
+from app.ui_targets import UiProxyTarget, validate_ui_proxy_target
 
 from .registry import AddonRegistry
 
@@ -68,12 +69,20 @@ class AddonProxy:
     def _ui_target_base(self, addon_id: str, request: Request) -> str:
         addon = self._registry.registered.get(addon_id)
         if addon is not None:
-            if not bool(getattr(addon, "ui_enabled", False)):
-                raise HTTPException(status_code=404, detail="addon_ui_not_enabled")
-            raw_ui_base = str(getattr(addon, "ui_base_url", "") or "").strip()
-            if not raw_ui_base:
-                raise HTTPException(status_code=404, detail="addon_ui_endpoint_not_configured")
-            return raw_ui_base.rstrip("/")
+            availability = validate_ui_proxy_target(
+                UiProxyTarget(
+                    kind="addon",
+                    target_id=addon_id,
+                    public_prefix=f"/addons/{addon_id}",
+                    ui_enabled=bool(getattr(addon, "ui_enabled", False)),
+                    ui_base_url=str(getattr(addon, "ui_base_url", "") or "").strip() or None,
+                    ui_supports_prefix=getattr(addon, "ui_supports_prefix", None),
+                    ui_entry_path=getattr(addon, "ui_entry_path", None),
+                )
+            )
+            if not availability.available:
+                raise HTTPException(status_code=availability.status_code, detail=availability.detail)
+            return str(availability.ui_base_url or "").rstrip("/")
         if addon_id in self._registry.addons:
             return f"{str(request.base_url).rstrip('/')}/api/addons/{quote(addon_id, safe='')}"
         raise HTTPException(status_code=404, detail="registered_addon_not_found")
