@@ -820,3 +820,4 @@ Task 750: Integration and validation tests - Completed on 03/22/2026 15:34
 Task 751: Define proxied UI contract for all externally mounted UIs - Completed on 03/22/2026 15:36
 Task 752: Define required UI metadata for nodes and addons - Completed on 03/22/2026 15:37
 Task 752.1: Rework Edge Gateway to enforce single-origin Core routing - Completed on 03/22/2026 16:00
+Task 753: Define frontend path-prefix behavior requirements - Completed on 03/22/2026 16:05
