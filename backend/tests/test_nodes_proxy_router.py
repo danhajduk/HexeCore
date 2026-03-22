@@ -6,19 +6,21 @@ from fastapi.testclient import TestClient
 
 from app.nodes.proxy import NodeUiProxy
 from app.nodes.proxy import build_node_ui_proxy_router
+from app.reverse_proxy import ReverseProxyService
 
 
 class _FakeNodeProxy:
     def __init__(self) -> None:
-        self.calls: list[tuple[str, str, str]] = []
+        self.calls: list[tuple[str, str, str, str]] = []
 
-    async def forward(self, request: Request, node_id: str, path: str = "") -> JSONResponse:
-        self.calls.append((request.method, node_id, path))
+    async def forward(self, request: Request, node_id: str, path: str = "", *, public_prefix: str = "") -> JSONResponse:
+        self.calls.append((request.method, node_id, path, public_prefix))
         return JSONResponse(
             {
                 "method": request.method,
                 "node_id": node_id,
                 "path": path,
+                "public_prefix": public_prefix,
             }
         )
 
@@ -44,14 +46,15 @@ class TestNodeUiProxyRouter(unittest.TestCase):
             payload = resp.json()
             self.assertEqual(payload["node_id"], "node-1")
             self.assertEqual(payload["path"], expected_path)
+            self.assertTrue(payload["public_prefix"].startswith("/"))
 
         self.assertEqual(
             self.proxy.calls,
             [
-                ("GET", "node-1", ""),
-                ("GET", "node-1", "assets/main.js"),
-                ("GET", "node-1", ""),
-                ("GET", "node-1", "assets/main.js"),
+                ("GET", "node-1", "", "/nodes/node-1/ui"),
+                ("GET", "node-1", "assets/main.js", "/nodes/node-1/ui"),
+                ("GET", "node-1", "", "/ui/nodes/node-1"),
+                ("GET", "node-1", "assets/main.js", "/ui/nodes/node-1"),
             ],
         )
 
@@ -62,12 +65,12 @@ class TestNodeUiProxyRouter(unittest.TestCase):
         head = self.client.head("/nodes/node-1/ui/status")
         self.assertEqual(head.status_code, 200, head.text)
 
-        self.assertEqual(self.proxy.calls, [("HEAD", "node-1", "status")])
+        self.assertEqual(self.proxy.calls, [("HEAD", "node-1", "status", "/nodes/node-1/ui")])
 
 
 class TestNodeUiProxyHtmlRewrite(unittest.TestCase):
     def test_build_target_url_preserves_vite_paths(self) -> None:
-        target = NodeUiProxy._build_target_url(
+        target = ReverseProxyService.build_target_url(
             "http://10.0.0.100:8081",
             "@vite/client",
             "t=123",

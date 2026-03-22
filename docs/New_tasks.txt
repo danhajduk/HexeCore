@@ -80,7 +80,7 @@ Allow Core to know how to proxy UI for nodes and addons.
 
 ---
 
-[TODO] Task 739 — Implement HTTP reverse proxy service (Core → Node/Addons)
+[DONE] Task 739 — Implement HTTP reverse proxy service (Core → Node/Addons)
 
 ### Goal
 Create a reusable proxy service to forward requests to node/addon backends.

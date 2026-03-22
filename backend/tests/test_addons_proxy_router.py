@@ -9,15 +9,16 @@ from app.addons.proxy import build_proxy_router
 
 class _FakeProxy:
     def __init__(self) -> None:
-        self.calls: list[tuple[str, str, str]] = []
+        self.calls: list[tuple[str, str, str, str]] = []
 
-    async def forward(self, request: Request, addon_id: str, path: str = "") -> JSONResponse:
-        self.calls.append((request.method, addon_id, path))
+    async def forward(self, request: Request, addon_id: str, path: str = "", *, public_prefix: str = "") -> JSONResponse:
+        self.calls.append((request.method, addon_id, path, public_prefix))
         return JSONResponse(
             {
                 "method": request.method,
                 "addon_id": addon_id,
                 "path": path,
+                "public_prefix": public_prefix,
             }
         )
 
@@ -43,14 +44,15 @@ class TestAddonsProxyRouter(unittest.TestCase):
             payload = resp.json()
             self.assertEqual(payload["addon_id"], "mqtt")
             self.assertEqual(payload["path"], expected_path)
+            self.assertTrue(payload["public_prefix"].startswith("/"))
 
         self.assertEqual(
             self.proxy.calls,
             [
-                ("GET", "mqtt", ""),
-                ("GET", "mqtt", "assets/main.js"),
-                ("GET", "mqtt", ""),
-                ("GET", "mqtt", "assets/main.js"),
+                ("GET", "mqtt", "", "/addons/mqtt"),
+                ("GET", "mqtt", "assets/main.js", "/addons/mqtt"),
+                ("GET", "mqtt", "", "/ui/addons/mqtt"),
+                ("GET", "mqtt", "assets/main.js", "/ui/addons/mqtt"),
             ],
         )
 
@@ -61,7 +63,7 @@ class TestAddonsProxyRouter(unittest.TestCase):
         head = self.client.head("/addons/mqtt/status")
         self.assertEqual(head.status_code, 200, head.text)
 
-        self.assertEqual(self.proxy.calls, [("HEAD", "mqtt", "status")])
+        self.assertEqual(self.proxy.calls, [("HEAD", "mqtt", "status", "/addons/mqtt")])
 
 
 if __name__ == "__main__":

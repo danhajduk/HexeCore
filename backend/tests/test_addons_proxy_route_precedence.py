@@ -18,12 +18,25 @@ class _FakeRegistry:
     def list_registered(self):
         return list(self.registered.values())
 
-    async def register_remote(self, addon_id: str, *, base_url: str, name: str | None = None, version: str | None = None):
+    async def register_remote(
+        self,
+        addon_id: str,
+        *,
+        base_url: str,
+        name: str | None = None,
+        version: str | None = None,
+        ui_enabled: bool | None = None,
+        ui_base_url: str | None = None,
+        ui_mode: str | None = None,
+    ):
         addon = RegisteredAddon(
             id=addon_id,
             name=name or addon_id,
             version=version or "unknown",
             base_url=base_url,
+            ui_enabled=False if ui_enabled is None else ui_enabled,
+            ui_base_url=ui_base_url,
+            ui_mode=ui_mode or "server",
         )
         self.registered[addon_id] = addon
         return addon

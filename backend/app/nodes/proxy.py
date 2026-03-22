@@ -1,40 +1,14 @@
 from __future__ import annotations
 
 import re
-from urllib.parse import quote, urlsplit
+from urllib.parse import urlsplit
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request, Response
 
 from app.proxy_routes import node_ui_proxy_base
+from app.reverse_proxy import ReverseProxyService
 from .service import NodesDomainService
-
-HOP_BY_HOP_HEADERS = {
-    "connection",
-    "keep-alive",
-    "proxy-authenticate",
-    "proxy-authorization",
-    "te",
-    "trailers",
-    "transfer-encoding",
-    "upgrade",
-    "host",
-    "content-length",
-}
-
-REQUEST_HEADER_ALLOWLIST = {
-    "accept",
-    "accept-encoding",
-    "accept-language",
-    "cache-control",
-    "content-type",
-    "if-match",
-    "if-none-match",
-    "if-modified-since",
-    "if-unmodified-since",
-    "range",
-    "user-agent",
-}
 
 HTML_ROOT_URL_ATTR_RE = re.compile(r'(?P<prefix>\b(?:src|href|action)=["\'])(?P<path>/[^"\']*)')
 ROOT_URL_STRING_RE = re.compile(r'(?P<quote>["\'])(?P<path>/(?!(?:nodes/[^/]+/ui(?:/|$)|ui/nodes/|/))[^"\']*)(?P=quote)')
@@ -43,17 +17,10 @@ ROOT_URL_STRING_RE = re.compile(r'(?P<quote>["\'])(?P<path>/(?!(?:nodes/[^/]+/ui
 class NodeUiProxy:
     def __init__(self, service: NodesDomainService) -> None:
         self._service = service
-        self._client = httpx.AsyncClient(follow_redirects=False, timeout=httpx.Timeout(10.0))
+        self._proxy = ReverseProxyService(client=httpx.AsyncClient(follow_redirects=False, timeout=httpx.Timeout(10.0)))
 
     async def aclose(self) -> None:
-        await self._client.aclose()
-
-    @staticmethod
-    def _build_target_url(target_base: str, path: str, query: str = "") -> str:
-        target = f"{target_base}/{quote(path.lstrip('/'), safe='/@:')}" if path else target_base
-        if query:
-            target = f"{target}?{query}"
-        return target
+        await self._proxy.aclose()
 
     def _target_base(self, node_id: str, request: Request) -> str:
         node = self._service.get_node(node_id)
@@ -70,24 +37,6 @@ class NodeUiProxy:
             return raw_host.rstrip("/")
         scheme = "https" if request.url.scheme == "https" else "http"
         return f"{scheme}://{raw_host.rstrip('/')}"
-
-    def _safe_request_headers(self, request: Request) -> dict[str, str]:
-        headers: dict[str, str] = {}
-        for key, value in request.headers.items():
-            lk = key.lower()
-            if lk in HOP_BY_HOP_HEADERS or lk not in REQUEST_HEADER_ALLOWLIST:
-                continue
-            headers[key] = value
-        return headers
-
-    @staticmethod
-    def _safe_response_headers(source: httpx.Headers) -> dict[str, str]:
-        headers: dict[str, str] = {}
-        for key, value in source.items():
-            if key.lower() in HOP_BY_HOP_HEADERS:
-                continue
-            headers[key] = value
-        return headers
 
     @staticmethod
     def _rewrite_root_urls(content: bytes, content_type: str | None, node_id: str) -> bytes:
@@ -114,28 +63,36 @@ class NodeUiProxy:
         )
         return rewritten.encode("utf-8")
 
-    async def forward(self, request: Request, node_id: str, path: str = "") -> Response:
+    async def forward(self, request: Request, node_id: str, path: str = "", *, public_prefix: str = "") -> Response:
         target_base = self._target_base(node_id, request)
-        target = self._build_target_url(target_base, path, request.url.query)
-        body = await request.body()
+        target = self._proxy.build_target_url(target_base, path, request.url.query)
+        headers = self._proxy.build_request_headers(
+            request,
+            public_prefix=public_prefix or node_ui_proxy_base(node_id),
+            extra_headers={"X-Hexe-Node-Id": node_id},
+        )
         try:
-            upstream = await self._client.request(
-                method=request.method,
-                url=target,
-                content=body,
-                headers=self._safe_request_headers(request),
+            upstream = await self._proxy.send(
+                request=request,
+                target_url=target,
+                headers=headers,
             )
-        except httpx.HTTPError as exc:
-            raise HTTPException(status_code=502, detail=f"node_ui_proxy_error: {type(exc).__name__}")
+        except HTTPException as exc:
+            if exc.status_code == 502:
+                raise HTTPException(status_code=502, detail=f"node_ui_proxy_error: {str(exc.detail).removeprefix('proxy_error: ')}")
+            raise
+        content = await upstream.aread()
+        response_headers = self._proxy.safe_response_headers(upstream.headers)
+        await upstream.aclose()
         content = self._rewrite_root_urls(
-            upstream.content,
-            upstream.headers.get("content-type"),
+            content,
+            response_headers.get("content-type"),
             node_id,
         )
         return Response(
             content=content,
             status_code=upstream.status_code,
-            headers=self._safe_response_headers(upstream.headers),
+            headers=response_headers,
         )
 
 
@@ -144,22 +101,22 @@ def build_node_ui_proxy_router(proxy: NodeUiProxy) -> APIRouter:
 
     @router.api_route("/nodes/{node_id}/ui/{path:path}", methods=["GET", "HEAD"])
     async def proxy_node_ui_canonical(node_id: str, path: str, request: Request):
-        return await proxy.forward(request, node_id, path)
+        return await proxy.forward(request, node_id, path, public_prefix=f"/nodes/{node_id}/ui")
 
     @router.api_route("/nodes/{node_id}/ui/", methods=["GET", "HEAD"])
     async def proxy_node_ui_canonical_root(node_id: str, request: Request):
-        return await proxy.forward(request, node_id, "")
+        return await proxy.forward(request, node_id, "", public_prefix=f"/nodes/{node_id}/ui")
 
     @router.api_route("/nodes/{node_id}/ui", methods=["GET", "HEAD"])
     async def proxy_node_ui_canonical_root_no_slash(node_id: str, request: Request):
-        return await proxy.forward(request, node_id, "")
+        return await proxy.forward(request, node_id, "", public_prefix=f"/nodes/{node_id}/ui")
 
     @router.api_route("/ui/nodes/{node_id}/{path:path}", methods=["GET", "HEAD"])
     async def proxy_node_ui(node_id: str, path: str, request: Request):
-        return await proxy.forward(request, node_id, path)
+        return await proxy.forward(request, node_id, path, public_prefix=f"/ui/nodes/{node_id}")
 
     @router.api_route("/ui/nodes/{node_id}", methods=["GET", "HEAD"])
     async def proxy_node_ui_root(node_id: str, request: Request):
-        return await proxy.forward(request, node_id, "")
+        return await proxy.forward(request, node_id, "", public_prefix=f"/ui/nodes/{node_id}")
 
     return router

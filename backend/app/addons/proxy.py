@@ -10,34 +10,9 @@ import httpx
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 
+from app.reverse_proxy import ReverseProxyService
+
 from .registry import AddonRegistry
-
-HOP_BY_HOP_HEADERS = {
-    "connection",
-    "keep-alive",
-    "proxy-authenticate",
-    "proxy-authorization",
-    "te",
-    "trailers",
-    "transfer-encoding",
-    "upgrade",
-    "host",
-    "content-length",
-}
-
-REQUEST_HEADER_ALLOWLIST = {
-    "accept",
-    "accept-encoding",
-    "accept-language",
-    "cache-control",
-    "content-type",
-    "if-match",
-    "if-none-match",
-    "if-modified-since",
-    "if-unmodified-since",
-    "range",
-    "user-agent",
-}
 
 LOCAL_PROXY_RETRIES = 1
 LOCAL_PROXY_TIMEOUT_SECONDS = 10.0
@@ -57,11 +32,12 @@ class CircuitState:
 class AddonProxy:
     def __init__(self, registry: AddonRegistry) -> None:
         self._registry = registry
-        self._client = httpx.AsyncClient(follow_redirects=False)
+        self._proxy = ReverseProxyService()
+        self._client = self._proxy._client
         self._circuits: Dict[str, CircuitState] = {}
 
     async def aclose(self) -> None:
-        await self._client.aclose()
+        await self._proxy.aclose()
 
     def _target_base(self, addon_id: str, request: Request) -> str:
         addon = self._registry.registered.get(addon_id)
@@ -129,28 +105,7 @@ class AddonProxy:
             state.open_until_monotonic = 0.0
         return False
 
-    def _safe_request_headers(self, request: Request, addon_id: str) -> dict[str, str]:
-        headers: dict[str, str] = {}
-        for key, value in request.headers.items():
-            lk = key.lower()
-            if lk in HOP_BY_HOP_HEADERS:
-                continue
-            if lk not in REQUEST_HEADER_ALLOWLIST:
-                continue
-            headers[key] = value
-        headers.update(self._auth_headers(addon_id))
-        return headers
-
-    @staticmethod
-    def _safe_response_headers(source: httpx.Headers) -> dict[str, str]:
-        headers: dict[str, str] = {}
-        for key, value in source.items():
-            if key.lower() in HOP_BY_HOP_HEADERS:
-                continue
-            headers[key] = value
-        return headers
-
-    async def forward(self, request: Request, addon_id: str, path: str = "") -> Response:
+    async def forward(self, request: Request, addon_id: str, path: str = "", *, public_prefix: str = "") -> Response:
         if addon_id in self._registry.addons and addon_id not in self._registry.registered:
             local_path = f"/api/addons/{quote(addon_id, safe='')}"
             if path:
@@ -163,38 +118,44 @@ class AddonProxy:
         if self._is_circuit_open(addon_id):
             raise HTTPException(status_code=503, detail="addon_circuit_open")
 
-        target = (
-            f"{target_base}/{quote(path.lstrip('/'), safe='/')}"
-            if path
-            else target_base
-        )
-        if request.url.query:
-            target = f"{target}?{request.url.query}"
         body = await request.body()
         retries, timeout, _, _ = self._proxy_tuning(addon_id)
         last_exc: Exception | None = None
+        headers = self._proxy.build_request_headers(
+            request,
+            public_prefix=public_prefix or f"/api/addons/{addon_id}",
+            extra_headers={
+                **self._auth_headers(addon_id),
+                "X-Hexe-Addon-Id": addon_id,
+            },
+        )
+        target = self._proxy.build_target_url(target_base, path, request.url.query)
 
         for attempt in range(retries + 1):
             try:
-                upstream = await self._client.request(
-                    method=request.method,
-                    url=target,
-                    content=body,
-                    headers=self._safe_request_headers(request, addon_id),
+                upstream = await self._proxy.send(
+                    request=request,
+                    target_url=target,
+                    headers=headers,
                     timeout=timeout,
+                    content=body,
                 )
                 if upstream.status_code >= 500:
+                    await upstream.aclose()
                     self._open_circuit(addon_id)
                     if attempt < retries:
                         continue
                 else:
                     self._record_success(addon_id)
-                return Response(
-                    content=upstream.content,
-                    status_code=upstream.status_code,
-                    headers=self._safe_response_headers(upstream.headers),
-                )
-            except httpx.HTTPError as exc:
+                return await self._proxy.stream_response(upstream)
+            except HTTPException as exc:
+                if exc.status_code != 502:
+                    raise
+                last_exc = RuntimeError(str(exc.detail))
+                self._open_circuit(addon_id)
+                if attempt < retries:
+                    continue
+            except httpx.HTTPError as exc:  # pragma: no cover - retained for defensive compatibility
                 last_exc = exc
                 self._open_circuit(addon_id)
                 if attempt < retries:
@@ -210,30 +171,30 @@ def build_proxy_router(proxy: AddonProxy) -> APIRouter:
 
     @router.api_route("/api/addons/{addon_id}/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"])
     async def proxy_api(addon_id: str, path: str, request: Request):
-        return await proxy.forward(request, addon_id, path)
+        return await proxy.forward(request, addon_id, path, public_prefix=f"/api/addons/{addon_id}")
 
     @router.api_route("/api/addons/{addon_id}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"])
     async def proxy_api_root(addon_id: str, request: Request):
-        return await proxy.forward(request, addon_id, "")
+        return await proxy.forward(request, addon_id, "", public_prefix=f"/api/addons/{addon_id}")
 
     @router.api_route("/addons/{addon_id}/{path:path}", methods=["GET", "HEAD"])
     async def proxy_ui_canonical(addon_id: str, path: str, request: Request):
-        return await proxy.forward(request, addon_id, path)
+        return await proxy.forward(request, addon_id, path, public_prefix=f"/addons/{addon_id}")
 
     @router.api_route("/addons/{addon_id}/", methods=["GET", "HEAD"])
     async def proxy_ui_canonical_root(addon_id: str, request: Request):
-        return await proxy.forward(request, addon_id, "")
+        return await proxy.forward(request, addon_id, "", public_prefix=f"/addons/{addon_id}")
 
     @router.api_route("/addons/{addon_id}", methods=["GET", "HEAD"])
     async def proxy_ui_canonical_root_no_slash(addon_id: str, request: Request):
-        return await proxy.forward(request, addon_id, "")
+        return await proxy.forward(request, addon_id, "", public_prefix=f"/addons/{addon_id}")
 
     @router.api_route("/ui/addons/{addon_id}/{path:path}", methods=["GET", "HEAD"])
     async def proxy_ui(addon_id: str, path: str, request: Request):
-        return await proxy.forward(request, addon_id, path)
+        return await proxy.forward(request, addon_id, path, public_prefix=f"/ui/addons/{addon_id}")
 
     @router.api_route("/ui/addons/{addon_id}", methods=["GET", "HEAD"])
     async def proxy_ui_root(addon_id: str, request: Request):
-        return await proxy.forward(request, addon_id, "")
+        return await proxy.forward(request, addon_id, "", public_prefix=f"/ui/addons/{addon_id}")
 
     return router
