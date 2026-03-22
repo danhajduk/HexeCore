@@ -227,7 +227,7 @@ class TestNodeUiProxyTargetSelection(unittest.TestCase):
         request = type("Req", (), {"url": type("Url", (), {"scheme": "http"})()})()
         self.assertEqual(proxy._target_base("node-1", request), "http://10.0.0.9:8765/ui")
 
-    def test_api_target_base_uses_node_ui_origin(self) -> None:
+    def test_api_target_base_uses_canonical_node_api_base_url(self) -> None:
         proxy = NodeUiProxy(
             _TargetService(
                 type(
@@ -236,6 +236,26 @@ class TestNodeUiProxyTargetSelection(unittest.TestCase):
                     {
                         "ui_enabled": True,
                         "ui_base_url": "http://10.0.0.9:8765/ui",
+                        "api_base_url": "http://10.0.0.9:8081",
+                    },
+                )()
+            )
+        )
+        request = type("Req", (), {"url": type("Url", (), {"scheme": "http"})()})()
+        self.assertEqual(proxy._api_target_base("node-1", request), "http://10.0.0.9:8081")
+
+    def test_api_target_base_falls_back_to_node_ui_origin_for_legacy_metadata(self) -> None:
+        proxy = NodeUiProxy(
+            _TargetService(
+                type(
+                    "Node",
+                    (),
+                    {
+                        "ui_enabled": True,
+                        "ui_base_url": "http://10.0.0.9:8765/ui",
+                        "api_base_url": None,
+                        "requested_ui_endpoint": "http://10.0.0.9:8765/ui",
+                        "requested_hostname": "10.0.0.9:8765",
                     },
                 )()
             )

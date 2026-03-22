@@ -78,6 +78,23 @@ class TestUiTargetResolver(unittest.TestCase):
         self.assertEqual(ui_target.public_prefix, "/nodes/node-1/ui")
         self.assertEqual(ui_target.health_endpoint, "http://10.0.0.9:8765/health")
         self.assertEqual(api_target.public_prefix, "/api/nodes/node-1")
+        self.assertEqual(api_target.target_base, "http://10.0.0.9:8081")
+
+    def test_resolve_node_api_falls_back_to_ui_origin_for_legacy_node_metadata(self) -> None:
+        node = type(
+            "Node",
+            (),
+            {
+                "ui_enabled": True,
+                "ui_base_url": "http://10.0.0.9:8765/ui",
+                "ui_health_endpoint": None,
+                "api_base_url": None,
+                "requested_ui_endpoint": "http://10.0.0.9:8765/ui",
+                "requested_hostname": "10.0.0.9:8765",
+            },
+        )()
+        resolver = UiTargetResolver(nodes_service=_NodesService(node))
+        api_target = resolver.resolve_node_api("node-1")
         self.assertEqual(api_target.target_base, "http://10.0.0.9:8765")
 
 

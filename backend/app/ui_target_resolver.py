@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Literal
-from urllib.parse import quote, urlsplit, urlunsplit
+from urllib.parse import quote
 
 from fastapi import HTTPException
 
+from app.ui_metadata import derive_node_api_base_url
 from app.ui_targets import UiProxyTarget, validate_ui_proxy_target
 
 
@@ -121,14 +122,24 @@ class UiTargetResolver:
         )
 
     def resolve_node_api(self, node_id: str) -> ResolvedProxyTarget:
+        if self._nodes_service is None:
+            raise HTTPException(status_code=500, detail="nodes_service_unavailable")
+        node = self._nodes_service.get_node(node_id)
         ui_target = self.resolve_node_ui(node_id)
-        parsed = urlsplit(ui_target.target_base)
+        api_base = derive_node_api_base_url(
+            api_base_url=str(getattr(node, "api_base_url", "") or "").strip() or None,
+            ui_base_url=str(getattr(node, "ui_base_url", "") or "").strip() or None,
+            requested_ui_endpoint=str(getattr(node, "requested_ui_endpoint", "") or "").strip() or None,
+            requested_hostname=str(getattr(node, "requested_hostname", "") or "").strip() or None,
+        )
+        if not api_base:
+            raise HTTPException(status_code=404, detail="node_api_endpoint_not_configured")
         return ResolvedProxyTarget(
             kind="node",
             target_id=node_id,
             surface="api",
             source=ui_target.source,
             public_prefix=f"/api/nodes/{node_id}",
-            target_base=urlunsplit((parsed.scheme, parsed.netloc, "", "", "")),
+            target_base=api_base,
             health_endpoint=ui_target.health_endpoint,
         )
