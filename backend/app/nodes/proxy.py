@@ -231,7 +231,7 @@ class NodeUiProxy:
                     return False
             return True
 
-        def rewrite_path(path: str) -> str:
+        def rewrite_attr_path(path: str) -> str:
             if not should_rewrite(path):
                 return path
             if path == "/api":
@@ -240,14 +240,23 @@ class NodeUiProxy:
                 return f"{normalized_api_prefix}{path.removeprefix('/api')}"
             return f"{normalized_ui_prefix}{path}"
 
+        def rewrite_string_path(path: str) -> str:
+            if not should_rewrite(path):
+                return path
+            if path == "/api":
+                return "/"
+            if path.startswith("/api/"):
+                return path.removeprefix("/api") or "/"
+            return f"{normalized_ui_prefix}{path}"
+
         rewritten = text
         if is_html:
             rewritten = HTML_ROOT_URL_ATTR_RE.sub(
-                lambda match: f"{match.group('prefix')}{rewrite_path(match.group('path'))}",
+                lambda match: f"{match.group('prefix')}{rewrite_attr_path(match.group('path'))}",
                 rewritten,
             )
         rewritten = ROOT_URL_STRING_RE.sub(
-            lambda match: f"{match.group('quote')}{rewrite_path(match.group('path'))}{match.group('quote')}",
+            lambda match: f"{match.group('quote')}{rewrite_string_path(match.group('path'))}{match.group('quote')}",
             rewritten,
         )
         return rewritten.encode("utf-8")

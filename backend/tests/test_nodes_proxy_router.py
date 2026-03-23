@@ -174,7 +174,7 @@ class TestNodeUiProxyHtmlRewrite(unittest.TestCase):
         self.assertIn('href="/nodes/node-123/ui/src/index.css"', rewritten)
         self.assertIn('action="/nodes/node-123/ui/submit"', rewritten)
         self.assertIn('src="/nodes/node-123/ui/logo.svg"', rewritten)
-        self.assertIn('"/api/nodes/node-123/node/status"', rewritten)
+        self.assertIn('"/node/status"', rewritten)
 
     def test_leaves_non_html_responses_unchanged(self) -> None:
         original = b'{"ok":true,"path":"/status"}'
@@ -217,8 +217,8 @@ class TestNodeUiProxyHtmlRewrite(unittest.TestCase):
             api_public_prefix="/api/nodes/node-123",
         ).decode("utf-8")
 
-        self.assertIn('"/api/nodes/node-123/node/status"', rewritten)
-        self.assertIn('"/api/nodes/node-123/v1/models"', rewritten)
+        self.assertIn('"/node/status"', rewritten)
+        self.assertIn('"/v1/models"', rewritten)
 
 
 class _TargetService:
