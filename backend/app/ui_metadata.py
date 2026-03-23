@@ -28,6 +28,19 @@ def normalize_ui_health_endpoint(raw: str | None) -> str | None:
     return normalize_ui_base_url(raw)
 
 
+def normalize_node_api_base_url(raw: str | None) -> str | None:
+    text = str(raw or "").strip()
+    if not text:
+        return None
+    parsed = urlsplit(text)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ValueError("api_base_url_invalid")
+    path = parsed.path.rstrip("/")
+    if not path:
+        path = "/api"
+    return urlunsplit((parsed.scheme, parsed.netloc, path, "", ""))
+
+
 def derive_node_api_base_url(
     *,
     api_base_url: str | None = None,
@@ -35,7 +48,7 @@ def derive_node_api_base_url(
     requested_ui_endpoint: str | None = None,
     requested_hostname: str | None = None,
 ) -> str | None:
-    base = normalize_ui_base_url(api_base_url)
+    base = normalize_node_api_base_url(api_base_url)
     if base is not None:
         return base
     fallback = normalize_ui_base_url(ui_base_url)
@@ -43,17 +56,17 @@ def derive_node_api_base_url(
         fallback = normalize_ui_base_url(requested_ui_endpoint)
     if fallback is not None:
         parsed = urlsplit(fallback)
-        return urlunsplit((parsed.scheme, parsed.netloc, "", "", ""))
+        return urlunsplit((parsed.scheme, parsed.netloc, "/api", "", ""))
     host = str(requested_hostname or "").strip()
     if not host:
         return None
     if host.startswith("http://") or host.startswith("https://"):
         parsed_host = urlsplit(host)
         if parsed_host.scheme in {"http", "https"} and parsed_host.netloc:
-            return urlunsplit((parsed_host.scheme, parsed_host.netloc, "", "", ""))
+            return urlunsplit((parsed_host.scheme, parsed_host.netloc, "/api", "", ""))
     parsed_host = urlsplit(f"http://{host}")
     if parsed_host.netloc:
-        return urlunsplit((parsed_host.scheme, parsed_host.netloc, "", "", ""))
+        return urlunsplit((parsed_host.scheme, parsed_host.netloc, "/api", "", ""))
     return None
 
 

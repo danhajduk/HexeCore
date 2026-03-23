@@ -263,7 +263,7 @@ class TestNodeUiProxyTargetSelection(unittest.TestCase):
             )
         )
         request = type("Req", (), {"url": type("Url", (), {"scheme": "http"})()})()
-        self.assertEqual(proxy._api_target_base("node-1", request), "http://10.0.0.9:8081")
+        self.assertEqual(proxy._api_target_base("node-1", request), "http://10.0.0.9:8081/api")
 
     def test_api_target_base_falls_back_to_node_ui_origin_for_legacy_metadata(self) -> None:
         proxy = NodeUiProxy(
@@ -282,7 +282,7 @@ class TestNodeUiProxyTargetSelection(unittest.TestCase):
             )
         )
         request = type("Req", (), {"url": type("Url", (), {"scheme": "http"})()})()
-        self.assertEqual(proxy._api_target_base("node-1", request), "http://10.0.0.9:8765")
+        self.assertEqual(proxy._api_target_base("node-1", request), "http://10.0.0.9:8765/api")
 
     def test_rejects_disabled_node_ui(self) -> None:
         proxy = NodeUiProxy(
