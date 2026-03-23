@@ -40,7 +40,7 @@ class UiTargetResolver:
                 UiProxyTarget(
                     kind="addon",
                     target_id=addon_id,
-                    public_prefix=f"/addons/{addon_id}",
+                    public_prefix=f"/addons/proxy/{addon_id}",
                     ui_enabled=bool(getattr(addon, "ui_enabled", False)),
                     ui_base_url=str(getattr(addon, "ui_base_url", "") or "").strip() or None,
                     ui_supports_prefix=getattr(addon, "ui_supports_prefix", None),
@@ -54,7 +54,7 @@ class UiTargetResolver:
                 target_id=addon_id,
                 surface="ui",
                 source="registered_remote",
-                public_prefix=f"/addons/{addon_id}",
+                public_prefix=f"/addons/proxy/{addon_id}",
                 target_base=str(availability.ui_base_url or "").rstrip("/"),
             )
         if addon_id in self._addon_registry.addons:

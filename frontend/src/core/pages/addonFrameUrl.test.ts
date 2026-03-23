@@ -3,11 +3,11 @@ import { addonUiFrameSrc } from "./addonFrameUrl";
 
 describe("addonUiFrameSrc", () => {
   it("uses provided backend base override", () => {
-    expect(addonUiFrameSrc("mqtt", "http://10.0.0.100:9001/")).toBe("http://10.0.0.100:9001/addons/mqtt/");
+    expect(addonUiFrameSrc("mqtt", "http://10.0.0.100:9001/")).toBe("http://10.0.0.100:9001/addons/proxy/mqtt/");
   });
 
   it("encodes addon id", () => {
-    expect(addonUiFrameSrc("hello world", "http://127.0.0.1:9001")).toBe("http://127.0.0.1:9001/addons/hello%20world/");
+    expect(addonUiFrameSrc("hello world", "http://127.0.0.1:9001")).toBe("http://127.0.0.1:9001/addons/proxy/hello%20world/");
   });
 
   it("returns empty string for empty addon id", () => {
@@ -15,7 +15,7 @@ describe("addonUiFrameSrc", () => {
   });
 
   it("defaults to the backend proxy origin when no override is provided", () => {
-    expect(addonUiFrameSrc("mqtt")).toContain("/addons/mqtt/");
+    expect(addonUiFrameSrc("mqtt")).toContain("/addons/proxy/mqtt/");
   });
 
   it("uses the same origin for managed public tunnel hostnames", () => {
@@ -26,7 +26,7 @@ describe("addonUiFrameSrc", () => {
         protocol: "https:",
         port: "",
       }),
-    ).toBe("https://a75d480287c33cab.hexe-ai.com/addons/mqtt/");
+    ).toBe("https://a75d480287c33cab.hexe-ai.com/addons/proxy/mqtt/");
   });
 
   it("keeps the backend port fallback for LAN/default-port access", () => {
@@ -37,7 +37,7 @@ describe("addonUiFrameSrc", () => {
         protocol: "http:",
         port: "",
       }),
-    ).toBe("http://10.0.0.100:9001/addons/mqtt/");
+    ).toBe("http://10.0.0.100:9001/addons/proxy/mqtt/");
   });
 
   it("keeps the backend port fallback for frontend dev servers", () => {
@@ -48,6 +48,6 @@ describe("addonUiFrameSrc", () => {
         protocol: "http:",
         port: "5173",
       }),
-    ).toBe("http://127.0.0.1:9001/addons/mqtt/");
+    ).toBe("http://127.0.0.1:9001/addons/proxy/mqtt/");
   });
 });

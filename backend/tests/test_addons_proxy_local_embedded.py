@@ -40,7 +40,7 @@ class TestAddonsProxyLocalEmbedded(unittest.TestCase):
 
     def test_alias_proxy_uses_local_embedded_target(self) -> None:
         with patch.object(self.proxy._client, "request") as request_mock:
-            res = self.client.get("/addons/mqtt", headers={"X-Admin-Token": "test-token"})
+            res = self.client.get("/addons/proxy/mqtt", headers={"X-Admin-Token": "test-token"})
         self.assertEqual(res.status_code, 200, res.text)
         self.assertIn("mqtt local ui", res.text)
         request_mock.assert_not_called()

@@ -11,7 +11,7 @@ from starlette.responses import Response
 PROXY_REDIRECT_STATUS = 307
 
 _NODE_UI_BASE_RE = re.compile(r"^/nodes/(?P<node_id>[^/]+)/ui$")
-_ADDON_UI_BASE_RE = re.compile(r"^/addons/(?P<addon_id>[^/]+)$")
+_ADDON_UI_BASE_RE = re.compile(r"^/addons/proxy/(?P<addon_id>[^/]+)$")
 _LEGACY_NODE_UI_RE = re.compile(r"^/ui/nodes/(?P<node_id>[^/]+)(?:/(?P<path>.*))?$")
 _LEGACY_ADDON_UI_RE = re.compile(r"^/ui/addons/(?P<addon_id>[^/]+)(?:/(?P<path>.*))?$")
 
@@ -35,7 +35,7 @@ def node_ui_proxy_path(node_id: str, path: str = "") -> str:
 
 
 def addon_ui_proxy_base(addon_id: str) -> str:
-    return f"/addons/{_encode_id(addon_id)}/"
+    return f"/addons/proxy/{_encode_id(addon_id)}/"
 
 
 def addon_ui_proxy_path(addon_id: str, path: str = "") -> str:

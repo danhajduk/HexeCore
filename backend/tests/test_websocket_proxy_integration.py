@@ -88,7 +88,7 @@ class TestWebSocketProxyIntegration(unittest.TestCase):
                 client = TestClient(app)
 
                 with client.websocket_connect(
-                    "/addons/mqtt/ws",
+                    "/addons/proxy/mqtt/ws",
                     subprotocols=["chat"],
                     headers={"X-Admin-Token": "test-token"},
                 ) as ws:
@@ -99,7 +99,7 @@ class TestWebSocketProxyIntegration(unittest.TestCase):
 
                 self.assertTrue(upstream.requests)
                 headers = upstream.requests[-1]
-                self.assertEqual(headers.get("x-forwarded-prefix"), "/addons/mqtt")
+                self.assertEqual(headers.get("x-forwarded-prefix"), "/addons/proxy/mqtt")
                 self.assertEqual(headers.get("x-hexe-addon-id"), "mqtt")
                 self.assertEqual(headers.get("sec-websocket-protocol"), "chat")
 

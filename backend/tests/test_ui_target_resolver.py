@@ -35,7 +35,7 @@ class TestUiTargetResolver(unittest.TestCase):
         resolver = UiTargetResolver(addon_registry=_AddonRegistry(registered={"mqtt": addon}))
         resolved = resolver.resolve_addon_ui("mqtt", request_base_url="http://core.local:9001/")
         self.assertEqual(resolved.source, "registered_remote")
-        self.assertEqual(resolved.public_prefix, "/addons/mqtt")
+        self.assertEqual(resolved.public_prefix, "/addons/proxy/mqtt")
         self.assertEqual(resolved.target_base, "http://127.0.0.1:9100/ui")
 
     def test_resolves_embedded_addon_ui_target(self) -> None:

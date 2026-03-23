@@ -6,17 +6,17 @@ describe("addonFrameContract", () => {
     const resolved = resolveAddonUiEmbedState("mqtt", {
       loaded: true,
       ui_reachable: true,
-      ui_embed_target: "/addons/mqtt/",
+      ui_embed_target: "/addons/proxy/mqtt/",
       ui_reason: "ready",
     });
     expect(resolved.reachable).toBe(true);
     expect(resolved.reason).toBe("ready");
-    expect(resolved.frameSrc.endsWith("/addons/mqtt/")).toBe(true);
+    expect(resolved.frameSrc.endsWith("/addons/proxy/mqtt/")).toBe(true);
   });
 
   it("falls back to default frame URL when target is missing", () => {
     const resolved = resolveAddonUiEmbedState("mqtt", { ui_reachable: false, ui_reason: "no_published_ports" });
-    expect(resolved.frameSrc.endsWith("/addons/mqtt/")).toBe(true);
+    expect(resolved.frameSrc.endsWith("/addons/proxy/mqtt/")).toBe(true);
     expect(resolved.reachable).toBe(false);
   });
 
@@ -26,12 +26,12 @@ describe("addonFrameContract", () => {
       runtime_state: "running",
       ui_reachable: true,
       ui_reason: "ready",
-      ui_embed_target: "/addons/mqtt/",
+      ui_embed_target: "/addons/proxy/mqtt/",
       standalone_runtime: {
         published_ports: ["0.0.0.0:18080->8080/tcp"],
       },
     });
-    expect(resolved.frameSrc.endsWith("/addons/mqtt/")).toBe(true);
+    expect(resolved.frameSrc.endsWith("/addons/proxy/mqtt/")).toBe(true);
     expect(resolved.reachable).toBe(true);
   });
 
@@ -44,11 +44,11 @@ describe("addonFrameContract", () => {
       loaded: true,
       runtime_state: "unknown",
       ui_reachable: false,
-      ui_embed_target: "/addons/mqtt/",
+      ui_embed_target: "/addons/proxy/mqtt/",
       ui_reason: "runtime_unavailable",
     });
     expect(resolved.reachable).toBe(true);
     expect(resolved.reason).toBe("embedded_local");
-    expect(resolved.frameSrc.endsWith("/addons/mqtt/")).toBe(true);
+    expect(resolved.frameSrc.endsWith("/addons/proxy/mqtt/")).toBe(true);
   });
 });

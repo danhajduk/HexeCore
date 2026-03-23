@@ -162,7 +162,7 @@ class AddonProxy:
 
     async def forward_ui(self, request: Request, addon_id: str, path: str = "", *, public_prefix: str = "") -> Response:
         started_at = time.perf_counter()
-        effective_public_prefix = public_prefix or f"/addons/{addon_id}"
+        effective_public_prefix = public_prefix or f"/addons/proxy/{addon_id}"
         try:
             resolved_ui_target = self._targets.resolve_addon_ui(addon_id, request_base_url=str(request.base_url))
         except HTTPException as exc:
@@ -364,7 +364,7 @@ class AddonProxy:
             content,
             content_type,
             proxy_prefix=public_prefix,
-            ignore_prefixes=("/addons/", "/ui/addons/"),
+            ignore_prefixes=("/addons/proxy/", "/ui/addons/"),
         )
 
     async def forward_api(self, request: Request, addon_id: str, path: str = "") -> Response:
@@ -460,7 +460,7 @@ class AddonProxy:
                 surface="ui_ws",
                 method="WS",
                 path=path,
-                public_prefix=public_prefix or f"/addons/{addon_id}",
+                public_prefix=public_prefix or f"/addons/proxy/{addon_id}",
                 status_code=1008,
                 latency_ms=(time.perf_counter() - started_at) * 1000.0,
                 outcome="embedded_addon_websocket_proxy_unsupported",
@@ -474,7 +474,7 @@ class AddonProxy:
                 surface="ui_ws",
                 method="WS",
                 path=path,
-                public_prefix=public_prefix or f"/addons/{addon_id}",
+                public_prefix=public_prefix or f"/addons/proxy/{addon_id}",
                 status_code=1013,
                 latency_ms=(time.perf_counter() - started_at) * 1000.0,
                 outcome=str(health_detail or "addon_unhealthy"),
@@ -486,7 +486,7 @@ class AddonProxy:
         await self._proxy.proxy_websocket(
             websocket,
             target_url=target,
-            public_prefix=public_prefix or f"/addons/{addon_id}",
+            public_prefix=public_prefix or f"/addons/proxy/{addon_id}",
             extra_headers={
                 **self._auth_headers(addon_id),
                 "X-Hexe-Addon-Id": addon_id,
@@ -497,7 +497,7 @@ class AddonProxy:
             surface="ui_ws",
             method="WS",
             path=path,
-            public_prefix=public_prefix or f"/addons/{addon_id}",
+            public_prefix=public_prefix or f"/addons/proxy/{addon_id}",
             status_code=101,
             latency_ms=(time.perf_counter() - started_at) * 1000.0,
             outcome="proxied",
@@ -517,20 +517,20 @@ def build_proxy_router(proxy: AddonProxy) -> APIRouter:
         require_admin_request(request)
         return await proxy.forward_api(request, addon_id, "")
 
-    @router.api_route("/addons/{addon_id}/{path:path}", methods=["GET", "HEAD"])
+    @router.api_route("/addons/proxy/{addon_id}/{path:path}", methods=["GET", "HEAD"])
     async def proxy_ui_canonical(addon_id: str, path: str, request: Request):
         require_admin_request(request)
-        return await proxy.forward_ui(request, addon_id, path, public_prefix=f"/addons/{addon_id}")
+        return await proxy.forward_ui(request, addon_id, path, public_prefix=f"/addons/proxy/{addon_id}")
 
-    @router.api_route("/addons/{addon_id}/", methods=["GET", "HEAD"])
+    @router.api_route("/addons/proxy/{addon_id}/", methods=["GET", "HEAD"])
     async def proxy_ui_canonical_root(addon_id: str, request: Request):
         require_admin_request(request)
-        return await proxy.forward_ui(request, addon_id, "", public_prefix=f"/addons/{addon_id}")
+        return await proxy.forward_ui(request, addon_id, "", public_prefix=f"/addons/proxy/{addon_id}")
 
-    @router.api_route("/addons/{addon_id}", methods=["GET", "HEAD"])
+    @router.api_route("/addons/proxy/{addon_id}", methods=["GET", "HEAD"])
     async def proxy_ui_canonical_root_no_slash(addon_id: str, request: Request):
         require_admin_request(request)
-        return await proxy.forward_ui(request, addon_id, "", public_prefix=f"/addons/{addon_id}")
+        return await proxy.forward_ui(request, addon_id, "", public_prefix=f"/addons/proxy/{addon_id}")
 
     @router.api_route("/ui/addons/{addon_id}/{path:path}", methods=["GET", "HEAD"])
     async def proxy_ui(addon_id: str, path: str, request: Request):
@@ -542,23 +542,23 @@ def build_proxy_router(proxy: AddonProxy) -> APIRouter:
         require_admin_request(request)
         return await proxy.forward_ui(request, addon_id, "", public_prefix=f"/ui/addons/{addon_id}")
 
-    @router.websocket("/addons/{addon_id}/{path:path}")
+    @router.websocket("/addons/proxy/{addon_id}/{path:path}")
     async def proxy_ui_canonical_websocket(addon_id: str, path: str, websocket: WebSocket):
         try:
             require_admin_request(websocket)
         except HTTPException:
             await websocket.close(code=4401, reason="Unauthorized")
             return
-        await proxy.forward_websocket(websocket, addon_id, path, public_prefix=f"/addons/{addon_id}")
+        await proxy.forward_websocket(websocket, addon_id, path, public_prefix=f"/addons/proxy/{addon_id}")
 
-    @router.websocket("/addons/{addon_id}/")
+    @router.websocket("/addons/proxy/{addon_id}/")
     async def proxy_ui_canonical_root_websocket(addon_id: str, websocket: WebSocket):
         try:
             require_admin_request(websocket)
         except HTTPException:
             await websocket.close(code=4401, reason="Unauthorized")
             return
-        await proxy.forward_websocket(websocket, addon_id, "", public_prefix=f"/addons/{addon_id}")
+        await proxy.forward_websocket(websocket, addon_id, "", public_prefix=f"/addons/proxy/{addon_id}")
 
     @router.websocket("/ui/addons/{addon_id}/{path:path}")
     async def proxy_ui_websocket(addon_id: str, path: str, websocket: WebSocket):

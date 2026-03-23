@@ -51,8 +51,8 @@ class TestAddonsProxyRouter(unittest.TestCase):
 
     def test_ui_legacy_and_canonical_routes_forward(self) -> None:
         checks = [
-            ("/addons/mqtt/", ""),
-            ("/addons/mqtt/assets/main.js", "assets/main.js"),
+            ("/addons/proxy/mqtt/", ""),
+            ("/addons/proxy/mqtt/assets/main.js", "assets/main.js"),
             ("/ui/addons/mqtt", ""),
             ("/ui/addons/mqtt/assets/main.js", "assets/main.js"),
         ]
@@ -68,25 +68,25 @@ class TestAddonsProxyRouter(unittest.TestCase):
         self.assertEqual(
             self.proxy.calls,
             [
-                ("GET", "mqtt", "", "/addons/mqtt"),
-                ("GET", "mqtt", "assets/main.js", "/addons/mqtt"),
+                ("GET", "mqtt", "", "/addons/proxy/mqtt"),
+                ("GET", "mqtt", "assets/main.js", "/addons/proxy/mqtt"),
                 ("GET", "mqtt", "", "/ui/addons/mqtt"),
                 ("GET", "mqtt", "assets/main.js", "/ui/addons/mqtt"),
             ],
         )
 
     def test_canonical_routes_remain_get_head_only(self) -> None:
-        denied = self.client.post("/addons/mqtt/", headers={"X-Admin-Token": "test-token"})
+        denied = self.client.post("/addons/proxy/mqtt/", headers={"X-Admin-Token": "test-token"})
         self.assertEqual(denied.status_code, 405, denied.text)
 
-        head = self.client.head("/addons/mqtt/status", headers={"X-Admin-Token": "test-token"})
+        head = self.client.head("/addons/proxy/mqtt/status", headers={"X-Admin-Token": "test-token"})
         self.assertEqual(head.status_code, 200, head.text)
 
-        self.assertEqual(self.proxy.calls, [("HEAD", "mqtt", "status", "/addons/mqtt")])
+        self.assertEqual(self.proxy.calls, [("HEAD", "mqtt", "status", "/addons/proxy/mqtt")])
 
     def test_websocket_routes_forward(self) -> None:
-        with self.client.websocket_connect("/addons/mqtt/ws", headers={"X-Admin-Token": "test-token"}) as ws:
-            self.assertEqual(ws.receive_text(), "mqtt:ws:/addons/mqtt")
+        with self.client.websocket_connect("/addons/proxy/mqtt/ws", headers={"X-Admin-Token": "test-token"}) as ws:
+            self.assertEqual(ws.receive_text(), "mqtt:ws:/addons/proxy/mqtt")
 
         with self.client.websocket_connect("/ui/addons/mqtt/live", headers={"X-Admin-Token": "test-token"}) as ws:
             self.assertEqual(ws.receive_text(), "mqtt:live:/ui/addons/mqtt")
@@ -94,7 +94,7 @@ class TestAddonsProxyRouter(unittest.TestCase):
         self.assertEqual(
             self.proxy.websocket_calls,
             [
-                ("mqtt", "ws", "/addons/mqtt"),
+                ("mqtt", "ws", "/addons/proxy/mqtt"),
                 ("mqtt", "live", "/ui/addons/mqtt"),
             ],
         )
@@ -122,12 +122,12 @@ class TestAddonsProxyRouter(unittest.TestCase):
         )
 
     def test_proxy_routes_require_admin_auth(self) -> None:
-        denied = self.client.get("/addons/mqtt/")
+        denied = self.client.get("/addons/proxy/mqtt/")
         self.assertEqual(denied.status_code, 401, denied.text)
 
     def test_websocket_proxy_requires_admin_auth(self) -> None:
         with self.assertRaises(WebSocketDisconnect) as exc:
-            with self.client.websocket_connect("/addons/mqtt/ws"):
+            with self.client.websocket_connect("/addons/proxy/mqtt/ws"):
                 pass
         self.assertEqual(exc.exception.code, 4401)
 

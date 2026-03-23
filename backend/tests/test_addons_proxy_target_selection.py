@@ -109,13 +109,13 @@ class TestAddonProxyTargetSelection(unittest.TestCase):
         rewritten = AddonProxy._rewrite_root_urls(
             original,
             "text/html; charset=utf-8",
-            public_prefix="/addons/mqtt",
+            public_prefix="/addons/proxy/mqtt",
         ).decode("utf-8")
 
-        self.assertIn('src="/addons/mqtt/@vite/client"', rewritten)
-        self.assertIn('href="/addons/mqtt/src/index.css"', rewritten)
-        self.assertIn('action="/addons/mqtt/submit"', rewritten)
-        self.assertIn('src="/addons/mqtt/logo.svg"', rewritten)
+        self.assertIn('src="/addons/proxy/mqtt/@vite/client"', rewritten)
+        self.assertIn('href="/addons/proxy/mqtt/src/index.css"', rewritten)
+        self.assertIn('action="/addons/proxy/mqtt/submit"', rewritten)
+        self.assertIn('src="/addons/proxy/mqtt/logo.svg"', rewritten)
 
     def test_rewrites_root_absolute_javascript_imports_to_proxy_prefix(self) -> None:
         original = b"""
@@ -150,7 +150,7 @@ class TestAddonProxyTargetSelection(unittest.TestCase):
         app.include_router(build_proxy_router(proxy))
         with patch.dict("os.environ", {"SYNTHIA_ADMIN_TOKEN": "test-token"}, clear=False):
             client = TestClient(app)
-            response = client.get("/addons/mqtt/", headers={"X-Admin-Token": "test-token"})
+            response = client.get("/addons/proxy/mqtt/", headers={"X-Admin-Token": "test-token"})
             self.assertEqual(response.status_code, 404, response.text)
             self.assertIn("Addon UI Unavailable", response.text)
             self.assertIn("addon_ui_not_enabled", response.text)
@@ -174,7 +174,7 @@ class TestAddonProxyTargetSelection(unittest.TestCase):
         app.include_router(build_proxy_router(proxy))
         with patch.dict("os.environ", {"SYNTHIA_ADMIN_TOKEN": "test-token"}, clear=False):
             client = TestClient(app)
-            response = client.get("/addons/mqtt/", headers={"X-Admin-Token": "test-token"})
+            response = client.get("/addons/proxy/mqtt/", headers={"X-Admin-Token": "test-token"})
             self.assertEqual(response.status_code, 503, response.text)
             self.assertIn("Addon UI Unavailable", response.text)
             self.assertIn("addon_health_unhealthy", response.text)
