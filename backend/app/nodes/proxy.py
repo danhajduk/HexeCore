@@ -16,7 +16,7 @@ from .service import NodesDomainService
 
 log = logging.getLogger("synthia.proxy")
 HTML_ROOT_URL_ATTR_RE = re.compile(r'(?P<prefix>\b(?:src|href|action)=["\'])(?P<path>/[^"\']*)')
-ROOT_URL_STRING_RE = re.compile(r'(?P<quote>["\'])(?P<path>/[^"\']*)(?P=quote)')
+ROOT_URL_STRING_RE = re.compile(r'(?P<quote>["\'`])(?P<path>/[^"\'`]*)(?P=quote)')
 
 
 def _env_float(name: str, default: float) -> float:

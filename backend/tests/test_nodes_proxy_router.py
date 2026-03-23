@@ -208,6 +208,7 @@ class TestNodeUiProxyHtmlRewrite(unittest.TestCase):
         original = b"""
         const statusPath = "/api/node/status";
         const absoluteApi = "/api/v1/models";
+        const latestModels = `/api/providers/openai/models/latest?limit=${OPENAI_LATEST_MODELS_LIMIT}`;
         """
 
         rewritten = NodeUiProxy._rewrite_root_urls(
@@ -219,6 +220,7 @@ class TestNodeUiProxyHtmlRewrite(unittest.TestCase):
 
         self.assertIn('"/node/status"', rewritten)
         self.assertIn('"/v1/models"', rewritten)
+        self.assertIn('`/providers/openai/models/latest?limit=${OPENAI_LATEST_MODELS_LIMIT}`', rewritten)
 
 
 class _TargetService:
