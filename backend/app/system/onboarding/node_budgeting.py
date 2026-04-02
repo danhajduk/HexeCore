@@ -869,6 +869,7 @@ class NodeBudgetService:
         if config is None:
             return {
                 "status": "not_configured",
+                "budget_node_id": node_key,
                 "service": NODE_BUDGET_SERVICE_ID,
                 "provider": provider_key or None,
                 "task_family": task_family_key,
@@ -893,6 +894,7 @@ class NodeBudgetService:
             if selected_grant is None and provider_allocations and not bool(config.shared_provider_pool):
                 return {
                     "status": "no_matching_grant",
+                    "budget_node_id": node_key,
                     "service": NODE_BUDGET_SERVICE_ID,
                     "provider": provider_key,
                     "task_family": task_family_key,
@@ -905,6 +907,7 @@ class NodeBudgetService:
         if selected_grant is None:
             return {
                 "status": "no_matching_grant",
+                "budget_node_id": node_key,
                 "service": NODE_BUDGET_SERVICE_ID,
                 "provider": provider_key or None,
                 "task_family": task_family_key,
@@ -929,6 +932,7 @@ class NodeBudgetService:
         admissible = raw_status == "active" and (not remaining or all(int(value) > 0 for value in remaining.values()))
         return {
             "status": "active" if admissible else (raw_status if raw_status != "active" else "exhausted"),
+            "budget_node_id": node_key,
             "enforcement_mode": config.enforcement_mode,
             "grant_id": selected_grant.get("grant_id"),
             "service": NODE_BUDGET_SERVICE_ID,
@@ -949,15 +953,26 @@ class NodeBudgetService:
             "reason": None if admissible else ("budget_exhausted" if raw_status == "active" else raw_status),
         }
 
+    def grant_owner_node_id(self, grant_id: str | None) -> str | None:
+        grant_key = _clean_text(grant_id)
+        if not grant_key.startswith("grant:"):
+            return None
+        parts = grant_key.split(":")
+        if len(parts) < 3:
+            return None
+        node_key = _clean_text(parts[1])
+        return node_key or None
+
     def report_usage_summary(self, *, node_id: str, payload: dict[str, Any]) -> dict[str, Any]:
-        node_key = _clean_text(node_id)
-        config = self._store.get_config(node_key)
-        if config is None:
-            raise ValueError("node_budget_not_configured")
         service = _clean_text(payload.get("service")) or NODE_BUDGET_SERVICE_ID
         grant_id = _clean_text(payload.get("grant_id"))
         if not grant_id:
             raise ValueError("grant_id_required")
+        reporter_node_key = _clean_text(node_id)
+        owner_node_key = self.grant_owner_node_id(grant_id) or reporter_node_key
+        config = self._store.get_config(owner_node_key)
+        if config is None:
+            raise ValueError("node_budget_not_configured")
         period_start = _clean_text(payload.get("period_start"))
         period_end = _clean_text(payload.get("period_end"))
         if not period_start or not period_end:
@@ -975,8 +990,10 @@ class NodeBudgetService:
             metadata["task_family"] = task_family
         if model_id:
             metadata["model_id"] = model_id
+        if reporter_node_key and reporter_node_key != owner_node_key:
+            metadata["reported_by_node_id"] = reporter_node_key
         record = NodeBudgetUsageReportRecord(
-            node_id=node_key,
+            node_id=owner_node_key,
             service=service,
             grant_id=grant_id,
             period_start=period_start,

@@ -85,6 +85,7 @@ Current behavior:
 - `usage-summary` is the canonical periodic grant-usage path
 - `usage-report` remains implemented for per-job reservation reconciliation compatibility
 - `usage-summary` may also carry optional `provider`, `model_id`, and `task_family` metadata for service-resolution and admin rollup views
+- when a delegating node reports usage against a provider-owned grant, Core stores that summary under the grant owner node and preserves the reporting node id in metadata
 
 ### Node Service Resolution And Authorization
 
@@ -96,6 +97,7 @@ Auth: `X-Node-Trust-Token`
 Current behavior:
 
 - resolution returns service/provider candidates filtered by governance routing policy and current admissible budget state
+- delegated service resolution evaluates admissibility against the provider node budget that owns the selected candidate
 - authorization reuses the Core service-token issuer primitives and returns a short-lived token only when the selected candidate remains admissible
 
 ### Provider And Capacity Publication

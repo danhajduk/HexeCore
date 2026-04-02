@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urlsplit
 
 from app.nodes.models_resolution import (
     NodeEffectiveBudgetView,
@@ -15,9 +16,90 @@ def _clean_text(value: Any, *, lower: bool = False) -> str:
     return cleaned.lower() if lower else cleaned
 
 
+def _normalize_url_for_match(value: Any) -> str:
+    raw = _clean_text(value)
+    if not raw:
+        return ""
+    parsed = urlsplit(raw)
+    if not parsed.scheme or not parsed.netloc:
+        return raw.rstrip("/").lower()
+    path = parsed.path.rstrip("/")
+    return f"{parsed.scheme.lower()}://{parsed.netloc.lower()}{path}"
+
+
 class NodeServiceResolutionService:
-    def __init__(self, catalog_store) -> None:
+    def __init__(self, catalog_store, *, node_registrations_store=None, model_routing_registry_service=None) -> None:
         self._catalog_store = catalog_store
+        self._node_registrations_store = node_registrations_store
+        self._model_routing_registry_service = model_routing_registry_service
+
+    def _resolve_provider_node_id(
+        self,
+        *,
+        service_item: dict[str, Any],
+        provider: str,
+        preferred_model: str,
+        allowed_models: list[str],
+    ) -> str | None:
+        explicit_node_id = _clean_text(
+            service_item.get("node_id")
+            or ((service_item.get("addon_registry") or {}).get("node_id") if isinstance(service_item.get("addon_registry"), dict) else None)
+            or ((service_item.get("declared_capacity") or {}).get("node_id") if isinstance(service_item.get("declared_capacity"), dict) else None)
+            or ((service_item.get("service_capacity") or {}).get("node_id") if isinstance(service_item.get("service_capacity"), dict) else None)
+        )
+        if explicit_node_id:
+            return explicit_node_id
+
+        endpoint_candidates = {
+            _normalize_url_for_match(service_item.get("endpoint")),
+            _normalize_url_for_match(service_item.get("base_url")),
+        }
+        endpoint_candidates = {item for item in endpoint_candidates if item}
+
+        if self._model_routing_registry_service is not None and provider:
+            model_candidates = [preferred_model] if preferred_model else []
+            model_candidates.extend([item for item in allowed_models if item and item not in model_candidates])
+            registry_matches: list[str] = []
+            for model_id in model_candidates:
+                for item in self._model_routing_registry_service.list(provider=provider):
+                    if not bool(getattr(item, "node_available", True)):
+                        continue
+                    normalized_model_id = _clean_text(getattr(item, "normalized_model_id", ""), lower=True)
+                    raw_model_id = _clean_text(getattr(item, "model_id", ""), lower=True)
+                    if model_id and model_id not in {normalized_model_id, raw_model_id}:
+                        continue
+                    registry_matches.append(_clean_text(getattr(item, "node_id", "")))
+            unique_registry_matches = sorted({item for item in registry_matches if item})
+            if len(unique_registry_matches) == 1:
+                return unique_registry_matches[0]
+
+            if endpoint_candidates and self._node_registrations_store is not None:
+                for registration in self._node_registrations_store.list():
+                    node_api_base = _normalize_url_for_match(getattr(registration, "api_base_url", None))
+                    requested_api_base = _normalize_url_for_match(getattr(registration, "requested_api_base_url", None))
+                    if node_api_base in endpoint_candidates or requested_api_base in endpoint_candidates:
+                        if registration.node_id in unique_registry_matches:
+                            return registration.node_id
+
+            if not model_candidates:
+                provider_nodes = sorted(
+                    {
+                        _clean_text(getattr(item, "node_id", ""))
+                        for item in self._model_routing_registry_service.list(provider=provider)
+                        if bool(getattr(item, "node_available", True))
+                    }
+                )
+                provider_nodes = [item for item in provider_nodes if item]
+                if len(provider_nodes) == 1:
+                    return provider_nodes[0]
+
+        if endpoint_candidates and self._node_registrations_store is not None:
+            for registration in self._node_registrations_store.list():
+                node_api_base = _normalize_url_for_match(getattr(registration, "api_base_url", None))
+                requested_api_base = _normalize_url_for_match(getattr(registration, "requested_api_base_url", None))
+                if node_api_base in endpoint_candidates or requested_api_base in endpoint_candidates:
+                    return registration.node_id
+        return None
 
     async def resolve_for_node(
         self,
@@ -103,8 +185,14 @@ class NodeServiceResolutionService:
             if preferred_model and not allowed_models:
                 continue
 
+            provider_node_id = self._resolve_provider_node_id(
+                service_item=item,
+                provider=provider,
+                preferred_model=preferred_model,
+                allowed_models=allowed_models,
+            )
             budget_view_payload = budget_service.effective_budget_view(
-                node_id=request.node_id,
+                node_id=provider_node_id or request.node_id,
                 task_family=task_family,
                 provider=provider or None,
                 model_id=preferred_model or None,
@@ -125,6 +213,7 @@ class NodeServiceResolutionService:
 
             candidate = TaskExecutionResolutionCandidate(
                 service_id=_clean_text(item.get("service_id") or item.get("service") or service_key),
+                provider_node_id=provider_node_id or None,
                 service_type=_clean_text(item.get("service_type") or item.get("service")),
                 provider=provider or None,
                 models_allowed=allowed_models,
@@ -154,4 +243,3 @@ class NodeServiceResolutionService:
             selected_service_id=selected_service_id,
             candidates=candidates,
         )
-

@@ -477,7 +477,15 @@ def build_system_router(
 ) -> APIRouter:
     router = APIRouter()
     runtime = runtime_service or StandaloneRuntimeService()
-    node_service_resolution = NodeServiceResolutionService(service_catalog_store) if service_catalog_store is not None else None
+    node_service_resolution = (
+        NodeServiceResolutionService(
+            service_catalog_store,
+            node_registrations_store=node_registrations_store,
+            model_routing_registry_service=model_routing_registry_service,
+        )
+        if service_catalog_store is not None
+        else None
+    )
 
     async def _reconcile_mqtt_authority(reason: str) -> None:
         if mqtt_runtime_reconciler is None:

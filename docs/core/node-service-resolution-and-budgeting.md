@@ -105,13 +105,17 @@ Retained MQTT service catalogs are still accepted through the existing MQTT serv
 {
   "node_id": "node-abc123",
   "task_family": "task.summarization",
+  "type": "email",
   "task_context": {
-    "content_type": "email"
+    "content_type": "email",
+    "type": "email"
   },
   "preferred_provider": "openai",
   "preferred_model": "gpt-4o-mini"
 }
 ```
+
+`type` is an optional top-level convenience field for coarse request categorization such as `ai` or `email`. Core normalizes it into `task_context.type`. If both are sent, they must match.
 
 ### Response
 
@@ -121,7 +125,8 @@ Retained MQTT service catalogs are still accepted through the existing MQTT serv
   "node_id": "node-abc123",
   "task_family": "task.summarization",
   "task_context": {
-    "content_type": "email"
+    "content_type": "email",
+    "type": "email"
   },
   "selected_service_id": "summary-service",
   "candidates": [
@@ -169,7 +174,7 @@ Candidates are filtered by:
 - governance allowed providers
 - governance allowed models
 - preferred provider/model when requested
-- admissible current budget grant
+- admissible current budget grant on the selected provider node
 
 ### Governance Freshness Gate
 
@@ -198,6 +203,7 @@ The current helper reuses the existing node budget grant system instead of creat
 
 Current behavior:
 
+- provider-node budget ownership is used for delegated execution
 - provider-specific grants are preferred when present
 - node-wide grants remain the fallback
 - existing provider-allocation hard-slice rules are respected
@@ -216,8 +222,10 @@ Current behavior:
 {
   "node_id": "node-abc123",
   "task_family": "task.summarization",
+  "type": "email",
   "task_context": {
-    "content_type": "email"
+    "content_type": "email",
+    "type": "email"
   },
   "service_id": "summary-service",
   "provider": "openai",
@@ -268,6 +276,8 @@ Current implementation now supports tagging summaries with:
 - `provider`
 - `model_id`
 - `task_family`
+
+When a delegating node reports usage against a provider-owned grant, Core attributes that usage to the grant owner node and records the reporting node in metadata.
 
 Admin usage-report reads can filter by provider and task family and now include rollups by:
 

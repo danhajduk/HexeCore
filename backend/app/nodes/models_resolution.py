@@ -8,11 +8,12 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 class TaskExecutionResolutionRequest(BaseModel):
     node_id: str = Field(..., min_length=1)
     task_family: str = Field(..., min_length=1)
+    type: str | None = None
     task_context: dict[str, Any] = Field(default_factory=dict)
     preferred_provider: str | None = None
     preferred_model: str | None = None
 
-    @field_validator("node_id", "task_family", "preferred_provider", "preferred_model")
+    @field_validator("node_id", "task_family", "type", "preferred_provider", "preferred_model")
     @classmethod
     def _clean_text(cls, value: str | None) -> str | None:
         if value is None:
@@ -30,19 +31,36 @@ class TaskExecutionResolutionRequest(BaseModel):
         return dict(value)
 
     @model_validator(mode="after")
+    def _merge_type_into_context(self) -> "TaskExecutionResolutionRequest":
+        request_type = str(self.type or "").strip().lower()
+        context_type = str(self.task_context.get("type") or "").strip().lower()
+        if request_type and context_type and request_type != context_type:
+            raise ValueError("task_type_conflict")
+        if request_type and not context_type:
+            self.task_context["type"] = request_type
+        elif context_type:
+            self.task_context["type"] = context_type
+            self.type = context_type
+        return self
+
+    @model_validator(mode="after")
     def _validate_task_family_canonicality(self) -> "TaskExecutionResolutionRequest":
         task_family = str(self.task_family or "").strip().lower()
         preferred_provider = str(self.preferred_provider or "").strip().lower()
         content_type = str(self.task_context.get("content_type") or "").strip().lower()
+        request_type = str(self.type or "").strip().lower()
         if preferred_provider and task_family.endswith(f".{preferred_provider}"):
             raise ValueError("task_family_provider_suffix_not_allowed")
         if content_type and task_family.endswith(f".{content_type}"):
             raise ValueError("task_family_context_suffix_not_allowed")
+        if request_type and task_family.endswith(f".{request_type}"):
+            raise ValueError("task_family_type_suffix_not_allowed")
         return self
 
 
 class NodeEffectiveBudgetView(BaseModel):
     status: str
+    budget_node_id: str | None = None
     enforcement_mode: str | None = None
     grant_id: str | None = None
     service: str | None = None
@@ -61,6 +79,7 @@ class NodeEffectiveBudgetView(BaseModel):
 
 class TaskExecutionResolutionCandidate(BaseModel):
     service_id: str
+    provider_node_id: str | None = None
     service_type: str | None = None
     provider: str | None = None
     models_allowed: list[str] = Field(default_factory=list)
@@ -93,4 +112,3 @@ class NodeServiceAuthorizeRequest(TaskExecutionResolutionRequest):
             return None
         cleaned = str(value).strip()
         return cleaned or None
-

@@ -165,7 +165,14 @@ class TestNodeServiceResolutionApi(unittest.TestCase):
         assert trust is not None
         return node_id, trust.node_trust_token
 
-    def _manifest(self, node_id: str) -> dict:
+    def _manifest(
+        self,
+        node_id: str,
+        *,
+        task_families: list[str] | None = None,
+        enabled_providers: list[str] | None = None,
+        provider_intelligence: list[dict] | None = None,
+    ) -> dict:
         return {
             "manifest_version": "1.0",
             "node": {
@@ -174,21 +181,24 @@ class TestNodeServiceResolutionApi(unittest.TestCase):
                 "node_name": "main-ai-node",
                 "node_software_version": "0.2.0",
             },
-            "declared_task_families": ["task.summarization"],
-            "supported_providers": ["openai"],
-            "enabled_providers": ["openai"],
-            "provider_intelligence": [
-                {
-                    "provider": "openai",
-                    "available_models": [
-                        {
-                            "model_id": "gpt-4o-mini",
-                            "pricing": {"input_per_1k": 0.00015, "output_per_1k": 0.0006},
-                            "latency_metrics": {"p50_ms": 120.0, "p95_ms": 280.0},
-                        }
-                    ],
-                }
-            ],
+            "declared_task_families": list(task_families or ["task.summarization"]),
+            "supported_providers": list(enabled_providers or ["openai"]),
+            "enabled_providers": list(enabled_providers or ["openai"]),
+            "provider_intelligence": list(
+                provider_intelligence
+                or [
+                    {
+                        "provider": "openai",
+                        "available_models": [
+                            {
+                                "model_id": "gpt-4o-mini",
+                                "pricing": {"input_per_1k": 0.00015, "output_per_1k": 0.0006},
+                                "latency_metrics": {"p50_ms": 120.0, "p95_ms": 280.0},
+                            }
+                        ],
+                    }
+                ]
+            ),
             "node_features": {
                 "telemetry": True,
                 "governance_refresh": True,
@@ -260,9 +270,11 @@ class TestNodeServiceResolutionApi(unittest.TestCase):
         self.assertEqual(payload["selected_service_id"], "summary-service")
         self.assertEqual(len(payload["candidates"]), 1)
         candidate = payload["candidates"][0]
+        self.assertEqual(candidate["provider_node_id"], node_id)
         self.assertEqual(candidate["provider"], "openai")
         self.assertEqual(candidate["models_allowed"], ["gpt-4o-mini"])
         self.assertTrue(bool(candidate["budget_view"]["admissible"]))
+        self.assertEqual(candidate["budget_view"]["budget_node_id"], node_id)
         self.assertEqual(candidate["budget_view"]["grant_scope_kind"], "node")
 
         authorized = self.client.post(
@@ -314,6 +326,122 @@ class TestNodeServiceResolutionApi(unittest.TestCase):
         self.assertEqual(reports.json()["rollups"]["providers"][0]["provider"], "openai")
         self.assertEqual(reports.json()["rollups"]["task_families"][0]["task_family"], "task.summarization")
 
+    def test_resolution_uses_provider_node_budget_for_delegating_node(self) -> None:
+        provider_node_id, _provider_trust_token = self._configure_node_for_resolution()
+        delegator_node_id, delegator_trust_token = self._trusted_node()
+        declared = self.client.post(
+            "/api/system/nodes/capabilities/declaration",
+            json={"manifest": self._manifest(delegator_node_id, task_families=["task.summarization"], provider_intelligence=[])},
+            headers={"X-Node-Trust-Token": delegator_trust_token},
+        )
+        self.assertEqual(declared.status_code, 200, declared.text)
+
+        resolved = self.client.post(
+            "/api/system/nodes/services/resolve",
+            headers={"X-Node-Trust-Token": delegator_trust_token},
+            json={
+                "node_id": delegator_node_id,
+                "task_family": "task.summarization",
+                "preferred_provider": "openai",
+                "preferred_model": "gpt-4o-mini",
+            },
+        )
+        self.assertEqual(resolved.status_code, 200, resolved.text)
+        payload = resolved.json()
+        self.assertEqual(payload["selected_service_id"], "summary-service")
+        self.assertEqual(len(payload["candidates"]), 1)
+        candidate = payload["candidates"][0]
+        self.assertEqual(candidate["provider_node_id"], provider_node_id)
+        self.assertEqual(candidate["budget_view"]["budget_node_id"], provider_node_id)
+        self.assertTrue(bool(candidate["budget_view"]["admissible"]))
+
+        authorized = self.client.post(
+            "/api/system/nodes/services/authorize",
+            headers={"X-Node-Trust-Token": delegator_trust_token},
+            json={
+                "node_id": delegator_node_id,
+                "task_family": "task.summarization",
+                "service_id": "summary-service",
+                "provider": "openai",
+                "model_id": "gpt-4o-mini",
+            },
+        )
+        self.assertEqual(authorized.status_code, 200, authorized.text)
+        auth_payload = authorized.json()
+        self.assertEqual(auth_payload["grant_id"], candidate["grant_id"])
+        self.assertEqual(auth_payload["resolution"]["provider_node_id"], provider_node_id)
+
+        usage_report = self.client.post(
+            "/api/system/nodes/budgets/usage-summary",
+            headers={"X-Node-Trust-Token": delegator_trust_token},
+            json={
+                "node_id": delegator_node_id,
+                "service": "ai.inference",
+                "grant_id": auth_payload["grant_id"],
+                "provider": "openai",
+                "model_id": "gpt-4o-mini",
+                "task_family": "task.summarization",
+                "used_requests": 1,
+                "used_tokens": 100,
+                "used_cost_cents": 2,
+            },
+        )
+        self.assertEqual(usage_report.status_code, 200, usage_report.text)
+        self.assertEqual(usage_report.json()["report"]["node_id"], provider_node_id)
+        self.assertEqual(
+            usage_report.json()["report"]["metadata"]["reported_by_node_id"],
+            delegator_node_id,
+        )
+
+    def test_resolution_and_authorization_accept_top_level_type(self) -> None:
+        node_id, trust_token = self._configure_node_for_resolution()
+        resolved = self.client.post(
+            "/api/system/nodes/services/resolve",
+            headers={"X-Node-Trust-Token": trust_token},
+            json={
+                "node_id": node_id,
+                "task_family": "task.summarization",
+                "type": "email",
+                "preferred_provider": "openai",
+                "preferred_model": "gpt-4o-mini",
+            },
+        )
+        self.assertEqual(resolved.status_code, 200, resolved.text)
+        payload = resolved.json()
+        self.assertEqual(payload["task_context"]["type"], "email")
+        self.assertEqual(payload["selected_service_id"], "summary-service")
+
+        authorized = self.client.post(
+            "/api/system/nodes/services/authorize",
+            headers={"X-Node-Trust-Token": trust_token},
+            json={
+                "node_id": node_id,
+                "task_family": "task.summarization",
+                "type": "email",
+                "service_id": "summary-service",
+                "provider": "openai",
+                "model_id": "gpt-4o-mini",
+            },
+        )
+        self.assertEqual(authorized.status_code, 200, authorized.text)
+        auth_payload = authorized.json()
+        self.assertEqual(auth_payload["resolution"]["budget_view"]["grant_scope_kind"], "node")
+
+    def test_resolution_rejects_conflicting_top_level_type_and_context_type(self) -> None:
+        node_id, trust_token = self._configure_node_for_resolution()
+        resolved = self.client.post(
+            "/api/system/nodes/services/resolve",
+            headers={"X-Node-Trust-Token": trust_token},
+            json={
+                "node_id": node_id,
+                "task_family": "task.summarization",
+                "type": "email",
+                "task_context": {"type": "ai"},
+            },
+        )
+        self.assertEqual(resolved.status_code, 422, resolved.text)
+        self.assertIn("task_type_conflict", resolved.text)
+
     def test_resolution_rejects_context_encoded_task_family(self) -> None:
         node_id, trust_token = self._configure_node_for_resolution()
         resolved = self.client.post(
@@ -327,6 +455,20 @@ class TestNodeServiceResolutionApi(unittest.TestCase):
         )
         self.assertEqual(resolved.status_code, 422, resolved.text)
         self.assertIn("task_family_context_suffix_not_allowed", resolved.text)
+
+    def test_resolution_rejects_type_encoded_task_family(self) -> None:
+        node_id, trust_token = self._configure_node_for_resolution()
+        resolved = self.client.post(
+            "/api/system/nodes/services/resolve",
+            headers={"X-Node-Trust-Token": trust_token},
+            json={
+                "node_id": node_id,
+                "task_family": "task.summarization.email",
+                "type": "email",
+            },
+        )
+        self.assertEqual(resolved.status_code, 422, resolved.text)
+        self.assertIn("task_family_type_suffix_not_allowed", resolved.text)
 
     def test_resolution_returns_no_candidates_without_configured_budget(self) -> None:
         node_id, trust_token = self._trusted_node()
