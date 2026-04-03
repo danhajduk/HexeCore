@@ -3,7 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .integration_models import MqttAddonGrant, MqttIntegrationState, MqttPrincipal
-from .topic_families import BOOTSTRAP_TOPIC, canonical_reserved_prefixes, is_platform_reserved_topic
+from .topic_families import (
+    BOOTSTRAP_TOPIC,
+    canonical_reserved_prefixes,
+    generic_user_reserved_acl_denies,
+    is_platform_reserved_topic,
+)
 
 
 def _sorted_unique(items: list[str]) -> list[str]:
@@ -26,6 +31,7 @@ class MqttEffectiveAccessCompiler:
     def __init__(self, *, bootstrap_topic: str = BOOTSTRAP_TOPIC, reserved_prefixes: list[str] | None = None) -> None:
         self._bootstrap_topic = str(bootstrap_topic).strip() or BOOTSTRAP_TOPIC
         self._reserved_prefixes = _sorted_unique(reserved_prefixes or canonical_reserved_prefixes())
+        self._generic_user_reserved_denies = _sorted_unique(generic_user_reserved_acl_denies())
 
     def compile(self, state: MqttIntegrationState) -> list[MqttEffectiveAccessEntry]:
         out: list[MqttEffectiveAccessEntry] = [
@@ -115,7 +121,7 @@ class MqttEffectiveAccessCompiler:
                     publish_topics = list(custom_publish_topics)
                 if custom_subscribe_topics:
                     subscribe_topics = list(custom_subscribe_topics)
-            reserved_denies = [] if mode == "admin" else list(self._reserved_prefixes)
+            reserved_denies = [] if mode == "admin" else list(self._generic_user_reserved_denies)
         elif principal.principal_type == "system":
             # Core-managed system principals render explicit publish/subscribe topics.
             publish_topics = _sorted_unique(list(principal.publish_topics))

@@ -103,9 +103,11 @@ class TestMqttAclCompiler(unittest.TestCase):
         )
         compiler = MqttAclCompiler()
         acl = compiler.compile(state).acl_text
-        self.assertIn("topic deny hexe/#", acl)
         self.assertIn("topic deny $SYS/#", acl)
-        self.assertEqual(acl.count("topic deny hexe/#"), 1)
+        self.assertIn("topic deny hexe/services/#", acl)
+        self.assertIn("topic deny hexe/addons/#", acl)
+        self.assertIn("topic deny hexe/nodes/#", acl)
+        self.assertNotIn("topic deny hexe/#", acl)
 
     def test_collapses_redundant_deny_children_under_parent(self) -> None:
         rules = [
@@ -168,13 +170,37 @@ class TestMqttAclCompiler(unittest.TestCase):
         acl = compiler.compile(state).acl_text
         self.assertIn("user nonres", acl)
         self.assertIn("topic readwrite #", acl)
-        self.assertIn("topic deny hexe/#", acl)
+        self.assertIn("topic deny hexe/core/#", acl)
+        self.assertIn("topic deny hexe/addons/#", acl)
         self.assertIn("topic deny $SYS/#", acl)
+        self.assertNotIn("topic deny hexe/#", acl)
         self.assertIn("user admin", acl)
         # Admin mode keeps broad allow without reserved deny overlays.
         admin_section = acl.split("user admin", 1)[1].split("\n\nuser ", 1)[0]
         self.assertIn("topic readwrite #", admin_section)
-        self.assertNotIn("topic deny hexe/#", admin_section)
+        self.assertNotIn("topic deny hexe/core/#", admin_section)
+
+    def test_non_reserved_mode_allows_external_notification_namespace(self) -> None:
+        state = MqttIntegrationState(
+            principals={
+                "user:nonres": MqttPrincipal(
+                    principal_id="user:nonres",
+                    principal_type="generic_user",
+                    status="active",
+                    logical_identity="nonres",
+                    username="nonres",
+                    access_mode="non_reserved",
+                    publish_topics=["#"],
+                    subscribe_topics=["#"],
+                )
+            }
+        )
+
+        acl = MqttAclCompiler().compile(state).acl_text
+        nonres_section = acl.split("user nonres", 1)[1]
+
+        self.assertIn("topic readwrite #", nonres_section)
+        self.assertNotIn("topic deny hexe/notify/external/#", nonres_section)
 
     def test_normalized_effective_access_exposes_permission_summary(self) -> None:
         state = MqttIntegrationState(
@@ -199,7 +225,9 @@ class TestMqttAclCompiler(unittest.TestCase):
         self.assertTrue(item.all_non_reserved)
         self.assertIn("#", item.read_rules)
         self.assertIn("#", item.write_rules)
-        self.assertIn("hexe/#", item.deny_rules)
+        self.assertIn("hexe/core/#", item.deny_rules)
+        self.assertIn("hexe/addons/#", item.deny_rules)
+        self.assertNotIn("hexe/#", item.deny_rules)
 
 
 if __name__ == "__main__":

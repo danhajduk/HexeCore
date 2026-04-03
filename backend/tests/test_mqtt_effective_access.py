@@ -54,6 +54,8 @@ class TestMqttEffectiveAccess(unittest.TestCase):
         self.assertFalse(by_id["user:guest1"].generic_non_reserved_only)
         self.assertNotIn("hexe/core/should-deny", by_id["user:guest1"].publish_scopes)
         self.assertIn("hexe/core/#", by_id["user:guest1"].reserved_prefix_denies)
+        self.assertIn("hexe/addons/#", by_id["user:guest1"].reserved_prefix_denies)
+        self.assertNotIn("hexe/#", by_id["user:guest1"].reserved_prefix_denies)
 
         self.assertIn("core.runtime", by_id)
         self.assertIn("#", by_id["core.runtime"].subscribe_scopes)
@@ -80,6 +82,28 @@ class TestMqttEffectiveAccess(unittest.TestCase):
         self.assertIn("node:node-123", by_id)
         self.assertEqual(by_id["node:node-123"].publish_scopes, ["hexe/nodes/node-123/#"])
         self.assertEqual(by_id["node:node-123"].subscribe_scopes, ["hexe/nodes/node-123/#"])
+
+    def test_non_reserved_generic_user_keeps_external_notification_namespace_available(self) -> None:
+        state = MqttIntegrationState(
+            principals={
+                "user:guest1": MqttPrincipal(
+                    principal_id="user:guest1",
+                    principal_type="generic_user",
+                    status="active",
+                    logical_identity="guest1",
+                    access_mode="non_reserved",
+                    publish_topics=["#"],
+                    subscribe_topics=["#"],
+                )
+            }
+        )
+
+        compiled = MqttEffectiveAccessCompiler().compile(state)
+        by_id = {item.principal_id: item for item in compiled}
+        self.assertEqual(by_id["user:guest1"].publish_scopes, ["#"])
+        self.assertEqual(by_id["user:guest1"].subscribe_scopes, ["#"])
+        self.assertNotIn("hexe/notify/external/#", by_id["user:guest1"].reserved_prefix_denies)
+        self.assertIn("hexe/services/#", by_id["user:guest1"].reserved_prefix_denies)
 
 
 if __name__ == "__main__":
