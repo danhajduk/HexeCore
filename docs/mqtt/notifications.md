@@ -42,6 +42,7 @@ Current Core-originated HA alerts:
 - system online after startup reconcile completes
 - core MQTT runtime warnings when the runtime becomes degraded
 - core MQTT runtime errors when the runtime supervisor fails
+- trusted operational node warnings when an installed node becomes degraded or offline
 
 ## Schema
 
@@ -169,7 +170,14 @@ Current Core HA alert conventions:
 - system online uses severity `success` and urgency `notification`
 - core warnings use severity `warning` and urgency `actions_needed`
 - core errors use severity `error` and urgency `urgent`
+- trusted operational node health alerts use severity `warning` and urgency `actions_needed`
 - runtime-health alerts are transition-based so Core does not emit them on every supervisor loop iteration
+
+Current node warning behavior:
+- Core polls trusted operational node runtime freshness every 30 seconds
+- when a node first becomes `degraded` or `offline`, Core emits a user-facing popup/event notification
+- node warnings target both `broadcast=true` for local desktop delivery and `external=["ha"]` for HA relay
+- dedupe keys are node-and-status specific so the same warning state is not re-emitted every poll cycle
 
 ## Node Proxy Contract
 

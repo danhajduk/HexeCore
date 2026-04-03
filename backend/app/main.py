@@ -16,6 +16,7 @@ from .core import (
     CoreSystemNotificationService,
     DevelopmentNotificationTrigger,
     LocalDesktopNotificationConsumer,
+    NodeOperationalNotificationService,
     NotificationBridgeService,
     NodeNotificationProxyService,
 )
@@ -286,6 +287,18 @@ def create_app() -> FastAPI:
             task.add_done_callback(_finalize)
 
         _track_startup_task(asyncio.create_task(mqtt_warmup_sequence()))
+
+        async def node_operational_notification_loop() -> None:
+            while True:
+                try:
+                    service = getattr(app.state, "node_operational_notification_service", None)
+                    if service is not None:
+                        await service.poll_once()
+                except Exception:
+                    log.exception("Node operational notification loop failed")
+                await asyncio.sleep(30.0)
+
+        asyncio.create_task(node_operational_notification_loop())
 
         async def mqtt_runtime_supervision_loop() -> None:
             last_runtime_healthy: bool | None = None
@@ -691,6 +704,12 @@ def create_app() -> FastAPI:
     app.state.system_notification_service = CoreSystemNotificationService(
         app.state.notification_publisher,
         core_version=app.version,
+    )
+    app.state.node_operational_notification_service = NodeOperationalNotificationService(
+        app.state.notification_publisher,
+        mqtt_manager,
+        node_registrations_store,
+        node_governance_status_service,
     )
     mqtt_dirs = ensure_runtime_dirs(os.getcwd())
     mqtt_live_dir = mqtt_dirs["live"]

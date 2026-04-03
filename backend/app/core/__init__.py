@@ -1,5 +1,6 @@
 from .notification_debug import DevelopmentNotificationTrigger
 from .notification_bridge import NotificationBridgeService
+from .node_operational_notification_service import NodeOperationalNotificationService
 from .notification_proxy import NodeNotificationProxyService
 from .notification_publisher import CoreNotificationPublisher
 from .notification_consumer import LocalDesktopNotificationConsumer
@@ -42,6 +43,7 @@ __all__ = [
     "NODE_NOTIFICATION_REQUEST_TOPIC_FILTER",
     "DevelopmentNotificationTrigger",
     "NotificationBridgeService",
+    "NodeOperationalNotificationService",
     "NodeNotificationProxyService",
     "CoreNotificationPublisher",
     "CoreSystemNotificationService",
