@@ -60,7 +60,8 @@ class NotificationBridgeService:
                 continue
             bridge_topic = external_notification_topic(target)
             bridge_payload = self._to_external_payload(message=message, source_topic=topic)
-            result = await self._publisher.publish(topic=bridge_topic, payload=bridge_payload, retain=False, qos=1)
+            bridge_retain = bool(retained) or topic.endswith("/state")
+            result = await self._publisher.publish(topic=bridge_topic, payload=bridge_payload, retain=bridge_retain, qos=1)
             if bool(result.get("ok")):
                 forwarded = True
                 self._log.info(

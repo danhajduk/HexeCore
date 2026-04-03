@@ -221,6 +221,9 @@ def create_app() -> FastAPI:
             mqtt_manager = getattr(app.state, "mqtt_manager", None)
             if mqtt_manager is not None:
                 await mqtt_manager.start()
+                connected = await mqtt_manager.wait_until_connected(timeout_s=10.0)
+                if not connected:
+                    log.warning("MQTT manager did not report connected before startup notification phase")
             notification_bridge = getattr(app.state, "notification_bridge", None)
             if notification_bridge is not None:
                 await notification_bridge.start()
@@ -236,6 +239,9 @@ def create_app() -> FastAPI:
                     await mqtt_startup_reconciler.reconcile_startup()
                     if mqtt_manager is not None:
                         await mqtt_manager.restart()
+                        connected = await mqtt_manager.wait_until_connected(timeout_s=10.0)
+                        if not connected:
+                            log.warning("MQTT manager did not reconnect before post-reconcile startup notifications")
                 except Exception:
                     log.exception("Embedded MQTT startup reconciliation failed")
             mqtt_approval = getattr(app.state, "mqtt_registration_approval", None)

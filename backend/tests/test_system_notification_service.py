@@ -8,11 +8,22 @@ from app.core import CoreSystemNotificationService
 
 class _FakeNotificationPublisher:
     def __init__(self) -> None:
-        self.calls: list[tuple[dict[str, Any], dict[str, Any]]] = []
+        self.event_calls: list[tuple[dict[str, Any], dict[str, Any]]] = []
+        self.state_calls: list[tuple[dict[str, Any], dict[str, Any]]] = []
 
     async def publish_internal_event(self, payload: dict[str, Any], *, qos: int = 1) -> dict[str, Any]:
-        self.calls.append((payload, {"qos": qos}))
+        self.event_calls.append((payload, {"qos": qos}))
         return {"ok": True, "topic": "hexe/notify/internal/event", "message_id": "event-1"}
+
+    async def publish_internal_state(
+        self,
+        payload: dict[str, Any],
+        *,
+        qos: int = 1,
+        retain: bool = False,
+    ) -> dict[str, Any]:
+        self.state_calls.append((payload, {"qos": qos, "retain": retain}))
+        return {"ok": True, "topic": "hexe/notify/internal/state", "message_id": "state-1"}
 
 
 class TestSystemNotificationService(unittest.IsolatedAsyncioTestCase):
@@ -26,12 +37,13 @@ class TestSystemNotificationService(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertTrue(result["ok"])
-        payload = publisher.calls[0][0]
+        payload = publisher.state_calls[0][0]
         self.assertEqual(payload["targets"], {"external": ["ha"]})
         self.assertEqual(payload["delivery"]["severity"], "success")
         self.assertEqual(payload["delivery"]["urgency"], "notification")
-        self.assertEqual(payload["event"]["action"], "online")
+        self.assertEqual(payload["state"]["status"], "online")
         self.assertEqual(payload["source"]["component"], "startup")
+        self.assertTrue(publisher.state_calls[0][1]["retain"])
 
     async def test_emit_system_warning_marks_actions_needed(self) -> None:
         publisher = _FakeNotificationPublisher()
@@ -44,7 +56,7 @@ class TestSystemNotificationService(unittest.IsolatedAsyncioTestCase):
             data={"provider": "docker"},
         )
 
-        payload = publisher.calls[0][0]
+        payload = publisher.event_calls[0][0]
         self.assertEqual(payload["delivery"]["severity"], "warning")
         self.assertEqual(payload["delivery"]["priority"], "high")
         self.assertEqual(payload["delivery"]["urgency"], "actions_needed")
@@ -63,7 +75,7 @@ class TestSystemNotificationService(unittest.IsolatedAsyncioTestCase):
             data={"error_type": "RuntimeError"},
         )
 
-        payload = publisher.calls[0][0]
+        payload = publisher.event_calls[0][0]
         self.assertEqual(payload["targets"], {"external": ["ha"]})
         self.assertEqual(payload["delivery"]["severity"], "error")
         self.assertEqual(payload["delivery"]["priority"], "urgent")

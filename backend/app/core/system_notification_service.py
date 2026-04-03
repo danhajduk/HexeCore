@@ -30,15 +30,16 @@ class CoreSystemNotificationService:
                 "title": f"{naming.core()} Online",
                 "message": message or f"{naming.core()} is online.",
             },
-            "event": {
-                "event_type": "core_system_online",
-                "action": "online",
-                "summary": f"{naming.core()} online",
+            "state": {
+                "state_type": "core_system",
+                "status": "online",
+                "current": "online",
+                "previous": "offline",
                 "attributes": {"component": component, "host": hostname},
             },
             "data": {"core_version": self._core_version, "component": component, "host": hostname},
         }
-        return await self._emit_event(notification_type="online", component=component, payload=payload)
+        return await self._emit_state(notification_type="online", component=component, payload=payload)
 
     async def emit_system_warning(
         self,
@@ -108,6 +109,21 @@ class CoreSystemNotificationService:
 
     async def _emit_event(self, *, notification_type: str, component: str, payload: dict[str, Any]) -> dict[str, Any]:
         result = await self._publisher.publish_internal_event(payload)
+        level = logging.INFO if bool(result.get("ok")) else logging.WARNING
+        self._log.log(
+            level,
+            "core_system_notification_emitted type=%s component=%s topic=%s ok=%s message_id=%s result=%s",
+            notification_type,
+            component,
+            result.get("topic"),
+            bool(result.get("ok")),
+            result.get("message_id"),
+            result,
+        )
+        return result
+
+    async def _emit_state(self, *, notification_type: str, component: str, payload: dict[str, Any]) -> dict[str, Any]:
+        result = await self._publisher.publish_internal_state(payload, retain=True)
         level = logging.INFO if bool(result.get("ok")) else logging.WARNING
         self._log.log(
             level,

@@ -60,6 +60,24 @@ class TestNotificationBridge(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(publisher.calls[0]["payload"]["kind"], "event")
         self.assertFalse(publisher.calls[0]["retain"])
 
+    async def test_bridge_retains_state_notifications_for_external_targets(self) -> None:
+        publisher = _FakePublisher()
+        bridge = NotificationBridgeService(publisher, _FakeManager())
+        payload = {
+            "source": {"kind": "core", "id": "hexe-core", "component": "startup"},
+            "targets": {"external": ["ha"]},
+            "delivery": {"severity": "success", "priority": "normal", "urgency": "notification", "channels": ["state"]},
+            "content": {"title": "Hexe Core Online", "message": "Hexe Core is online."},
+            "state": {"state_type": "core_system", "status": "online", "current": "online"},
+        }
+
+        await bridge._handle_runtime_message("hexe/notify/internal/state", payload, True)
+
+        self.assertEqual(len(publisher.calls), 1)
+        self.assertEqual(publisher.calls[0]["topic"], "hexe-notify/ha")
+        self.assertEqual(publisher.calls[0]["payload"]["kind"], "state")
+        self.assertTrue(publisher.calls[0]["retain"])
+
     async def test_bridge_skips_messages_without_external_targets(self) -> None:
         publisher = _FakePublisher()
         bridge = NotificationBridgeService(publisher, _FakeManager())

@@ -153,6 +153,16 @@ class MqttManager:
             self._record_stats_sample()
             log.exception("MQTT restart failed")
 
+    async def wait_until_connected(self, *, timeout_s: float = 10.0, poll_interval_s: float = 0.1) -> bool:
+        if not self._enabled:
+            return False
+        deadline = time.monotonic() + max(0.0, float(timeout_s))
+        while time.monotonic() <= deadline:
+            if self._connected:
+                return True
+            await asyncio.sleep(max(0.01, float(poll_interval_s)))
+        return self._connected
+
     async def status(self) -> dict[str, Any]:
         cfg = self._config
         return {

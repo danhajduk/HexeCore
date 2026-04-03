@@ -99,6 +99,38 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(status["auth_failures"], 0)
         self.assertEqual(status["reconnect_spikes"], 0)
 
+    async def test_wait_until_connected_returns_true_after_connect_flag_set(self) -> None:
+        manager = MqttManager(
+            settings_store=_FakeSettingsStore(),
+            registry=_FakeRegistry(),
+            service_catalog_store=_FakeServiceCatalogStore(),
+            enabled=True,
+        )
+
+        async def _flip_connected() -> None:
+            await asyncio.sleep(0.02)
+            manager._connected = True
+
+        task = asyncio.create_task(_flip_connected())
+        try:
+            connected = await manager.wait_until_connected(timeout_s=0.5, poll_interval_s=0.01)
+        finally:
+            await task
+
+        self.assertTrue(connected)
+
+    async def test_wait_until_connected_times_out_when_not_connected(self) -> None:
+        manager = MqttManager(
+            settings_store=_FakeSettingsStore(),
+            registry=_FakeRegistry(),
+            service_catalog_store=_FakeServiceCatalogStore(),
+            enabled=True,
+        )
+
+        connected = await manager.wait_until_connected(timeout_s=0.05, poll_interval_s=0.01)
+
+        self.assertFalse(connected)
+
     async def test_dispatches_addon_announce_and_health(self) -> None:
         registry = _FakeRegistry()
         sessions = _FakeInstallSessionsStore()
