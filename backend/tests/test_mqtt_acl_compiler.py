@@ -41,6 +41,29 @@ class TestMqttAclCompiler(unittest.TestCase):
         self.assertIn("topic write hexe/addons/vision/event/#", acl)
         self.assertIn("topic read hexe/system/health", acl)
 
+    def test_core_runtime_acl_includes_notification_write_topics(self) -> None:
+        state = MqttIntegrationState(
+            principals={
+                "core.runtime": MqttPrincipal(
+                    principal_id="core.runtime",
+                    principal_type="system",
+                    status="active",
+                    logical_identity="core.runtime",
+                    username="hx_core.runtime",
+                    publish_topics=["hexe/core/mqtt/info"],
+                    subscribe_topics=["#", "$SYS/#"],
+                )
+            }
+        )
+
+        acl = MqttAclCompiler().compile(state).acl_text
+
+        self.assertIn("user hx_core.runtime", acl)
+        self.assertIn("topic write hexe/core/mqtt/info", acl)
+        self.assertIn("topic write hexe/notify/internal/#", acl)
+        self.assertIn("topic write hexe-notify/#", acl)
+        self.assertIn("topic read #", acl)
+
     def test_compiles_synthia_principal_without_username_using_credential_style_name(self) -> None:
         state = MqttIntegrationState(
             principals={

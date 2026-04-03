@@ -62,6 +62,10 @@ GENERIC_USER_RESERVED_ACL_DENIES: tuple[str, ...] = (
     f"{MQTT_TOPIC_ROOT}/#",
 )
 GENERIC_USER_NOTIFY_EXTERNAL_TOPIC = "hexe-notify/#"
+CORE_RUNTIME_NOTIFY_WRITE_TOPICS: tuple[str, ...] = (
+    f"{MQTT_TOPIC_ROOT}/notify/internal/#",
+    "hexe-notify/#",
+)
 TOP_LEVEL_RESERVED_FAMILIES: tuple[str, ...] = (
     "bootstrap",
     "runtime",
@@ -202,3 +206,7 @@ def generic_user_reserved_acl_denies() -> list[str]:
 
 def generic_user_notify_external_topic() -> str:
     return GENERIC_USER_NOTIFY_EXTERNAL_TOPIC
+
+
+def core_runtime_notify_write_topics() -> list[str]:
+    return sorted({str(item).strip() for item in CORE_RUNTIME_NOTIFY_WRITE_TOPICS if str(item).strip()})
