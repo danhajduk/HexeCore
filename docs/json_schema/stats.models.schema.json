@@ -1,0 +1,1101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Catalog of Core-owned schemas generated from app.system.stats.models.",
+  "schemas": {
+    "AddonStatsSnapshot": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "custom": {
+          "additionalProperties": true,
+          "title": "Custom",
+          "type": "object"
+        },
+        "health_last_checked": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Health Last Checked"
+        },
+        "health_last_ok": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Health Last Ok"
+        },
+        "health_status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Health Status"
+        },
+        "lifecycle_state": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lifecycle State"
+        },
+        "runtime_dir_bytes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Runtime Dir Bytes"
+        }
+      },
+      "title": "AddonStatsSnapshot",
+      "type": "object"
+    },
+    "CpuStats": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "cores_logical": {
+          "title": "Cores Logical",
+          "type": "integer"
+        },
+        "cores_physical": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cores Physical"
+        },
+        "percent_per_cpu": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Percent Per Cpu",
+          "type": "array"
+        },
+        "percent_total": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Percent Total",
+          "type": "number"
+        }
+      },
+      "required": [
+        "percent_total",
+        "percent_per_cpu",
+        "cores_logical"
+      ],
+      "title": "CpuStats",
+      "type": "object"
+    },
+    "DiskUsage": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "free": {
+          "title": "Free",
+          "type": "integer"
+        },
+        "percent": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Percent",
+          "type": "number"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "used": {
+          "title": "Used",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total",
+        "used",
+        "free",
+        "percent"
+      ],
+      "title": "DiskUsage",
+      "type": "object"
+    },
+    "LoadAvg": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "load1": {
+          "title": "Load1",
+          "type": "number"
+        },
+        "load15": {
+          "title": "Load15",
+          "type": "number"
+        },
+        "load5": {
+          "title": "Load5",
+          "type": "number"
+        }
+      },
+      "required": [
+        "load1",
+        "load5",
+        "load15"
+      ],
+      "title": "LoadAvg",
+      "type": "object"
+    },
+    "MemStats": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "available": {
+          "title": "Available",
+          "type": "integer"
+        },
+        "free": {
+          "title": "Free",
+          "type": "integer"
+        },
+        "percent": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Percent",
+          "type": "number"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "used": {
+          "title": "Used",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total",
+        "available",
+        "used",
+        "free",
+        "percent"
+      ],
+      "title": "MemStats",
+      "type": "object"
+    },
+    "NetIfaceCounters": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "bytes_recv": {
+          "title": "Bytes Recv",
+          "type": "integer"
+        },
+        "bytes_sent": {
+          "title": "Bytes Sent",
+          "type": "integer"
+        },
+        "dropin": {
+          "title": "Dropin",
+          "type": "integer"
+        },
+        "dropout": {
+          "title": "Dropout",
+          "type": "integer"
+        },
+        "errin": {
+          "title": "Errin",
+          "type": "integer"
+        },
+        "errout": {
+          "title": "Errout",
+          "type": "integer"
+        },
+        "packets_recv": {
+          "title": "Packets Recv",
+          "type": "integer"
+        },
+        "packets_sent": {
+          "title": "Packets Sent",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "bytes_sent",
+        "bytes_recv",
+        "packets_sent",
+        "packets_recv",
+        "errin",
+        "errout",
+        "dropin",
+        "dropout"
+      ],
+      "title": "NetIfaceCounters",
+      "type": "object"
+    },
+    "NetIfaceRates": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "rx_Bps": {
+          "minimum": 0,
+          "title": "Rx Bps",
+          "type": "number"
+        },
+        "tx_Bps": {
+          "minimum": 0,
+          "title": "Tx Bps",
+          "type": "number"
+        }
+      },
+      "required": [
+        "tx_Bps",
+        "rx_Bps"
+      ],
+      "title": "NetIfaceRates",
+      "type": "object"
+    },
+    "NetStats": {
+      "$defs": {
+        "NetIfaceCounters": {
+          "properties": {
+            "bytes_recv": {
+              "title": "Bytes Recv",
+              "type": "integer"
+            },
+            "bytes_sent": {
+              "title": "Bytes Sent",
+              "type": "integer"
+            },
+            "dropin": {
+              "title": "Dropin",
+              "type": "integer"
+            },
+            "dropout": {
+              "title": "Dropout",
+              "type": "integer"
+            },
+            "errin": {
+              "title": "Errin",
+              "type": "integer"
+            },
+            "errout": {
+              "title": "Errout",
+              "type": "integer"
+            },
+            "packets_recv": {
+              "title": "Packets Recv",
+              "type": "integer"
+            },
+            "packets_sent": {
+              "title": "Packets Sent",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "bytes_sent",
+            "bytes_recv",
+            "packets_sent",
+            "packets_recv",
+            "errin",
+            "errout",
+            "dropin",
+            "dropout"
+          ],
+          "title": "NetIfaceCounters",
+          "type": "object"
+        },
+        "NetIfaceRates": {
+          "properties": {
+            "rx_Bps": {
+              "minimum": 0,
+              "title": "Rx Bps",
+              "type": "number"
+            },
+            "tx_Bps": {
+              "minimum": 0,
+              "title": "Tx Bps",
+              "type": "number"
+            }
+          },
+          "required": [
+            "tx_Bps",
+            "rx_Bps"
+          ],
+          "title": "NetIfaceRates",
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "per_iface": {
+          "additionalProperties": {
+            "$ref": "#/$defs/NetIfaceCounters"
+          },
+          "title": "Per Iface",
+          "type": "object"
+        },
+        "per_iface_rate": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/NetIfaceRates"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Per Iface Rate"
+        },
+        "total": {
+          "$ref": "#/$defs/NetIfaceCounters"
+        },
+        "total_rate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NetIfaceRates"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "total",
+        "per_iface"
+      ],
+      "title": "NetStats",
+      "type": "object"
+    },
+    "QuietAssessment": {
+      "$defs": {
+        "QuietState": {
+          "enum": [
+            "QUIET",
+            "NORMAL",
+            "BUSY",
+            "PANIC"
+          ],
+          "title": "QuietState",
+          "type": "string"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "inputs": {
+          "additionalProperties": true,
+          "title": "Inputs",
+          "type": "object"
+        },
+        "quiet_score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Quiet Score",
+          "type": "integer"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "state": {
+          "$ref": "#/$defs/QuietState"
+        }
+      },
+      "required": [
+        "quiet_score",
+        "state"
+      ],
+      "title": "QuietAssessment",
+      "type": "object"
+    },
+    "ServiceUnitStatus": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "active_state": {
+          "default": "unknown",
+          "title": "Active State",
+          "type": "string"
+        },
+        "available": {
+          "default": true,
+          "title": "Available",
+          "type": "boolean"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        },
+        "load_state": {
+          "default": "unknown",
+          "title": "Load State",
+          "type": "string"
+        },
+        "running": {
+          "default": false,
+          "title": "Running",
+          "type": "boolean"
+        },
+        "sub_state": {
+          "default": "unknown",
+          "title": "Sub State",
+          "type": "string"
+        },
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "unit_file_state": {
+          "default": "unknown",
+          "title": "Unit File State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "unit"
+      ],
+      "title": "ServiceUnitStatus",
+      "type": "object"
+    },
+    "SwapStats": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "free": {
+          "title": "Free",
+          "type": "integer"
+        },
+        "percent": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Percent",
+          "type": "number"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "used": {
+          "title": "Used",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total",
+        "used",
+        "free",
+        "percent"
+      ],
+      "title": "SwapStats",
+      "type": "object"
+    },
+    "SystemStats": {
+      "$defs": {
+        "CpuStats": {
+          "properties": {
+            "cores_logical": {
+              "title": "Cores Logical",
+              "type": "integer"
+            },
+            "cores_physical": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Cores Physical"
+            },
+            "percent_per_cpu": {
+              "items": {
+                "type": "number"
+              },
+              "title": "Percent Per Cpu",
+              "type": "array"
+            },
+            "percent_total": {
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Percent Total",
+              "type": "number"
+            }
+          },
+          "required": [
+            "percent_total",
+            "percent_per_cpu",
+            "cores_logical"
+          ],
+          "title": "CpuStats",
+          "type": "object"
+        },
+        "DiskUsage": {
+          "properties": {
+            "free": {
+              "title": "Free",
+              "type": "integer"
+            },
+            "percent": {
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Percent",
+              "type": "number"
+            },
+            "total": {
+              "title": "Total",
+              "type": "integer"
+            },
+            "used": {
+              "title": "Used",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "total",
+            "used",
+            "free",
+            "percent"
+          ],
+          "title": "DiskUsage",
+          "type": "object"
+        },
+        "LoadAvg": {
+          "properties": {
+            "load1": {
+              "title": "Load1",
+              "type": "number"
+            },
+            "load15": {
+              "title": "Load15",
+              "type": "number"
+            },
+            "load5": {
+              "title": "Load5",
+              "type": "number"
+            }
+          },
+          "required": [
+            "load1",
+            "load5",
+            "load15"
+          ],
+          "title": "LoadAvg",
+          "type": "object"
+        },
+        "MemStats": {
+          "properties": {
+            "available": {
+              "title": "Available",
+              "type": "integer"
+            },
+            "free": {
+              "title": "Free",
+              "type": "integer"
+            },
+            "percent": {
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Percent",
+              "type": "number"
+            },
+            "total": {
+              "title": "Total",
+              "type": "integer"
+            },
+            "used": {
+              "title": "Used",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "total",
+            "available",
+            "used",
+            "free",
+            "percent"
+          ],
+          "title": "MemStats",
+          "type": "object"
+        },
+        "NetIfaceCounters": {
+          "properties": {
+            "bytes_recv": {
+              "title": "Bytes Recv",
+              "type": "integer"
+            },
+            "bytes_sent": {
+              "title": "Bytes Sent",
+              "type": "integer"
+            },
+            "dropin": {
+              "title": "Dropin",
+              "type": "integer"
+            },
+            "dropout": {
+              "title": "Dropout",
+              "type": "integer"
+            },
+            "errin": {
+              "title": "Errin",
+              "type": "integer"
+            },
+            "errout": {
+              "title": "Errout",
+              "type": "integer"
+            },
+            "packets_recv": {
+              "title": "Packets Recv",
+              "type": "integer"
+            },
+            "packets_sent": {
+              "title": "Packets Sent",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "bytes_sent",
+            "bytes_recv",
+            "packets_sent",
+            "packets_recv",
+            "errin",
+            "errout",
+            "dropin",
+            "dropout"
+          ],
+          "title": "NetIfaceCounters",
+          "type": "object"
+        },
+        "NetIfaceRates": {
+          "properties": {
+            "rx_Bps": {
+              "minimum": 0,
+              "title": "Rx Bps",
+              "type": "number"
+            },
+            "tx_Bps": {
+              "minimum": 0,
+              "title": "Tx Bps",
+              "type": "number"
+            }
+          },
+          "required": [
+            "tx_Bps",
+            "rx_Bps"
+          ],
+          "title": "NetIfaceRates",
+          "type": "object"
+        },
+        "NetStats": {
+          "properties": {
+            "per_iface": {
+              "additionalProperties": {
+                "$ref": "#/$defs/NetIfaceCounters"
+              },
+              "title": "Per Iface",
+              "type": "object"
+            },
+            "per_iface_rate": {
+              "anyOf": [
+                {
+                  "additionalProperties": {
+                    "$ref": "#/$defs/NetIfaceRates"
+                  },
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Per Iface Rate"
+            },
+            "total": {
+              "$ref": "#/$defs/NetIfaceCounters"
+            },
+            "total_rate": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/NetIfaceRates"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            }
+          },
+          "required": [
+            "total",
+            "per_iface"
+          ],
+          "title": "NetStats",
+          "type": "object"
+        },
+        "ServiceUnitStatus": {
+          "properties": {
+            "active_state": {
+              "default": "unknown",
+              "title": "Active State",
+              "type": "string"
+            },
+            "available": {
+              "default": true,
+              "title": "Available",
+              "type": "boolean"
+            },
+            "error": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Error"
+            },
+            "load_state": {
+              "default": "unknown",
+              "title": "Load State",
+              "type": "string"
+            },
+            "running": {
+              "default": false,
+              "title": "Running",
+              "type": "boolean"
+            },
+            "sub_state": {
+              "default": "unknown",
+              "title": "Sub State",
+              "type": "string"
+            },
+            "unit": {
+              "title": "Unit",
+              "type": "string"
+            },
+            "unit_file_state": {
+              "default": "unknown",
+              "title": "Unit File State",
+              "type": "string"
+            }
+          },
+          "required": [
+            "unit"
+          ],
+          "title": "ServiceUnitStatus",
+          "type": "object"
+        },
+        "SwapStats": {
+          "properties": {
+            "free": {
+              "title": "Free",
+              "type": "integer"
+            },
+            "percent": {
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Percent",
+              "type": "number"
+            },
+            "total": {
+              "title": "Total",
+              "type": "integer"
+            },
+            "used": {
+              "title": "Used",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "total",
+            "used",
+            "free",
+            "percent"
+          ],
+          "title": "SwapStats",
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "api": {
+          "additionalProperties": true,
+          "title": "Api",
+          "type": "object"
+        },
+        "busy_rating": {
+          "title": "Busy Rating",
+          "type": "number"
+        },
+        "cpu": {
+          "$ref": "#/$defs/CpuStats"
+        },
+        "disks": {
+          "additionalProperties": {
+            "$ref": "#/$defs/DiskUsage"
+          },
+          "title": "Disks",
+          "type": "object"
+        },
+        "hostname": {
+          "title": "Hostname",
+          "type": "string"
+        },
+        "load": {
+          "$ref": "#/$defs/LoadAvg"
+        },
+        "mem": {
+          "$ref": "#/$defs/MemStats"
+        },
+        "net": {
+          "$ref": "#/$defs/NetStats"
+        },
+        "services": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ServiceUnitStatus"
+          },
+          "title": "Services",
+          "type": "object"
+        },
+        "swap": {
+          "$ref": "#/$defs/SwapStats"
+        },
+        "timestamp": {
+          "title": "Timestamp",
+          "type": "number"
+        },
+        "uptime_s": {
+          "title": "Uptime S",
+          "type": "number"
+        }
+      },
+      "required": [
+        "timestamp",
+        "hostname",
+        "uptime_s",
+        "load",
+        "cpu",
+        "mem",
+        "swap",
+        "disks",
+        "services",
+        "net",
+        "api",
+        "busy_rating"
+      ],
+      "title": "SystemStats",
+      "type": "object"
+    },
+    "SystemStatsSnapshot": {
+      "$defs": {
+        "AddonStatsSnapshot": {
+          "properties": {
+            "custom": {
+              "additionalProperties": true,
+              "title": "Custom",
+              "type": "object"
+            },
+            "health_last_checked": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Health Last Checked"
+            },
+            "health_last_ok": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Health Last Ok"
+            },
+            "health_status": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Health Status"
+            },
+            "lifecycle_state": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Lifecycle State"
+            },
+            "runtime_dir_bytes": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Runtime Dir Bytes"
+            }
+          },
+          "title": "AddonStatsSnapshot",
+          "type": "object"
+        },
+        "QuietAssessment": {
+          "properties": {
+            "inputs": {
+              "additionalProperties": true,
+              "title": "Inputs",
+              "type": "object"
+            },
+            "quiet_score": {
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Quiet Score",
+              "type": "integer"
+            },
+            "reasons": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Reasons",
+              "type": "array"
+            },
+            "state": {
+              "$ref": "#/$defs/QuietState"
+            }
+          },
+          "required": [
+            "quiet_score",
+            "state"
+          ],
+          "title": "QuietAssessment",
+          "type": "object"
+        },
+        "QuietState": {
+          "enum": [
+            "QUIET",
+            "NORMAL",
+            "BUSY",
+            "PANIC"
+          ],
+          "title": "QuietState",
+          "type": "string"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "addons": {
+          "additionalProperties": {
+            "$ref": "#/$defs/AddonStatsSnapshot"
+          },
+          "title": "Addons",
+          "type": "object"
+        },
+        "api": {
+          "additionalProperties": true,
+          "title": "Api",
+          "type": "object"
+        },
+        "collected_at": {
+          "format": "date-time",
+          "title": "Collected At",
+          "type": "string"
+        },
+        "errors": {
+          "additionalProperties": true,
+          "title": "Errors",
+          "type": "object"
+        },
+        "host": {
+          "additionalProperties": true,
+          "title": "Host",
+          "type": "object"
+        },
+        "process": {
+          "additionalProperties": true,
+          "title": "Process",
+          "type": "object"
+        },
+        "quiet": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/QuietAssessment"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "collected_at"
+      ],
+      "title": "SystemStatsSnapshot",
+      "type": "object"
+    }
+  },
+  "title": "Hexe Stats Models",
+  "type": "object"
+}

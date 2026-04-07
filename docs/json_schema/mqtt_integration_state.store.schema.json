@@ -1,0 +1,453 @@
+{
+  "$defs": {
+    "MqttAddonGrant": {
+      "properties": {
+        "access_mode": {
+          "default": "gateway",
+          "enum": [
+            "gateway",
+            "direct",
+            "both"
+          ],
+          "title": "Access Mode",
+          "type": "string"
+        },
+        "access_profile": {
+          "default": "gateway",
+          "title": "Access Profile",
+          "type": "string"
+        },
+        "addon_id": {
+          "minLength": 1,
+          "title": "Addon Id",
+          "type": "string"
+        },
+        "granted_ha_mode": {
+          "default": "disabled",
+          "title": "Granted Ha Mode",
+          "type": "string"
+        },
+        "last_error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Error"
+        },
+        "last_provisioned_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Provisioned At"
+        },
+        "last_revoked_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Revoked At"
+        },
+        "provision_contract": {
+          "additionalProperties": true,
+          "title": "Provision Contract",
+          "type": "object"
+        },
+        "publish_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Publish Topics",
+          "type": "array"
+        },
+        "revocation_pending": {
+          "default": false,
+          "title": "Revocation Pending",
+          "type": "boolean"
+        },
+        "status": {
+          "default": "approved",
+          "enum": [
+            "approved",
+            "active",
+            "provisioned",
+            "revoked",
+            "error"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "subscribe_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Subscribe Topics",
+          "type": "array"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "addon_id"
+      ],
+      "title": "MqttAddonGrant",
+      "type": "object"
+    },
+    "MqttPrincipal": {
+      "properties": {
+        "access_mode": {
+          "default": "private",
+          "enum": [
+            "private",
+            "custom",
+            "non_reserved",
+            "admin"
+          ],
+          "title": "Access Mode",
+          "type": "string"
+        },
+        "allowed_publish_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Publish Topics",
+          "type": "array"
+        },
+        "allowed_subscribe_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Subscribe Topics",
+          "type": "array"
+        },
+        "allowed_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Topics",
+          "type": "array"
+        },
+        "approved_reserved_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Approved Reserved Topics",
+          "type": "array"
+        },
+        "expires_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expires At"
+        },
+        "last_activated_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Activated At"
+        },
+        "last_revoked_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Revoked At"
+        },
+        "linked_addon_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Linked Addon Id"
+        },
+        "linked_node_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Linked Node Id"
+        },
+        "logical_identity": {
+          "minLength": 1,
+          "title": "Logical Identity",
+          "type": "string"
+        },
+        "managed_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Managed By"
+        },
+        "noisy_inputs": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Noisy Inputs",
+          "type": "object"
+        },
+        "noisy_state": {
+          "default": "normal",
+          "enum": [
+            "normal",
+            "watch",
+            "noisy",
+            "blocked"
+          ],
+          "title": "Noisy State",
+          "type": "string"
+        },
+        "noisy_updated_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Noisy Updated At"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        },
+        "principal_id": {
+          "minLength": 1,
+          "title": "Principal Id",
+          "type": "string"
+        },
+        "principal_type": {
+          "default": "synthia_addon",
+          "enum": [
+            "synthia_addon",
+            "synthia_node",
+            "generic_user",
+            "system"
+          ],
+          "title": "Principal Type",
+          "type": "string"
+        },
+        "probation_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Probation Reason"
+        },
+        "publish_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Publish Topics",
+          "type": "array"
+        },
+        "status": {
+          "default": "pending",
+          "enum": [
+            "pending",
+            "active",
+            "probation",
+            "revoked",
+            "expired"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "subscribe_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Subscribe Topics",
+          "type": "array"
+        },
+        "topic_prefix": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Topic Prefix"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        },
+        "username": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Username"
+        }
+      },
+      "required": [
+        "principal_id",
+        "logical_identity"
+      ],
+      "title": "MqttPrincipal",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Schema for backend/var/mqtt_integration_state.json.",
+  "properties": {
+    "active_grants": {
+      "additionalProperties": {
+        "$ref": "#/$defs/MqttAddonGrant"
+      },
+      "title": "Active Grants",
+      "type": "object"
+    },
+    "authority_mode": {
+      "default": "embedded_platform",
+      "title": "Authority Mode",
+      "type": "string"
+    },
+    "authority_ready": {
+      "default": false,
+      "title": "Authority Ready",
+      "type": "boolean"
+    },
+    "broker_mode": {
+      "default": "local",
+      "title": "Broker Mode",
+      "type": "string"
+    },
+    "direct_mqtt_supported": {
+      "default": false,
+      "title": "Direct Mqtt Supported",
+      "type": "boolean"
+    },
+    "mqtt_enabled": {
+      "default": true,
+      "title": "Mqtt Enabled",
+      "type": "boolean"
+    },
+    "principals": {
+      "additionalProperties": {
+        "$ref": "#/$defs/MqttPrincipal"
+      },
+      "title": "Principals",
+      "type": "object"
+    },
+    "requires_setup": {
+      "default": true,
+      "title": "Requires Setup",
+      "type": "boolean"
+    },
+    "schema_version": {
+      "default": 1,
+      "minimum": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "setup_complete": {
+      "default": false,
+      "title": "Setup Complete",
+      "type": "boolean"
+    },
+    "setup_error": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Setup Error"
+    },
+    "setup_status": {
+      "default": "unconfigured",
+      "enum": [
+        "unconfigured",
+        "configuring",
+        "ready",
+        "error",
+        "degraded"
+      ],
+      "title": "Setup Status",
+      "type": "string"
+    },
+    "updated_at": {
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "title": "MqttIntegrationState",
+  "type": "object"
+}

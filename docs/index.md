@@ -29,6 +29,7 @@ Compatibility note: public-facing docs now use Hexe AI / Hexe Core naming, and a
 
 - [operators-guide.md](./operators-guide.md)
 - [development-guide.md](./development-guide.md)
+- [json_schema/README.md](./json_schema/README.md)
 - [migration/documentation-migration-map.md](./migration/documentation-migration-map.md)
 - [migration/final-architecture-verification-2026-03-16.md](./migration/final-architecture-verification-2026-03-16.md)
 - [standards/README.md](./standards/README.md)

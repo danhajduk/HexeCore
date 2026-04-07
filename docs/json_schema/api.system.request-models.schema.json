@@ -1,0 +1,947 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Catalog of Core-owned schemas generated from app.api.system.",
+  "schemas": {
+    "BudgetAllocationUpsertRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "compute_limit": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Compute Limit"
+        },
+        "money_limit": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Money Limit"
+        },
+        "subject_id": {
+          "title": "Subject Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "subject_id"
+      ],
+      "title": "BudgetAllocationUpsertRequest",
+      "type": "object"
+    },
+    "NodeBudgetBundleUpsertRequest": {
+      "$defs": {
+        "BudgetAllocationUpsertRequest": {
+          "properties": {
+            "compute_limit": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Compute Limit"
+            },
+            "money_limit": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Money Limit"
+            },
+            "subject_id": {
+              "title": "Subject Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "subject_id"
+          ],
+          "title": "BudgetAllocationUpsertRequest",
+          "type": "object"
+        },
+        "NodeBudgetConfigUpsertRequest": {
+          "properties": {
+            "compute_unit": {
+              "default": "cost_units",
+              "title": "Compute Unit",
+              "type": "string"
+            },
+            "currency": {
+              "default": "USD",
+              "title": "Currency",
+              "type": "string"
+            },
+            "enforcement_mode": {
+              "default": "hard_stop",
+              "title": "Enforcement Mode",
+              "type": "string"
+            },
+            "node_compute_limit": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Node Compute Limit"
+            },
+            "node_money_limit": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Node Money Limit"
+            },
+            "overcommit_enabled": {
+              "default": false,
+              "title": "Overcommit Enabled",
+              "type": "boolean"
+            },
+            "period": {
+              "default": "monthly",
+              "title": "Period",
+              "type": "string"
+            },
+            "reset_policy": {
+              "default": "calendar",
+              "title": "Reset Policy",
+              "type": "string"
+            },
+            "shared_customer_pool": {
+              "default": false,
+              "title": "Shared Customer Pool",
+              "type": "boolean"
+            },
+            "shared_provider_pool": {
+              "default": false,
+              "title": "Shared Provider Pool",
+              "type": "boolean"
+            }
+          },
+          "title": "NodeBudgetConfigUpsertRequest",
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "customer_allocations": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/BudgetAllocationUpsertRequest"
+          },
+          "title": "Customer Allocations",
+          "type": "array"
+        },
+        "node_budget": {
+          "$ref": "#/$defs/NodeBudgetConfigUpsertRequest"
+        },
+        "provider_allocations": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/BudgetAllocationUpsertRequest"
+          },
+          "title": "Provider Allocations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "node_budget"
+      ],
+      "title": "NodeBudgetBundleUpsertRequest",
+      "type": "object"
+    },
+    "NodeBudgetConfigUpsertRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "compute_unit": {
+          "default": "cost_units",
+          "title": "Compute Unit",
+          "type": "string"
+        },
+        "currency": {
+          "default": "USD",
+          "title": "Currency",
+          "type": "string"
+        },
+        "enforcement_mode": {
+          "default": "hard_stop",
+          "title": "Enforcement Mode",
+          "type": "string"
+        },
+        "node_compute_limit": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Node Compute Limit"
+        },
+        "node_money_limit": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Node Money Limit"
+        },
+        "overcommit_enabled": {
+          "default": false,
+          "title": "Overcommit Enabled",
+          "type": "boolean"
+        },
+        "period": {
+          "default": "monthly",
+          "title": "Period",
+          "type": "string"
+        },
+        "reset_policy": {
+          "default": "calendar",
+          "title": "Reset Policy",
+          "type": "string"
+        },
+        "shared_customer_pool": {
+          "default": false,
+          "title": "Shared Customer Pool",
+          "type": "boolean"
+        },
+        "shared_provider_pool": {
+          "default": false,
+          "title": "Shared Provider Pool",
+          "type": "boolean"
+        }
+      },
+      "title": "NodeBudgetConfigUpsertRequest",
+      "type": "object"
+    },
+    "NodeBudgetDeclarationRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "compute_unit": {
+          "default": "cost_units",
+          "title": "Compute Unit",
+          "type": "string"
+        },
+        "currency": {
+          "default": "USD",
+          "title": "Currency",
+          "type": "string"
+        },
+        "default_period": {
+          "default": "monthly",
+          "title": "Default Period",
+          "type": "string"
+        },
+        "node_id": {
+          "title": "Node Id",
+          "type": "string"
+        },
+        "setup_requirements": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Setup Requirements",
+          "type": "array"
+        },
+        "suggested_compute_limit": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Suggested Compute Limit"
+        },
+        "suggested_money_limit": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Suggested Money Limit"
+        },
+        "supported_providers": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Supported Providers",
+          "type": "array"
+        },
+        "supports_compute_budget": {
+          "default": true,
+          "title": "Supports Compute Budget",
+          "type": "boolean"
+        },
+        "supports_customer_allocations": {
+          "default": true,
+          "title": "Supports Customer Allocations",
+          "type": "boolean"
+        },
+        "supports_money_budget": {
+          "default": true,
+          "title": "Supports Money Budget",
+          "type": "boolean"
+        },
+        "supports_provider_allocations": {
+          "default": false,
+          "title": "Supports Provider Allocations",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "node_id"
+      ],
+      "title": "NodeBudgetDeclarationRequest",
+      "type": "object"
+    },
+    "NodeBudgetForceReleaseRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "job_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Job Id"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "reservation_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reservation Id"
+        }
+      },
+      "title": "NodeBudgetForceReleaseRequest",
+      "type": "object"
+    },
+    "NodeBudgetOverrideRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "enforcement_mode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enforcement Mode"
+        },
+        "overcommit_enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Overcommit Enabled"
+        }
+      },
+      "title": "NodeBudgetOverrideRequest",
+      "type": "object"
+    },
+    "NodeBudgetPolicyRefreshRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "current_budget_policy_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Current Budget Policy Version"
+        },
+        "current_governance_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Current Governance Version"
+        },
+        "node_id": {
+          "title": "Node Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "node_id"
+      ],
+      "title": "NodeBudgetPolicyRefreshRequest",
+      "type": "object"
+    },
+    "NodeBudgetTopUpRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "compute_delta": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Compute Delta"
+        },
+        "money_delta": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Money Delta"
+        }
+      },
+      "title": "NodeBudgetTopUpRequest",
+      "type": "object"
+    },
+    "NodeBudgetUsageReportRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "actual_compute_spend": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Actual Compute Spend"
+        },
+        "actual_money_spend": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Actual Money Spend"
+        },
+        "job_id": {
+          "title": "Job Id",
+          "type": "string"
+        },
+        "node_id": {
+          "title": "Node Id",
+          "type": "string"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "node_id",
+        "job_id",
+        "status"
+      ],
+      "title": "NodeBudgetUsageReportRequest",
+      "type": "object"
+    },
+    "NodeBudgetUsageSummaryRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "denials": {
+          "default": 0,
+          "title": "Denials",
+          "type": "integer"
+        },
+        "error_counts": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Counts"
+        },
+        "grant_id": {
+          "title": "Grant Id",
+          "type": "string"
+        },
+        "metadata": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Metadata"
+        },
+        "model_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Id"
+        },
+        "node_id": {
+          "title": "Node Id",
+          "type": "string"
+        },
+        "period_end": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Period End"
+        },
+        "period_start": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Period Start"
+        },
+        "provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider"
+        },
+        "service": {
+          "default": "ai.inference",
+          "title": "Service",
+          "type": "string"
+        },
+        "task_family": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Family"
+        },
+        "used_cost_cents": {
+          "default": 0,
+          "title": "Used Cost Cents",
+          "type": "integer"
+        },
+        "used_requests": {
+          "default": 0,
+          "title": "Used Requests",
+          "type": "integer"
+        },
+        "used_tokens": {
+          "default": 0,
+          "title": "Used Tokens",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "node_id",
+        "grant_id"
+      ],
+      "title": "NodeBudgetUsageSummaryRequest",
+      "type": "object"
+    },
+    "NodeCapabilityDeclarationRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "manifest": {
+          "additionalProperties": true,
+          "title": "Manifest",
+          "type": "object"
+        }
+      },
+      "required": [
+        "manifest"
+      ],
+      "title": "NodeCapabilityDeclarationRequest",
+      "type": "object"
+    },
+    "NodeGovernanceRefreshRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "current_governance_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Current Governance Version"
+        },
+        "node_id": {
+          "title": "Node Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "node_id"
+      ],
+      "title": "NodeGovernanceRefreshRequest",
+      "type": "object"
+    },
+    "NodeOnboardingRejectRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "rejection_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rejection Reason"
+        }
+      },
+      "title": "NodeOnboardingRejectRequest",
+      "type": "object"
+    },
+    "NodeOnboardingStartRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "api_base_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Api Base Url"
+        },
+        "hostname": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hostname"
+        },
+        "node_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Node Id"
+        },
+        "node_name": {
+          "title": "Node Name",
+          "type": "string"
+        },
+        "node_nonce": {
+          "title": "Node Nonce",
+          "type": "string"
+        },
+        "node_software_version": {
+          "title": "Node Software Version",
+          "type": "string"
+        },
+        "node_type": {
+          "title": "Node Type",
+          "type": "string"
+        },
+        "protocol_version": {
+          "title": "Protocol Version",
+          "type": "string"
+        },
+        "ui_endpoint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ui Endpoint"
+        }
+      },
+      "required": [
+        "node_name",
+        "node_type",
+        "node_software_version",
+        "protocol_version",
+        "node_nonce"
+      ],
+      "title": "NodeOnboardingStartRequest",
+      "type": "object"
+    },
+    "NodeTelemetryIngestRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "event_state": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Event State"
+        },
+        "event_type": {
+          "title": "Event Type",
+          "type": "string"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "node_id": {
+          "title": "Node Id",
+          "type": "string"
+        },
+        "payload": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Payload"
+        }
+      },
+      "required": [
+        "node_id",
+        "event_type"
+      ],
+      "title": "NodeTelemetryIngestRequest",
+      "type": "object"
+    },
+    "ProviderCapabilityReportRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "node_available": {
+          "default": true,
+          "title": "Node Available",
+          "type": "boolean"
+        },
+        "node_id": {
+          "title": "Node Id",
+          "type": "string"
+        },
+        "observed_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observed At"
+        },
+        "provider_intelligence": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Provider Intelligence",
+          "type": "array"
+        },
+        "service_capacity": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Service Capacity"
+        }
+      },
+      "required": [
+        "node_id",
+        "provider_intelligence"
+      ],
+      "title": "ProviderCapabilityReportRequest",
+      "type": "object"
+    },
+    "ProviderModelPolicyUpdateRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "allowed_models": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Models",
+          "type": "array"
+        }
+      },
+      "required": [
+        "allowed_models"
+      ],
+      "title": "ProviderModelPolicyUpdateRequest",
+      "type": "object"
+    },
+    "SetAddonEnabledRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "enabled": {
+          "title": "Enabled",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "title": "SetAddonEnabledRequest",
+      "type": "object"
+    }
+  },
+  "title": "Hexe Core System API Request Models",
+  "type": "object"
+}

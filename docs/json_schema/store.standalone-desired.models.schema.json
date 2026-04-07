@@ -1,0 +1,449 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Catalog of Core-owned schemas generated from app.store.standalone_desired.",
+  "schemas": {
+    "DesiredConfig": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "env": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Env",
+          "type": "object"
+        }
+      },
+      "title": "DesiredConfig",
+      "type": "object"
+    },
+    "DesiredInstallSource": {
+      "$defs": {
+        "DesiredRelease": {
+          "properties": {
+            "artifact_url": {
+              "minLength": 1,
+              "title": "Artifact Url",
+              "type": "string"
+            },
+            "publisher_key_id": {
+              "default": "",
+              "title": "Publisher Key Id",
+              "type": "string"
+            },
+            "sha256": {
+              "default": "",
+              "title": "Sha256",
+              "type": "string"
+            },
+            "signature": {
+              "$ref": "#/$defs/DesiredSignature"
+            }
+          },
+          "required": [
+            "artifact_url"
+          ],
+          "title": "DesiredRelease",
+          "type": "object"
+        },
+        "DesiredSignature": {
+          "properties": {
+            "type": {
+              "default": "none",
+              "title": "Type",
+              "type": "string"
+            },
+            "value": {
+              "default": "",
+              "title": "Value",
+              "type": "string"
+            }
+          },
+          "title": "DesiredSignature",
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "catalog_id": {
+          "minLength": 1,
+          "title": "Catalog Id",
+          "type": "string"
+        },
+        "release": {
+          "$ref": "#/$defs/DesiredRelease"
+        },
+        "type": {
+          "default": "catalog",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "catalog_id",
+        "release"
+      ],
+      "title": "DesiredInstallSource",
+      "type": "object"
+    },
+    "DesiredRelease": {
+      "$defs": {
+        "DesiredSignature": {
+          "properties": {
+            "type": {
+              "default": "none",
+              "title": "Type",
+              "type": "string"
+            },
+            "value": {
+              "default": "",
+              "title": "Value",
+              "type": "string"
+            }
+          },
+          "title": "DesiredSignature",
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "artifact_url": {
+          "minLength": 1,
+          "title": "Artifact Url",
+          "type": "string"
+        },
+        "publisher_key_id": {
+          "default": "",
+          "title": "Publisher Key Id",
+          "type": "string"
+        },
+        "sha256": {
+          "default": "",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "signature": {
+          "$ref": "#/$defs/DesiredSignature"
+        }
+      },
+      "required": [
+        "artifact_url"
+      ],
+      "title": "DesiredRelease",
+      "type": "object"
+    },
+    "DesiredRuntime": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "bind_localhost": {
+          "default": true,
+          "title": "Bind Localhost",
+          "type": "boolean"
+        },
+        "cpu": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cpu"
+        },
+        "memory": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Memory"
+        },
+        "network": {
+          "minLength": 1,
+          "title": "Network",
+          "type": "string"
+        },
+        "orchestrator": {
+          "default": "docker_compose",
+          "title": "Orchestrator",
+          "type": "string"
+        },
+        "ports": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Ports",
+          "type": "array"
+        },
+        "project_name": {
+          "minLength": 1,
+          "title": "Project Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "project_name",
+        "network"
+      ],
+      "title": "DesiredRuntime",
+      "type": "object"
+    },
+    "DesiredSignature": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "type": {
+          "default": "none",
+          "title": "Type",
+          "type": "string"
+        },
+        "value": {
+          "default": "",
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "title": "DesiredSignature",
+      "type": "object"
+    },
+    "DesiredStatePayload": {
+      "$defs": {
+        "DesiredConfig": {
+          "properties": {
+            "env": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "title": "Env",
+              "type": "object"
+            }
+          },
+          "title": "DesiredConfig",
+          "type": "object"
+        },
+        "DesiredInstallSource": {
+          "properties": {
+            "catalog_id": {
+              "minLength": 1,
+              "title": "Catalog Id",
+              "type": "string"
+            },
+            "release": {
+              "$ref": "#/$defs/DesiredRelease"
+            },
+            "type": {
+              "default": "catalog",
+              "title": "Type",
+              "type": "string"
+            }
+          },
+          "required": [
+            "catalog_id",
+            "release"
+          ],
+          "title": "DesiredInstallSource",
+          "type": "object"
+        },
+        "DesiredRelease": {
+          "properties": {
+            "artifact_url": {
+              "minLength": 1,
+              "title": "Artifact Url",
+              "type": "string"
+            },
+            "publisher_key_id": {
+              "default": "",
+              "title": "Publisher Key Id",
+              "type": "string"
+            },
+            "sha256": {
+              "default": "",
+              "title": "Sha256",
+              "type": "string"
+            },
+            "signature": {
+              "$ref": "#/$defs/DesiredSignature"
+            }
+          },
+          "required": [
+            "artifact_url"
+          ],
+          "title": "DesiredRelease",
+          "type": "object"
+        },
+        "DesiredRuntime": {
+          "properties": {
+            "bind_localhost": {
+              "default": true,
+              "title": "Bind Localhost",
+              "type": "boolean"
+            },
+            "cpu": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Cpu"
+            },
+            "memory": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Memory"
+            },
+            "network": {
+              "minLength": 1,
+              "title": "Network",
+              "type": "string"
+            },
+            "orchestrator": {
+              "default": "docker_compose",
+              "title": "Orchestrator",
+              "type": "string"
+            },
+            "ports": {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "title": "Ports",
+              "type": "array"
+            },
+            "project_name": {
+              "minLength": 1,
+              "title": "Project Name",
+              "type": "string"
+            }
+          },
+          "required": [
+            "project_name",
+            "network"
+          ],
+          "title": "DesiredRuntime",
+          "type": "object"
+        },
+        "DesiredSignature": {
+          "properties": {
+            "type": {
+              "default": "none",
+              "title": "Type",
+              "type": "string"
+            },
+            "value": {
+              "default": "",
+              "title": "Value",
+              "type": "string"
+            }
+          },
+          "title": "DesiredSignature",
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "addon_id": {
+          "title": "Addon Id",
+          "type": "string"
+        },
+        "channel": {
+          "enum": [
+            "stable",
+            "beta",
+            "nightly"
+          ],
+          "title": "Channel",
+          "type": "string"
+        },
+        "config": {
+          "$ref": "#/$defs/DesiredConfig"
+        },
+        "desired_revision": {
+          "minLength": 1,
+          "title": "Desired Revision",
+          "type": "string"
+        },
+        "desired_state": {
+          "enum": [
+            "running",
+            "stopped"
+          ],
+          "title": "Desired State",
+          "type": "string"
+        },
+        "enabled_docker_groups": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Enabled Docker Groups",
+          "type": "array"
+        },
+        "force_rebuild": {
+          "default": false,
+          "title": "Force Rebuild",
+          "type": "boolean"
+        },
+        "install_source": {
+          "$ref": "#/$defs/DesiredInstallSource"
+        },
+        "mode": {
+          "const": "standalone_service",
+          "title": "Mode",
+          "type": "string"
+        },
+        "pinned_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pinned Version"
+        },
+        "runtime": {
+          "$ref": "#/$defs/DesiredRuntime"
+        },
+        "ssap_version": {
+          "const": "1.0",
+          "title": "Ssap Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ssap_version",
+        "addon_id",
+        "mode",
+        "desired_state",
+        "desired_revision",
+        "channel",
+        "install_source",
+        "runtime",
+        "config"
+      ],
+      "title": "DesiredStatePayload",
+      "type": "object"
+    }
+  },
+  "title": "Hexe Store Desired State Models",
+  "type": "object"
+}

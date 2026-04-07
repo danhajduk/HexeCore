@@ -95,6 +95,7 @@ These routes reuse the existing canonical node registration payload shape.
 - `backend/synthia_supervisor/`: standalone runtime supervision and desired/runtime reconciliation
 - `frontend/`: React operator UI
 - `docs/`: canonical repository documentation
+- `docs/standards/Node/tomplate/`: starter modular template for creating a new Hexe node
 - `scripts/`: development and bootstrap helpers
 - `systemd/`: service templates and runtime integration
 

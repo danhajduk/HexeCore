@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Catalog of Core-owned schemas generated from app.system.settings.router.",
+  "schemas": {
+    "PlatformIdentityResponse": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "addons_name": {
+          "title": "Addons Name",
+          "type": "string"
+        },
+        "core_id": {
+          "title": "Core Id",
+          "type": "string"
+        },
+        "core_name": {
+          "title": "Core Name",
+          "type": "string"
+        },
+        "docs_name": {
+          "title": "Docs Name",
+          "type": "string"
+        },
+        "legacy_compatibility_note": {
+          "title": "Legacy Compatibility Note",
+          "type": "string"
+        },
+        "legacy_internal_namespace": {
+          "title": "Legacy Internal Namespace",
+          "type": "string"
+        },
+        "nodes_name": {
+          "title": "Nodes Name",
+          "type": "string"
+        },
+        "ok": {
+          "default": true,
+          "title": "Ok",
+          "type": "boolean"
+        },
+        "platform_domain": {
+          "title": "Platform Domain",
+          "type": "string"
+        },
+        "platform_name": {
+          "title": "Platform Name",
+          "type": "string"
+        },
+        "platform_short": {
+          "title": "Platform Short",
+          "type": "string"
+        },
+        "public_api_hostname": {
+          "title": "Public Api Hostname",
+          "type": "string"
+        },
+        "public_hostname": {
+          "title": "Public Hostname",
+          "type": "string"
+        },
+        "public_ui_hostname": {
+          "title": "Public Ui Hostname",
+          "type": "string"
+        },
+        "supervisor_name": {
+          "title": "Supervisor Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "core_id",
+        "platform_name",
+        "platform_short",
+        "platform_domain",
+        "core_name",
+        "supervisor_name",
+        "nodes_name",
+        "addons_name",
+        "docs_name",
+        "legacy_internal_namespace",
+        "legacy_compatibility_note",
+        "public_hostname",
+        "public_ui_hostname",
+        "public_api_hostname"
+      ],
+      "title": "PlatformIdentityResponse",
+      "type": "object"
+    },
+    "SetSettingRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "value": {
+          "title": "Value"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "SetSettingRequest",
+      "type": "object"
+    }
+  },
+  "title": "Hexe System Settings Models",
+  "type": "object"
+}

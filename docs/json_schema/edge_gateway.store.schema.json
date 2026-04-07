@@ -1,0 +1,674 @@
+{
+  "$defs": {
+    "CloudflareSettings": {
+      "properties": {
+        "account_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Account Id"
+        },
+        "api_dns_record_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Api Dns Record Id"
+        },
+        "api_token_configured": {
+          "default": false,
+          "title": "Api Token Configured",
+          "type": "boolean"
+        },
+        "api_token_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Api Token Ref"
+        },
+        "config_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Config Version"
+        },
+        "credentials_reference": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Credentials Reference"
+        },
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "hostname_publication_mode": {
+          "const": "core_id_managed",
+          "default": "core_id_managed",
+          "title": "Hostname Publication Mode",
+          "type": "string"
+        },
+        "last_provision_error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Provision Error"
+        },
+        "last_provisioned_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Provisioned At"
+        },
+        "managed_domain_base": {
+          "default": "hexe-ai.com",
+          "title": "Managed Domain Base",
+          "type": "string"
+        },
+        "provisioning_state": {
+          "$ref": "#/$defs/ProvisioningState",
+          "default": "not_configured"
+        },
+        "public_dns_record_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Public Dns Record Id"
+        },
+        "tunnel_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tunnel Id"
+        },
+        "tunnel_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tunnel Name"
+        },
+        "tunnel_token_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tunnel Token Ref"
+        },
+        "ui_dns_record_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ui Dns Record Id"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        },
+        "zone_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Zone Id"
+        }
+      },
+      "title": "CloudflareSettings",
+      "type": "object"
+    },
+    "CorePublicIdentity": {
+      "properties": {
+        "core_id": {
+          "minLength": 1,
+          "title": "Core Id",
+          "type": "string"
+        },
+        "core_name": {
+          "minLength": 1,
+          "title": "Core Name",
+          "type": "string"
+        },
+        "platform_domain": {
+          "minLength": 1,
+          "title": "Platform Domain",
+          "type": "string"
+        },
+        "public_api_hostname": {
+          "minLength": 1,
+          "title": "Public Api Hostname",
+          "type": "string"
+        },
+        "public_hostname": {
+          "minLength": 1,
+          "title": "Public Hostname",
+          "type": "string"
+        },
+        "public_ui_hostname": {
+          "minLength": 1,
+          "title": "Public Ui Hostname",
+          "type": "string"
+        }
+      },
+      "required": [
+        "core_id",
+        "core_name",
+        "platform_domain",
+        "public_hostname",
+        "public_ui_hostname",
+        "public_api_hostname"
+      ],
+      "title": "CorePublicIdentity",
+      "type": "object"
+    },
+    "EdgeProvisioningState": {
+      "properties": {
+        "api_dns_record_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Api Dns Record Id"
+        },
+        "api_hostname_state": {
+          "$ref": "#/$defs/ProvisioningState",
+          "default": "not_configured"
+        },
+        "dns_state": {
+          "$ref": "#/$defs/ProvisioningState",
+          "default": "not_configured"
+        },
+        "last_action": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Action"
+        },
+        "last_error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Error"
+        },
+        "last_success_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Success At"
+        },
+        "overall_state": {
+          "$ref": "#/$defs/ProvisioningState",
+          "default": "not_configured"
+        },
+        "public_dns_record_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Public Dns Record Id"
+        },
+        "public_hostname_state": {
+          "$ref": "#/$defs/ProvisioningState",
+          "default": "not_configured"
+        },
+        "runtime_config_state": {
+          "$ref": "#/$defs/ProvisioningState",
+          "default": "not_configured"
+        },
+        "tunnel_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tunnel Id"
+        },
+        "tunnel_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tunnel Name"
+        },
+        "tunnel_state": {
+          "$ref": "#/$defs/ProvisioningState",
+          "default": "not_configured"
+        },
+        "ui_dns_record_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ui Dns Record Id"
+        },
+        "ui_hostname_state": {
+          "$ref": "#/$defs/ProvisioningState",
+          "default": "not_configured"
+        }
+      },
+      "title": "EdgeProvisioningState",
+      "type": "object"
+    },
+    "EdgePublication": {
+      "properties": {
+        "created_at": {
+          "title": "Created At",
+          "type": "string"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "hostname": {
+          "title": "Hostname",
+          "type": "string"
+        },
+        "last_validation_error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Validation Error"
+        },
+        "path_prefix": {
+          "default": "/",
+          "title": "Path Prefix",
+          "type": "string"
+        },
+        "publication_id": {
+          "title": "Publication Id",
+          "type": "string"
+        },
+        "source": {
+          "default": "operator_defined",
+          "enum": [
+            "core_owned",
+            "operator_defined"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/EdgeTarget"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "publication_id",
+        "hostname",
+        "target"
+      ],
+      "title": "EdgePublication",
+      "type": "object"
+    },
+    "EdgeTarget": {
+      "properties": {
+        "allowed_path_prefixes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Path Prefixes",
+          "type": "array"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "target_id": {
+          "title": "Target Id",
+          "type": "string"
+        },
+        "target_type": {
+          "enum": [
+            "core_ui",
+            "core_api",
+            "core_nodes_proxy",
+            "core_addons_proxy",
+            "local_service",
+            "supervisor_runtime",
+            "node",
+            "frigate"
+          ],
+          "title": "Target Type",
+          "type": "string"
+        },
+        "timeout_ms": {
+          "default": 15000,
+          "title": "Timeout Ms",
+          "type": "integer"
+        },
+        "upstream_base_url": {
+          "title": "Upstream Base Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_type",
+        "target_id",
+        "upstream_base_url"
+      ],
+      "title": "EdgeTarget",
+      "type": "object"
+    },
+    "EdgeTargetHealth": {
+      "properties": {
+        "detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detail"
+        },
+        "state": {
+          "default": "unknown",
+          "enum": [
+            "unknown",
+            "healthy",
+            "degraded",
+            "unavailable"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "target_id": {
+          "title": "Target Id",
+          "type": "string"
+        },
+        "target_type": {
+          "title": "Target Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target_type",
+        "target_id"
+      ],
+      "title": "EdgeTargetHealth",
+      "type": "object"
+    },
+    "EdgeTunnelStatus": {
+      "properties": {
+        "config_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Config Path"
+        },
+        "configured": {
+          "default": false,
+          "title": "Configured",
+          "type": "boolean"
+        },
+        "healthy": {
+          "default": false,
+          "title": "Healthy",
+          "type": "boolean"
+        },
+        "last_error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Error"
+        },
+        "last_started_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Started At"
+        },
+        "runtime_state": {
+          "default": "unknown",
+          "title": "Runtime State",
+          "type": "string"
+        },
+        "tunnel_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tunnel Id"
+        },
+        "tunnel_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tunnel Name"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Updated At"
+        }
+      },
+      "title": "EdgeTunnelStatus",
+      "type": "object"
+    },
+    "ProvisioningState": {
+      "enum": [
+        "not_configured",
+        "pending",
+        "provisioned",
+        "degraded",
+        "error"
+      ],
+      "title": "ProvisioningState",
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Schema for backend/var/edge_gateway.json.",
+  "properties": {
+    "cloudflare": {
+      "$ref": "#/$defs/CloudflareSettings"
+    },
+    "provisioning": {
+      "$ref": "#/$defs/EdgeProvisioningState"
+    },
+    "public_identity": {
+      "$ref": "#/$defs/CorePublicIdentity"
+    },
+    "publications": {
+      "items": {
+        "$ref": "#/$defs/EdgePublication"
+      },
+      "title": "Publications",
+      "type": "array"
+    },
+    "reconcile_state": {
+      "additionalProperties": true,
+      "title": "Reconcile State",
+      "type": "object"
+    },
+    "target_health": {
+      "items": {
+        "$ref": "#/$defs/EdgeTargetHealth"
+      },
+      "title": "Target Health",
+      "type": "array"
+    },
+    "tunnel": {
+      "$ref": "#/$defs/EdgeTunnelStatus"
+    },
+    "validation_errors": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Validation Errors",
+      "type": "array"
+    }
+  },
+  "required": [
+    "public_identity",
+    "cloudflare",
+    "tunnel"
+  ],
+  "title": "EdgeStatus",
+  "type": "object"
+}

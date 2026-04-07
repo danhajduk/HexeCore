@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Schema for data/node_governance_status.json.",
+  "properties": {
+    "items": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "active_governance_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "freshness_changed_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "freshness_state": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_issued_timestamp": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_refresh_request_timestamp": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "node_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "node_id"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "items"
+  ],
+  "title": "Hexe Node Governance Status Store",
+  "type": "object"
+}

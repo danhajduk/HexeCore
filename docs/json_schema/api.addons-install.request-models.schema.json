@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Catalog of Core-owned schemas generated from app.api.addons_install.",
+  "schemas": {
+    "DeploymentSelectRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "mode": {
+          "minLength": 1,
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "DeploymentSelectRequest",
+      "type": "object"
+    },
+    "InstallConfigureRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "config": {
+          "additionalProperties": true,
+          "title": "Config",
+          "type": "object"
+        }
+      },
+      "title": "InstallConfigureRequest",
+      "type": "object"
+    },
+    "InstallStartRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "addon_id": {
+          "minLength": 1,
+          "title": "Addon Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "addon_id"
+      ],
+      "title": "InstallStartRequest",
+      "type": "object"
+    }
+  },
+  "title": "Hexe Addons Install API Request Models",
+  "type": "object"
+}

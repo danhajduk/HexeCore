@@ -1,0 +1,608 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Catalog of Core-owned schemas generated from app.store.models.",
+  "schemas": {
+    "AddonManifest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "conflicts": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Conflicts",
+          "type": "array"
+        },
+        "core_max_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Core Max Version"
+        },
+        "core_min_version": {
+          "minLength": 1,
+          "title": "Core Min Version",
+          "type": "string"
+        },
+        "dependencies": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dependencies",
+          "type": "array"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "permissions": {
+          "items": {
+            "enum": [
+              "filesystem.read",
+              "filesystem.write",
+              "network.egress",
+              "network.ingress",
+              "process.spawn",
+              "system.metrics.read",
+              "mqtt.publish",
+              "mqtt.subscribe"
+            ],
+            "type": "string"
+          },
+          "title": "Permissions",
+          "type": "array"
+        },
+        "publisher_id": {
+          "minLength": 1,
+          "title": "Publisher Id",
+          "type": "string"
+        },
+        "version": {
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "version",
+        "core_min_version",
+        "dependencies",
+        "conflicts",
+        "publisher_id",
+        "permissions"
+      ],
+      "title": "AddonManifest",
+      "type": "object"
+    },
+    "CompatibilitySpec": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "conflicts": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Conflicts",
+          "type": "array"
+        },
+        "core_max_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Core Max Version"
+        },
+        "core_min_version": {
+          "minLength": 1,
+          "title": "Core Min Version",
+          "type": "string"
+        },
+        "dependencies": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dependencies",
+          "type": "array"
+        }
+      },
+      "required": [
+        "core_min_version",
+        "dependencies",
+        "conflicts"
+      ],
+      "title": "CompatibilitySpec",
+      "type": "object"
+    },
+    "DockerGroupDeclaration": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "compose_override_file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Compose Override File"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "display_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display Name"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "DockerGroupDeclaration",
+      "type": "object"
+    },
+    "ReleaseManifest": {
+      "$defs": {
+        "CompatibilitySpec": {
+          "properties": {
+            "conflicts": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Conflicts",
+              "type": "array"
+            },
+            "core_max_version": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Core Max Version"
+            },
+            "core_min_version": {
+              "minLength": 1,
+              "title": "Core Min Version",
+              "type": "string"
+            },
+            "dependencies": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Dependencies",
+              "type": "array"
+            }
+          },
+          "required": [
+            "core_min_version",
+            "dependencies",
+            "conflicts"
+          ],
+          "title": "CompatibilitySpec",
+          "type": "object"
+        },
+        "DockerGroupDeclaration": {
+          "properties": {
+            "compose_override_file": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Compose Override File"
+            },
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Description"
+            },
+            "display_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Display Name"
+            },
+            "name": {
+              "minLength": 1,
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "title": "DockerGroupDeclaration",
+          "type": "object"
+        },
+        "RuntimeDefaults": {
+          "properties": {
+            "bind_localhost": {
+              "default": true,
+              "title": "Bind Localhost",
+              "type": "boolean"
+            },
+            "ports": {
+              "items": {
+                "$ref": "#/$defs/RuntimePortDefault"
+              },
+              "title": "Ports",
+              "type": "array"
+            }
+          },
+          "title": "RuntimeDefaults",
+          "type": "object"
+        },
+        "RuntimePortDefault": {
+          "properties": {
+            "container": {
+              "maximum": 65535,
+              "minimum": 1,
+              "title": "Container",
+              "type": "integer"
+            },
+            "host": {
+              "maximum": 65535,
+              "minimum": 1,
+              "title": "Host",
+              "type": "integer"
+            },
+            "proto": {
+              "default": "tcp",
+              "enum": [
+                "tcp",
+                "udp"
+              ],
+              "title": "Proto",
+              "type": "string"
+            },
+            "purpose": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Purpose"
+            }
+          },
+          "required": [
+            "host",
+            "container"
+          ],
+          "title": "RuntimePortDefault",
+          "type": "object"
+        },
+        "SignatureBlock": {
+          "properties": {
+            "publisher_id": {
+              "default": "",
+              "title": "Publisher Id",
+              "type": "string"
+            },
+            "signature": {
+              "default": "",
+              "title": "Signature",
+              "type": "string"
+            }
+          },
+          "title": "SignatureBlock",
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "checksum": {
+          "minLength": 1,
+          "title": "Checksum",
+          "type": "string"
+        },
+        "compatibility": {
+          "$ref": "#/$defs/CompatibilitySpec"
+        },
+        "conflicts": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Conflicts",
+          "type": "array"
+        },
+        "core_max_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Core Max Version"
+        },
+        "core_min_version": {
+          "minLength": 1,
+          "title": "Core Min Version",
+          "type": "string"
+        },
+        "dependencies": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dependencies",
+          "type": "array"
+        },
+        "docker_groups": {
+          "items": {
+            "$ref": "#/$defs/DockerGroupDeclaration"
+          },
+          "title": "Docker Groups",
+          "type": "array"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "package_profile": {
+          "default": "embedded_addon",
+          "enum": [
+            "embedded_addon",
+            "standalone_service"
+          ],
+          "title": "Package Profile",
+          "type": "string"
+        },
+        "permissions": {
+          "items": {
+            "enum": [
+              "filesystem.read",
+              "filesystem.write",
+              "network.egress",
+              "network.ingress",
+              "process.spawn",
+              "system.metrics.read",
+              "mqtt.publish",
+              "mqtt.subscribe"
+            ],
+            "type": "string"
+          },
+          "title": "Permissions",
+          "type": "array"
+        },
+        "publisher_id": {
+          "minLength": 1,
+          "title": "Publisher Id",
+          "type": "string"
+        },
+        "runtime_defaults": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RuntimeDefaults"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "signature": {
+          "$ref": "#/$defs/SignatureBlock"
+        },
+        "version": {
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "version",
+        "core_min_version",
+        "dependencies",
+        "conflicts",
+        "checksum",
+        "publisher_id",
+        "permissions",
+        "compatibility"
+      ],
+      "title": "ReleaseManifest",
+      "type": "object"
+    },
+    "RuntimeDefaults": {
+      "$defs": {
+        "RuntimePortDefault": {
+          "properties": {
+            "container": {
+              "maximum": 65535,
+              "minimum": 1,
+              "title": "Container",
+              "type": "integer"
+            },
+            "host": {
+              "maximum": 65535,
+              "minimum": 1,
+              "title": "Host",
+              "type": "integer"
+            },
+            "proto": {
+              "default": "tcp",
+              "enum": [
+                "tcp",
+                "udp"
+              ],
+              "title": "Proto",
+              "type": "string"
+            },
+            "purpose": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Purpose"
+            }
+          },
+          "required": [
+            "host",
+            "container"
+          ],
+          "title": "RuntimePortDefault",
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "bind_localhost": {
+          "default": true,
+          "title": "Bind Localhost",
+          "type": "boolean"
+        },
+        "ports": {
+          "items": {
+            "$ref": "#/$defs/RuntimePortDefault"
+          },
+          "title": "Ports",
+          "type": "array"
+        }
+      },
+      "title": "RuntimeDefaults",
+      "type": "object"
+    },
+    "RuntimePortDefault": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "container": {
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Container",
+          "type": "integer"
+        },
+        "host": {
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Host",
+          "type": "integer"
+        },
+        "proto": {
+          "default": "tcp",
+          "enum": [
+            "tcp",
+            "udp"
+          ],
+          "title": "Proto",
+          "type": "string"
+        },
+        "purpose": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Purpose"
+        }
+      },
+      "required": [
+        "host",
+        "container"
+      ],
+      "title": "RuntimePortDefault",
+      "type": "object"
+    },
+    "SignatureBlock": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "publisher_id": {
+          "default": "",
+          "title": "Publisher Id",
+          "type": "string"
+        },
+        "signature": {
+          "default": "",
+          "title": "Signature",
+          "type": "string"
+        }
+      },
+      "title": "SignatureBlock",
+      "type": "object"
+    }
+  },
+  "title": "Hexe Store Manifest Models",
+  "type": "object"
+}

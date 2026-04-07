@@ -1,0 +1,387 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Schema for data/node_budgets.json.",
+  "properties": {
+    "allocations": {
+      "items": {
+        "additionalProperties": true,
+        "properties": {
+          "compute_limit": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "customer",
+              "provider"
+            ]
+          },
+          "money_limit": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "schema_version": {
+            "type": "string"
+          },
+          "subject_id": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "node_id",
+          "kind",
+          "subject_id",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "configs": {
+      "items": {
+        "additionalProperties": true,
+        "properties": {
+          "compute_unit": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "enforcement_mode": {
+            "type": "string"
+          },
+          "node_compute_limit": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "node_money_limit": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "overcommit_enabled": {
+            "type": "boolean"
+          },
+          "period": {
+            "type": "string"
+          },
+          "reset_policy": {
+            "type": "string"
+          },
+          "schema_version": {
+            "type": "string"
+          },
+          "shared_customer_pool": {
+            "type": "boolean"
+          },
+          "shared_provider_pool": {
+            "type": "boolean"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "node_id",
+          "currency",
+          "compute_unit",
+          "period",
+          "reset_policy",
+          "enforcement_mode",
+          "overcommit_enabled",
+          "shared_customer_pool",
+          "shared_provider_pool",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "declarations": {
+      "items": {
+        "additionalProperties": true,
+        "properties": {
+          "compute_unit": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "declared_at": {
+            "type": "string"
+          },
+          "default_period": {
+            "type": "string"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "schema_version": {
+            "type": "string"
+          },
+          "setup_requirements": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "suggested_compute_limit": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "suggested_money_limit": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "supported_providers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "supports_compute_budget": {
+            "type": "boolean"
+          },
+          "supports_customer_allocations": {
+            "type": "boolean"
+          },
+          "supports_money_budget": {
+            "type": "boolean"
+          },
+          "supports_provider_allocations": {
+            "type": "boolean"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "node_id",
+          "currency",
+          "compute_unit",
+          "default_period",
+          "supports_money_budget",
+          "supports_compute_budget",
+          "supports_customer_allocations",
+          "supports_provider_allocations",
+          "declared_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "reservations": {
+      "items": {
+        "additionalProperties": true,
+        "properties": {
+          "compute_actual": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "compute_reserved": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "customer_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "finalized_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "job_id": {
+            "type": "string"
+          },
+          "lease_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "money_actual": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "money_reserved": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "provider_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "release_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "released_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reservation_id": {
+            "type": "string"
+          },
+          "schema_version": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "reserved",
+              "finalized",
+              "released"
+            ]
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "reservation_id",
+          "job_id",
+          "node_id",
+          "source",
+          "state",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "type": "string"
+    },
+    "usage_reports": {
+      "items": {
+        "additionalProperties": true,
+        "properties": {
+          "denials": {
+            "type": "integer"
+          },
+          "error_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "grant_id": {
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "period_end": {
+            "type": "string"
+          },
+          "period_start": {
+            "type": "string"
+          },
+          "reported_at": {
+            "type": "string"
+          },
+          "schema_version": {
+            "type": "string"
+          },
+          "service": {
+            "type": "string"
+          },
+          "used_cost_cents": {
+            "type": "integer"
+          },
+          "used_requests": {
+            "type": "integer"
+          },
+          "used_tokens": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "schema_version",
+          "node_id",
+          "service",
+          "grant_id",
+          "period_start",
+          "period_end"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "declarations",
+    "configs",
+    "allocations",
+    "reservations",
+    "usage_reports"
+  ],
+  "title": "Hexe Node Budgets Store",
+  "type": "object"
+}

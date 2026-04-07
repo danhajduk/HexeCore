@@ -1,0 +1,1240 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Catalog of Core-owned schemas generated from app.supervisor.models.",
+  "schemas": {
+    "HostIdentitySummary": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "host_id": {
+          "title": "Host Id",
+          "type": "string"
+        },
+        "hostname": {
+          "title": "Hostname",
+          "type": "string"
+        },
+        "managed_runtime_type": {
+          "default": "standalone_addons",
+          "title": "Managed Runtime Type",
+          "type": "string"
+        },
+        "runtime_provider": {
+          "title": "Runtime Provider",
+          "type": "string"
+        }
+      },
+      "required": [
+        "host_id",
+        "hostname",
+        "runtime_provider"
+      ],
+      "title": "HostIdentitySummary",
+      "type": "object"
+    },
+    "HostResourceSummary": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "cpu_cores_logical": {
+          "minimum": 0,
+          "title": "Cpu Cores Logical",
+          "type": "integer"
+        },
+        "cpu_percent_total": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Cpu Percent Total",
+          "type": "number"
+        },
+        "load_15m": {
+          "minimum": 0,
+          "title": "Load 15M",
+          "type": "number"
+        },
+        "load_1m": {
+          "minimum": 0,
+          "title": "Load 1M",
+          "type": "number"
+        },
+        "load_5m": {
+          "minimum": 0,
+          "title": "Load 5M",
+          "type": "number"
+        },
+        "memory_available_bytes": {
+          "minimum": 0,
+          "title": "Memory Available Bytes",
+          "type": "integer"
+        },
+        "memory_percent": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Memory Percent",
+          "type": "number"
+        },
+        "memory_total_bytes": {
+          "minimum": 0,
+          "title": "Memory Total Bytes",
+          "type": "integer"
+        },
+        "root_disk_free_bytes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Root Disk Free Bytes"
+        },
+        "root_disk_percent": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Root Disk Percent"
+        },
+        "root_disk_total_bytes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Root Disk Total Bytes"
+        },
+        "uptime_s": {
+          "minimum": 0,
+          "title": "Uptime S",
+          "type": "number"
+        }
+      },
+      "required": [
+        "uptime_s",
+        "load_1m",
+        "load_5m",
+        "load_15m",
+        "cpu_percent_total",
+        "cpu_cores_logical",
+        "memory_total_bytes",
+        "memory_available_bytes",
+        "memory_percent"
+      ],
+      "title": "HostResourceSummary",
+      "type": "object"
+    },
+    "ManagedNodeSummary": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "active_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Active Version"
+        },
+        "desired_state": {
+          "title": "Desired State",
+          "type": "string"
+        },
+        "health_status": {
+          "title": "Health Status",
+          "type": "string"
+        },
+        "last_action": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Action"
+        },
+        "last_action_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Action At"
+        },
+        "lifecycle_state": {
+          "default": "unknown",
+          "title": "Lifecycle State",
+          "type": "string"
+        },
+        "node_id": {
+          "title": "Node Id",
+          "type": "string"
+        },
+        "running": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Running"
+        },
+        "runtime_kind": {
+          "default": "standalone_addon",
+          "title": "Runtime Kind",
+          "type": "string"
+        },
+        "runtime_state": {
+          "title": "Runtime State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "node_id",
+        "desired_state",
+        "runtime_state",
+        "health_status"
+      ],
+      "title": "ManagedNodeSummary",
+      "type": "object"
+    },
+    "ProcessResourceSummary": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "cpu_percent": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cpu Percent"
+        },
+        "open_fds": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Open Fds"
+        },
+        "rss_bytes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rss Bytes"
+        },
+        "threads": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Threads"
+        }
+      },
+      "title": "ProcessResourceSummary",
+      "type": "object"
+    },
+    "SupervisorAdmissionContextSummary": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "admission_state": {
+          "default": "unknown",
+          "title": "Admission State",
+          "type": "string"
+        },
+        "available_capacity_units": {
+          "minimum": 0,
+          "title": "Available Capacity Units",
+          "type": "integer"
+        },
+        "execution_host_ready": {
+          "default": false,
+          "title": "Execution Host Ready",
+          "type": "boolean"
+        },
+        "healthy_managed_node_count": {
+          "minimum": 0,
+          "title": "Healthy Managed Node Count",
+          "type": "integer"
+        },
+        "host_busy_rating": {
+          "maximum": 10,
+          "minimum": 0,
+          "title": "Host Busy Rating",
+          "type": "integer"
+        },
+        "managed_node_count": {
+          "minimum": 0,
+          "title": "Managed Node Count",
+          "type": "integer"
+        },
+        "total_capacity_units": {
+          "minimum": 0,
+          "title": "Total Capacity Units",
+          "type": "integer"
+        },
+        "unavailable_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unavailable Reason"
+        }
+      },
+      "required": [
+        "host_busy_rating",
+        "total_capacity_units",
+        "available_capacity_units",
+        "managed_node_count",
+        "healthy_managed_node_count"
+      ],
+      "title": "SupervisorAdmissionContextSummary",
+      "type": "object"
+    },
+    "SupervisorHealthSummary": {
+      "$defs": {
+        "HostIdentitySummary": {
+          "properties": {
+            "host_id": {
+              "title": "Host Id",
+              "type": "string"
+            },
+            "hostname": {
+              "title": "Hostname",
+              "type": "string"
+            },
+            "managed_runtime_type": {
+              "default": "standalone_addons",
+              "title": "Managed Runtime Type",
+              "type": "string"
+            },
+            "runtime_provider": {
+              "title": "Runtime Provider",
+              "type": "string"
+            }
+          },
+          "required": [
+            "host_id",
+            "hostname",
+            "runtime_provider"
+          ],
+          "title": "HostIdentitySummary",
+          "type": "object"
+        },
+        "HostResourceSummary": {
+          "properties": {
+            "cpu_cores_logical": {
+              "minimum": 0,
+              "title": "Cpu Cores Logical",
+              "type": "integer"
+            },
+            "cpu_percent_total": {
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Cpu Percent Total",
+              "type": "number"
+            },
+            "load_15m": {
+              "minimum": 0,
+              "title": "Load 15M",
+              "type": "number"
+            },
+            "load_1m": {
+              "minimum": 0,
+              "title": "Load 1M",
+              "type": "number"
+            },
+            "load_5m": {
+              "minimum": 0,
+              "title": "Load 5M",
+              "type": "number"
+            },
+            "memory_available_bytes": {
+              "minimum": 0,
+              "title": "Memory Available Bytes",
+              "type": "integer"
+            },
+            "memory_percent": {
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Memory Percent",
+              "type": "number"
+            },
+            "memory_total_bytes": {
+              "minimum": 0,
+              "title": "Memory Total Bytes",
+              "type": "integer"
+            },
+            "root_disk_free_bytes": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Root Disk Free Bytes"
+            },
+            "root_disk_percent": {
+              "anyOf": [
+                {
+                  "maximum": 100,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Root Disk Percent"
+            },
+            "root_disk_total_bytes": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Root Disk Total Bytes"
+            },
+            "uptime_s": {
+              "minimum": 0,
+              "title": "Uptime S",
+              "type": "number"
+            }
+          },
+          "required": [
+            "uptime_s",
+            "load_1m",
+            "load_5m",
+            "load_15m",
+            "cpu_percent_total",
+            "cpu_cores_logical",
+            "memory_total_bytes",
+            "memory_available_bytes",
+            "memory_percent"
+          ],
+          "title": "HostResourceSummary",
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "healthy_node_count": {
+          "minimum": 0,
+          "title": "Healthy Node Count",
+          "type": "integer"
+        },
+        "host": {
+          "$ref": "#/$defs/HostIdentitySummary"
+        },
+        "managed_node_count": {
+          "minimum": 0,
+          "title": "Managed Node Count",
+          "type": "integer"
+        },
+        "resources": {
+          "$ref": "#/$defs/HostResourceSummary"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "unhealthy_node_count": {
+          "minimum": 0,
+          "title": "Unhealthy Node Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "status",
+        "host",
+        "resources",
+        "managed_node_count",
+        "healthy_node_count",
+        "unhealthy_node_count"
+      ],
+      "title": "SupervisorHealthSummary",
+      "type": "object"
+    },
+    "SupervisorInfoSummary": {
+      "$defs": {
+        "HostIdentitySummary": {
+          "properties": {
+            "host_id": {
+              "title": "Host Id",
+              "type": "string"
+            },
+            "hostname": {
+              "title": "Hostname",
+              "type": "string"
+            },
+            "managed_runtime_type": {
+              "default": "standalone_addons",
+              "title": "Managed Runtime Type",
+              "type": "string"
+            },
+            "runtime_provider": {
+              "title": "Runtime Provider",
+              "type": "string"
+            }
+          },
+          "required": [
+            "host_id",
+            "hostname",
+            "runtime_provider"
+          ],
+          "title": "HostIdentitySummary",
+          "type": "object"
+        },
+        "HostResourceSummary": {
+          "properties": {
+            "cpu_cores_logical": {
+              "minimum": 0,
+              "title": "Cpu Cores Logical",
+              "type": "integer"
+            },
+            "cpu_percent_total": {
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Cpu Percent Total",
+              "type": "number"
+            },
+            "load_15m": {
+              "minimum": 0,
+              "title": "Load 15M",
+              "type": "number"
+            },
+            "load_1m": {
+              "minimum": 0,
+              "title": "Load 1M",
+              "type": "number"
+            },
+            "load_5m": {
+              "minimum": 0,
+              "title": "Load 5M",
+              "type": "number"
+            },
+            "memory_available_bytes": {
+              "minimum": 0,
+              "title": "Memory Available Bytes",
+              "type": "integer"
+            },
+            "memory_percent": {
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Memory Percent",
+              "type": "number"
+            },
+            "memory_total_bytes": {
+              "minimum": 0,
+              "title": "Memory Total Bytes",
+              "type": "integer"
+            },
+            "root_disk_free_bytes": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Root Disk Free Bytes"
+            },
+            "root_disk_percent": {
+              "anyOf": [
+                {
+                  "maximum": 100,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Root Disk Percent"
+            },
+            "root_disk_total_bytes": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Root Disk Total Bytes"
+            },
+            "uptime_s": {
+              "minimum": 0,
+              "title": "Uptime S",
+              "type": "number"
+            }
+          },
+          "required": [
+            "uptime_s",
+            "load_1m",
+            "load_5m",
+            "load_15m",
+            "cpu_percent_total",
+            "cpu_cores_logical",
+            "memory_total_bytes",
+            "memory_available_bytes",
+            "memory_percent"
+          ],
+          "title": "HostResourceSummary",
+          "type": "object"
+        },
+        "ManagedNodeSummary": {
+          "properties": {
+            "active_version": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Active Version"
+            },
+            "desired_state": {
+              "title": "Desired State",
+              "type": "string"
+            },
+            "health_status": {
+              "title": "Health Status",
+              "type": "string"
+            },
+            "last_action": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Last Action"
+            },
+            "last_action_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Last Action At"
+            },
+            "lifecycle_state": {
+              "default": "unknown",
+              "title": "Lifecycle State",
+              "type": "string"
+            },
+            "node_id": {
+              "title": "Node Id",
+              "type": "string"
+            },
+            "running": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Running"
+            },
+            "runtime_kind": {
+              "default": "standalone_addon",
+              "title": "Runtime Kind",
+              "type": "string"
+            },
+            "runtime_state": {
+              "title": "Runtime State",
+              "type": "string"
+            }
+          },
+          "required": [
+            "node_id",
+            "desired_state",
+            "runtime_state",
+            "health_status"
+          ],
+          "title": "ManagedNodeSummary",
+          "type": "object"
+        },
+        "SupervisorOwnershipBoundary": {
+          "properties": {
+            "depends_on_core_for": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Depends On Core For",
+              "type": "array"
+            },
+            "owns": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Owns",
+              "type": "array"
+            }
+          },
+          "title": "SupervisorOwnershipBoundary",
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "boundaries": {
+          "$ref": "#/$defs/SupervisorOwnershipBoundary"
+        },
+        "host": {
+          "$ref": "#/$defs/HostIdentitySummary"
+        },
+        "managed_node_count": {
+          "minimum": 0,
+          "title": "Managed Node Count",
+          "type": "integer"
+        },
+        "managed_nodes": {
+          "items": {
+            "$ref": "#/$defs/ManagedNodeSummary"
+          },
+          "title": "Managed Nodes",
+          "type": "array"
+        },
+        "resources": {
+          "$ref": "#/$defs/HostResourceSummary"
+        },
+        "supervisor_id": {
+          "title": "Supervisor Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "supervisor_id",
+        "host",
+        "resources",
+        "boundaries",
+        "managed_node_count"
+      ],
+      "title": "SupervisorInfoSummary",
+      "type": "object"
+    },
+    "SupervisorNodeActionResult": {
+      "$defs": {
+        "ManagedNodeSummary": {
+          "properties": {
+            "active_version": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Active Version"
+            },
+            "desired_state": {
+              "title": "Desired State",
+              "type": "string"
+            },
+            "health_status": {
+              "title": "Health Status",
+              "type": "string"
+            },
+            "last_action": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Last Action"
+            },
+            "last_action_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Last Action At"
+            },
+            "lifecycle_state": {
+              "default": "unknown",
+              "title": "Lifecycle State",
+              "type": "string"
+            },
+            "node_id": {
+              "title": "Node Id",
+              "type": "string"
+            },
+            "running": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Running"
+            },
+            "runtime_kind": {
+              "default": "standalone_addon",
+              "title": "Runtime Kind",
+              "type": "string"
+            },
+            "runtime_state": {
+              "title": "Runtime State",
+              "type": "string"
+            }
+          },
+          "required": [
+            "node_id",
+            "desired_state",
+            "runtime_state",
+            "health_status"
+          ],
+          "title": "ManagedNodeSummary",
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "action": {
+          "title": "Action",
+          "type": "string"
+        },
+        "node": {
+          "$ref": "#/$defs/ManagedNodeSummary"
+        }
+      },
+      "required": [
+        "action",
+        "node"
+      ],
+      "title": "SupervisorNodeActionResult",
+      "type": "object"
+    },
+    "SupervisorOwnershipBoundary": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "depends_on_core_for": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Depends On Core For",
+          "type": "array"
+        },
+        "owns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Owns",
+          "type": "array"
+        }
+      },
+      "title": "SupervisorOwnershipBoundary",
+      "type": "object"
+    },
+    "SupervisorRuntimeSummary": {
+      "$defs": {
+        "HostIdentitySummary": {
+          "properties": {
+            "host_id": {
+              "title": "Host Id",
+              "type": "string"
+            },
+            "hostname": {
+              "title": "Hostname",
+              "type": "string"
+            },
+            "managed_runtime_type": {
+              "default": "standalone_addons",
+              "title": "Managed Runtime Type",
+              "type": "string"
+            },
+            "runtime_provider": {
+              "title": "Runtime Provider",
+              "type": "string"
+            }
+          },
+          "required": [
+            "host_id",
+            "hostname",
+            "runtime_provider"
+          ],
+          "title": "HostIdentitySummary",
+          "type": "object"
+        },
+        "HostResourceSummary": {
+          "properties": {
+            "cpu_cores_logical": {
+              "minimum": 0,
+              "title": "Cpu Cores Logical",
+              "type": "integer"
+            },
+            "cpu_percent_total": {
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Cpu Percent Total",
+              "type": "number"
+            },
+            "load_15m": {
+              "minimum": 0,
+              "title": "Load 15M",
+              "type": "number"
+            },
+            "load_1m": {
+              "minimum": 0,
+              "title": "Load 1M",
+              "type": "number"
+            },
+            "load_5m": {
+              "minimum": 0,
+              "title": "Load 5M",
+              "type": "number"
+            },
+            "memory_available_bytes": {
+              "minimum": 0,
+              "title": "Memory Available Bytes",
+              "type": "integer"
+            },
+            "memory_percent": {
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Memory Percent",
+              "type": "number"
+            },
+            "memory_total_bytes": {
+              "minimum": 0,
+              "title": "Memory Total Bytes",
+              "type": "integer"
+            },
+            "root_disk_free_bytes": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Root Disk Free Bytes"
+            },
+            "root_disk_percent": {
+              "anyOf": [
+                {
+                  "maximum": 100,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Root Disk Percent"
+            },
+            "root_disk_total_bytes": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Root Disk Total Bytes"
+            },
+            "uptime_s": {
+              "minimum": 0,
+              "title": "Uptime S",
+              "type": "number"
+            }
+          },
+          "required": [
+            "uptime_s",
+            "load_1m",
+            "load_5m",
+            "load_15m",
+            "cpu_percent_total",
+            "cpu_cores_logical",
+            "memory_total_bytes",
+            "memory_available_bytes",
+            "memory_percent"
+          ],
+          "title": "HostResourceSummary",
+          "type": "object"
+        },
+        "ManagedNodeSummary": {
+          "properties": {
+            "active_version": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Active Version"
+            },
+            "desired_state": {
+              "title": "Desired State",
+              "type": "string"
+            },
+            "health_status": {
+              "title": "Health Status",
+              "type": "string"
+            },
+            "last_action": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Last Action"
+            },
+            "last_action_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Last Action At"
+            },
+            "lifecycle_state": {
+              "default": "unknown",
+              "title": "Lifecycle State",
+              "type": "string"
+            },
+            "node_id": {
+              "title": "Node Id",
+              "type": "string"
+            },
+            "running": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Running"
+            },
+            "runtime_kind": {
+              "default": "standalone_addon",
+              "title": "Runtime Kind",
+              "type": "string"
+            },
+            "runtime_state": {
+              "title": "Runtime State",
+              "type": "string"
+            }
+          },
+          "required": [
+            "node_id",
+            "desired_state",
+            "runtime_state",
+            "health_status"
+          ],
+          "title": "ManagedNodeSummary",
+          "type": "object"
+        },
+        "ProcessResourceSummary": {
+          "properties": {
+            "cpu_percent": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Cpu Percent"
+            },
+            "open_fds": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Open Fds"
+            },
+            "rss_bytes": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Rss Bytes"
+            },
+            "threads": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Threads"
+            }
+          },
+          "title": "ProcessResourceSummary",
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "host": {
+          "$ref": "#/$defs/HostIdentitySummary"
+        },
+        "managed_node_count": {
+          "minimum": 0,
+          "title": "Managed Node Count",
+          "type": "integer"
+        },
+        "managed_nodes": {
+          "items": {
+            "$ref": "#/$defs/ManagedNodeSummary"
+          },
+          "title": "Managed Nodes",
+          "type": "array"
+        },
+        "process": {
+          "$ref": "#/$defs/ProcessResourceSummary"
+        },
+        "resources": {
+          "$ref": "#/$defs/HostResourceSummary"
+        }
+      },
+      "required": [
+        "host",
+        "resources",
+        "process",
+        "managed_node_count"
+      ],
+      "title": "SupervisorRuntimeSummary",
+      "type": "object"
+    }
+  },
+  "title": "Hexe Supervisor Models",
+  "type": "object"
+}
