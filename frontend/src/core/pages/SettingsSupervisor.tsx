@@ -313,7 +313,7 @@ export default function SettingsSupervisor() {
           const svc = item as Record<string, unknown>;
           const serviceId = String(svc.service_id || svc.id || svc.name || "");
           if (!serviceId) return null;
-          return {
+          const normalized: NodeServiceRow = {
             node_id: nodeId,
             node_name: nodeName,
             service_id: serviceId,
@@ -321,12 +321,15 @@ export default function SettingsSupervisor() {
             service_state: String(svc.service_state || svc.state || svc.status || "unknown"),
             desired_state: svc.desired_state ? String(svc.desired_state) : undefined,
             health_status: svc.health_status ? String(svc.health_status) : undefined,
-          } as NodeServiceRow;
+          };
+          return normalized.service_id === "node" ? null : normalized;
         })
         .filter((item): item is NodeServiceRow => Boolean(item));
     }
     if (typeof services === "object") {
-      return Object.entries(services as Record<string, unknown>).map(([key, value]) => {
+      return Object.entries(services as Record<string, unknown>)
+        .map(([key, value]) => {
+          if (String(key) === "node") return null;
         if (value && typeof value === "object") {
           const svc = value as Record<string, unknown>;
           return {
@@ -346,9 +349,30 @@ export default function SettingsSupervisor() {
           service_name: String(key),
           service_state: String(value || "unknown"),
         };
-      });
+        })
+        .filter((item): item is NodeServiceRow => Boolean(item));
     }
     return [];
+  });
+
+  const nodeRows = nodeRuntimes.flatMap((runtime) => {
+    const base = {
+      kind: "runtime",
+      node_id: String(runtime.node_id || ""),
+      node_name: String(runtime.node_name || runtime.node_id || "Unnamed"),
+      node_type: String(runtime.node_type || "-"),
+      runtime,
+    } as const;
+    const services = nodeServices
+      .filter((service) => service.node_id === String(runtime.node_id || ""))
+      .map((service) => ({
+        kind: "service",
+        node_id: service.node_id,
+        node_name: service.node_name,
+        node_type: "service",
+        service,
+      }) as const);
+    return [base, ...services];
   });
 
   return (
@@ -476,65 +500,56 @@ export default function SettingsSupervisor() {
                 </tr>
               </thead>
               <tbody>
-                {nodeRuntimes.map((runtime) => (
-                  <tr key={String(runtime.node_id || runtime.node_name)}>
-                    <td>
-                      <StatusLed tone={statusTone(runtime.freshness_state || runtime.health_status)} />
-                    </td>
-                    <td>{String(runtime.node_name || runtime.node_id || "Unnamed")}</td>
-                    <td className="settings-mono">{String(runtime.node_id || "-")}</td>
-                    <td>{String(runtime.node_type || "-")}</td>
-                    <td>{displayState(runtime.runtime_state)}</td>
-                    <td>{displayState(runtime.health_status)}</td>
-                    <td>{displayState(runtime.desired_state)}</td>
-                    <td>{displayState(runtime.freshness_state)}</td>
-                    <td>{formatRps((runtime as { resource_usage?: { rps?: number } }).resource_usage?.rps)}</td>
-                    <td>{formatMs((runtime as { resource_usage?: { latency_ms_p95?: number } }).resource_usage?.latency_ms_p95)}</td>
-                    <td>{formatPct((runtime as { resource_usage?: { error_rate?: number } }).resource_usage?.error_rate)}</td>
-                    <td>{formatPctValue((runtime as { resource_usage?: { cpu_percent?: number } }).resource_usage?.cpu_percent)}</td>
-                    <td>{formatPctValue((runtime as { resource_usage?: { mem_percent?: number } }).resource_usage?.mem_percent)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </section>
-
-      <section className="settings-section">
-        <div className="settings-section-head">
-          <h2>Node Services</h2>
-        </div>
-        <div className="settings-card">
-          {nodeServices.length === 0 ? (
-            <div className="settings-help">No node services reported yet.</div>
-          ) : (
-            <table className="settings-table">
-              <thead>
-                <tr>
-                  <th />
-                  <th>Node</th>
-                  <th>Service</th>
-                  <th>ID</th>
-                  <th>State</th>
-                  <th>Health</th>
-                  <th>Desired</th>
-                </tr>
-              </thead>
-              <tbody>
-                {nodeServices.map((service) => (
-                  <tr key={`${service.node_id}:${service.service_id}`}>
-                    <td>
-                      <StatusLed tone={statusTone(service.health_status || service.service_state)} />
-                    </td>
-                    <td>{service.node_name}</td>
-                    <td>{service.service_name}</td>
-                    <td className="settings-mono">{service.service_id}</td>
-                    <td>{displayState(service.service_state)}</td>
-                    <td>{displayState(service.health_status)}</td>
-                    <td>{displayState(service.desired_state)}</td>
-                  </tr>
-                ))}
+                {nodeRows.map((row) => {
+                  if (row.kind === "runtime") {
+                    const runtime = row.runtime;
+                    return (
+                      <tr key={`runtime:${row.node_id}`}>
+                        <td>
+                          <StatusLed tone={statusTone(runtime.freshness_state || runtime.health_status)} />
+                        </td>
+                        <td>{row.node_name}</td>
+                        <td className="settings-mono">{row.node_id || "-"}</td>
+                        <td>{row.node_type}</td>
+                        <td>{displayState(runtime.runtime_state)}</td>
+                        <td>{displayState(runtime.health_status)}</td>
+                        <td>{displayState(runtime.desired_state)}</td>
+                        <td>{displayState(runtime.freshness_state)}</td>
+                        <td>{formatRps((runtime as { resource_usage?: { rps?: number } }).resource_usage?.rps)}</td>
+                        <td>
+                          {formatMs((runtime as { resource_usage?: { latency_ms_p95?: number } }).resource_usage?.latency_ms_p95)}
+                        </td>
+                        <td>{formatPct((runtime as { resource_usage?: { error_rate?: number } }).resource_usage?.error_rate)}</td>
+                        <td>
+                          {formatPctValue((runtime as { resource_usage?: { cpu_percent?: number } }).resource_usage?.cpu_percent)}
+                        </td>
+                        <td>
+                          {formatPctValue((runtime as { resource_usage?: { mem_percent?: number } }).resource_usage?.mem_percent)}
+                        </td>
+                      </tr>
+                    );
+                  }
+                  const service = row.service;
+                  return (
+                    <tr key={`service:${row.node_id}:${service.service_id}`}>
+                      <td>
+                        <StatusLed tone={statusTone(service.health_status || service.service_state)} />
+                      </td>
+                      <td>{`${row.node_name} / ${service.service_name}`}</td>
+                      <td className="settings-mono">{service.service_id}</td>
+                      <td>service</td>
+                      <td>{displayState(service.service_state)}</td>
+                      <td>{displayState(service.health_status)}</td>
+                      <td>{displayState(service.desired_state)}</td>
+                      <td>-</td>
+                      <td>-</td>
+                      <td>-</td>
+                      <td>-</td>
+                      <td>-</td>
+                      <td>-</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
