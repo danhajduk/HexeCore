@@ -228,7 +228,61 @@ def create_app() -> FastAPI:
             except Exception as exc:
                 return "unhealthy", str(exc)
 
-        def _collect_core_runtime_declarations(
+        async def _collect_core_aux_runtimes() -> list[dict[str, object]]:
+            items: list[dict[str, object]] = []
+            hostname = socket.gethostname()
+            edge_store = getattr(app.state, "edge_gateway_store", None)
+            if edge_store is None:
+                return items
+            try:
+                cloudflare_settings = await edge_store.get_cloudflare_settings()
+                tunnel_status = await edge_store.get_tunnel_status()
+            except Exception:
+                log.exception("Failed to load Cloudflare runtime state for Supervisor registration")
+                return items
+
+            if not cloudflare_settings.enabled and not tunnel_status.configured:
+                return items
+
+            runtime_state = str(tunnel_status.runtime_state or "unknown")
+            desired_state = "running" if cloudflare_settings.enabled else "stopped"
+            lifecycle_state = runtime_state if runtime_state and runtime_state != "unknown" else desired_state
+            running = runtime_state.lower() in {"running", "active", "connected"} or bool(tunnel_status.healthy)
+            health_status = "healthy" if tunnel_status.healthy else ("unhealthy" if cloudflare_settings.enabled else "unknown")
+            last_error = tunnel_status.last_error or cloudflare_settings.last_provision_error
+            provider = str(os.getenv("SYNTHIA_CLOUDFLARED_PROVIDER", "auto")).strip().lower() or "auto"
+
+            provisioning_state = getattr(cloudflare_settings.provisioning_state, "value", cloudflare_settings.provisioning_state)
+            items.append(
+                {
+                    "runtime_id": "cloudflared",
+                    "runtime_name": "Cloudflared",
+                    "runtime_kind": "aux_container",
+                    "management_mode": "manage",
+                    "host_id": hostname,
+                    "hostname": hostname,
+                    "desired_state": desired_state,
+                    "runtime_state": runtime_state,
+                    "lifecycle_state": lifecycle_state,
+                    "health_status": health_status,
+                    "last_error": last_error,
+                    "running": running,
+                    "runtime_metadata": {
+                        "component": "cloudflared",
+                        "provider": provider,
+                        "enabled": cloudflare_settings.enabled,
+                        "configured": tunnel_status.configured,
+                        "tunnel_id": cloudflare_settings.tunnel_id or tunnel_status.tunnel_id,
+                        "tunnel_name": cloudflare_settings.tunnel_name or tunnel_status.tunnel_name,
+                        "config_path": tunnel_status.config_path,
+                        "provisioning_state": str(provisioning_state),
+                        "last_provisioned_at": cloudflare_settings.last_provisioned_at,
+                    },
+                }
+            )
+            return items
+
+        async def _collect_core_runtime_declarations(
             *,
             core_health_status: str,
             core_last_error: str | None,
@@ -256,6 +310,11 @@ def create_app() -> FastAPI:
                 for addon in registry.list_registered():
                     health_status = str(addon.health_status or "unknown")
                     running = health_status in {"ok", "healthy"}
+                    containers = []
+                    if isinstance(getattr(addon, "last_health", None), dict):
+                        raw_containers = addon.last_health.get("containers")
+                        if isinstance(raw_containers, list):
+                            containers = [item for item in raw_containers if isinstance(item, dict)]
                     items.append(
                         {
                             "runtime_id": f"addon:{addon.id}",
@@ -275,10 +334,13 @@ def create_app() -> FastAPI:
                                 "base_url": addon.base_url,
                                 "ui_base_url": addon.ui_base_url,
                                 "ui_mode": addon.ui_mode,
+                                "containers": containers,
+                                "container_count": len(containers),
                             },
                         }
                     )
 
+            items.extend(await _collect_core_aux_runtimes())
             items.extend(_load_core_runtime_overrides())
             merged: dict[str, dict[str, object]] = {}
             for item in items:
@@ -299,7 +361,7 @@ def create_app() -> FastAPI:
             if supervisor_client is None:
                 raise ValueError("supervisor_client_unavailable")
             health_status, last_error = await _probe_core_api_health()
-            payloads = _collect_core_runtime_declarations(
+            payloads = await _collect_core_runtime_declarations(
                 core_health_status=health_status,
                 core_last_error=last_error,
             )
