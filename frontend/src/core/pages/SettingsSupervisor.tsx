@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import "./settings.css";
 import "./home.css";
 
@@ -59,6 +58,12 @@ type SystemStats = {
   cpu: { percent_total: number };
   mem: { percent: number };
   disks: Record<string, { percent: number }>;
+  api?: {
+    rps?: number;
+    latency_ms_p95?: number;
+    error_rate?: number;
+    inflight?: number;
+  };
 };
 
 type StackSummary = {
@@ -104,6 +109,24 @@ function statusTone(state: unknown): "ok" | "warn" | "bad" | "neutral" {
     return "bad";
   }
   return "neutral";
+}
+
+function formatPct(value: unknown): string {
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(parsed)) return "-";
+  return `${(parsed * 100).toFixed(1)}%`;
+}
+
+function formatMs(value: unknown): string {
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(parsed)) return "-";
+  return `${parsed.toFixed(0)} ms`;
+}
+
+function formatRps(value: unknown): string {
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(parsed)) return "-";
+  return parsed.toFixed(2);
 }
 
 function StatusLed({ tone }: { tone: "ok" | "warn" | "bad" | "neutral" }) {
@@ -312,6 +335,9 @@ export default function SettingsSupervisor() {
                   <th>State</th>
                   <th>Health</th>
                   <th>Desired</th>
+                  <th>RPS</th>
+                  <th>P95</th>
+                  <th>Err%</th>
                 </tr>
               </thead>
               <tbody>
@@ -327,6 +353,9 @@ export default function SettingsSupervisor() {
                     <td>{displayState(runtime.runtime_state)}</td>
                     <td>{displayState(runtime.health_status)}</td>
                     <td>{displayState(runtime.desired_state)}</td>
+                    <td>{String(runtime.runtime_id) === "core-api" ? formatRps(stats?.api?.rps) : "-"}</td>
+                    <td>{String(runtime.runtime_id) === "core-api" ? formatMs(stats?.api?.latency_ms_p95) : "-"}</td>
+                    <td>{String(runtime.runtime_id) === "core-api" ? formatPct(stats?.api?.error_rate) : "-"}</td>
                   </tr>
                 ))}
               </tbody>
