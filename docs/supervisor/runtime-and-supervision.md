@@ -55,6 +55,7 @@ Status: Implemented
   - `RestartSec=2`
 - Embedded MQTT docker runtime restart policy is owned by runtime boundary config (`backend/app/system/mqtt/runtime_boundary.py`) via:
   - `SYNTHIA_MQTT_DOCKER_RESTART_POLICY` (default `no`)
+- Managed aux containers such as `cloudflared` should use Docker restart policy `no` so Supervisor is the single lifecycle authority.
 - This means backend process auto-restart and MQTT container auto-restart are separate controls.
 - Operators should not assume backend restart policy implies docker container restart policy.
 
