@@ -455,12 +455,23 @@
 .settings-subtable-wrap {
   padding: var(--sx-space-2) var(--sx-space-3);
   background: hsl(var(--sx-text) / 0.02);
+  border-left: 2px solid hsl(var(--sx-text) / 0.12);
+  margin-left: var(--sx-space-2);
+}
+
+.settings-subtable-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  opacity: 0.6;
+  margin-bottom: var(--sx-space-1);
 }
 
 .settings-subtable {
   width: 100%;
   border-collapse: collapse;
   font-size: 12px;
+  table-layout: fixed;
 }
 
 .settings-subtable th,

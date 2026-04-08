@@ -526,13 +526,13 @@ export default function SettingsSupervisor() {
                         <tr className="settings-subtable-row">
                           <td colSpan={13}>
                             <div className="settings-subtable-wrap">
+                              <div className="settings-subtable-label">Services</div>
                               <table className="settings-subtable">
                                 <thead>
                                   <tr>
                                     <th />
                                     <th>Name</th>
                                     <th>ID</th>
-                                    <th>Type</th>
                                     <th>State</th>
                                     <th>Health</th>
                                     <th>CPU</th>
@@ -547,7 +547,6 @@ export default function SettingsSupervisor() {
                                       </td>
                                       <td>{service.service_name}</td>
                                       <td className="settings-mono">{service.service_id}</td>
-                                      <td>service</td>
                                       <td>{displayState(service.service_state)}</td>
                                       <td>{displayState(service.health_status || service.service_state)}</td>
                                       <td>{formatPctValue(service.cpu_percent)}</td>
