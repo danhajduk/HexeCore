@@ -285,6 +285,10 @@ def create_app() -> FastAPI:
                 runtime_id = str(item.get("runtime_id") or "").strip()
                 if not runtime_id:
                     continue
+                runtime_kind = str(item.get("runtime_kind") or "core_service").strip().lower() or "core_service"
+                if runtime_kind == "core_service":
+                    item["management_mode"] = "monitor"
+                item["runtime_kind"] = runtime_kind
                 item.setdefault("host_id", hostname)
                 item.setdefault("hostname", hostname)
                 merged[runtime_id] = item
