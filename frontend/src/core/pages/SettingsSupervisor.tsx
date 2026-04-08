@@ -617,12 +617,18 @@ export default function SettingsSupervisor() {
                               <strong>{String((runtime as { hostname?: string }).hostname)}</strong>
                             </div>
                           )}
-                          {(runtime as { host_id?: string }).host_id && (
-                            <div className="settings-kv-item">
-                              <div>Host ID</div>
-                              <strong>{String((runtime as { host_id?: string }).host_id)}</strong>
-                            </div>
-                          )}
+                        {(runtime as { host_id?: string }).host_id && (
+                          <div className="settings-kv-item">
+                            <div>Host ID</div>
+                            <strong>{String((runtime as { host_id?: string }).host_id)}</strong>
+                          </div>
+                        )}
+                        {(runtime as { hostname?: string }).hostname && (
+                          <div className="settings-kv-item">
+                            <div>Host Name</div>
+                            <strong>{String((runtime as { hostname?: string }).hostname)}</strong>
+                          </div>
+                        )}
                         </div>
                       </div>
                       <div className="settings-subtable-wrap">
