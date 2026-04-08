@@ -117,6 +117,12 @@ function formatPct(value: unknown): string {
   return `${(parsed * 100).toFixed(1)}%`;
 }
 
+function formatPctValue(value: unknown): string {
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(parsed)) return "-";
+  return `${parsed.toFixed(1)}%`;
+}
+
 function formatMs(value: unknown): string {
   const parsed = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(parsed)) return "-";
@@ -425,8 +431,8 @@ export default function SettingsSupervisor() {
                     <td>{formatRps((runtime as { resource_usage?: { rps?: number } }).resource_usage?.rps)}</td>
                     <td>{formatMs((runtime as { resource_usage?: { latency_ms_p95?: number } }).resource_usage?.latency_ms_p95)}</td>
                     <td>{formatPct((runtime as { resource_usage?: { error_rate?: number } }).resource_usage?.error_rate)}</td>
-                    <td>{formatPct((runtime as { resource_usage?: { cpu_percent?: number } }).resource_usage?.cpu_percent)}</td>
-                    <td>{formatPct((runtime as { resource_usage?: { mem_percent?: number } }).resource_usage?.mem_percent)}</td>
+                    <td>{formatPctValue((runtime as { resource_usage?: { cpu_percent?: number } }).resource_usage?.cpu_percent)}</td>
+                    <td>{formatPctValue((runtime as { resource_usage?: { mem_percent?: number } }).resource_usage?.mem_percent)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -475,8 +481,8 @@ export default function SettingsSupervisor() {
                     <td>{formatRps((runtime as { resource_usage?: { rps?: number } }).resource_usage?.rps)}</td>
                     <td>{formatMs((runtime as { resource_usage?: { latency_ms_p95?: number } }).resource_usage?.latency_ms_p95)}</td>
                     <td>{formatPct((runtime as { resource_usage?: { error_rate?: number } }).resource_usage?.error_rate)}</td>
-                    <td>{formatPct((runtime as { resource_usage?: { cpu_percent?: number } }).resource_usage?.cpu_percent)}</td>
-                    <td>{formatPct((runtime as { resource_usage?: { mem_percent?: number } }).resource_usage?.mem_percent)}</td>
+                    <td>{formatPctValue((runtime as { resource_usage?: { cpu_percent?: number } }).resource_usage?.cpu_percent)}</td>
+                    <td>{formatPctValue((runtime as { resource_usage?: { mem_percent?: number } }).resource_usage?.mem_percent)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -527,8 +533,8 @@ export default function SettingsSupervisor() {
                     <td>{formatRps(entry.container?.rps)}</td>
                     <td>{formatMs(entry.container?.latency_ms_p95)}</td>
                     <td>{formatPct(entry.container?.error_rate)}</td>
-                    <td>{formatPct(entry.container?.cpu_percent)}</td>
-                    <td>{formatPct(entry.container?.mem_percent)}</td>
+                    <td>{formatPctValue(entry.container?.cpu_percent)}</td>
+                    <td>{formatPctValue(entry.container?.mem_percent)}</td>
                   </tr>
                 ))}
               </tbody>
