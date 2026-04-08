@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import "./settings.css";
 import AdminReloadCard from "./settings/AdminReloadCard";
 import RegistryAdminCard from "./settings/RegistryAdminCard";
@@ -341,6 +342,9 @@ export default function Settings() {
             <button className="settings-btn" onClick={() => void loadOperationalSummary()}>
               Refresh platform summary
             </button>
+            <Link className="settings-btn" to="/settings/supervisor">
+              Open supervisor view
+            </Link>
           </div>
         </div>
       </section>

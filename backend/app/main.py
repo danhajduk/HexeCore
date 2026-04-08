@@ -103,6 +103,7 @@ from app.system.users import UsersStore, build_users_router
 from app.system.runtime import StandaloneRuntimeService
 from app.system.repo_status import router as repo_status_router
 from app.system.stack_health import build_stack_health_router, speed_sampler_loop
+from app.system.supervisor_status import build_supervisor_status_router
 from app.system.scheduler import build_scheduler_router
 from app.store import CatalogCacheClient, build_store_models_router, StoreAuditLogStore, StoreSourcesStore, build_store_router
 from app.store.catalog import catalog_refresh_due
@@ -748,6 +749,7 @@ def create_app() -> FastAPI:
     app.include_router(build_users_router(users_store, audit_store), prefix="/api/admin", tags=["admin-users"])
     app.include_router(repo_status_router, prefix="/api/system", tags=["repo"])
     app.include_router(build_stack_health_router(), prefix="/api/system", tags=["stack-health"])
+    app.include_router(build_supervisor_status_router(), prefix="/api/system", tags=["supervisor"])
 
     event_service = PlatformEventService()
     app.state.platform_events = event_service

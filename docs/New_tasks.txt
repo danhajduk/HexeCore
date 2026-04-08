@@ -47,3 +47,6 @@ Standards reference:
 
 Do not edit above this line:
 #######################################################################
+[TODO] Task 902: Add Core-side registration call for Core services to Supervisor (/api/supervisor/core/runtimes/register) with monitor-only enforcement.
+[TODO] Task 903: Add Core-side registration call for Core addons and their containers to Supervisor with manage mode metadata.
+[TODO] Task 904: Add Core-side registration call for Core-hosted aux services/containers (for example cloudflare) to Supervisor with manage mode metadata.

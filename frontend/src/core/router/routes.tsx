@@ -12,6 +12,7 @@ import EdgeGateway from "../pages/EdgeGateway";
 import SettingsJobs from "../pages/SettingsJobs";
 import SettingsMetrics from "../pages/SettingsMetrics";
 import SettingsStatistics from "../pages/SettingsStatistics";
+import SettingsSupervisor from "../pages/SettingsSupervisor";
 import AddonStorePage from "../../pages/AddonStorePage";
 import OnboardingNodeApproval from "../pages/OnboardingNodeApproval";
 import { getAddonRoutes } from "./loadAddons";
@@ -47,6 +48,7 @@ export function buildRoutes(isAdmin: boolean, ready: boolean): RouteObject[] {
     { path: "/settings/jobs", element: protectedRoute(<SettingsJobs />) },
     { path: "/settings/metrics", element: protectedRoute(<SettingsMetrics />) },
     { path: "/settings/statistics", element: protectedRoute(<SettingsStatistics />) },
+    { path: "/settings/supervisor", element: protectedRoute(<SettingsSupervisor />) },
     ...addonRoutes.map((route) => (
       route.element ? { ...route, element: protectedRoute(route.element as ReactElement) } : route
     )),

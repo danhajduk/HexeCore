@@ -105,6 +105,16 @@ class SupervisorApiClient:
             return None
         return payload if isinstance(payload, dict) else None
 
+    def request_json(
+        self,
+        method: str,
+        path: str,
+        *,
+        payload: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
+        return self._request_json(method, path, payload=payload, params=params)
+
     def admission_summary(
         self,
         *,
