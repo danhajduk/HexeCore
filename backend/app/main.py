@@ -271,6 +271,13 @@ def create_app() -> FastAPI:
             return list(merged.values())
 
         async def core_runtime_supervisor_loop() -> None:
+            interval_s = 5.0
+            raw_interval = str(os.getenv("HEXE_SUPERVISOR_CORE_HEARTBEAT_S", "")).strip()
+            if raw_interval:
+                try:
+                    interval_s = max(1.0, float(raw_interval))
+                except Exception:
+                    interval_s = 5.0
             while True:
                 try:
                     supervisor_client = getattr(app.state, "supervisor_client", None)
@@ -292,7 +299,7 @@ def create_app() -> FastAPI:
                             await asyncio.to_thread(supervisor_client.heartbeat_core_runtime, heartbeat_payload)
                 except Exception:
                     log.exception("Core runtime supervisor heartbeat loop failed")
-                await asyncio.sleep(30.0)
+                await asyncio.sleep(interval_s)
 
         asyncio.create_task(core_runtime_supervisor_loop())
 
