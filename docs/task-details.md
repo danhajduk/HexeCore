@@ -211,3 +211,9 @@ Preserved details:
   - Aux services and containers declared by Nodes
   - Embedded addons
 - Container heartbeats via the Supervisor Unix socket are mandatory for aux services/containers. Each aux container must include a lightweight heartbeat script or sidecar that posts `POST /api/supervisor/runtimes/heartbeat` over `/run/hexe/supervisor.sock`.
+## Task 910
+Original task details:
+- Add node service inventory registration to Supervisor (backend/frontend/node services).
+- Expose Supervisor endpoints to fetch node service status and control start/stop/restart.
+- Wire Supervisor UI to surface node services when provided.
+- Update docs to describe node service inventory and control surfaces.

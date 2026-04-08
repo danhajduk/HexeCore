@@ -127,6 +127,10 @@ Returned by:
 - `POST /api/supervisor/runtimes/{node_id}/start`
 - `POST /api/supervisor/runtimes/{node_id}/stop`
 - `POST /api/supervisor/runtimes/{node_id}/restart`
+- `GET /api/supervisor/runtimes/{node_id}/services/status`
+- `POST /api/supervisor/runtimes/{node_id}/services/{service_id}/start`
+- `POST /api/supervisor/runtimes/{node_id}/services/{service_id}/stop`
+- `POST /api/supervisor/runtimes/{node_id}/services/{service_id}/restart`
 - `POST /api/supervisor/core/runtimes/register`
 - `POST /api/supervisor/core/runtimes/heartbeat`
 - `GET /api/supervisor/core/runtimes`

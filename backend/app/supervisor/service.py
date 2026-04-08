@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from typing import Any
 from pathlib import Path
 
+import httpx
 from fastapi import HTTPException
 
 from app.system.onboarding import NodeRegistrationsStore
@@ -30,6 +31,9 @@ from .models import (
     SupervisorHealthSummary,
     SupervisorInfoSummary,
     SupervisorNodeActionResult,
+    SupervisorNodeServiceActionResult,
+    SupervisorNodeServiceSummary,
+    SupervisorNodeServicesSummary,
     SupervisorOwnershipBoundary,
     SupervisorRegisteredRuntimeSummary,
     SupervisorRuntimeActionResult,
@@ -116,6 +120,85 @@ class SupervisorDomainService:
         except Exception:
             return 180
         return max(self._runtime_stale_after_s() + 1, parsed)
+
+    def _resolve_node_api_base_url(self, node_id: str) -> str:
+        runtime = self._runtime_nodes_store.get(node_id)
+        base_url = str(runtime.api_base_url or "").strip() if runtime is not None else ""
+        if not base_url and self._node_registrations_store is not None:
+            record = self._node_registrations_store.get(node_id)
+            if record is not None:
+                base_url = str(record.api_base_url or "").strip()
+        if not base_url:
+            raise HTTPException(status_code=412, detail="node_api_base_url_missing")
+        if not base_url.startswith("http"):
+            raise HTTPException(status_code=400, detail="node_api_base_url_invalid")
+        return base_url.rstrip("/")
+
+    def _node_api_request(self, node_id: str, *, method: str, path: str, payload: dict | None = None) -> dict:
+        base_url = self._resolve_node_api_base_url(node_id)
+        url = f"{base_url}{path}"
+        try:
+            with httpx.Client(timeout=4.0) as client:
+                response = client.request(method.upper(), url, json=payload)
+        except httpx.RequestError as exc:
+            raise HTTPException(status_code=502, detail=f"node_api_unreachable: {exc}") from exc
+        if response.status_code >= 400:
+            detail = response.text.strip() or response.reason_phrase
+            raise HTTPException(status_code=502, detail=f"node_api_error: {response.status_code} {detail}")
+        try:
+            return response.json()
+        except ValueError as exc:
+            raise HTTPException(status_code=502, detail="node_api_invalid_json") from exc
+
+    def _normalize_node_services(self, payload: dict) -> list[SupervisorNodeServiceSummary]:
+        services_raw = payload.get("services")
+        if not isinstance(services_raw, dict):
+            return []
+        normalized: list[SupervisorNodeServiceSummary] = []
+        for service_id, value in services_raw.items():
+            if isinstance(value, dict):
+                state = str(value.get("state") or value.get("status") or value.get("service_state") or "unknown")
+                normalized.append(
+                    SupervisorNodeServiceSummary(
+                        service_id=str(service_id),
+                        service_name=str(value.get("service_name") or value.get("name") or service_id),
+                        service_state=state,
+                        desired_state=str(value.get("desired_state") or "") or None,
+                        health_status=str(value.get("health_status") or "") or None,
+                        updated_at=str(value.get("updated_at") or "") or None,
+                        metadata={k: v for k, v in value.items() if k not in {"state", "status", "service_state"}},
+                    )
+                )
+            else:
+                normalized.append(
+                    SupervisorNodeServiceSummary(
+                        service_id=str(service_id),
+                        service_name=str(service_id),
+                        service_state=str(value or "unknown"),
+                    )
+                )
+        return normalized
+
+    def node_services_status(self, node_id: str) -> SupervisorNodeServicesSummary:
+        payload = self._node_api_request(node_id, method="GET", path="/api/services/status")
+        return SupervisorNodeServicesSummary(
+            node_id=node_id,
+            api_base_url=self._resolve_node_api_base_url(node_id),
+            services=self._normalize_node_services(payload),
+        )
+
+    def node_service_action(self, node_id: str, *, service_id: str, action: str) -> SupervisorNodeServiceActionResult:
+        normalized_action = str(action or "").strip().lower()
+        if normalized_action not in {"start", "stop", "restart"}:
+            raise HTTPException(status_code=400, detail="unsupported_service_action")
+        payload = {"target": service_id}
+        response = self._node_api_request(node_id, method="POST", path=f"/api/services/{normalized_action}", payload=payload)
+        return SupervisorNodeServiceActionResult(
+            action=normalized_action,
+            node_id=node_id,
+            service_id=str(service_id),
+            result=response if isinstance(response, dict) else {"response": response},
+        )
 
     def _freshness_state(self, last_seen_at: str | None, *, health_status: str, runtime_state: str) -> str:
         if str(runtime_state or "").strip().lower() == "error" or str(health_status or "").strip().lower() == "error":

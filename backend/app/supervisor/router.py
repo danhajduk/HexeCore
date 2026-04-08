@@ -15,6 +15,8 @@ from .models import (
     SupervisorHealthSummary,
     SupervisorInfoSummary,
     SupervisorNodeActionResult,
+    SupervisorNodeServiceActionResult,
+    SupervisorNodeServicesSummary,
     SupervisorRegisteredRuntimeSummary,
     SupervisorRuntimeActionResult,
     SupervisorRuntimeHeartbeatRequest,
@@ -109,6 +111,22 @@ def build_supervisor_router(service: SupervisorDomainService | None = None) -> A
     @router.post("/supervisor/runtimes/{node_id}/restart")
     def restart_supervisor_runtime(node_id: str) -> SupervisorRuntimeActionResult:
         return supervisor.restart_registered_runtime(node_id)
+
+    @router.get("/supervisor/runtimes/{node_id}/services/status")
+    def get_supervisor_node_services(node_id: str) -> SupervisorNodeServicesSummary:
+        return supervisor.node_services_status(node_id)
+
+    @router.post("/supervisor/runtimes/{node_id}/services/{service_id}/start")
+    def start_supervisor_node_service(node_id: str, service_id: str) -> SupervisorNodeServiceActionResult:
+        return supervisor.node_service_action(node_id, service_id=service_id, action="start")
+
+    @router.post("/supervisor/runtimes/{node_id}/services/{service_id}/stop")
+    def stop_supervisor_node_service(node_id: str, service_id: str) -> SupervisorNodeServiceActionResult:
+        return supervisor.node_service_action(node_id, service_id=service_id, action="stop")
+
+    @router.post("/supervisor/runtimes/{node_id}/services/{service_id}/restart")
+    def restart_supervisor_node_service(node_id: str, service_id: str) -> SupervisorNodeServiceActionResult:
+        return supervisor.node_service_action(node_id, service_id=service_id, action="restart")
 
     @router.post("/supervisor/core/runtimes/register")
     def register_core_runtime(body: SupervisorCoreRuntimeRegistrationRequest) -> SupervisorCoreRuntimeSummary:

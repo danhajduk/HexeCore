@@ -64,6 +64,29 @@ class SupervisorRegisteredRuntimeSummary(BaseModel):
     runtime_metadata: dict[str, object] = Field(default_factory=dict)
 
 
+class SupervisorNodeServiceSummary(BaseModel):
+    service_id: str
+    service_state: str
+    service_name: str | None = None
+    desired_state: str | None = None
+    health_status: str | None = None
+    updated_at: str | None = None
+    metadata: dict[str, object] = Field(default_factory=dict)
+
+
+class SupervisorNodeServicesSummary(BaseModel):
+    node_id: str
+    api_base_url: str | None = None
+    services: list[SupervisorNodeServiceSummary] = Field(default_factory=list)
+
+
+class SupervisorNodeServiceActionResult(BaseModel):
+    action: str
+    node_id: str
+    service_id: str
+    result: dict[str, object] = Field(default_factory=dict)
+
+
 class SupervisorRuntimeRegistrationRequest(BaseModel):
     node_id: str
     node_name: str

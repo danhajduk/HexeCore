@@ -19,6 +19,11 @@ Status: Implemented
   - `POST /api/supervisor/runtimes/{node_id}/start`
   - `POST /api/supervisor/runtimes/{node_id}/stop`
   - `POST /api/supervisor/runtimes/{node_id}/restart`
+- Supervisor can proxy node service status and lifecycle actions to the node runtime when node API access is available:
+  - `GET /api/supervisor/runtimes/{node_id}/services/status`
+  - `POST /api/supervisor/runtimes/{node_id}/services/{service_id}/start`
+  - `POST /api/supervisor/runtimes/{node_id}/services/{service_id}/stop`
+  - `POST /api/supervisor/runtimes/{node_id}/services/{service_id}/restart`
 - Supervisor owns a Core-hosted runtime contract for Core services, addons, and aux containers through:
   - `POST /api/supervisor/core/runtimes/register`
   - `POST /api/supervisor/core/runtimes/heartbeat`
