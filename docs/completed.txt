@@ -863,3 +863,4 @@ Task 902: Add Core-side registration call for Core services to Supervisor (/api/
 Task 903: Add Core-side registration call for Core addons and their containers to Supervisor with manage mode metadata. - Completed on 04/08/2026 02:26
 Task 904: Add Core-side registration call for Core-hosted aux services/containers (for example cloudflare) to Supervisor with manage mode metadata. - Completed on 04/08/2026 02:30
 Task 905: Cache Supervisor summary data in Core and refresh every 10 seconds to speed up Supervisor UI loading. - Completed on 04/08/2026 02:31
+Task 910: Add supervisor-managed node services inventory and control - Completed on 04/08/2026 09:19

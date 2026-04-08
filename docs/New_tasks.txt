@@ -47,4 +47,3 @@ Standards reference:
 
 Do not edit above this line:
 #######################################################################
-[WIP] Task 910: Add supervisor-managed node services inventory and control
