@@ -47,5 +47,3 @@ Standards reference:
 
 Do not edit above this line:
 #######################################################################
-
-[TODO] Task 803: Document mandatory aux-container heartbeat over Supervisor Unix socket

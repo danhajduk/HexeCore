@@ -469,3 +469,4 @@
 2026-04-07 - Task 800: updated deployment scripts for the Supervisor API service unit.
 2026-04-07 - Task 801: added tests for Supervisor API probes and client integration.
 2026-04-07 - Task 802: updated Supervisor standalone service docs and schemas.
+2026-04-07 - Task 803: documented mandatory aux-container heartbeats over the Supervisor socket.

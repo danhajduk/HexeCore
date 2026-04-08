@@ -23,6 +23,14 @@ Status: Implemented
 - Standalone addon realization is compose-based today through `compose_up` and `compose_down` in `backend/app/supervisor/service.py`.
 - Supervisor API service probes are available at `/health` and `/ready` on the standalone Supervisor API server.
 
+## Aux Container Heartbeats
+
+Status: Implemented
+
+- Aux services/containers running on a host must send heartbeats to the local Supervisor over the Unix socket at `/run/hexe/supervisor.sock`.
+- Heartbeats are sent via `POST /api/supervisor/runtimes/heartbeat` and should include runtime metadata relevant to the aux service.
+- Each aux container must include a lightweight heartbeat script or sidecar that posts to the Supervisor socket.
+
 ## Restart Semantics Boundary
 
 Status: Implemented
