@@ -62,6 +62,7 @@ type NodeServiceRow = {
   health_status?: string;
   cpu_percent?: number;
   mem_percent?: number;
+  pid?: number;
 };
 
 type SystemStats = {
@@ -245,6 +246,8 @@ export default function SettingsSupervisor() {
   const [stack, setStack] = useState<StackSummary | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [actionBusy, setActionBusy] = useState<Record<string, string | null>>({});
+  const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
 
   async function loadSummary() {
     setErr(null);
@@ -325,6 +328,7 @@ export default function SettingsSupervisor() {
             health_status: svc.health_status ? String(svc.health_status) : undefined,
             cpu_percent: typeof svc.cpu_percent === "number" ? svc.cpu_percent : undefined,
             mem_percent: typeof svc.mem_percent === "number" ? svc.mem_percent : undefined,
+            pid: typeof svc.pid === "number" ? svc.pid : undefined,
           };
           return normalized.service_id === "node" ? null : normalized;
         })
@@ -346,6 +350,7 @@ export default function SettingsSupervisor() {
             health_status: svc.health_status ? String(svc.health_status) : undefined,
             cpu_percent: typeof svc.cpu_percent === "number" ? svc.cpu_percent : undefined,
             mem_percent: typeof svc.mem_percent === "number" ? svc.mem_percent : undefined,
+            pid: typeof svc.pid === "number" ? svc.pid : undefined,
           };
         }
         return {
@@ -368,6 +373,28 @@ export default function SettingsSupervisor() {
     acc[key].push(service);
     return acc;
   }, {});
+  const hasServicePid = nodeServices.some((service) => typeof service.pid === "number");
+
+  async function runNodeRuntimeAction(nodeId: string, action: "start" | "stop" | "restart") {
+    if (!nodeId) return;
+    setErr(null);
+    setActionBusy((prev) => ({ ...prev, [nodeId]: action }));
+    try {
+      const res = await fetch(`/api/supervisor/runtimes/${encodeURIComponent(nodeId)}/${action}`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await loadSummary();
+    } catch (e: any) {
+      setErr(e?.message ?? String(e));
+    } finally {
+      setActionBusy((prev) => ({ ...prev, [nodeId]: null }));
+    }
+  }
+
+  function toggleNodeDetails(nodeId: string) {
+    setExpandedNodes((prev) => ({ ...prev, [nodeId]: !prev[nodeId] }));
+  }
 
   return (
     <div className="settings-page">
@@ -481,16 +508,13 @@ export default function SettingsSupervisor() {
                   <th />
                   <th>Name</th>
                   <th>ID</th>
-                  <th>Type</th>
-                  <th>State</th>
+                  <th>Runtime</th>
+                  <th>Runtime State</th>
                   <th>Health</th>
-                  <th>Desired</th>
-                  <th>Freshness</th>
-                  <th>RPS</th>
-                  <th>P95</th>
-                  <th>Err%</th>
+                  <th>Desired State</th>
                   <th>CPU</th>
                   <th>Mem</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -505,26 +529,90 @@ export default function SettingsSupervisor() {
                         </td>
                         <td>{String(runtime.node_name || runtime.node_id || "Unnamed")}</td>
                         <td className="settings-mono">{nodeId || "-"}</td>
-                        <td>{String(runtime.node_type || "-")}</td>
+                        <td>{String((runtime as { runtime_kind?: string }).runtime_kind || runtime.node_type || "-")}</td>
                         <td>{displayState(runtime.runtime_state)}</td>
                         <td>{displayState(runtime.health_status)}</td>
                         <td>{displayState(runtime.desired_state)}</td>
-                        <td>{displayState(runtime.freshness_state)}</td>
-                        <td>{formatRps((runtime as { resource_usage?: { rps?: number } }).resource_usage?.rps)}</td>
-                        <td>
-                          {formatMs((runtime as { resource_usage?: { latency_ms_p95?: number } }).resource_usage?.latency_ms_p95)}
-                        </td>
-                        <td>{formatPct((runtime as { resource_usage?: { error_rate?: number } }).resource_usage?.error_rate)}</td>
                         <td>
                           {formatPctValue((runtime as { resource_usage?: { cpu_percent?: number } }).resource_usage?.cpu_percent)}
                         </td>
                         <td>
                           {formatPctValue((runtime as { resource_usage?: { mem_percent?: number } }).resource_usage?.mem_percent)}
                         </td>
+                        <td className="settings-actions-cell">
+                          <button
+                            className="settings-btn"
+                            type="button"
+                            onClick={() => void runNodeRuntimeAction(nodeId, "start")}
+                            disabled={actionBusy[nodeId] !== null && actionBusy[nodeId] !== undefined}
+                          >
+                            Start
+                          </button>
+                          <button
+                            className="settings-btn"
+                            type="button"
+                            onClick={() => void runNodeRuntimeAction(nodeId, "stop")}
+                            disabled={actionBusy[nodeId] !== null && actionBusy[nodeId] !== undefined}
+                          >
+                            Stop
+                          </button>
+                          <button
+                            className="settings-btn"
+                            type="button"
+                            onClick={() => void runNodeRuntimeAction(nodeId, "restart")}
+                            disabled={actionBusy[nodeId] !== null && actionBusy[nodeId] !== undefined}
+                          >
+                            Restart
+                          </button>
+                          <button className="settings-btn" type="button" onClick={() => toggleNodeDetails(nodeId)}>
+                            {expandedNodes[nodeId] ? "Hide" : "Details"}
+                          </button>
+                        </td>
                       </tr>
+                      {expandedNodes[nodeId] && (
+                        <tr className="settings-subtable-row">
+                          <td colSpan={10}>
+                            <div className="settings-subtable-wrap">
+                              <div className="settings-subtable-label">Runtime Details</div>
+                              <div className="settings-kv-grid">
+                                {(runtime as { active_version?: string }).active_version && (
+                                  <div className="settings-kv-item">
+                                    <div>Active Version</div>
+                                    <strong>{String((runtime as { active_version?: string }).active_version)}</strong>
+                                  </div>
+                                )}
+                                {(runtime as { last_action?: string }).last_action && (
+                                  <div className="settings-kv-item">
+                                    <div>Last Action</div>
+                                    <strong>{String((runtime as { last_action?: string }).last_action)}</strong>
+                                  </div>
+                                )}
+                                {(runtime as { last_action_at?: string }).last_action_at && (
+                                  <div className="settings-kv-item">
+                                    <div>Last Action At</div>
+                                    <strong>{String((runtime as { last_action_at?: string }).last_action_at)}</strong>
+                                  </div>
+                                )}
+                                {(runtime as { hostname?: string }).hostname && (
+                                  <div className="settings-kv-item">
+                                    <div>Hostname</div>
+                                    <strong>{String((runtime as { hostname?: string }).hostname)}</strong>
+                                  </div>
+                                )}
+                                {(runtime as { host_id?: string }).host_id && (
+                                  <div className="settings-kv-item">
+                                    <div>Host ID</div>
+                                    <strong>{String((runtime as { host_id?: string }).host_id)}</strong>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
                       {services.length > 0 && (
                         <tr className="settings-subtable-row">
-                          <td colSpan={13}>
+                          <td colSpan={10}>
                             <div className="settings-subtable-wrap">
                               <div className="settings-subtable-label">Services</div>
                               <table className="settings-subtable">
@@ -537,6 +625,7 @@ export default function SettingsSupervisor() {
                                     <th>Health</th>
                                     <th>CPU</th>
                                     <th>Mem</th>
+                                    {hasServicePid && <th>PID</th>}
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -549,8 +638,9 @@ export default function SettingsSupervisor() {
                                       <td className="settings-mono">{service.service_id}</td>
                                       <td>{displayState(service.service_state)}</td>
                                       <td>{displayState(service.health_status || service.service_state)}</td>
-                                      <td>{formatPctValue(service.cpu_percent)}</td>
-                                      <td>{formatPctValue(service.mem_percent)}</td>
+                                      <td>{service.cpu_percent == null ? "" : formatPctValue(service.cpu_percent)}</td>
+                                      <td>{service.mem_percent == null ? "" : formatPctValue(service.mem_percent)}</td>
+                                      {hasServicePid && <td>{service.pid ?? ""}</td>}
                                     </tr>
                                   ))}
                                 </tbody>
