@@ -216,6 +216,10 @@ export default function SettingsSupervisor() {
 
   useEffect(() => {
     void loadSummary();
+    const id = window.setInterval(() => {
+      void loadSummary();
+    }, 10000);
+    return () => window.clearInterval(id);
   }, []);
 
   const coreRuntimes = Array.isArray(summary?.core_runtimes) ? summary?.core_runtimes : [];
