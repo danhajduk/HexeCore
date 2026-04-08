@@ -14,6 +14,15 @@ Supervisor can listen on a Unix socket (default) or a TCP bind/port. These optio
 - `HEXE_SUPERVISOR_SOCKET`: Unix socket path when `HEXE_SUPERVISOR_TRANSPORT=socket`. Default: `/run/hexe/supervisor.sock`.
 - `HEXE_SUPERVISOR_LOG_LEVEL`: Supervisor API server log level. Default: `INFO`.
 
+## Core Supervisor Client
+
+Core talks to a remote Supervisor over the following environment-backed client settings.
+
+- `HEXE_SUPERVISOR_API_TRANSPORT`: Client transport mode. Supported values: `socket`, `http`, or `disabled`. Default: `socket`.
+- `HEXE_SUPERVISOR_API_BASE_URL`: Base URL for `http` transport. Default: `http://127.0.0.1:57665`.
+- `HEXE_SUPERVISOR_API_SOCKET`: Unix socket path for `socket` transport. Default: `/run/hexe/supervisor.sock`.
+- `HEXE_SUPERVISOR_API_TIMEOUT_S`: Client timeout (seconds). Default: `2.0`.
+
 ## Notes
 
 - The Unix socket path is consistent across hosts to keep local Supervisor access predictable.

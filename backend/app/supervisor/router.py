@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
+from typing import Any
+
+from fastapi import APIRouter, Body
 
 from .models import (
     HostResourceSummary,
@@ -38,9 +40,27 @@ def build_supervisor_router(service: SupervisorDomainService | None = None) -> A
     def get_supervisor_runtime() -> SupervisorRuntimeSummary:
         return supervisor.runtime_summary()
 
+    @router.get("/supervisor/runtime/{runtime_id}")
+    def get_supervisor_runtime_state(runtime_id: str) -> dict[str, Any]:
+        return supervisor.get_runtime_state(runtime_id)
+
+    @router.post("/supervisor/runtime/{runtime_id}/apply")
+    def apply_supervisor_runtime(runtime_id: str, body: dict[str, Any] = Body(...)) -> dict[str, Any]:
+        if runtime_id != "cloudflared":
+            return {"ok": False, "runtime_state": "unsupported", "error": "runtime_not_supported"}
+        return supervisor.apply_cloudflared_config(body)
+
     @router.get("/supervisor/admission")
-    def get_supervisor_admission() -> SupervisorAdmissionContextSummary:
-        return supervisor.admission_summary()
+    def get_supervisor_admission(
+        total_capacity_units: int = 100,
+        reserve_units: int = 5,
+        headroom_pct: float = 0.05,
+    ) -> SupervisorAdmissionContextSummary:
+        return supervisor.admission_summary(
+            total_capacity_units=total_capacity_units,
+            reserve_units=reserve_units,
+            headroom_pct=headroom_pct,
+        )
 
     @router.get("/supervisor/nodes")
     def list_supervisor_nodes() -> dict[str, list[ManagedNodeSummary]]:

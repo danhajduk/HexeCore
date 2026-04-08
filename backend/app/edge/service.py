@@ -12,7 +12,7 @@ from app.system.platform_identity import (
     is_valid_core_id,
     load_platform_identity,
 )
-from app.supervisor.service import SupervisorDomainService
+from app.supervisor.client import SupervisorApiClient
 
 from .cloudflare_client import CloudflareApiClient, CloudflareApiError
 from .cloudflare_renderer import CloudflareConfigRenderer
@@ -48,7 +48,7 @@ class EdgeGatewayService:
         *,
         settings_store=None,
         node_registrations_store: NodeRegistrationsStore | None = None,
-        supervisor_service: SupervisorDomainService | None = None,
+        supervisor_client: SupervisorApiClient | None = None,
         renderer: CloudflareConfigRenderer | None = None,
         audit_store: AuditLogStore | None = None,
         cloudflare_client_factory=None,
@@ -56,7 +56,7 @@ class EdgeGatewayService:
         self._store = store
         self._settings_store = settings_store
         self._node_registrations_store = node_registrations_store
-        self._supervisor_service = supervisor_service
+        self._supervisor_client = supervisor_client
         self._renderer = renderer or CloudflareConfigRenderer()
         self._audit_store = audit_store
         self._cloudflare_client_factory = cloudflare_client_factory or self._default_cloudflare_client
@@ -271,8 +271,8 @@ class EdgeGatewayService:
                 if node is None or node.trust_status != "trusted":
                     state = "unavailable"
                     detail = "node_not_trusted"
-            elif item.target.target_type == "supervisor_runtime" and self._supervisor_service is not None:
-                runtime = self._supervisor_service.get_runtime_state(item.target.target_id)
+            elif item.target.target_type == "supervisor_runtime" and self._supervisor_client is not None:
+                runtime = self._supervisor_client.get_runtime_state(item.target.target_id)
                 if not runtime.get("exists"):
                     state = "unavailable"
                     detail = "runtime_not_found"
@@ -566,8 +566,8 @@ class EdgeGatewayService:
 
         rendered = self._renderer.render(identity=identity, settings=settings, publications=publications)
         apply_result = None
-        if self._supervisor_service is not None:
-            apply_result = self._supervisor_service.apply_cloudflared_config(
+        if self._supervisor_client is not None:
+            apply_result = self._supervisor_client.apply_cloudflared_config(
                 {
                     **rendered,
                     "desired_enabled": bool(settings.enabled),

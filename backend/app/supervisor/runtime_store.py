@@ -123,6 +123,10 @@ class SupervisorRuntimeNodesStore:
     def get(self, node_id: str) -> SupervisorRuntimeNodeRecord | None:
         return self._records_by_node.get(str(node_id or "").strip())
 
+    def replace_all(self, records: list[SupervisorRuntimeNodeRecord]) -> None:
+        self._records_by_node = {record.node_id: record for record in records if record.node_id}
+        self._save()
+
     def upsert(self, record: SupervisorRuntimeNodeRecord) -> SupervisorRuntimeNodeRecord:
         now = _utcnow_iso()
         existing = self._records_by_node.get(record.node_id)

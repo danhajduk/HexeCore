@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 from app.system.audit import AuditLogStore
 from app.system.events import PlatformEventService
 from app.system.onboarding import NodeBudgetService
-from app.supervisor import SupervisorDomainService
+from app.supervisor.client import SupervisorApiClient
 
 from .engine import SchedulerEngine
 from .queue_store import QueueStore
@@ -35,7 +35,7 @@ def build_scheduler_router(
     engine: SchedulerEngine,
     debug_enabled: bool = False,
     events: PlatformEventService | None = None,
-    supervisor_service: SupervisorDomainService | None = None,
+    supervisor_client: SupervisorApiClient | None = None,
     node_budget_service: NodeBudgetService | None = None,
     audit_store: AuditLogStore | None = None,
 ) -> APIRouter:
@@ -79,9 +79,9 @@ def build_scheduler_router(
             return
 
     def _supervisor_admission():
-        if supervisor_service is None:
+        if supervisor_client is None:
             return None
-        return supervisor_service.admission_summary(
+        return supervisor_client.admission_summary(
             total_capacity_units=engine.total_capacity_units,
             reserve_units=engine.reserve_units,
             headroom_pct=engine.headroom_pct,
