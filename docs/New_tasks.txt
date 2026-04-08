@@ -47,6 +47,5 @@ Standards reference:
 
 Do not edit above this line:
 #######################################################################
-[TODO] Task 903: Add Core-side registration call for Core addons and their containers to Supervisor with manage mode metadata.
 [TODO] Task 904: Add Core-side registration call for Core-hosted aux services/containers (for example cloudflare) to Supervisor with manage mode metadata.
 [TODO] Task 905: Cache Supervisor summary data in Core and refresh every 10 seconds to speed up Supervisor UI loading.

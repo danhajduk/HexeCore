@@ -22,6 +22,35 @@ log = logging.getLogger("synthia.addons")
 def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
+
+def _extract_container_entries(payload: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not isinstance(payload, dict):
+        return []
+    raw = payload.get("containers")
+    if isinstance(raw, list):
+        return [item for item in raw if isinstance(item, dict)]
+    if isinstance(raw, dict):
+        raw_items = raw.get("items")
+        if isinstance(raw_items, list):
+            return [item for item in raw_items if isinstance(item, dict)]
+    raw_single = payload.get("container")
+    if isinstance(raw_single, dict):
+        return [raw_single]
+    return []
+
+
+def _addon_health_snapshot(
+    status: str,
+    last_seen: str | None,
+    payload: dict[str, Any] | None,
+) -> dict[str, Any]:
+    snapshot: dict[str, Any] = {"status": status, "last_seen": last_seen}
+    containers = _extract_container_entries(payload)
+    if containers:
+        snapshot["containers"] = containers
+        snapshot["container_count"] = len(containers)
+    return snapshot
+
 @dataclass
 class AddonRegistry:
     addons: Dict[str, BackendAddon]
@@ -54,7 +83,7 @@ class AddonRegistry:
         addon.tls_warning = _tls_warning_for_base_url(addon.base_url)
         if addon.tls_warning:
             log.warning("Registered addon '%s' TLS warning: %s", addon.id, addon.tls_warning)
-        errors, observed_capabilities = self._check_registered_contract(addon)
+        errors, observed_capabilities, health_payload = self._check_registered_contract(addon)
         addon.contract_ok = len(errors) == 0
         addon.contract_errors = errors
         if errors:
@@ -64,7 +93,7 @@ class AddonRegistry:
         addon.health_status = "ok" if addon.contract_ok else "unhealthy"
         if addon.contract_ok:
             addon.last_seen = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-            addon.last_health = {"status": addon.health_status, "last_seen": addon.last_seen}
+            addon.last_health = _addon_health_snapshot(addon.health_status, addon.last_seen, health_payload)
         if not addon.discovered_at:
             addon.discovered_at = now
         addon.updated_at = now
@@ -112,7 +141,7 @@ class AddonRegistry:
             addon.auth_mode = str(payload.get("auth_mode"))
         addon.health_status = str(payload.get("health_status") or addon.health_status or "unknown")
         addon.last_seen = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-        addon.last_health = {"status": addon.health_status, "last_seen": addon.last_seen}
+        addon.last_health = _addon_health_snapshot(addon.health_status, addon.last_seen, payload)
         if not addon.discovered_at:
             addon.discovered_at = now
         addon.updated_at = now
@@ -145,7 +174,7 @@ class AddonRegistry:
         else:
             addon.health_status = "unknown"
         addon.last_seen = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-        addon.last_health = {"status": addon.health_status, "last_seen": addon.last_seen}
+        addon.last_health = _addon_health_snapshot(addon.health_status, addon.last_seen, payload)
         if not addon.discovered_at:
             addon.discovered_at = now
         addon.updated_at = now
@@ -166,7 +195,10 @@ class AddonRegistry:
             return {addon.auth_header_name: secret_value}
         return {}
 
-    def _check_registered_contract(self, addon: RegisteredAddon) -> tuple[list[str], list[str]]:
+    def _check_registered_contract(
+        self,
+        addon: RegisteredAddon,
+    ) -> tuple[list[str], list[str], dict[str, Any] | None]:
         base = addon.base_url.rstrip("/")
         timeout_s = max(0.1, float(addon.proxy_timeout_s))
         headers = self._auth_headers(addon)
@@ -178,6 +210,7 @@ class AddonRegistry:
         ]
         errors: list[str] = []
         observed_capabilities: list[str] = []
+        health_payload: dict[str, Any] | None = None
 
         with httpx.Client(timeout=httpx.Timeout(timeout_s), follow_redirects=False) as client:
             for path in required_get:
@@ -186,6 +219,12 @@ class AddonRegistry:
                     r = client.get(url, headers=headers)
                     if r.status_code >= 400:
                         errors.append(f"GET {path} -> HTTP {r.status_code}")
+                    elif path == "/api/addon/health":
+                        try:
+                            data = r.json()
+                            health_payload = data if isinstance(data, dict) else {"result": data}
+                        except Exception:
+                            health_payload = {"result": r.text}
                 except Exception as e:
                     errors.append(f"GET {path} -> {type(e).__name__}")
             try:
@@ -203,7 +242,7 @@ class AddonRegistry:
                         observed_capabilities = [str(x) for x in payload["capabilities"]]
                 except Exception:
                     pass
-        return errors, observed_capabilities
+        return errors, observed_capabilities, health_payload
 
     async def register_remote(
         self,
@@ -313,7 +352,7 @@ class AddonRegistry:
         status = str(payload.get("status") or payload.get("health_status") or "unknown")
         addon.health_status = status
         addon.last_seen = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-        addon.last_health = {"status": status, "last_seen": addon.last_seen}
+        addon.last_health = _addon_health_snapshot(status, addon.last_seen, payload)
         addon.updated_at = _utcnow_iso()
         self.registered[addon_id] = addon
         _save_registered_addons(self.registered)
@@ -323,7 +362,7 @@ class AddonRegistry:
         changed = False
         for addon in self.registered.values():
             before = addon.model_dump(mode="json")
-            errors, observed_capabilities = await self._check_registered_contract_async(addon)
+            errors, observed_capabilities, health_payload = await self._check_registered_contract_async(addon)
             addon.contract_ok = len(errors) == 0
             addon.contract_errors = errors
             if observed_capabilities:
@@ -331,14 +370,17 @@ class AddonRegistry:
             addon.health_status = "ok" if addon.contract_ok else "unhealthy"
             if addon.contract_ok:
                 addon.last_seen = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-            addon.last_health = {"status": addon.health_status, "last_seen": addon.last_seen}
+            addon.last_health = _addon_health_snapshot(addon.health_status, addon.last_seen, health_payload)
             addon.updated_at = _utcnow_iso()
             if addon.model_dump(mode="json") != before:
                 changed = True
         if changed:
             _save_registered_addons(self.registered)
 
-    async def _check_registered_contract_async(self, addon: RegisteredAddon) -> tuple[list[str], list[str]]:
+    async def _check_registered_contract_async(
+        self,
+        addon: RegisteredAddon,
+    ) -> tuple[list[str], list[str], dict[str, Any] | None]:
         base = addon.base_url.rstrip("/")
         timeout_s = max(0.1, float(addon.proxy_timeout_s))
         retries = max(0, int(addon.proxy_retries))
@@ -351,6 +393,7 @@ class AddonRegistry:
         ]
         errors: list[str] = []
         observed_capabilities: list[str] = []
+        health_payload: dict[str, Any] | None = None
 
         async with httpx.AsyncClient(timeout=httpx.Timeout(timeout_s), follow_redirects=False) as client:
             for path in required_get:
@@ -361,6 +404,12 @@ class AddonRegistry:
                         r = await client.get(f"{base}{path}", headers=headers)
                         if r.status_code < 400:
                             ok = True
+                            if path == "/api/addon/health":
+                                try:
+                                    data = r.json()
+                                    health_payload = data if isinstance(data, dict) else {"result": data}
+                                except Exception:
+                                    health_payload = {"result": r.text}
                             break
                         last_err = f"HTTP {r.status_code}"
                     except Exception as e:
@@ -390,7 +439,7 @@ class AddonRegistry:
                         observed_capabilities = [str(x) for x in payload["capabilities"]]
                 except Exception:
                     pass
-        return errors, observed_capabilities
+        return errors, observed_capabilities, health_payload
 
 
 def _state_path() -> Path:
