@@ -338,6 +338,8 @@ export default function SettingsSupervisor() {
                   <th>RPS</th>
                   <th>P95</th>
                   <th>Err%</th>
+                  <th>CPU</th>
+                  <th>Mem</th>
                 </tr>
               </thead>
               <tbody>
@@ -356,6 +358,8 @@ export default function SettingsSupervisor() {
                     <td>{String(runtime.runtime_id) === "core-api" ? formatRps(stats?.api?.rps) : "-"}</td>
                     <td>{String(runtime.runtime_id) === "core-api" ? formatMs(stats?.api?.latency_ms_p95) : "-"}</td>
                     <td>{String(runtime.runtime_id) === "core-api" ? formatPct(stats?.api?.error_rate) : "-"}</td>
+                    <td>{String(runtime.runtime_id) === "core-api" ? pct(stats?.cpu?.percent_total ?? 0) : "-"}</td>
+                    <td>{String(runtime.runtime_id) === "core-api" ? pct(stats?.mem?.percent ?? 0) : "-"}</td>
                   </tr>
                 ))}
               </tbody>
