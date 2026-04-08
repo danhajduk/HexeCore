@@ -312,7 +312,7 @@ export default function SettingsSupervisor() {
     const nodeId = String(runtime.node_id || "");
     const nodeName = String(runtime.node_name || runtime.node_id || "Node");
     if (Array.isArray(services)) {
-      return services
+      const mapped = services
         .map((item) => {
           if (!item || typeof item !== "object") return null;
           const svc = item as Record<string, unknown>;
@@ -333,35 +333,39 @@ export default function SettingsSupervisor() {
           return normalized.service_id === "node" ? null : normalized;
         })
         .filter((item): item is NodeServiceRow => Boolean(item));
+      return mapped;
     }
     if (typeof services === "object") {
-      return Object.entries(services as Record<string, unknown>)
+      const mapped = Object.entries(services as Record<string, unknown>)
         .map(([key, value]) => {
           if (String(key) === "node") return null;
-        if (value && typeof value === "object") {
-          const svc = value as Record<string, unknown>;
-          return {
+          if (value && typeof value === "object") {
+            const svc = value as Record<string, unknown>;
+            const normalized: NodeServiceRow = {
+              node_id: nodeId,
+              node_name: nodeName,
+              service_id: String(key),
+              service_name: String(svc.service_name || svc.name || key),
+              service_state: String(svc.service_state || svc.state || svc.status || "unknown"),
+              desired_state: svc.desired_state ? String(svc.desired_state) : undefined,
+              health_status: svc.health_status ? String(svc.health_status) : undefined,
+              cpu_percent: typeof svc.cpu_percent === "number" ? svc.cpu_percent : undefined,
+              mem_percent: typeof svc.mem_percent === "number" ? svc.mem_percent : undefined,
+              pid: typeof svc.pid === "number" ? svc.pid : undefined,
+            };
+            return normalized;
+          }
+          const fallback: NodeServiceRow = {
             node_id: nodeId,
             node_name: nodeName,
             service_id: String(key),
-            service_name: String(svc.service_name || svc.name || key),
-            service_state: String(svc.service_state || svc.state || svc.status || "unknown"),
-            desired_state: svc.desired_state ? String(svc.desired_state) : undefined,
-            health_status: svc.health_status ? String(svc.health_status) : undefined,
-            cpu_percent: typeof svc.cpu_percent === "number" ? svc.cpu_percent : undefined,
-            mem_percent: typeof svc.mem_percent === "number" ? svc.mem_percent : undefined,
-            pid: typeof svc.pid === "number" ? svc.pid : undefined,
+            service_name: String(key),
+            service_state: String(value || "unknown"),
           };
-        }
-        return {
-          node_id: nodeId,
-          node_name: nodeName,
-          service_id: String(key),
-          service_name: String(key),
-          service_state: String(value || "unknown"),
-        };
+          return fallback;
         })
         .filter((item): item is NodeServiceRow => Boolean(item));
+      return mapped;
     }
     return [];
   });
