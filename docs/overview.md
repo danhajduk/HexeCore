@@ -29,7 +29,7 @@ Supervisor is the host-local runtime authority. In current code this spans:
 - `backend/app/system/runtime/`
 - `backend/app/supervisor/`
 - `backend/app/supervisor/server.py`
-- `systemd/user/synthia-supervisor-api.service.in`
+- `systemd/user/hexe-supervisor-api.service.in`
 
 Current top-level routes:
 

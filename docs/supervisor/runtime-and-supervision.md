@@ -35,7 +35,7 @@ Status: Implemented
 
 Status: Implemented
 
-- Backend process supervision is owned by systemd user service template (`systemd/user/synthia-backend.service.in`) with:
+- Backend process supervision is owned by systemd user service template (`systemd/user/hexe-backend.service.in`) with:
   - `Restart=always`
   - `RestartSec=2`
 - Embedded MQTT docker runtime restart policy is owned by runtime boundary config (`backend/app/system/mqtt/runtime_boundary.py`) via:

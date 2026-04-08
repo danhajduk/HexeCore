@@ -10,7 +10,7 @@ if [[ -f "$ENV_FILE" ]]; then
   set +a
 fi
 
-LOG_FILE="${LOG_FILE:-/tmp/synthia_update.log}"
+LOG_FILE="${LOG_FILE:-/tmp/hexe_update.log}"
 SERVICE_UPDATE=false
 PLATFORM_NAME="${PLATFORM_NAME:-Hexe AI}"
 
@@ -76,9 +76,9 @@ if [[ "$SERVICE_UPDATE" == "true" ]]; then
   echo "[update] reinstalling systemd user units"
   UNIT_SRC_DIR="$REPO_DIR/systemd/user"
   UNIT_DST_DIR="$HOME/.config/systemd/user"
-  SUPERVISOR_UNIT="synthia-supervisor.service"
-  SUPERVISOR_API_UNIT="synthia-supervisor-api.service"
-  DASHBOARD_UNIT="synthia-dashboard.service"
+  SUPERVISOR_UNIT="hexe-supervisor.service"
+  SUPERVISOR_API_UNIT="hexe-supervisor-api.service"
+  DASHBOARD_UNIT="hexe-dashboard.service"
   mkdir -p "$UNIT_DST_DIR"
 
   install_unit() {
@@ -91,9 +91,9 @@ if [[ "$SERVICE_UPDATE" == "true" ]]; then
     sed "s|@INSTALL_DIR@|$REPO_DIR|g" "$template" > "$out"
   }
 
-  install_unit "$UNIT_SRC_DIR/synthia-backend.service.in" "$UNIT_DST_DIR/synthia-backend.service"
-  install_unit "$UNIT_SRC_DIR/synthia-frontend-dev.service.in" "$UNIT_DST_DIR/synthia-frontend-dev.service"
-  install_unit "$UNIT_SRC_DIR/synthia-updater.service.in" "$UNIT_DST_DIR/synthia-updater.service"
+  install_unit "$UNIT_SRC_DIR/hexe-backend.service.in" "$UNIT_DST_DIR/hexe-backend.service"
+  install_unit "$UNIT_SRC_DIR/hexe-frontend-dev.service.in" "$UNIT_DST_DIR/hexe-frontend-dev.service"
+  install_unit "$UNIT_SRC_DIR/hexe-updater.service.in" "$UNIT_DST_DIR/hexe-updater.service"
   if [[ -f "$UNIT_SRC_DIR/${DASHBOARD_UNIT}.in" ]]; then
     install_unit "$UNIT_SRC_DIR/${DASHBOARD_UNIT}.in" "$UNIT_DST_DIR/${DASHBOARD_UNIT}"
   else
@@ -111,8 +111,8 @@ if [[ "$SERVICE_UPDATE" == "true" ]]; then
   fi
 
   systemctl --user daemon-reload
-  systemctl --user restart synthia-backend.service
-  systemctl --user restart synthia-frontend-dev.service
+  systemctl --user restart hexe-backend.service
+  systemctl --user restart hexe-frontend-dev.service
   if [[ -f "$UNIT_DST_DIR/${DASHBOARD_UNIT}" ]]; then
     systemctl --user restart "$DASHBOARD_UNIT"
   fi
@@ -125,16 +125,16 @@ if [[ "$SERVICE_UPDATE" == "true" ]]; then
 fi
 
 echo "[update] restart services"
-systemctl --user restart synthia-backend.service
-systemctl --user restart synthia-frontend-dev.service
-if systemctl --user cat synthia-dashboard.service >/dev/null 2>&1; then
-  systemctl --user restart synthia-dashboard.service
+systemctl --user restart hexe-backend.service
+systemctl --user restart hexe-frontend-dev.service
+if systemctl --user cat hexe-dashboard.service >/dev/null 2>&1; then
+  systemctl --user restart hexe-dashboard.service
 fi
-if systemctl --user cat synthia-supervisor.service >/dev/null 2>&1; then
-  systemctl --user restart synthia-supervisor.service
+if systemctl --user cat hexe-supervisor.service >/dev/null 2>&1; then
+  systemctl --user restart hexe-supervisor.service
 fi
-if systemctl --user cat synthia-supervisor-api.service >/dev/null 2>&1; then
-  systemctl --user restart synthia-supervisor-api.service
+if systemctl --user cat hexe-supervisor-api.service >/dev/null 2>&1; then
+  systemctl --user restart hexe-supervisor-api.service
 fi
 
 

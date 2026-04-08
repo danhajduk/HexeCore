@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-backend_unit="synthia-backend.service"
+backend_unit="hexe-backend.service"
 
 echo "[reload-backend] Reloading user systemd units"
 systemctl --user daemon-reload

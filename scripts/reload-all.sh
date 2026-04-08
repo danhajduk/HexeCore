@@ -2,13 +2,13 @@
 set -euo pipefail
 
 units=(
-  "synthia-backend.service"
-  "synthia-frontend-dev.service"
+  "hexe-backend.service"
+  "hexe-frontend-dev.service"
 )
-updater_unit="synthia-updater.service"
-supervisor_unit="synthia-supervisor.service"
-supervisor_api_unit="synthia-supervisor-api.service"
-dashboard_unit="synthia-dashboard.service"
+updater_unit="hexe-updater.service"
+supervisor_unit="hexe-supervisor.service"
+supervisor_api_unit="hexe-supervisor-api.service"
+dashboard_unit="hexe-dashboard.service"
 
 echo "[reload-all] Reloading user systemd units"
 systemctl --user daemon-reload

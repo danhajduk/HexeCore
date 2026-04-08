@@ -12,7 +12,7 @@ Supervisor currently spans:
 - `backend/app/system/runtime/`
 - `backend/app/supervisor/`
 - `backend/app/supervisor/server.py`
-- `systemd/user/synthia-supervisor-api.service.in`
+- `systemd/user/hexe-supervisor-api.service.in`
 
 Supervisor API routes are served by the standalone Supervisor service rather than the Core process.
 

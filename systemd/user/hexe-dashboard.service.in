@@ -1,6 +1,6 @@
 [Unit]
 Description=Hexe Dashboard Browser
-After=graphical-session.target synthia-backend.service synthia-frontend-dev.service network-online.target
+After=graphical-session.target hexe-backend.service hexe-frontend-dev.service network-online.target
 Wants=network-online.target
 
 [Service]

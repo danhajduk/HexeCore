@@ -153,24 +153,24 @@ UNIT_DST_DIR="$HOME/.config/systemd/user"
 mkdir -p "$UNIT_DST_DIR"
 
 install_user_unit_from_template \
-  "$UNIT_SRC_DIR/synthia-backend.service.in" \
-  "$UNIT_DST_DIR/synthia-backend.service"
+  "$UNIT_SRC_DIR/hexe-backend.service.in" \
+  "$UNIT_DST_DIR/hexe-backend.service"
 
 install_user_unit_from_template \
-  "$UNIT_SRC_DIR/synthia-frontend-dev.service.in" \
-  "$UNIT_DST_DIR/synthia-frontend-dev.service"
+  "$UNIT_SRC_DIR/hexe-frontend-dev.service.in" \
+  "$UNIT_DST_DIR/hexe-frontend-dev.service"
 
 install_user_unit_from_template \
-  "$UNIT_SRC_DIR/synthia-updater.service.in" \
-  "$UNIT_DST_DIR/synthia-updater.service"
+  "$UNIT_SRC_DIR/hexe-updater.service.in" \
+  "$UNIT_DST_DIR/hexe-updater.service"
 
 install_user_unit_from_template \
-  "$UNIT_SRC_DIR/synthia-supervisor.service.in" \
-  "$UNIT_DST_DIR/synthia-supervisor.service"
+  "$UNIT_SRC_DIR/hexe-supervisor.service.in" \
+  "$UNIT_DST_DIR/hexe-supervisor.service"
 
 install_user_unit_from_template \
-  "$UNIT_SRC_DIR/synthia-supervisor-api.service.in" \
-  "$UNIT_DST_DIR/synthia-supervisor-api.service"
+  "$UNIT_SRC_DIR/hexe-supervisor-api.service.in" \
+  "$UNIT_DST_DIR/hexe-supervisor-api.service"
 
 systemctl --user daemon-reload
 
@@ -184,30 +184,30 @@ REPO_DIR="$INSTALL_DIR"
 
 echo "[bootstrap] Enabling + starting services"
 set +e
-systemctl --user enable --now synthia-backend.service
+systemctl --user enable --now hexe-backend.service
 BACKEND_RC=$?
-systemctl --user enable --now synthia-frontend-dev.service
+systemctl --user enable --now hexe-frontend-dev.service
 FRONTEND_RC=$?
 set -e
 
 if [[ $BACKEND_RC -ne 0 ]]; then
   echo "[bootstrap] ERROR: backend failed"
-  systemctl --user status synthia-backend.service --no-pager || true
-  journalctl --user -u synthia-backend.service -n 120 --no-pager || true
+  systemctl --user status hexe-backend.service --no-pager || true
+  journalctl --user -u hexe-backend.service -n 120 --no-pager || true
   exit 1
 fi
 
 if [[ $FRONTEND_RC -ne 0 ]]; then
   echo "[bootstrap] ERROR: frontend failed"
-  systemctl --user status synthia-frontend-dev.service --no-pager || true
-  journalctl --user -u synthia-frontend-dev.service -n 120 --no-pager || true
+  systemctl --user status hexe-frontend-dev.service --no-pager || true
+  journalctl --user -u hexe-frontend-dev.service -n 120 --no-pager || true
   exit 1
 fi
 
 echo "[bootstrap] $PLATFORM_NAME bootstrap complete."
 echo "Backend:  http://$(hostname -I | awk '{print $1}'):9001/api/health"
 echo "Frontend: http://$(hostname -I | awk '{print $1}')"
-echo "Updater unit installed: synthia-updater.service (Hexe updater trigger: systemctl --user start synthia-updater.service)"
-echo "Supervisor unit installed: synthia-supervisor.service (Hexe supervisor trigger: systemctl --user start synthia-supervisor.service)"
-echo "Supervisor API unit installed: synthia-supervisor-api.service (Hexe supervisor API trigger: systemctl --user start synthia-supervisor-api.service)"
+echo "Updater unit installed: hexe-updater.service (Hexe updater trigger: systemctl --user start hexe-updater.service)"
+echo "Supervisor unit installed: hexe-supervisor.service (Hexe supervisor trigger: systemctl --user start hexe-supervisor.service)"
+echo "Supervisor API unit installed: hexe-supervisor-api.service (Hexe supervisor API trigger: systemctl --user start hexe-supervisor-api.service)"
 echo "Display name: $CORE_NAME"

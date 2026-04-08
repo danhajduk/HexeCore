@@ -255,8 +255,8 @@ The bootstrap script performs:
 
 Installed services include:
 
--   `synthia-backend.service`
--   `synthia-frontend-dev.service`
+-   `hexe-backend.service`
+-   `hexe-frontend-dev.service`
 -   supervisor runtime services
 -   update helpers
 

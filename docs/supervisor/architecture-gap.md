@@ -13,7 +13,7 @@ This document compares the current Hexe Supervisor implementation with the targe
   - `backend/app/system/onboarding/registrations.py`
   - `backend/app/nodes/registry.py`
   - `backend/app/system/mqtt/runtime_boundary.py`
-  - `systemd/user/synthia-supervisor.service.in`
+  - `systemd/user/hexe-supervisor.service.in`
 - Target architecture draft:
   - `docs/Upgrades/synthia-core-supervisor-node-design.md`
 - Canonical architecture alignment:
