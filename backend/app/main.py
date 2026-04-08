@@ -27,7 +27,7 @@ from .core.logging import setup_logging
 from .core.health import router as health_router
 from .architecture import build_architecture_router
 from .edge import EdgeGatewayService, EdgeGatewayStore, build_edge_router
-from .addons.registry import build_registry, register_addons
+from .addons.registry import build_registry, list_addons, register_addons
 from .addons.install_sessions import InstallSessionsStore
 from .addons.proxy import AddonProxy, build_proxy_router
 from .nodes import NodeUiProxy, build_node_ui_proxy_router, build_nodes_router, NodesDomainService
@@ -282,6 +282,76 @@ def create_app() -> FastAPI:
             )
             return items
 
+        async def _collect_core_addon_runtimes() -> list[dict[str, object]]:
+            registry = getattr(app.state, "addon_registry", None)
+            if registry is None:
+                return []
+            hostname = socket.gethostname()
+            addons = list_addons(registry)
+            mqtt_runtime = getattr(app.state, "mqtt_runtime_boundary", None)
+            mqtt_status = None
+            if mqtt_runtime is not None:
+                status_fn = getattr(mqtt_runtime, "get_status", None)
+                if callable(status_fn):
+                    try:
+                        mqtt_status = await status_fn()
+                    except Exception:
+                        log.exception("Failed to load MQTT runtime status for Supervisor registration")
+
+            items: list[dict[str, object]] = []
+            for addon in addons:
+                addon_id = str(addon.get("id") or "").strip()
+                if not addon_id:
+                    continue
+                health_status = str(addon.get("health_status") or "unknown")
+                enabled = bool(addon.get("enabled", True))
+                last_health = addon.get("last_health") if isinstance(addon.get("last_health"), dict) else {}
+                containers: list[dict[str, object]] = []
+                raw_containers = last_health.get("containers") if isinstance(last_health, dict) else None
+                if isinstance(raw_containers, list):
+                    containers = [item for item in raw_containers if isinstance(item, dict)]
+                if addon_id == "mqtt" and not containers and mqtt_status is not None:
+                    container_name = str(os.getenv("SYNTHIA_MQTT_DOCKER_CONTAINER", "synthia-mqtt-broker"))
+                    containers = [
+                        {
+                            "name": container_name,
+                            "status": str(getattr(mqtt_status, "state", "unknown")),
+                            "healthy": bool(getattr(mqtt_status, "healthy", False)),
+                            "provider": str(getattr(mqtt_status, "provider", "unknown")),
+                            "degraded_reason": getattr(mqtt_status, "degraded_reason", None),
+                        }
+                    ]
+                running = health_status in {"ok", "healthy"}
+                if addon_id == "mqtt" and mqtt_status is not None:
+                    running = bool(getattr(mqtt_status, "healthy", False))
+                    health_status = "healthy" if running else "unhealthy"
+                items.append(
+                    {
+                        "runtime_id": f"addon:{addon_id}",
+                        "runtime_name": str(addon.get("name") or addon_id),
+                        "runtime_kind": "addon",
+                        "management_mode": "manage",
+                        "host_id": hostname,
+                        "hostname": hostname,
+                        "desired_state": "running" if enabled else "stopped",
+                        "runtime_state": "running" if running else "unknown",
+                        "lifecycle_state": "running" if running else "unknown",
+                        "health_status": health_status,
+                        "running": running,
+                        "runtime_metadata": {
+                            "addon_id": addon_id,
+                            "version": addon.get("version"),
+                            "base_url": addon.get("base_url"),
+                            "ui_base_url": addon.get("ui_base_url"),
+                            "ui_mode": addon.get("ui_mode"),
+                            "platform_managed": addon.get("platform_managed"),
+                            "containers": containers,
+                            "container_count": len(containers),
+                        },
+                    }
+                )
+            return items
+
         async def _collect_core_runtime_declarations(
             *,
             core_health_status: str,
@@ -305,41 +375,7 @@ def create_app() -> FastAPI:
                     "runtime_metadata": {"component": "core-api"},
                 }
             ]
-            registry = getattr(app.state, "addon_registry", None)
-            if registry is not None:
-                for addon in registry.list_registered():
-                    health_status = str(addon.health_status or "unknown")
-                    running = health_status in {"ok", "healthy"}
-                    containers = []
-                    if isinstance(getattr(addon, "last_health", None), dict):
-                        raw_containers = addon.last_health.get("containers")
-                        if isinstance(raw_containers, list):
-                            containers = [item for item in raw_containers if isinstance(item, dict)]
-                    items.append(
-                        {
-                            "runtime_id": f"addon:{addon.id}",
-                            "runtime_name": str(addon.name or addon.id),
-                            "runtime_kind": "addon",
-                            "management_mode": "manage",
-                            "host_id": hostname,
-                            "hostname": hostname,
-                            "desired_state": "running" if registry.is_enabled(addon.id) else "stopped",
-                            "runtime_state": "running" if running else "unknown",
-                            "lifecycle_state": "running" if running else "unknown",
-                            "health_status": health_status,
-                            "running": running,
-                            "runtime_metadata": {
-                                "addon_id": addon.id,
-                                "version": addon.version,
-                                "base_url": addon.base_url,
-                                "ui_base_url": addon.ui_base_url,
-                                "ui_mode": addon.ui_mode,
-                                "containers": containers,
-                                "container_count": len(containers),
-                            },
-                        }
-                    )
-
+            items.extend(await _collect_core_addon_runtimes())
             items.extend(await _collect_core_aux_runtimes())
             items.extend(_load_core_runtime_overrides())
             merged: dict[str, dict[str, object]] = {}
