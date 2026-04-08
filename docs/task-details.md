@@ -217,3 +217,11 @@ Original task details:
 - Expose Supervisor endpoints to fetch node service status and control start/stop/restart.
 - Wire Supervisor UI to surface node services when provided.
 - Update docs to describe node service inventory and control surfaces.
+
+## Task 911
+Original task details:
+- Redesign Supervisor UI managed-node runtime section to separate runtime summary vs service monitoring.
+- Top-level fields: Name, Node ID, Runtime, Desired State, Runtime State, Health, Actions.
+- Remove RPS/P95/Err%/Freshness from runtime row.
+- Nested services table: Service, State, Health, CPU, Memory (+ optional pid/uptime/container id if available).
+- Keep lifecycle actions available.
