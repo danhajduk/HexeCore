@@ -28,3 +28,8 @@ Core talks to a remote Supervisor over the following environment-backed client s
 - The Unix socket path is consistent across hosts to keep local Supervisor access predictable.
 - When using `socket` transport, the Supervisor API server does not bind a TCP port.
 - When using `http` transport, the Supervisor API server does not open a Unix socket.
+
+## Health And Readiness Probes
+
+- `GET /health` returns a basic liveness response for the Supervisor API service.
+- `GET /ready` returns readiness based on `execution_host_ready` from the Supervisor admission summary and responds with `503` when the host is not ready.

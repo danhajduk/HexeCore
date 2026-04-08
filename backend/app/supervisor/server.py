@@ -6,6 +6,7 @@ from pathlib import Path
 
 import uvicorn
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 
 from app.system.runtime import StandaloneRuntimeService
 
@@ -20,6 +21,21 @@ def create_supervisor_app() -> FastAPI:
     supervisor = SupervisorDomainService(runtime_service=runtime_service)
     app.state.supervisor_service = supervisor
     app.include_router(build_supervisor_router(supervisor), prefix="/api")
+
+    @app.get("/health")
+    def health() -> dict[str, str]:
+        return {"status": "ok"}
+
+    @app.get("/ready")
+    def readiness() -> JSONResponse:
+        admission = supervisor.admission_summary()
+        payload = {
+            "status": "ready" if admission.execution_host_ready else "degraded",
+            "admission": admission.model_dump(),
+        }
+        status_code = 200 if admission.execution_host_ready else 503
+        return JSONResponse(content=payload, status_code=status_code)
+
     return app
 
 
