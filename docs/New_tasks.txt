@@ -47,3 +47,14 @@ Standards reference:
 
 Do not edit above this line:
 #######################################################################
+
+[TODO] Task 794: Add Supervisor standalone API server entrypoint
+[TODO] Task 795: Add Supervisor service configuration and environment contract
+[TODO] Task 796: Add Supervisor systemd unit for API service (host-agnostic)
+[TODO] Task 797: Decouple Core from in-process Supervisor API wiring
+[TODO] Task 798: Add Supervisor client integration in Core for remote Supervisor hosts
+[TODO] Task 799: Add health and readiness probes for Supervisor API service
+[TODO] Task 800: Update deployment scripts for Supervisor API service installation
+[TODO] Task 801: Add tests for Supervisor API server and remote client integration
+[TODO] Task 802: Update docs and schemas for Supervisor standalone service
+[TODO] Task 803: Document mandatory aux-container heartbeat over Supervisor Unix socket

@@ -15,6 +15,7 @@ from .models import (
     SupervisorRuntimeSummary,
 )
 from .router import build_supervisor_router
+from .config import SupervisorApiConfig, supervisor_api_config
 from .runtime_store import SupervisorRuntimeNodeRecord, SupervisorRuntimeNodesStore
 from .service import SupervisorDomainService
 
@@ -35,6 +36,8 @@ __all__ = [
     "SupervisorRuntimeNodesStore",
     "SupervisorRuntimeRegistrationRequest",
     "SupervisorRuntimeSummary",
+    "SupervisorApiConfig",
+    "supervisor_api_config",
     "build_supervisor_router",
     "SupervisorDomainService",
 ]
