@@ -1108,6 +1108,7 @@ def create_app() -> FastAPI:
     register_addons(app, registry)
     try:
         list_addons(registry)
+        api_metrics.reset()
     except Exception:
         log.exception("Failed to warm addon list cache")
     addon_proxy = AddonProxy(registry)

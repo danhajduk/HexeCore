@@ -47,6 +47,10 @@ class ApiMetricsCollector:
     def add(self, ev: ApiEvent) -> None:
         self._events.append(ev)
 
+    def reset(self) -> None:
+        self._events.clear()
+        self._inflight = 0
+
     def snapshot(self, window_s: int = 60, top_n: int = 10) -> Dict:
         now = time.time()
         self._prune(now, window_s)
