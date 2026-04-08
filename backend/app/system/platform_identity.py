@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 import secrets
+import socket
 from dataclasses import dataclass
 from typing import Any
 
@@ -13,7 +14,7 @@ DEFAULT_PLATFORM_NAME = "Hexe AI"
 DEFAULT_PLATFORM_SHORT = "Hexe"
 DEFAULT_PLATFORM_DOMAIN = "hexe-ai.com"
 DEFAULT_PLATFORM_CORE_NAME = "Hexe Core"
-DEFAULT_PLATFORM_SUPERVISOR_NAME = "Hexe Supervisor"
+DEFAULT_PLATFORM_SUPERVISOR_NAME = "HexeSupervisor"
 DEFAULT_PLATFORM_NODES_NAME = "Hexe Nodes"
 DEFAULT_PLATFORM_ADDONS_NAME = "Hexe Addons"
 DEFAULT_PLATFORM_DOCS_NAME = "Hexe Docs"
@@ -177,7 +178,7 @@ def platform_identity_from_values(values: dict[str, Any] | None = None) -> Platf
     supervisor_name = _pick_text(
         data.get("platform.supervisor_name"),
         os.getenv("PLATFORM_SUPERVISOR_NAME"),
-        DEFAULT_PLATFORM_SUPERVISOR_NAME if platform_short == DEFAULT_PLATFORM_SHORT else f"{platform_short} Supervisor",
+        _default_supervisor_name(platform_short),
     )
     nodes_name = _pick_text(
         data.get("platform.nodes_name"),
@@ -244,6 +245,12 @@ def _pick_text(*values: Any) -> str:
         if text:
             return text
     return ""
+
+
+def _default_supervisor_name(platform_short: str) -> str:
+    hostname = str(os.getenv("HOSTNAME") or socket.gethostname() or "").strip() or "host"
+    short = str(platform_short or "").strip() or DEFAULT_PLATFORM_SHORT
+    return f"{hostname}-{short}Supervisor"
 
 
 def _pick_core_id(*values: Any) -> str:

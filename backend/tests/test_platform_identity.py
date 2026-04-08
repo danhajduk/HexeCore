@@ -24,7 +24,6 @@ from app.system.platform_identity import (
     DEFAULT_PLATFORM_NAME,
     DEFAULT_PLATFORM_NODES_NAME,
     DEFAULT_PLATFORM_SHORT,
-    DEFAULT_PLATFORM_SUPERVISOR_NAME,
     derive_public_api_hostname,
     derive_public_ui_hostname,
     PlatformNamingService,
@@ -40,14 +39,14 @@ from app.system.settings.store import SettingsStore
 
 class TestPlatformIdentity(unittest.TestCase):
     def test_default_platform_identity_uses_phase_one_defaults(self) -> None:
-        with patch.dict(os.environ, {}, clear=True):
+        with patch.dict(os.environ, {}, clear=True), patch("socket.gethostname", return_value="unit-host"):
             identity = default_platform_identity()
         self.assertTrue(is_valid_core_id(identity.core_id))
         self.assertEqual(identity.platform_name, DEFAULT_PLATFORM_NAME)
         self.assertEqual(identity.platform_short, DEFAULT_PLATFORM_SHORT)
         self.assertEqual(identity.platform_domain, DEFAULT_PLATFORM_DOMAIN)
         self.assertEqual(identity.core_name, DEFAULT_PLATFORM_CORE_NAME)
-        self.assertEqual(identity.supervisor_name, DEFAULT_PLATFORM_SUPERVISOR_NAME)
+        self.assertEqual(identity.supervisor_name, "unit-host-HexeSupervisor")
         self.assertEqual(identity.nodes_name, DEFAULT_PLATFORM_NODES_NAME)
         self.assertEqual(identity.addons_name, DEFAULT_PLATFORM_ADDONS_NAME)
         self.assertEqual(identity.docs_name, DEFAULT_PLATFORM_DOCS_NAME)
@@ -129,12 +128,13 @@ class TestPlatformIdentity(unittest.TestCase):
 
 class TestPlatformNamingService(unittest.TestCase):
     def test_default_naming_service_returns_canonical_component_labels(self) -> None:
-        service = default_platform_naming()
+        with patch("socket.gethostname", return_value="unit-host"):
+            service = default_platform_naming()
         self.assertIsInstance(service, PlatformNamingService)
         self.assertEqual(service.platform(), DEFAULT_PLATFORM_NAME)
         self.assertTrue(is_valid_core_id(service.core_id()))
         self.assertEqual(service.core(), DEFAULT_PLATFORM_CORE_NAME)
-        self.assertEqual(service.supervisor(), DEFAULT_PLATFORM_SUPERVISOR_NAME)
+        self.assertEqual(service.supervisor(), "unit-host-HexeSupervisor")
         self.assertEqual(service.nodes(), DEFAULT_PLATFORM_NODES_NAME)
         self.assertEqual(service.addons(), DEFAULT_PLATFORM_ADDONS_NAME)
         self.assertEqual(service.docs(), DEFAULT_PLATFORM_DOCS_NAME)
@@ -154,7 +154,7 @@ class TestPlatformIdentityApi(unittest.TestCase):
         self.tmpdir.cleanup()
 
     def test_platform_endpoint_returns_defaults(self) -> None:
-        with patch.dict(os.environ, {}, clear=True):
+        with patch.dict(os.environ, {}, clear=True), patch("socket.gethostname", return_value="unit-host"):
             res = self.client.get("/api/system/platform")
         self.assertEqual(res.status_code, 200, res.text)
         payload = res.json()
@@ -164,7 +164,7 @@ class TestPlatformIdentityApi(unittest.TestCase):
         self.assertEqual(payload["platform_short"], DEFAULT_PLATFORM_SHORT)
         self.assertEqual(payload["platform_domain"], DEFAULT_PLATFORM_DOMAIN)
         self.assertEqual(payload["core_name"], DEFAULT_PLATFORM_CORE_NAME)
-        self.assertEqual(payload["supervisor_name"], DEFAULT_PLATFORM_SUPERVISOR_NAME)
+        self.assertEqual(payload["supervisor_name"], "unit-host-HexeSupervisor")
         self.assertEqual(payload["nodes_name"], DEFAULT_PLATFORM_NODES_NAME)
         self.assertEqual(payload["addons_name"], DEFAULT_PLATFORM_ADDONS_NAME)
         self.assertEqual(payload["docs_name"], DEFAULT_PLATFORM_DOCS_NAME)
