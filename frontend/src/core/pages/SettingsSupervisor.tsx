@@ -259,7 +259,14 @@ export default function SettingsSupervisor() {
     return () => window.clearInterval(id);
   }, []);
 
-  const coreRuntimes = Array.isArray(summary?.core_runtimes) ? summary?.core_runtimes : [];
+  const coreRuntimesRaw = summary?.core_runtimes as unknown;
+  const coreRuntimesFromItems =
+    coreRuntimesRaw &&
+    typeof coreRuntimesRaw === "object" &&
+    Array.isArray((coreRuntimesRaw as { items?: unknown }).items)
+      ? ((coreRuntimesRaw as { items?: unknown }).items as Array<Record<string, unknown>>)
+      : [];
+  const coreRuntimes = Array.isArray(coreRuntimesRaw) ? coreRuntimesRaw : coreRuntimesFromItems;
   const nodeRuntimes = Array.isArray(summary?.runtimes) ? summary?.runtimes : [];
   const coreServices = coreRuntimes.filter(
     (item) => String(item.runtime_kind || "").toLowerCase() !== "addon",
