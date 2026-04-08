@@ -192,6 +192,7 @@ def create_app() -> FastAPI:
                     registry = getattr(app.state, "addon_registry", None)
                     if registry is not None:
                         await registry.refresh_registered_health()
+                        list_addons(registry)
                 except Exception:
                     pass
                 await asyncio.sleep(30.0)
@@ -1105,6 +1106,10 @@ def create_app() -> FastAPI:
     )
     app.state.mqtt_noisy_evaluator = mqtt_noisy_evaluator
     register_addons(app, registry)
+    try:
+        list_addons(registry)
+    except Exception:
+        log.exception("Failed to warm addon list cache")
     addon_proxy = AddonProxy(registry)
     app.state.addon_proxy = addon_proxy
 
