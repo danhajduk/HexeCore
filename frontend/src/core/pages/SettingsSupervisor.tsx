@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import "./settings.css";
+import "./home.css";
 
 type SupervisorHostResources = {
   uptime_s?: number;
@@ -52,11 +53,59 @@ type SupervisorSummary = {
   core_runtimes?: Array<Record<string, unknown>>;
 };
 
+type SystemStats = {
+  hostname: string;
+  uptime_s: number;
+  cpu: { percent_total: number };
+  mem: { percent: number };
+  disks: Record<string, { percent: number }>;
+};
+
+type StackSummary = {
+  connectivity: {
+    network: { state: string };
+    internet: { state: string };
+  };
+  samples: {
+    internet_speed: {
+      state: string;
+      download_mbps?: number | null;
+      upload_mbps?: number | null;
+    };
+    network_throughput?: {
+      state: string;
+      rx_Bps?: number | null;
+      tx_Bps?: number | null;
+    };
+    network_metrics?: {
+      state: string;
+      bytes_sent?: number | null;
+      bytes_recv?: number | null;
+      errin?: number | null;
+      errout?: number | null;
+      dropin?: number | null;
+      dropout?: number | null;
+    };
+  };
+};
+
 function displayState(value: unknown): string {
   const raw = String(value || "unknown").trim();
   if (!raw) return "Unknown";
   const normalized = raw.replace(/_/g, " ").toLowerCase();
   return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+function fmtUptime(sec: number): string {
+  const h = sec / 3600;
+  if (h < 48) return `${h.toFixed(1)}h`;
+  const d = Math.floor(h / 24);
+  const rem = h - d * 24;
+  return `${d}d ${rem.toFixed(0)}h`;
+}
+
+function pct(value: number): string {
+  return `${Math.max(0, Math.min(100, value)).toFixed(1)}%`;
 }
 
 function formatNumber(value: unknown, fallback = "-"): string {
@@ -79,6 +128,57 @@ function formatBytes(value: unknown): string {
   return `${size.toFixed(size >= 100 ? 0 : 1)} ${units[idx]}`;
 }
 
+function fmtBps(value: number): string {
+  if (!Number.isFinite(value) || value < 0) return "0 B/s";
+  if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(2)} GB/s`;
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)} MB/s`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)} KB/s`;
+  return `${value.toFixed(0)} B/s`;
+}
+
+function fmtBytes(value: number): string {
+  if (!Number.isFinite(value) || value < 0) return "0 B";
+  if (value >= 1_000_000_000_000) return `${(value / 1_000_000_000_000).toFixed(2)} TB`;
+  if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(2)} GB`;
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)} MB`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)} KB`;
+  return `${value.toFixed(0)} B`;
+}
+
+function speedValue(speed: StackSummary["samples"]["internet_speed"] | undefined): string {
+  if (!speed) return "unknown";
+  if (speed.state !== "ok") return speed.state;
+  const down = typeof speed.download_mbps === "number" ? speed.download_mbps.toFixed(1) : "-";
+  const up = typeof speed.upload_mbps === "number" ? speed.upload_mbps.toFixed(1) : "-";
+  return `↓${down} ↑${up} Mbps`;
+}
+
+function throughputValue(throughput: StackSummary["samples"]["network_throughput"] | undefined): string {
+  if (!throughput) return "unknown";
+  if (throughput.state !== "ok") return throughput.state;
+  const rx = typeof throughput.rx_Bps === "number" ? fmtBps(throughput.rx_Bps) : "-";
+  const tx = typeof throughput.tx_Bps === "number" ? fmtBps(throughput.tx_Bps) : "-";
+  return `↓${rx} ↑${tx}`;
+}
+
+function networkCountersValue(metrics: StackSummary["samples"]["network_metrics"] | undefined): string {
+  if (!metrics) return "unknown";
+  if (metrics.state !== "ok") return metrics.state;
+  const rx = typeof metrics.bytes_recv === "number" ? fmtBytes(metrics.bytes_recv) : "-";
+  const tx = typeof metrics.bytes_sent === "number" ? fmtBytes(metrics.bytes_sent) : "-";
+  return `↓${rx} ↑${tx}`;
+}
+
+function networkErrorsValue(metrics: StackSummary["samples"]["network_metrics"] | undefined): string {
+  if (!metrics) return "unknown";
+  if (metrics.state !== "ok") return metrics.state;
+  const errIn = Number(metrics.errin ?? 0);
+  const errOut = Number(metrics.errout ?? 0);
+  const dropIn = Number(metrics.dropin ?? 0);
+  const dropOut = Number(metrics.dropout ?? 0);
+  return `err ${errIn}/${errOut} drop ${dropIn}/${dropOut}`;
+}
+
 function renderMetadata(meta?: Record<string, unknown>): JSX.Element | null {
   if (!meta || Object.keys(meta).length === 0) return null;
   return <pre className="settings-pre">{JSON.stringify(meta, null, 2)}</pre>;
@@ -86,6 +186,8 @@ function renderMetadata(meta?: Record<string, unknown>): JSX.Element | null {
 
 export default function SettingsSupervisor() {
   const [summary, setSummary] = useState<SupervisorSummary | null>(null);
+  const [stats, setStats] = useState<SystemStats | null>(null);
+  const [stack, setStack] = useState<StackSummary | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -93,12 +195,20 @@ export default function SettingsSupervisor() {
     setErr(null);
     setLoading(true);
     try {
-      const res = await fetch("/api/system/supervisor/summary", { cache: "no-store" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setSummary((await res.json()) as SupervisorSummary);
+      const [supervisorRes, statsRes, stackRes] = await Promise.all([
+        fetch("/api/system/supervisor/summary", { cache: "no-store" }),
+        fetch("/api/system/stats/current", { cache: "no-store" }),
+        fetch("/api/system/stack/summary", { cache: "no-store" }),
+      ]);
+      if (!supervisorRes.ok) throw new Error(`HTTP ${supervisorRes.status}`);
+      setSummary((await supervisorRes.json()) as SupervisorSummary);
+      if (statsRes.ok) setStats((await statsRes.json()) as SystemStats);
+      if (stackRes.ok) setStack((await stackRes.json()) as StackSummary);
     } catch (e: any) {
       setErr(e?.message ?? String(e));
       setSummary(null);
+      setStats(null);
+      setStack(null);
     } finally {
       setLoading(false);
     }
@@ -108,8 +218,6 @@ export default function SettingsSupervisor() {
     void loadSummary();
   }, []);
 
-  const resources = summary?.health?.resources || summary?.runtime?.resources || {};
-  const process = summary?.runtime?.process || {};
   const coreRuntimes = Array.isArray(summary?.core_runtimes) ? summary?.core_runtimes : [];
   const nodeRuntimes = Array.isArray(summary?.runtimes) ? summary?.runtimes : [];
   const managedNodes = Array.isArray(summary?.nodes) ? summary?.nodes : [];
@@ -138,50 +246,37 @@ export default function SettingsSupervisor() {
 
       <section className="settings-section">
         <div className="settings-section-head">
-          <h2>Host Metrics</h2>
-          <p>Supervisor-owned host telemetry and process stats.</p>
+          <h2>System Metrics</h2>
+          <p>Matches the primary dashboard metrics for host health and connectivity.</p>
         </div>
         <div className="settings-card">
-          <div className="settings-kv-grid">
-            <div className="settings-kv-item">
-              <div className="settings-label-text">Supervisor status</div>
-              <span className="settings-pill">{displayState(summary?.health?.status)}</span>
-            </div>
-            <div className="settings-kv-item">
-              <div className="settings-label-text">Host</div>
-              <div className="settings-mono">{summary?.health?.host?.hostname || "-"}</div>
-              <div className="settings-help">ID {summary?.health?.host?.host_id || "-"}</div>
-            </div>
-            <div className="settings-kv-item">
-              <div className="settings-label-text">Uptime</div>
-              <div>{formatNumber(resources.uptime_s)}s</div>
-              <div className="settings-help">Load {formatNumber(resources.load_1m)} / {formatNumber(resources.load_5m)} / {formatNumber(resources.load_15m)}</div>
-            </div>
-            <div className="settings-kv-item">
-              <div className="settings-label-text">CPU</div>
-              <div>{formatNumber(resources.cpu_percent_total)}% used</div>
-              <div className="settings-help">Logical cores {formatNumber(resources.cpu_cores_logical)}</div>
-            </div>
-            <div className="settings-kv-item">
-              <div className="settings-label-text">Memory</div>
-              <div>{formatNumber(resources.memory_percent)}% used</div>
+          {!stats ? (
+            <div className="settings-help">Metrics unavailable.</div>
+          ) : (
+            <>
               <div className="settings-help">
-                {formatBytes(resources.memory_available_bytes)} available / {formatBytes(resources.memory_total_bytes)}
+                Host {stats.hostname} • uptime {fmtUptime(stats.uptime_s)}
               </div>
-            </div>
-            <div className="settings-kv-item">
-              <div className="settings-label-text">Root disk</div>
-              <div>{formatNumber(resources.root_disk_percent)}% used</div>
-              <div className="settings-help">
-                {formatBytes(resources.root_disk_free_bytes)} free / {formatBytes(resources.root_disk_total_bytes)}
+              <div className="home-metrics">
+                <MetricBar label="CPU" percent={stats.cpu.percent_total} />
+                <MetricBar label="Memory" percent={stats.mem.percent} />
+                <MetricBar
+                  label="Disk"
+                  percent={
+                    Object.values(stats.disks).length > 0
+                      ? Math.max(...Object.values(stats.disks).map((x) => x.percent))
+                      : 0
+                  }
+                />
+                <MetricRow label="Network" value={displayState(stack?.connectivity.network.state || "unknown")} />
+                <MetricRow label="Throughput" value={throughputValue(stack?.samples.network_throughput)} />
+                <MetricRow label="Net I/O" value={networkCountersValue(stack?.samples.network_metrics)} />
+                <MetricRow label="Net Errors" value={networkErrorsValue(stack?.samples.network_metrics)} />
+                <MetricRow label="Internet" value={displayState(stack?.connectivity.internet.state || "unknown")} />
+                <MetricRow label="Speed" value={speedValue(stack?.samples.internet_speed)} />
               </div>
-            </div>
-            <div className="settings-kv-item">
-              <div className="settings-label-text">Supervisor process</div>
-              <div>{formatBytes(process.rss_bytes)} RSS</div>
-              <div className="settings-help">CPU {formatNumber(process.cpu_percent)}% • Threads {formatNumber(process.threads)}</div>
-            </div>
-          </div>
+            </>
+          )}
         </div>
       </section>
 
@@ -242,6 +337,30 @@ export default function SettingsSupervisor() {
           ))}
         </div>
       </section>
+    </div>
+  );
+}
+
+function MetricRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="home-metric-row">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function MetricBar({ label, percent }: { label: string; percent: number }) {
+  const clamped = Math.max(0, Math.min(100, percent));
+  return (
+    <div className="home-metric-bar">
+      <div className="home-metric-bar-top">
+        <span>{label}</span>
+        <strong>{pct(clamped)}</strong>
+      </div>
+      <div className="home-metric-bar-track">
+        <div className="home-metric-bar-fill" style={{ width: `${clamped}%` }} />
+      </div>
     </div>
   );
 }
