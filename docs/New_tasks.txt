@@ -47,4 +47,3 @@ Standards reference:
 
 Do not edit above this line:
 #######################################################################
-[WIP] Task 905: Cache Supervisor summary data in Core and refresh every 10 seconds to speed up Supervisor UI loading.

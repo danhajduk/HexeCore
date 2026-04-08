@@ -862,3 +862,4 @@ Task 901: Add a Core Settings UI page for the local Supervisor showing host metr
 Task 902: Add Core-side registration call for Core services to Supervisor (/api/supervisor/core/runtimes/register) with monitor-only enforcement. - Completed on 04/08/2026 02:12
 Task 903: Add Core-side registration call for Core addons and their containers to Supervisor with manage mode metadata. - Completed on 04/08/2026 02:26
 Task 904: Add Core-side registration call for Core-hosted aux services/containers (for example cloudflare) to Supervisor with manage mode metadata. - Completed on 04/08/2026 02:30
+Task 905: Cache Supervisor summary data in Core and refresh every 10 seconds to speed up Supervisor UI loading. - Completed on 04/08/2026 02:31
