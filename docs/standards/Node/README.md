@@ -42,7 +42,9 @@ This standard does not attempt to standardize:
 - node-specific domain logic
 - exact internal file counts
 - exact package depth
-- exact UI composition details
+- feature-specific screen content
+
+This standard does standardize shared node UI structure and visual language through the dedicated frontend visual standard.
 
 ## Core Direction
 
@@ -68,6 +70,20 @@ over:
 - identical filenames
 - one exact implementation pattern
 
+## Current Platform Milestone
+
+The current platform milestone for Node runtime ownership is:
+
+- Core remains the authority for onboarding, trust, governance, and operator-visible registry state.
+- Supervisor now owns the host-local runtime contract for real Nodes through explicit runtime registration, heartbeat freshness, and runtime action-intent APIs.
+- New Node work should align with that split instead of treating Core onboarding records as the primary runtime-state source.
+
+Current Supervisor runtime contract references:
+
+- [../../supervisor/runtime-and-supervision.md](../../supervisor/runtime-and-supervision.md)
+- [../../supervisor/domain-models.md](../../supervisor/domain-models.md)
+- [../../json_schema/supervisor.runtime-nodes.schema.json](../../json_schema/supervisor.runtime-nodes.schema.json)
+
 ## How To Use This Standard
 
 Use this file in three ways:
@@ -82,12 +98,13 @@ Recommended reading order for a new node:
 2. [backend-standard.md](./backend-standard.md)
 3. [api-standard.md](./api-standard.md)
 4. [frontend-standard.md](./frontend-standard.md)
-5. [onboarding-trust-and-readiness-standard.md](./onboarding-trust-and-readiness-standard.md)
-6. [scripts-and-operations-standard.md](./scripts-and-operations-standard.md)
-7. [background-tasks-and-internal-scheduler-standard.md](./background-tasks-and-internal-scheduler-standard.md)
-8. [persistence-configuration-and-security-standard.md](./persistence-configuration-and-security-standard.md)
-9. [provider-boundary-standard.md](./provider-boundary-standard.md)
-10. [testing-and-documentation-requirements.md](./testing-and-documentation-requirements.md)
+5. [frontend-visual-and-interaction-standard.md](./frontend-visual-and-interaction-standard.md)
+6. [onboarding-trust-and-readiness-standard.md](./onboarding-trust-and-readiness-standard.md)
+7. [scripts-and-operations-standard.md](./scripts-and-operations-standard.md)
+8. [background-tasks-and-internal-scheduler-standard.md](./background-tasks-and-internal-scheduler-standard.md)
+9. [persistence-configuration-and-security-standard.md](./persistence-configuration-and-security-standard.md)
+10. [provider-boundary-standard.md](./provider-boundary-standard.md)
+11. [testing-and-documentation-requirements.md](./testing-and-documentation-requirements.md)
 
 ## Standard Map
 
@@ -141,7 +158,20 @@ Defines the node frontend model:
 - modular frontend structure expectations
 - API access expectations
 
-## 5. Onboarding, Trust, And Readiness Standard
+## 5. Frontend Visual And Interaction Standard
+
+[frontend-visual-and-interaction-standard.md](./frontend-visual-and-interaction-standard.md)
+
+Defines the shared node UI design language:
+
+- shell and page framing
+- card system
+- setup-flow sidebar pattern
+- status tones, pills, badges, and callouts
+- form, table, and control styling rules
+- responsive behavior needed for a visually aligned node UI
+
+## 6. Onboarding, Trust, And Readiness Standard
 
 [onboarding-trust-and-readiness-standard.md](./onboarding-trust-and-readiness-standard.md)
 
@@ -154,7 +184,7 @@ Defines how a node moves from local setup into trusted and operational behavior:
 - post-trust blocked states
 - readiness and degraded-state progression
 
-## 6. Scripts And Operations Standard
+## 7. Scripts And Operations Standard
 
 [scripts-and-operations-standard.md](./scripts-and-operations-standard.md)
 
@@ -166,7 +196,7 @@ Defines the operational baseline for node repositories:
 - restart and status control
 - operator-facing operational predictability
 
-## 7. Background Tasks And Internal Scheduler Standard
+## 8. Background Tasks And Internal Scheduler Standard
 
 [background-tasks-and-internal-scheduler-standard.md](./background-tasks-and-internal-scheduler-standard.md)
 
@@ -178,7 +208,7 @@ Defines how recurring work should behave:
 - readiness interaction
 - Core lease compatibility
 
-## 8. Persistence, Configuration, And Security Standard
+## 9. Persistence, Configuration, And Security Standard
 
 [persistence-configuration-and-security-standard.md](./persistence-configuration-and-security-standard.md)
 
@@ -190,7 +220,7 @@ Defines how nodes should manage local state safely:
 - API and logging safety
 - runtime path boundaries
 
-## 9. Provider Boundary Standard
+## 10. Provider Boundary Standard
 
 [provider-boundary-standard.md](./provider-boundary-standard.md)
 
@@ -201,7 +231,7 @@ Defines the separation between node-generic and provider-specific behavior:
 - provider runtime boundaries
 - provider readiness boundaries
 
-## 10. Testing And Documentation Requirements
+## 11. Testing And Documentation Requirements
 
 [testing-and-documentation-requirements.md](./testing-and-documentation-requirements.md)
 

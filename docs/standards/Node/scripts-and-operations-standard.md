@@ -36,6 +36,26 @@ It does not require every node to ship every helper script imaginable.
 
 It does require a consistent operational baseline.
 
+## Current Milestone Alignment
+
+### Mandatory
+
+Operational scripts and service templates for real Nodes must respect the current Supervisor runtime milestone.
+
+This means node operations should be designed so the running node process can:
+
+- establish or refresh Supervisor runtime registration
+- emit runtime heartbeats to Supervisor while the node is healthy
+- preserve a clear separation between local runtime state and Core trust or governance state
+
+### Recommended
+
+Node operational docs and scripts should make it clear that:
+
+- Core onboarding does not replace Supervisor runtime registration
+- Supervisor heartbeat freshness is part of node runtime health
+- operator restart and status workflows should account for both Core trust state and Supervisor runtime state
+
 ## 1. Required Script Categories
 
 ### Mandatory
@@ -154,6 +174,13 @@ Nodes must provide a clear operational way to:
 
 ### Recommended
 
+For Nodes that implement the current Supervisor runtime contract, operational status should ideally expose both:
+
+- service or process status
+- Supervisor runtime freshness or heartbeat status
+
+### Recommended
+
 Use:
 
 - `stack-control.sh`
@@ -170,6 +197,46 @@ to keep these actions obvious and repeatable.
 Restart behavior must be explicit and must not rely on undocumented manual steps.
 
 ## 7. Development And Local Run Helpers
+
+### Mandatory
+
+Python-based nodes must maintain a repository-local virtual environment at:
+
+- `.venv/`
+
+That environment is the standard execution context for:
+
+- backend startup
+- tests
+- one-off maintenance commands
+- local verification commands
+
+### Mandatory
+
+The repository-local Python environment must be installable from the repo's dependency file:
+
+- `requirements.txt`
+
+Canonical setup form:
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+```
+
+### Mandatory
+
+Repo documentation, scripts, and examples must prefer explicit repo-local executables such as:
+
+- `.venv/bin/python`
+- `.venv/bin/pytest`
+- `.venv/bin/pip`
+
+and must not assume a globally installed interpreter or globally installed Python packages.
+
+### Recommended
+
+Environment-driven startup commands in `stack.env`, helper scripts, and README/setup docs should use the repo-local virtualenv path directly so operators and developers run the same Python environment by default.
 
 ### Optional
 

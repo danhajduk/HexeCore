@@ -8,6 +8,8 @@ This document defines the frontend standard for Hexe nodes.
 
 The goal is to standardize operator-facing outcomes, frontend responsibilities, and UI consistency while making modular frontend structure the default for any new node.
 
+For concrete visual and interaction rules intended to keep node UIs looking and feeling the same, use [frontend-visual-and-interaction-standard.md](./frontend-visual-and-interaction-standard.md) alongside this document.
+
 ## Rule Levels
 
 - **Mandatory**

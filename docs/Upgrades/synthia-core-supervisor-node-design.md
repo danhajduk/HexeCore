@@ -1,4 +1,4 @@
-# Synthia Architecture Design Change
+# Hexe Architecture Design Change
 
 ## Core / Supervisor / Node Model
 
@@ -8,7 +8,7 @@ Version: Draft Date: 2026-03-15
 
 # 1. Overview
 
-This document describes the architectural change for the Synthia
+This document describes the architectural change for the Hexe
 ecosystem discussed in planning sessions.
 
 The main goals of the redesign are:
@@ -20,7 +20,7 @@ The main goals of the redesign are:
 -   Keep **Core** focused purely on governance and orchestration
 
 This separation improves scalability, reliability, and long‑term
-maintainability of the Synthia platform.
+maintainability of the Hexe platform.
 
 ------------------------------------------------------------------------
 
@@ -104,7 +104,7 @@ Local resource quotas
 Each supervisor exposes a local control API.
 
 Preferred transport:
-- Unix domain socket: `unix:///run/synthia/supervisor.sock`
+- Unix domain socket: `unix:///run/hexe/supervisor.sock`
 
 Optional fallback transport:
 - Loopback-only HTTP: `http://127.0.0.1:8765/api`
@@ -263,4 +263,4 @@ This model enables:
 -   horizontal scalability
 -   strong resource control
 -   clean separation of responsibilities
--   easier future expansion of the Synthia ecosystem
+-   easier future expansion of the Hexe ecosystem

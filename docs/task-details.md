@@ -177,3 +177,37 @@ Definition of done preserved from the original planning block:
 - Supervisor can report fresh, stale, or offline runtime state for that Node.
 - Core can consume Supervisor runtime truth without taking over host-local runtime ownership.
 - Existing standalone addon Supervisor behavior remains functional.
+
+## Task 793-802
+Original task details preserved from the request to migrate Supervisor into a separate entity that can run on Core or Node hosts.
+
+Active normalized queue entries:
+
+- Task 793: Define Supervisor service boundary and external API host binding
+- Task 794: Add Supervisor standalone API server entrypoint
+- Task 795: Add Supervisor service configuration and environment contract
+- Task 796: Add Supervisor systemd unit for API service (host-agnostic)
+- Task 797: Decouple Core from in-process Supervisor API wiring
+- Task 798: Add Supervisor client integration in Core for remote Supervisor hosts
+- Task 799: Add health and readiness probes for Supervisor API service
+- Task 800: Update deployment scripts for Supervisor API service installation
+- Task 801: Add tests for Supervisor API server and remote client integration
+- Task 802: Update docs and schemas for Supervisor standalone service
+
+Preserved details:
+
+- The new Supervisor service must run independently of Core and be deployable on any host (Core host or Node host).
+- Core should treat Supervisor as an external runtime authority, not an in-process service, once this migration is complete.
+- The Supervisor API service should expose the existing `/api/supervisor/*` routes and be able to bind to loopback or a Unix domain socket when configured.
+- The migration must preserve compatibility for standalone addon orchestration while enabling remote Supervisor runtimes.
+- Deployment and systemd templates must allow Supervisor API services to be installed on non-Core hosts with minimal configuration drift.
+- Use a Hexe-named default port for the Supervisor API service with a high likelihood of being available. Default to port `57665` and expose override via `HEXE_SUPERVISOR_PORT`.
+- The Supervisor service is backend-only; no Supervisor UI is part of this migration.
+- The Core UI will later add a Supervisor section, and that same Core UI will also host remote Supervisor detail pages.
+- Use a consistent Unix socket path on every host for local-only access: `/run/hexe/supervisor.sock`.
+- The Supervisor runtime ownership target for this migration is:
+  - Core runtime when the Supervisor is deployed on the Core host
+  - Node runtime processes on any host
+  - Aux services and containers declared by Nodes
+  - Embedded addons
+- Container heartbeats via the Supervisor Unix socket are mandatory for aux services/containers. Each aux container must include a lightweight heartbeat script or sidecar that posts `POST /api/supervisor/runtimes/heartbeat` over `/run/hexe/supervisor.sock`.

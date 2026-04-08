@@ -27,6 +27,27 @@ The onboarding and readiness standard prioritizes:
 - explicit blocked-state visibility
 - clear separation between trust and capability readiness
 
+## Current Milestone Alignment
+
+### Mandatory
+
+Nodes must align with the current Core and Supervisor ownership split:
+
+- Core owns onboarding session creation, approval, trust, governance, and registry-facing operational status.
+- Supervisor owns host-local runtime registration, heartbeat freshness, and runtime-state reporting for real Nodes.
+
+### Mandatory
+
+Nodes must not treat Core onboarding registration as a replacement for Supervisor runtime registration.
+
+### Recommended
+
+After local startup, a Node should be able to:
+
+- register its runtime with Supervisor
+- emit periodic heartbeats to Supervisor
+- surface runtime freshness from Supervisor separately from trust and governance state from Core
+
 ## 1. Onboarding Model
 
 ### Mandatory
@@ -47,6 +68,16 @@ This model includes:
 Provider setup must not replace or redefine onboarding.
 
 Provider setup is post-trust or post-configuration work layered on top of node onboarding.
+
+### Recommended
+
+The current platform direction is:
+
+1. local node startup
+2. Supervisor runtime registration
+3. Core onboarding session initiation
+4. Core approval and trust activation
+5. post-trust capability and governance progression
 
 ## 2. Canonical Lifecycle Alignment
 
@@ -105,6 +136,10 @@ The node must send the fields required by Core for node onboarding, including:
 - hostname when applicable
 - UI endpoint when applicable
 - API base URL when applicable
+
+### Recommended
+
+If the node supports the current Supervisor runtime milestone, the node should register the same canonical runtime identity with Supervisor before or alongside Core onboarding, so local runtime and control-plane identity stay aligned.
 
 ### Recommended
 
@@ -175,6 +210,14 @@ Startup should explicitly distinguish:
 - no trust state present
 - trust state present and resumable
 - trust state present but invalid or outdated
+
+### Recommended
+
+Trusted resume should also distinguish:
+
+- trust state present but runtime not yet registered with Supervisor
+- trust state present and runtime fresh in Supervisor
+- trust state present but Supervisor runtime heartbeat stale or offline
 
 ## 8. Trust Loss And Terminal Trust States
 
@@ -258,6 +301,8 @@ Typical readiness conditions may include:
 - trusted state present
 - capability declaration accepted
 - governance issued or current
+- Supervisor runtime currently registered
+- Supervisor runtime freshness current enough for the node's execution mode
 - required provider readiness complete
 - required background-task or runtime prerequisites complete
 
