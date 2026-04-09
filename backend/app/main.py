@@ -483,6 +483,44 @@ def create_app() -> FastAPI:
                     },
                 }
             ]
+            items.extend(
+                [
+                    {
+                        "runtime_id": "supervisor-api",
+                        "runtime_name": f"{naming.core()} Supervisor API",
+                        "runtime_kind": "core_service",
+                        "management_mode": "monitor",
+                        "host_id": hostname,
+                        "hostname": hostname,
+                        "desired_state": "running",
+                        "runtime_state": "unknown",
+                        "lifecycle_state": "running",
+                        "health_status": "unknown",
+                        "running": None,
+                        "runtime_metadata": {
+                            "component": "supervisor-api",
+                            "systemd_unit": "hexe-supervisor-api.service",
+                        },
+                    },
+                    {
+                        "runtime_id": "supervisor",
+                        "runtime_name": f"{naming.core()} Supervisor",
+                        "runtime_kind": "core_service",
+                        "management_mode": "monitor",
+                        "host_id": hostname,
+                        "hostname": hostname,
+                        "desired_state": "running",
+                        "runtime_state": "unknown",
+                        "lifecycle_state": "running",
+                        "health_status": "unknown",
+                        "running": None,
+                        "runtime_metadata": {
+                            "component": "supervisor",
+                            "systemd_unit": "hexe-supervisor.service",
+                        },
+                    },
+                ]
+            )
             items.extend(await _collect_core_addon_runtimes())
             items.extend(await _collect_core_aux_runtimes())
             items.extend(_load_core_runtime_overrides())

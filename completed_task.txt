@@ -485,3 +485,4 @@
 2026-04-09 - Fixed Supervisor boot-order default path resolution.
 2026-04-09 - Added systemd unit metadata for core-api runtime registration.
 2026-04-09 - Switched Supervisor boot log to human-readable text format.
+2026-04-09 - Added systemd unit metadata for Supervisor services in core runtime registration.
