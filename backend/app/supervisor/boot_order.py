@@ -111,8 +111,8 @@ def _clean_section(payload: Any, *, warnings: list[str], section: str) -> dict[s
 
 
 def load_boot_order_plan(
-    base_path: str | Path = "backend/var/supervisor/boot-order.json",
-    override_path: str | Path = "backend/var/supervisor/boot-order.override.yaml",
+    base_path: str | Path = "var/supervisor/boot-order.json",
+    override_path: str | Path = "var/supervisor/boot-order.override.yaml",
 ) -> tuple[dict[str, Any], list[str]]:
     warnings: list[str] = []
     base = _load_json(Path(base_path), warnings=warnings)
