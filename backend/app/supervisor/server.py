@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 
 import uvicorn
@@ -47,9 +49,24 @@ def _prepare_unix_socket(path: str) -> None:
         socket_path.unlink()
 
 
+def _init_boot_log(path: str) -> None:
+    log_path = Path(path)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "event": "supervisor_boot",
+    }
+    log_path.write_text(f"{json.dumps(payload)}\n", encoding="utf-8")
+
+
 def run() -> None:
     config = supervisor_api_config()
     log_level = str(os.getenv("HEXE_SUPERVISOR_LOG_LEVEL", "INFO")).strip().lower() or "info"
+    boot_log_path = str(os.getenv("HEXE_SUPERVISOR_BOOT_LOG", "var/supervisor/boot.log")).strip() or "var/supervisor/boot.log"
+    try:
+        _init_boot_log(boot_log_path)
+    except Exception:
+        logging.getLogger(__name__).warning("Supervisor boot log init failed", exc_info=True)
     app = create_supervisor_app()
 
     if config.transport == "socket":

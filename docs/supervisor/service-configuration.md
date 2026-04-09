@@ -13,6 +13,7 @@ Supervisor can listen on a Unix socket (default) or a TCP bind/port. These optio
 - `HEXE_SUPERVISOR_PORT`: TCP port when `HEXE_SUPERVISOR_TRANSPORT=http`. Default: `57665`.
 - `HEXE_SUPERVISOR_SOCKET`: Unix socket path when `HEXE_SUPERVISOR_TRANSPORT=socket`. Default: `/run/hexe/supervisor.sock`.
 - `HEXE_SUPERVISOR_LOG_LEVEL`: Supervisor API server log level. Default: `INFO`.
+- `HEXE_SUPERVISOR_BOOT_LOG`: Boot log file path (overwritten on Supervisor start). Default: `var/supervisor/boot.log`.
 
 ## Core Supervisor Client
 

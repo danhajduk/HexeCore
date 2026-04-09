@@ -191,6 +191,10 @@ class SupervisorDomainService:
         normalized_action = str(action or "").strip().lower()
         if normalized_action not in {"start", "stop", "restart"}:
             raise HTTPException(status_code=400, detail="unsupported_service_action")
+        self._append_boot_log(
+            "service_action",
+            context={"runtime_id": node_id, "service_id": service_id, "action": normalized_action},
+        )
         payload = {"target": service_id}
         response = self._node_api_request(node_id, method="POST", path=f"/api/services/{normalized_action}", payload=payload)
         return SupervisorNodeServiceActionResult(
@@ -318,6 +322,10 @@ class SupervisorDomainService:
         desired_state: str,
         lifecycle_state: str,
     ) -> SupervisorRuntimeActionResult:
+        self._append_boot_log(
+            "runtime_action",
+            context={"runtime_id": node_id, "action": action, "scope": "registered_runtime"},
+        )
         record = self._runtime_nodes_store.apply_action(
             node_id,
             action=action,
@@ -432,6 +440,10 @@ class SupervisorDomainService:
             raise HTTPException(status_code=404, detail="core_runtime_not_registered")
         if str(record.management_mode or "").strip().lower() != "manage":
             raise HTTPException(status_code=409, detail="core_runtime_monitor_only")
+        self._append_boot_log(
+            "runtime_action",
+            context={"runtime_id": runtime_id, "action": action, "scope": "core_runtime"},
+        )
         updated = self._core_runtime_store.apply_action(
             runtime_id,
             action=action,
@@ -594,6 +606,22 @@ class SupervisorDomainService:
     def _now_iso(self) -> str:
         return datetime.now(timezone.utc).isoformat()
 
+    def _boot_log_path(self) -> Path:
+        raw = str(os.getenv("HEXE_SUPERVISOR_BOOT_LOG", "var/supervisor/boot.log")).strip()
+        return Path(raw or "var/supervisor/boot.log")
+
+    def _append_boot_log(self, event: str, *, context: dict[str, Any] | None = None) -> None:
+        log_path = self._boot_log_path()
+        payload: dict[str, Any] = {"ts": self._now_iso(), "event": str(event)}
+        if context:
+            payload.update(context)
+        try:
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            with log_path.open("a", encoding="utf-8") as handle:
+                handle.write(f"{json.dumps(payload, sort_keys=True)}\n")
+        except Exception:
+            return
+
     def _set_desired_state(self, snapshot, desired_state: str) -> None:
         if not isinstance(snapshot.raw_desired, dict):
             return
@@ -641,6 +669,10 @@ class SupervisorDomainService:
         snapshot = self._runtime_snapshot(node_id)
         compose_files = self._compose_files_for_snapshot(snapshot)
         project_name = self._project_name_for_snapshot(snapshot)
+        self._append_boot_log(
+            "runtime_action",
+            context={"runtime_id": node_id, "action": "start", "scope": "managed_node"},
+        )
         self._set_desired_state(snapshot, "running")
         self._set_runtime_state(snapshot, "running", lifecycle_state="starting", last_action="start")
         try:
@@ -655,6 +687,10 @@ class SupervisorDomainService:
         snapshot = self._runtime_snapshot(node_id)
         compose_files = self._compose_files_for_snapshot(snapshot)
         project_name = self._project_name_for_snapshot(snapshot)
+        self._append_boot_log(
+            "runtime_action",
+            context={"runtime_id": node_id, "action": "stop", "scope": "managed_node"},
+        )
         self._set_desired_state(snapshot, "stopped")
         self._set_runtime_state(snapshot, "running", lifecycle_state="stopping", last_action="stop")
         try:
@@ -669,6 +705,10 @@ class SupervisorDomainService:
         snapshot = self._runtime_snapshot(node_id)
         compose_files = self._compose_files_for_snapshot(snapshot)
         project_name = self._project_name_for_snapshot(snapshot)
+        self._append_boot_log(
+            "runtime_action",
+            context={"runtime_id": node_id, "action": "restart", "scope": "managed_node"},
+        )
         self._set_desired_state(snapshot, "running")
         self._set_runtime_state(snapshot, "running", lifecycle_state="restarting", last_action="restart")
         try:
