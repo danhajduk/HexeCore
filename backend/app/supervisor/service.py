@@ -330,7 +330,12 @@ class SupervisorDomainService:
     ) -> SupervisorRuntimeActionResult:
         self._append_boot_log(
             "runtime_action",
-            context={"runtime_id": node_id, "action": action, "scope": "registered_runtime"},
+            context={
+                "runtime_id": node_id,
+                "action": action,
+                "scope": "registered_runtime",
+                "message": f"{action.capitalize()} {node_id}",
+            },
         )
         record = self._runtime_nodes_store.apply_action(
             node_id,
@@ -448,8 +453,28 @@ class SupervisorDomainService:
             raise HTTPException(status_code=409, detail="core_runtime_monitor_only")
         self._append_boot_log(
             "runtime_action",
-            context={"runtime_id": runtime_id, "action": action, "scope": "core_runtime"},
+            context={
+                "runtime_id": runtime_id,
+                "action": action,
+                "scope": "core_runtime",
+                "message": f"{action.capitalize()} {runtime_id}",
+            },
         )
+        units = self._extract_systemd_units(record.runtime_metadata)
+        if units:
+            ok, error = self._systemctl_action(units, action)
+            if not ok:
+                self._append_boot_log(
+                    "runtime_action",
+                    context={
+                        "runtime_id": runtime_id,
+                        "action": action,
+                        "scope": "core_runtime",
+                        "status": "systemd_failed",
+                        "error": error,
+                    },
+                )
+                raise HTTPException(status_code=502, detail="systemd_action_failed")
         updated = self._core_runtime_store.apply_action(
             runtime_id,
             action=action,
@@ -545,6 +570,37 @@ class SupervisorDomainService:
         except Exception:
             return 2.0
         return max(0.5, parsed)
+
+    def _systemctl_action(self, units: list[str], action: str) -> tuple[bool, str | None]:
+        if not units:
+            return False, "systemd_units_missing"
+        if shutil.which("systemctl") is None:
+            return False, "systemctl_not_found"
+        try:
+            result = subprocess.run(
+                ["systemctl", "--user", action, *units],
+                capture_output=True,
+                text=True,
+                timeout=8.0,
+                check=False,
+            )
+        except Exception as exc:
+            return False, str(exc)
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout or "").strip()
+            return False, detail or f"systemctl_exit_{result.returncode}"
+        return True, None
+
+    def _extract_systemd_units(self, runtime_metadata: dict[str, Any] | None) -> list[str]:
+        if not runtime_metadata:
+            return []
+        unit = runtime_metadata.get("systemd_unit") or runtime_metadata.get("systemd_service")
+        if isinstance(unit, str) and unit.strip():
+            return [unit.strip()]
+        units = runtime_metadata.get("systemd_units")
+        if isinstance(units, list):
+            return [str(item).strip() for item in units if isinstance(item, str) and item.strip()]
+        return []
 
     def _core_runtime_ready(self, record: SupervisorCoreRuntimeRecord) -> bool:
         freshness = self._core_freshness_state(
@@ -644,20 +700,44 @@ class SupervisorDomainService:
             if not self._wait_for_dependencies(deps, timeout_s):
                 entry = {"runtime_id": runtime_id, "status": "dependency_timeout"}
                 results["core"].append(entry)
-                self._append_boot_log("boot_loop_step", context=entry)
+                self._append_boot_log("boot_loop_step", context={**entry, "message": f"{runtime_id} dependency timeout"})
                 continue
             record = self._core_runtime_store.get(runtime_id)
             if record is None:
                 entry = {"runtime_id": runtime_id, "status": "missing"}
                 results["core"].append(entry)
-                self._append_boot_log("boot_loop_step", context=entry)
+                self._append_boot_log("boot_loop_step", context={**entry, "message": f"{runtime_id} missing"})
                 continue
+            self._append_boot_log(
+                "boot_loop_step",
+                context={"runtime_id": runtime_id, "status": "starting", "message": f"Starting {runtime_id}"},
+            )
             if str(record.management_mode or "").strip().lower() == "manage":
+                units = self._extract_systemd_units(record.runtime_metadata)
+                if units:
+                    ok, error = self._systemctl_action(units, "start")
+                    if not ok:
+                        entry = {"runtime_id": runtime_id, "status": "start_failed", "error": error}
+                        results["core"].append(entry)
+                        self._append_boot_log(
+                            "boot_loop_step",
+                            context={**entry, "message": f"{runtime_id} start failed"},
+                        )
+                        continue
                 self.start_core_runtime(runtime_id)
             ready = self._wait_for_core_runtime(runtime_id, timeout_s)
             entry = {"runtime_id": runtime_id, "status": "ready" if ready else "timeout"}
             results["core"].append(entry)
-            self._append_boot_log("boot_loop_step", context=entry)
+            if ready:
+                self._append_boot_log(
+                    "boot_loop_step",
+                    context={**entry, "message": f"{runtime_id} healthy"},
+                )
+            else:
+                self._append_boot_log(
+                    "boot_loop_step",
+                    context={**entry, "message": f"{runtime_id} health timeout"},
+                )
 
         node_order = plan.get("nodes", {}).get("boot_order", {})
         node_deps = plan.get("nodes", {}).get("dependencies", {})
@@ -666,15 +746,19 @@ class SupervisorDomainService:
             if not self._wait_for_dependencies(deps, timeout_s):
                 entry = {"node_type": node_type, "status": "dependency_timeout"}
                 results["nodes"].append(entry)
-                self._append_boot_log("boot_loop_step", context=entry)
+                self._append_boot_log("boot_loop_step", context={**entry, "message": f"{node_type} dependency timeout"})
                 continue
             runtimes = [item for item in self._runtime_nodes_store.list() if item.node_type == node_type]
             if not runtimes:
                 entry = {"node_type": node_type, "status": "missing"}
                 results["nodes"].append(entry)
-                self._append_boot_log("boot_loop_step", context=entry)
+                self._append_boot_log("boot_loop_step", context={**entry, "message": f"{node_type} missing"})
                 continue
             for record in sorted(runtimes, key=lambda item: (item.node_name, item.node_id)):
+                self._append_boot_log(
+                    "boot_loop_step",
+                    context={"node_type": node_type, "node_id": record.node_id, "status": "starting", "message": f"Starting {record.node_id}"},
+                )
                 self.start_registered_runtime(record.node_id)
                 ready = self._wait_for_node_runtime(record.node_id, timeout_s)
                 entry = {
@@ -683,7 +767,16 @@ class SupervisorDomainService:
                     "status": "ready" if ready else "timeout",
                 }
                 results["nodes"].append(entry)
-                self._append_boot_log("boot_loop_step", context=entry)
+                if ready:
+                    self._append_boot_log(
+                        "boot_loop_step",
+                        context={**entry, "message": f"{record.node_id} healthy"},
+                    )
+                else:
+                    self._append_boot_log(
+                        "boot_loop_step",
+                        context={**entry, "message": f"{record.node_id} health timeout"},
+                    )
         finished_at = self._now_iso()
         self._boot_loop_status = {
             "state": "finished",

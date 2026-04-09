@@ -93,6 +93,7 @@ Readiness gates:
 Outputs:
 - A boot loop status summary for the active host.
 - Boot log entries for each step (start/stop/restart + readiness result).
+- Managed Core runtimes may include `runtime_metadata.systemd_unit` (or `systemd_units`) so the Supervisor can invoke systemd for start/stop/restart.
 
 ## Store and Runtime Interaction
 

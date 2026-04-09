@@ -481,3 +481,4 @@
 2026-04-09 - Task 923: added Supervisor boot loop telemetry and status snapshot.
 2026-04-09 - Task 924: exposed Supervisor boot loop trigger and status API.
 2026-04-09 - Session complete: boot loop contract, loader, execution, telemetry, and API endpoints.
+2026-04-09 - Added boot log entries for systemd-managed runtime starts and health readiness.
