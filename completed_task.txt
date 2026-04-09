@@ -475,3 +475,4 @@
 2026-04-08 - Task 911: redesigned Supervisor node runtime inventory table and service subtable.
 2026-04-09 - Added tmpfiles rule for /run/hexe supervisor socket path.
 2026-04-09 - Added Supervisor boot log initialization and action logging.
+2026-04-09 - Task 920: defined Supervisor boot loop runner contract.

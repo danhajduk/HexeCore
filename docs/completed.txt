@@ -865,3 +865,4 @@ Task 904: Add Core-side registration call for Core-hosted aux services/container
 Task 905: Cache Supervisor summary data in Core and refresh every 10 seconds to speed up Supervisor UI loading. - Completed on 04/08/2026 02:31
 Task 910: Add supervisor-managed node services inventory and control - Completed on 04/08/2026 09:19
 Task 911: Redesign Supervisor UI managed-node runtime section - Completed on 04/08/2026 10:45
+Task 920: Define Supervisor boot loop runner contract - Completed on 04/09/2026 11:14

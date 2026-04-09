@@ -59,6 +59,38 @@ Status: Implemented
 - This means backend process auto-restart and MQTT container auto-restart are separate controls.
 - Operators should not assume backend restart policy implies docker container restart policy.
 
+## Boot Loop Contract
+
+Status: Planned
+
+Supervisor will own a host-local boot loop that turns the boot-order policy into concrete runtime actions.
+
+Inputs:
+- Base boot-order JSON: `backend/var/supervisor/boot-order.json`.
+- User override YAML: `backend/var/supervisor/boot-order.override.yaml`.
+- Core runtime registrations (services/addons/aux containers) via `/api/supervisor/core/runtimes/*`.
+- Node runtime registrations via `/api/supervisor/runtimes/*`.
+
+Boot-order merge:
+- Supervisor loads the JSON plan first, then applies the YAML override.
+- Override changes are additive and may reorder, disable, or adjust dependencies.
+- Invalid entries are skipped with a boot log entry and a supervisor warning.
+
+Dependency resolution:
+- Core services and Core-owned runtimes are evaluated first (if present on the host).
+- Aux runtimes (addons/aux containers) are gated by core readiness where required.
+- Nodes are evaluated after Core runtimes and in dependency order.
+- Node dependencies can include other node types (ex: email depends on ai-node) and aux runtimes (ex: mqtt).
+
+Readiness gates:
+- Each runtime action waits for a health signal before the next dependency starts.
+- Health sources include heartbeat freshness, runtime state, and explicit health status when available.
+- Timeouts are enforced per runtime; on timeout the runtime is marked unhealthy and the boot loop continues.
+
+Outputs:
+- A boot loop status summary for the active host.
+- Boot log entries for each step (start/stop/restart + readiness result).
+
 ## Store and Runtime Interaction
 
 Status: Implemented
