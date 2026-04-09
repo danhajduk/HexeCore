@@ -38,6 +38,9 @@ Supervisor API routes are served by the standalone Supervisor service rather tha
   - `GET /api/supervisor/info`
   - `GET /api/supervisor/resources`
   - `GET /api/supervisor/runtime`
+- boot loop status and manual trigger through:
+  - `GET /api/supervisor/boot/status`
+  - `POST /api/supervisor/boot/run`
 - compose-based realization for host-local standalone addon workloads
 
 ## Service Configuration

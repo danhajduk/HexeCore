@@ -68,6 +68,14 @@ def build_supervisor_router(service: SupervisorDomainService | None = None) -> A
             headroom_pct=headroom_pct,
         )
 
+    @router.get("/supervisor/boot/status")
+    def get_supervisor_boot_status() -> dict[str, Any]:
+        return supervisor.boot_loop_status()
+
+    @router.post("/supervisor/boot/run")
+    def run_supervisor_boot_loop() -> dict[str, Any]:
+        return supervisor.run_boot_loop()
+
     @router.get("/supervisor/nodes")
     def list_supervisor_nodes() -> dict[str, list[ManagedNodeSummary]]:
         return {"items": supervisor.list_managed_nodes()}

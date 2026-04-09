@@ -47,4 +47,3 @@ Standards reference:
 
 Do not edit above this line:
 #######################################################################
-[TODO] Task 924: Expose boot loop manual trigger and status API (and document the endpoints).

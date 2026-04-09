@@ -35,6 +35,9 @@ Status: Implemented
 - Supervisor computes heartbeat freshness for real Nodes as `online`, `stale`, `offline`, or `error` based on the locally tracked runtime record.
 - Standalone addon realization is compose-based today through `compose_up` and `compose_down` in `backend/app/supervisor/service.py`.
 - Supervisor API service probes are available at `/health` and `/ready` on the standalone Supervisor API server.
+- Supervisor exposes boot loop status and manual trigger endpoints:
+  - `GET /api/supervisor/boot/status`
+  - `POST /api/supervisor/boot/run`
 
 ## Aux Container Heartbeats
 
