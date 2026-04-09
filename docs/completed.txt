@@ -868,3 +868,4 @@ Task 911: Redesign Supervisor UI managed-node runtime section - Completed on 04/
 Task 920: Define Supervisor boot loop runner contract - Completed on 04/09/2026 11:14
 Task 921: Implement boot order loader and merger - Completed on 04/09/2026 11:15
 Task 922: Implement Supervisor boot loop execution - Completed on 04/09/2026 11:17
+Task 923: Add Supervisor boot loop telemetry - Completed on 04/09/2026 11:19

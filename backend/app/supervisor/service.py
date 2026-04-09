@@ -60,6 +60,10 @@ class SupervisorDomainService:
         self._runtime_nodes_store = runtime_nodes_store or SupervisorRuntimeNodesStore()
         self._core_runtime_store = core_runtime_store or SupervisorCoreRuntimeStore()
         self._node_registrations_store = node_registrations_store
+        self._boot_loop_status: dict[str, Any] = {
+            "state": "idle",
+            "updated_at": self._now_iso(),
+        }
 
     def _runtime_provider(self) -> str:
         return str(os.getenv("SYNTHIA_MQTT_RUNTIME_PROVIDER", "docker")).strip().lower() or "docker"
@@ -523,6 +527,9 @@ class SupervisorDomainService:
             managed_nodes=managed_nodes,
         )
 
+    def boot_loop_status(self) -> dict[str, Any]:
+        return dict(self._boot_loop_status)
+
     def _boot_step_timeout_s(self) -> float:
         raw = str(os.getenv("HEXE_SUPERVISOR_BOOT_STEP_TIMEOUT_S", "60")).strip()
         try:
@@ -620,44 +627,73 @@ class SupervisorDomainService:
             "core": [],
             "nodes": [],
         }
+        started_at = self._now_iso()
+        self._boot_loop_status = {
+            "state": "running",
+            "started_at": started_at,
+            "updated_at": started_at,
+            "warnings": list(warnings),
+            "results": {},
+        }
+        self._append_boot_log("boot_loop_start", context={"started_at": started_at})
         timeout_s = self._boot_step_timeout_s()
         core_order = plan.get("core", {}).get("boot_order", {})
         core_deps = plan.get("core", {}).get("dependencies", {})
         for runtime_id, _ in sorted(core_order.items(), key=lambda item: (item[1], item[0])):
             deps = core_deps.get(runtime_id, [])
             if not self._wait_for_dependencies(deps, timeout_s):
-                results["core"].append({"runtime_id": runtime_id, "status": "dependency_timeout"})
+                entry = {"runtime_id": runtime_id, "status": "dependency_timeout"}
+                results["core"].append(entry)
+                self._append_boot_log("boot_loop_step", context=entry)
                 continue
             record = self._core_runtime_store.get(runtime_id)
             if record is None:
-                results["core"].append({"runtime_id": runtime_id, "status": "missing"})
+                entry = {"runtime_id": runtime_id, "status": "missing"}
+                results["core"].append(entry)
+                self._append_boot_log("boot_loop_step", context=entry)
                 continue
             if str(record.management_mode or "").strip().lower() == "manage":
                 self.start_core_runtime(runtime_id)
             ready = self._wait_for_core_runtime(runtime_id, timeout_s)
-            results["core"].append({"runtime_id": runtime_id, "status": "ready" if ready else "timeout"})
+            entry = {"runtime_id": runtime_id, "status": "ready" if ready else "timeout"}
+            results["core"].append(entry)
+            self._append_boot_log("boot_loop_step", context=entry)
 
         node_order = plan.get("nodes", {}).get("boot_order", {})
         node_deps = plan.get("nodes", {}).get("dependencies", {})
         for node_type, _ in sorted(node_order.items(), key=lambda item: (item[1], item[0])):
             deps = node_deps.get(node_type, [])
             if not self._wait_for_dependencies(deps, timeout_s):
-                results["nodes"].append({"node_type": node_type, "status": "dependency_timeout"})
+                entry = {"node_type": node_type, "status": "dependency_timeout"}
+                results["nodes"].append(entry)
+                self._append_boot_log("boot_loop_step", context=entry)
                 continue
             runtimes = [item for item in self._runtime_nodes_store.list() if item.node_type == node_type]
             if not runtimes:
-                results["nodes"].append({"node_type": node_type, "status": "missing"})
+                entry = {"node_type": node_type, "status": "missing"}
+                results["nodes"].append(entry)
+                self._append_boot_log("boot_loop_step", context=entry)
                 continue
             for record in sorted(runtimes, key=lambda item: (item.node_name, item.node_id)):
                 self.start_registered_runtime(record.node_id)
                 ready = self._wait_for_node_runtime(record.node_id, timeout_s)
-                results["nodes"].append(
-                    {
-                        "node_type": node_type,
-                        "node_id": record.node_id,
-                        "status": "ready" if ready else "timeout",
-                    }
-                )
+                entry = {
+                    "node_type": node_type,
+                    "node_id": record.node_id,
+                    "status": "ready" if ready else "timeout",
+                }
+                results["nodes"].append(entry)
+                self._append_boot_log("boot_loop_step", context=entry)
+        finished_at = self._now_iso()
+        self._boot_loop_status = {
+            "state": "finished",
+            "started_at": started_at,
+            "finished_at": finished_at,
+            "updated_at": finished_at,
+            "warnings": list(warnings),
+            "results": results,
+        }
+        self._append_boot_log("boot_loop_complete", context={"finished_at": finished_at})
         return results
 
     def list_managed_nodes(self) -> list[ManagedNodeSummary]:
