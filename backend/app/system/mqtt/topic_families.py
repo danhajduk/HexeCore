@@ -66,6 +66,7 @@ CORE_RUNTIME_NOTIFY_WRITE_TOPICS: tuple[str, ...] = (
     f"{MQTT_TOPIC_ROOT}/notify/internal/#",
     "hexe-notify/#",
 )
+NODE_DOMAIN_EVENTS_SUBSCRIBE_TOPIC = f"{MQTT_TOPIC_ROOT}/events/#"
 TOP_LEVEL_RESERVED_FAMILIES: tuple[str, ...] = (
     "bootstrap",
     "runtime",
@@ -210,3 +211,7 @@ def generic_user_notify_external_topic() -> str:
 
 def core_runtime_notify_write_topics() -> list[str]:
     return sorted({str(item).strip() for item in CORE_RUNTIME_NOTIFY_WRITE_TOPICS if str(item).strip()})
+
+
+def node_domain_events_subscribe_topic() -> str:
+    return NODE_DOMAIN_EVENTS_SUBSCRIBE_TOPIC

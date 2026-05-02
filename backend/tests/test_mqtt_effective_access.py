@@ -83,7 +83,7 @@ class TestMqttEffectiveAccess(unittest.TestCase):
         by_id = {item.principal_id: item for item in compiled}
         self.assertIn("node:node-123", by_id)
         self.assertEqual(by_id["node:node-123"].publish_scopes, ["hexe/nodes/node-123/#"])
-        self.assertEqual(by_id["node:node-123"].subscribe_scopes, ["hexe/nodes/node-123/#"])
+        self.assertEqual(by_id["node:node-123"].subscribe_scopes, ["hexe/events/#", "hexe/nodes/node-123/#"])
 
     def test_non_reserved_generic_user_keeps_external_notification_namespace_available(self) -> None:
         state = MqttIntegrationState(

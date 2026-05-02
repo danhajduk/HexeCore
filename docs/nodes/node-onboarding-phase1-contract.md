@@ -162,6 +162,7 @@ Node principals are exposed in MQTT principal APIs as synthetic `synthia_node` p
 - node publish scope is restricted to `hexe/nodes/<node_id>/#`
 - node subscribe scopes are:
   - `hexe/bootstrap/core`
+  - `hexe/events/#`
   - `hexe/nodes/<node_id>/#`
 
 Expected node-owned topic subtree:

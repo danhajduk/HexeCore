@@ -179,6 +179,7 @@ class NodeBudgetForceReleaseRequest(BaseModel):
 
 
 NODE_BOOTSTRAP_TOPIC = "hexe/bootstrap/core"
+NODE_DOMAIN_EVENTS_SUBSCRIBE_TOPIC = "hexe/events/#"
 
 
 def _onboarding_error(error: str, message: str, *, retryable: bool = False) -> dict[str, object]:
@@ -524,7 +525,7 @@ def build_system_router(
         principal.username = identity
         principal.managed_by = "node_onboarding"
         principal.publish_topics = [topic_scope]
-        principal.subscribe_topics = [NODE_BOOTSTRAP_TOPIC, topic_scope]
+        principal.subscribe_topics = [NODE_BOOTSTRAP_TOPIC, NODE_DOMAIN_EVENTS_SUBSCRIBE_TOPIC, topic_scope]
         principal.notes = "managed by node onboarding trust activation"
         principal.last_activated_at = _utcnow_iso()
         principal.last_revoked_at = None

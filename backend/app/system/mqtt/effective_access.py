@@ -10,6 +10,7 @@ from .topic_families import (
     generic_user_notify_external_topic,
     generic_user_reserved_acl_denies,
     is_platform_reserved_topic,
+    node_domain_events_subscribe_topic,
 )
 
 
@@ -36,6 +37,7 @@ class MqttEffectiveAccessCompiler:
         self._generic_user_reserved_denies = _sorted_unique(generic_user_reserved_acl_denies())
         self._generic_user_notify_external_topic = generic_user_notify_external_topic()
         self._core_runtime_notify_write_topics = _sorted_unique(core_runtime_notify_write_topics())
+        self._node_domain_events_subscribe_topic = node_domain_events_subscribe_topic()
 
     def compile(self, state: MqttIntegrationState) -> list[MqttEffectiveAccessEntry]:
         out: list[MqttEffectiveAccessEntry] = [
@@ -94,7 +96,7 @@ class MqttEffectiveAccessCompiler:
             # Node onboarding provisions direct topic scopes on the principal itself.
             # Unlike addons, nodes do not use addon grants for their operational ACLs.
             publish_topics = _sorted_unique(list(principal.publish_topics))
-            subscribe_topics = _sorted_unique(list(principal.subscribe_topics))
+            subscribe_topics = _sorted_unique([*list(principal.subscribe_topics), self._node_domain_events_subscribe_topic])
         elif principal.principal_type == "generic_user":
             mode = str(getattr(principal, "access_mode", "private") or "private").strip().lower()
             generic_non_reserved_only = mode == "non_reserved"

@@ -65,6 +65,7 @@ After successful finalize+consume:
   - publish scope: `hexe/nodes/<node_id>/#`
   - subscribe scopes:
     - `hexe/bootstrap/core`
+    - `hexe/events/#`
     - `hexe/nodes/<node_id>/#`
 
 The node-owned namespace is intentionally restricted to:

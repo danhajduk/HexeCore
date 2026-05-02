@@ -47,3 +47,10 @@ Standards reference:
 
 Do not edit above this line:
 #######################################################################
+[TODO] Task 925: Add Core node domain event promoter service
+[TODO] Task 926: Validate node domain event producer identity and payload schema
+[TODO] Task 927: Enforce node domain event privacy and payload safety policy
+[TODO] Task 928: Add node domain event deduplication and noisy-node limiting
+[TODO] Task 929: Publish accepted node domain events to Core-owned event topics
+[TODO] Task 930: Record node domain event promotion decisions for operators
+[TODO] Task 931: Add node domain event promotion tests and verified docs

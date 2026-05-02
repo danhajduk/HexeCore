@@ -50,16 +50,17 @@ They should not need to know the Email node id.
 
 ## ACL Policy
 
-Default trusted node ACLs remain unchanged:
+Default trusted node ACLs permit nodes to publish only in their node-owned subtree and subscribe to their own subtree plus Core-promoted domain events:
 
 - publish: `hexe/nodes/<node_id>/#`
 - subscribe:
   - `hexe/bootstrap/core`
+  - `hexe/events/#`
   - `hexe/nodes/<node_id>/#`
 
 Core owns `hexe/events/#`.
 
-Trusted nodes must not receive broad publish access to `hexe/events/#` by default. Direct reserved publish access may be granted only for a narrow topic and only with explicit reserved approval.
+Trusted nodes must not receive broad publish access to `hexe/events/#` by default. Nodes consume Core-promoted events from `hexe/events/#`, but publish raw events only under `hexe/nodes/<node_id>/events/#`. Direct reserved publish access may be granted only for a narrow topic and only with explicit reserved approval.
 
 ## Core Bridge Responsibilities
 

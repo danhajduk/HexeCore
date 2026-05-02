@@ -225,3 +225,33 @@ Original task details:
 - Remove RPS/P95/Err%/Freshness from runtime row.
 - Nested services table: Service, State, Health, CPU, Memory (+ optional pid/uptime/container id if available).
 - Keep lifecycle actions available.
+
+## Task 925-931
+Original task details preserved from `docs/mqtt/node-domain-event-promotion.md`.
+
+Active normalized queue entries:
+
+- Task 925: Add Core node domain event promoter service
+- Task 926: Validate node domain event producer identity and payload schema
+- Task 927: Enforce node domain event privacy and payload safety policy
+- Task 928: Add node domain event deduplication and noisy-node limiting
+- Task 929: Publish accepted node domain events to Core-owned event topics
+- Task 930: Record node domain event promotion decisions for operators
+- Task 931: Add node domain event promotion tests and verified docs
+
+Preserved details:
+
+- Core should subscribe to `hexe/nodes/+/events/#` and treat node-originated messages as raw domain events that require promotion before shared consumption.
+- The promoter must extract `<node_id>` from `hexe/nodes/<node_id>/events/<domain>/<event_name>`.
+- The promoter must verify the MQTT principal is an active `synthia_node` linked to the topic node id.
+- Retained node-originated event messages must be rejected.
+- Node-originated payloads must validate against the node-originated schema. Email-node input events currently reference `HexeEmail/docs/schemas/email-node-domain-event.schema.json`.
+- The promoter must verify payload `source.node_id` matches the topic node id.
+- The promoter must enforce payload privacy rules and reject or redact forbidden data such as raw email bodies, tokens, API keys, session cookies, verification codes, full payment or bank account numbers, full street addresses without explicit policy, attachments, and large HTML payloads.
+- The promoter must enforce noisy-node behavior using initial thresholds from the promotion doc: watch above 60 events/minute or 10 invalid events in 10 minutes; limited above 180 events/minute, 50 invalid events in 10 minutes, or 1 MiB/minute payloads; blocked for sustained limited state, repeated malformed bursts, or suspected secret/raw-body leakage.
+- Deduplication should use event id, source topic, and optional subject ids.
+- Accepted events must publish to both source-preserving topics `hexe/events/nodes/<node_id>/<domain>/<event_name>` and domain topics `hexe/events/<domain>/<event_name>`.
+- Promoted payloads must validate against `docs/json_schema/core_promoted_node_domain_event.schema.json`.
+- Promotion accept, reject, limit, redact, dedupe, and noisy-node decisions must be recorded in Core observability.
+- Recent noisy-node and promotion decisions should be exposed through an operator API.
+- Trusted nodes may subscribe to Core-promoted domain events under `hexe/events/#`, but must not receive broad publish access to `hexe/events/#`.

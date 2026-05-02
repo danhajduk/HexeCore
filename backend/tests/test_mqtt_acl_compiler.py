@@ -107,6 +107,8 @@ class TestMqttAclCompiler(unittest.TestCase):
         acl = MqttAclCompiler().compile(state).acl_text
         self.assertIn("user hn_node-123", acl)
         self.assertIn("topic readwrite hexe/nodes/node-123/#", acl)
+        self.assertIn("topic read hexe/events/#", acl)
+        self.assertNotIn("topic write hexe/events/#", acl)
 
     def test_generic_user_reserved_denies_include_future_federation_families(self) -> None:
         state = MqttIntegrationState(
