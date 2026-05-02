@@ -9,11 +9,13 @@ try:
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     from app.api.system import build_system_router
+    from app.api import system as system_api
     FASTAPI_STACK_AVAILABLE = True
 except Exception:  # pragma: no cover - local env may not include FastAPI deps
     FastAPI = None
     TestClient = None
     build_system_router = None
+    system_api = None
     FASTAPI_STACK_AVAILABLE = False
 
 from app.system.onboarding import NodeOnboardingSessionsStore, NodeRegistrationsStore, NodeTrustIssuanceService, NodeTrustStore
@@ -40,6 +42,7 @@ class _FakeRegistry:
 @unittest.skipIf(not FASTAPI_STACK_AVAILABLE, "fastapi/testclient not available in this environment")
 class TestNodeOnboardingStartApi(unittest.TestCase):
     def setUp(self) -> None:
+        system_api._RATE_WINDOWS.clear()
         self.tmpdir = tempfile.TemporaryDirectory()
         self.store = NodeOnboardingSessionsStore(path=Path(self.tmpdir.name) / "node_onboarding_sessions.json")
         self.registrations = NodeRegistrationsStore(path=Path(self.tmpdir.name) / "node_registrations.json")
@@ -184,6 +187,15 @@ class TestNodeOnboardingStartApi(unittest.TestCase):
         self.assertEqual(resp.status_code, 200, resp.text)
         self.assertEqual(resp.json()["session"]["node_type"], "email")
         self.assertEqual(resp.json()["session"]["requested_node_type"], "email-node")
+
+    def test_voice_node_is_supported_by_default(self) -> None:
+        payload = self._payload()
+        payload["node_type"] = "voice-node"
+        with patch.dict(os.environ, {"SYNTHIA_NODE_ONBOARDING_SUPPORTED_TYPES": ""}, clear=False):
+            resp = self.client.post("/api/system/nodes/onboarding/sessions", json=payload)
+        self.assertEqual(resp.status_code, 200, resp.text)
+        self.assertEqual(resp.json()["session"]["node_type"], "voice")
+        self.assertEqual(resp.json()["session"]["requested_node_type"], "voice-node")
 
     def test_protocol_version_unsupported(self) -> None:
         payload = self._payload()

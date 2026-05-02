@@ -48,6 +48,11 @@ def _reserved_node_proxy_segment(node_id: str) -> bool:
     return str(node_id or "").strip() in {"ui", "no-json"}
 
 
+def _public_node_oauth_callback_path(path: str) -> bool:
+    normalized = str(path or "").strip("/")
+    return normalized in {"google/callback", "google/gmail/callback"}
+
+
 class NodeUiProxy:
     def __init__(self, service: NodesDomainService) -> None:
         self._service = service
@@ -67,6 +72,10 @@ class NodeUiProxy:
 
     def _api_target_base(self, node_id: str, request: Request) -> str:
         return self._targets.resolve_node_api(node_id).target_base
+
+    def _api_root_target_base(self, node_id: str, request: Request) -> str:
+        parsed = urlsplit(self._api_target_base(node_id, request))
+        return urlunsplit((parsed.scheme, parsed.netloc, "", "", ""))
 
     @staticmethod
     def _log_proxy_result(
@@ -440,7 +449,11 @@ class NodeUiProxy:
         render_navigation_json_page: bool = False,
     ) -> Response:
         started_at = time.perf_counter()
-        target_base = self._api_target_base(node_id, request)
+        target_base = (
+            self._api_root_target_base(node_id, request)
+            if _public_node_oauth_callback_path(path)
+            else self._api_target_base(node_id, request)
+        )
         target = self._proxy.build_target_url(target_base, path, request.url.query)
         effective_public_prefix = public_prefix or f"/api/nodes/{node_id}"
         headers = self._proxy.build_request_headers(
@@ -557,12 +570,13 @@ def build_node_ui_proxy_router(proxy: NodeUiProxy) -> APIRouter:
         methods=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     )
     async def proxy_node_api_navigation(node_id: str, path: str, request: Request):
-        try:
-            require_admin_request(request)
-        except HTTPException as exc:
-            if exc.status_code == 401 and request.method in {"GET", "HEAD"}:
-                return _admin_login_redirect(request)
-            raise
+        if not (request.method in {"GET", "HEAD"} and _public_node_oauth_callback_path(path)):
+            try:
+                require_admin_request(request)
+            except HTTPException as exc:
+                if exc.status_code == 401 and request.method in {"GET", "HEAD"}:
+                    return _admin_login_redirect(request)
+                raise
         return await proxy.forward_api(
             request,
             node_id,

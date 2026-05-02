@@ -117,6 +117,7 @@ Supported node types are configured by:
 Default:
 - `ai-node`
 - `email-node`
+- `voice-node`
 
 ## Compatibility Layer
 

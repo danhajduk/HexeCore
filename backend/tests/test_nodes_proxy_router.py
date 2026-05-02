@@ -172,12 +172,24 @@ class TestNodeUiProxyRouter(unittest.TestCase):
             "/proxy-login?next=%2Fnodes%2Fproxy%2Fui%2Fnode-1%2Fgoogle%2Fgmail%2Fcallback%3Fcode%3Dabc%26state%3Dxyz",
         )
 
-    def test_proxy_no_json_routes_preserve_query_when_redirecting_to_login(self) -> None:
-        denied = self.client.get("/nodes/proxy/no-json/node-1/google/gmail/callback?code=abc&state=xyz", follow_redirects=False)
+    def test_proxy_no_json_oauth_callbacks_do_not_require_admin_auth(self) -> None:
+        for url, expected_path in [
+            ("/nodes/proxy/no-json/node-1/google/callback?code=abc&state=xyz", "google/callback"),
+            ("/nodes/proxy/no-json/node-1/google/gmail/callback?code=abc&state=xyz", "google/gmail/callback"),
+        ]:
+            response = self.client.get(url, follow_redirects=False)
+            self.assertEqual(response.status_code, 200, response.text)
+            payload = response.json()
+            self.assertEqual(payload["node_id"], "node-1")
+            self.assertEqual(payload["path"], expected_path)
+            self.assertTrue(payload["render_navigation_json_page"])
+
+    def test_proxy_no_json_non_oauth_routes_preserve_query_when_redirecting_to_login(self) -> None:
+        denied = self.client.get("/nodes/proxy/no-json/node-1/api/node/bootstrap?code=abc&state=xyz", follow_redirects=False)
         self.assertEqual(denied.status_code, 307, denied.text)
         self.assertEqual(
             denied.headers["location"],
-            "/proxy-login?next=%2Fnodes%2Fproxy%2Fno-json%2Fnode-1%2Fgoogle%2Fgmail%2Fcallback%3Fcode%3Dabc%26state%3Dxyz",
+            "/proxy-login?next=%2Fnodes%2Fproxy%2Fno-json%2Fnode-1%2Fapi%2Fnode%2Fbootstrap%3Fcode%3Dabc%26state%3Dxyz",
         )
 
     def test_websocket_proxy_requires_admin_auth(self) -> None:
@@ -369,6 +381,24 @@ class TestNodeUiProxyTargetSelection(unittest.TestCase):
         )
         request = type("Req", (), {"url": type("Url", (), {"scheme": "http"})()})()
         self.assertEqual(proxy._api_target_base("node-1", request), "http://10.0.0.9:8081/api")
+
+    def test_api_root_target_base_removes_api_prefix_for_oauth_callbacks(self) -> None:
+        proxy = NodeUiProxy(
+            _TargetService(
+                type(
+                    "Node",
+                    (),
+                    {
+                        "ui_enabled": True,
+                        "ui_base_url": "http://10.0.0.9:8083",
+                        "api_base_url": "http://10.0.0.9:9003/api",
+                    },
+                )()
+            )
+        )
+        request = type("Req", (), {"url": type("Url", (), {"scheme": "http"})()})()
+        self.assertEqual(proxy._api_target_base("node-1", request), "http://10.0.0.9:9003/api")
+        self.assertEqual(proxy._api_root_target_base("node-1", request), "http://10.0.0.9:9003")
 
     def test_api_target_base_falls_back_to_node_ui_origin_for_legacy_metadata(self) -> None:
         proxy = NodeUiProxy(
