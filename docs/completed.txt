@@ -877,3 +877,6 @@ Task 928: Add node domain event deduplication and noisy-node limiting - Complete
 Task 929: Publish accepted node domain events to Core-owned event topics - Completed on 05/02/2026 17:06
 Task 930: Record node domain event promotion decisions for operators - Completed on 05/02/2026 17:06
 Task 931: Add node domain event promotion tests and verified docs - Completed on 05/02/2026 17:06
+Task 932: Add Supervisor-local resource sampling for managed process and container identities - Completed on 05/02/2026 19:16
+Task 933: Wire Supervisor-owned CPU and memory metrics into node and aux runtime summaries - Completed on 05/02/2026 19:16
+Task 934: Document Supervisor metrics ownership and verification behavior - Completed on 05/02/2026 19:16

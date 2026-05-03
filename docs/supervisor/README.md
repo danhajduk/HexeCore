@@ -19,6 +19,7 @@ Supervisor API routes are served by the standalone Supervisor service rather tha
 ## Current Responsibilities
 
 - host monitoring through `HostResourceSummary`, `SupervisorHealthSummary`, and `SupervisorRuntimeSummary`
+- host-local process/container resource sampling for Supervisor-visible `pid`, `systemd_unit`, `container_name`, and nested runtime service/container metadata
 - admission context reporting through `GET /api/supervisor/admission`
 - standalone addon lifecycle control through:
   - `GET /api/supervisor/nodes`

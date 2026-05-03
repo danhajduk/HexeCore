@@ -24,6 +24,12 @@ Status: Implemented
   - `POST /api/supervisor/runtimes/{node_id}/services/{service_id}/start`
   - `POST /api/supervisor/runtimes/{node_id}/services/{service_id}/stop`
   - `POST /api/supervisor/runtimes/{node_id}/services/{service_id}/restart`
+- Supervisor enriches runtime summaries with host-local resource metrics when a runtime or service metadata entry identifies a Supervisor-visible process or container:
+  - direct process: `pid`
+  - systemd-managed process: `systemd_unit` or `systemd_service`, resolved through `systemctl --user show ... MainPID`
+  - Docker runtime: `container_name`, `container_id`, or entries in `runtime_metadata.containers`
+  - nested service inventory: entries in `runtime_metadata.services`
+- Supervisor-sampled CPU, memory, RSS, PID, container identity, and `sampled_at` values are returned in `resource_usage` and merged back into `runtime_metadata` service/container entries for operator display.
 - Supervisor owns a Core-hosted runtime contract for Core services, addons, and aux containers through:
   - `POST /api/supervisor/core/runtimes/register`
   - `POST /api/supervisor/core/runtimes/heartbeat`
@@ -38,6 +44,29 @@ Status: Implemented
 - Supervisor exposes boot loop status and manual trigger endpoints:
   - `GET /api/supervisor/boot/status`
   - `POST /api/supervisor/boot/run`
+
+## Resource Metrics Ownership
+
+Status: Implemented
+
+Supervisor is the metrics authority for runtime resources it can observe on its own host.
+
+The implementation lives in `backend/app/supervisor/resource_monitor.py` and is applied by `backend/app/supervisor/service.py` when returning registered Node runtime summaries, Core runtime summaries, node service status, and `cloudflared` runtime state.
+
+Sampling behavior:
+
+- If a metadata entry has `pid`, Supervisor samples the local process through `psutil.Process(pid)`.
+- If a metadata entry has `systemd_unit` or `systemd_service`, Supervisor resolves `MainPID` with `systemctl --user show` and samples that PID.
+- If a metadata entry has a Docker container identity, Supervisor samples Docker with `docker stats --no-stream`.
+- If a runtime has nested `services` or `containers`, Supervisor enriches each entry and aggregates CPU, memory, and RSS into the top-level `resource_usage`.
+- Supervisor-sampled values override heartbeat-provided CPU/memory where the local identity is observable, so the lifecycle owner remains the metric owner.
+
+Metadata requirements for managed resources:
+
+- Direct Supervisor-managed process services must expose `pid` when they expect per-process metrics.
+- systemd-managed services must expose `systemd_unit` or `systemd_service`.
+- Docker-managed services must expose `container_name` or `container_id`.
+- Node-provided app health remains useful, but CPU and memory should be treated as Supervisor-owned when the process/container is local to the Supervisor host.
 
 ## Aux Container Heartbeats
 

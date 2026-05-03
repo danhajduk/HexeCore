@@ -71,6 +71,14 @@ class SupervisorNodeServiceSummary(BaseModel):
     desired_state: str | None = None
     health_status: str | None = None
     updated_at: str | None = None
+    pid: int | None = Field(default=None, ge=0)
+    container_name: str | None = None
+    container_id: str | None = None
+    cpu_percent: float | None = Field(default=None)
+    mem_percent: float | None = Field(default=None)
+    rss_bytes: int | None = Field(default=None, ge=0)
+    resource_source: str | None = None
+    sampled_at: str | None = None
     metadata: dict[str, object] = Field(default_factory=dict)
 
 

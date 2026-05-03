@@ -44,6 +44,7 @@ from .models import (
 )
 from .boot_order import load_boot_order_plan
 from .core_runtime_store import SupervisorCoreRuntimeRecord, SupervisorCoreRuntimeStore
+from .resource_monitor import SupervisorResourceMonitor
 from .runtime_nodes import merge_runtime_identity
 from .runtime_store import SupervisorRuntimeNodeRecord, SupervisorRuntimeNodesStore
 
@@ -55,11 +56,13 @@ class SupervisorDomainService:
         runtime_nodes_store: SupervisorRuntimeNodesStore | None = None,
         core_runtime_store: SupervisorCoreRuntimeStore | None = None,
         node_registrations_store: NodeRegistrationsStore | None = None,
+        resource_monitor: SupervisorResourceMonitor | None = None,
     ) -> None:
         self._runtime_service = runtime_service or StandaloneRuntimeService()
         self._runtime_nodes_store = runtime_nodes_store or SupervisorRuntimeNodesStore()
         self._core_runtime_store = core_runtime_store or SupervisorCoreRuntimeStore()
         self._node_registrations_store = node_registrations_store
+        self._resource_monitor = resource_monitor or SupervisorResourceMonitor()
         self._boot_loop_status: dict[str, Any] = {
             "state": "idle",
             "updated_at": self._now_iso(),
@@ -163,16 +166,25 @@ class SupervisorDomainService:
         normalized: list[SupervisorNodeServiceSummary] = []
         for service_id, value in services_raw.items():
             if isinstance(value, dict):
-                state = str(value.get("state") or value.get("status") or value.get("service_state") or "unknown")
+                _, observed = self._observed_resource_view({}, value)
+                state = str(observed.get("state") or observed.get("status") or observed.get("service_state") or "unknown")
                 normalized.append(
                     SupervisorNodeServiceSummary(
                         service_id=str(service_id),
-                        service_name=str(value.get("service_name") or value.get("name") or service_id),
+                        service_name=str(observed.get("service_name") or observed.get("name") or service_id),
                         service_state=state,
-                        desired_state=str(value.get("desired_state") or "") or None,
-                        health_status=str(value.get("health_status") or "") or None,
-                        updated_at=str(value.get("updated_at") or "") or None,
-                        metadata={k: v for k, v in value.items() if k not in {"state", "status", "service_state"}},
+                        desired_state=str(observed.get("desired_state") or "") or None,
+                        health_status=str(observed.get("health_status") or "") or None,
+                        updated_at=str(observed.get("updated_at") or "") or None,
+                        pid=observed.get("pid") if isinstance(observed.get("pid"), int) else None,
+                        container_name=str(observed.get("container_name") or "") or None,
+                        container_id=str(observed.get("container_id") or "") or None,
+                        cpu_percent=observed.get("cpu_percent") if isinstance(observed.get("cpu_percent"), int | float) else None,
+                        mem_percent=observed.get("mem_percent") if isinstance(observed.get("mem_percent"), int | float) else None,
+                        rss_bytes=observed.get("rss_bytes") if isinstance(observed.get("rss_bytes"), int) else None,
+                        resource_source=str(observed.get("resource_source") or "") or None,
+                        sampled_at=str(observed.get("sampled_at") or "") or None,
+                        metadata={k: v for k, v in observed.items() if k not in {"state", "status", "service_state"}},
                     )
                 )
             else:
@@ -226,6 +238,20 @@ class SupervisorDomainService:
             return "stale"
         return "online"
 
+    def _observed_resource_view(
+        self,
+        resource_usage: dict[str, object] | None,
+        runtime_metadata: dict[str, object] | None,
+    ) -> tuple[dict[str, object], dict[str, object]]:
+        try:
+            return self._resource_monitor.enrich(resource_usage, runtime_metadata)
+        except Exception as exc:
+            usage = dict(resource_usage or {})
+            metadata = dict(runtime_metadata or {})
+            metadata["resource_observer"] = "supervisor"
+            metadata["resource_observer_error"] = str(exc) or type(exc).__name__
+            return usage, metadata
+
     def _core_runtime_heartbeat_interval_s(self) -> float:
         raw = str(os.getenv("HEXE_SUPERVISOR_CORE_HEARTBEAT_S", "5")).strip()
         try:
@@ -272,6 +298,7 @@ class SupervisorDomainService:
 
     def _registered_runtime_summary(self, record: SupervisorRuntimeNodeRecord) -> SupervisorRegisteredRuntimeSummary:
         merged = merge_runtime_identity(record, self._node_registrations_store)
+        resource_usage, runtime_metadata = self._observed_resource_view(merged.resource_usage, merged.runtime_metadata)
         return SupervisorRegisteredRuntimeSummary(
             node_id=merged.node_id,
             node_name=merged.node_name,
@@ -297,8 +324,8 @@ class SupervisorDomainService:
             last_action_at=merged.last_action_at,
             last_error=merged.last_error,
             running=merged.running,
-            resource_usage=dict(merged.resource_usage or {}),
-            runtime_metadata=dict(merged.runtime_metadata or {}),
+            resource_usage=resource_usage,
+            runtime_metadata=runtime_metadata,
         )
 
     def list_registered_runtimes(self) -> list[SupervisorRegisteredRuntimeSummary]:
@@ -388,6 +415,7 @@ class SupervisorDomainService:
         return normalized
 
     def _core_runtime_summary(self, record: SupervisorCoreRuntimeRecord) -> SupervisorCoreRuntimeSummary:
+        resource_usage, runtime_metadata = self._observed_resource_view(record.resource_usage, record.runtime_metadata)
         return SupervisorCoreRuntimeSummary(
             runtime_id=record.runtime_id,
             runtime_name=record.runtime_name,
@@ -411,8 +439,8 @@ class SupervisorDomainService:
             last_action_at=record.last_action_at,
             last_error=record.last_error,
             running=record.running,
-            resource_usage=dict(record.resource_usage or {}),
-            runtime_metadata=dict(record.runtime_metadata or {}),
+            resource_usage=resource_usage,
+            runtime_metadata=runtime_metadata,
         )
 
     def list_core_runtimes(self) -> list[SupervisorCoreRuntimeSummary]:
@@ -1130,6 +1158,10 @@ class SupervisorDomainService:
             )
         payload["exists"] = True
         payload["checked_at"] = self._now_iso()
+        raw_usage = payload.get("resource_usage") if isinstance(payload.get("resource_usage"), dict) else {}
+        resource_usage, observed_payload = self._observed_resource_view(raw_usage, payload)
+        payload = observed_payload
+        payload["resource_usage"] = resource_usage
         self._write_runtime_payload(payload)
         return payload
 

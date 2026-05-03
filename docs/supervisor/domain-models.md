@@ -91,6 +91,13 @@ Fields include:
 - `resource_usage`
 - `runtime_metadata`
 
+Resource observation:
+
+- `resource_usage` may be enriched by Supervisor from host-local metadata before the summary is returned.
+- `runtime_metadata.services[]` or `runtime_metadata.services.{id}` entries are sampled when they include `pid`, `systemd_unit`, `systemd_service`, `container_name`, or `container_id`.
+- Supervisor-derived fields include `pid`, `cpu_percent`, `mem_percent`, `rss_bytes`, `container_name`, `container_id`, `resource_source`, and `sampled_at`.
+- When Supervisor can sample a local process or container, sampled CPU and memory are treated as authoritative over heartbeat-provided CPU and memory.
+
 ### SupervisorRuntimeRegistrationRequest
 
 Status: Implemented
@@ -182,6 +189,12 @@ Fields include:
 - `running`
 - `resource_usage`
 - `runtime_metadata`
+
+Resource observation:
+
+- Core runtime summaries use the same Supervisor-local resource enrichment as Node runtime summaries.
+- Core services commonly use `runtime_metadata.systemd_unit`; aux containers and addons commonly use `runtime_metadata.container_name`, `runtime_metadata.container_id`, or `runtime_metadata.containers[]`.
+- `runtime_metadata.services` can also be used when one runtime exposes multiple local process/container children.
 
 ### SupervisorCoreRuntimeRegistrationRequest
 
@@ -316,6 +329,8 @@ Returned by:
 Notes:
 
 - `runtime_id=cloudflared` returns a runtime state payload with `exists=true`.
+- Docker-backed `cloudflared` state is enriched from the configured container identity when Docker stats are available.
+- Binary-backed `cloudflared` state is enriched from the stored pid file when the process is still visible to the Supervisor host.
 - Other runtime ids currently return `{ "exists": false }`.
 
 ### SupervisorRuntimeApplyResult (Cloudflared)
