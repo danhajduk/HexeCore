@@ -78,7 +78,7 @@ The onboarding model is operator-mediated rather than OAuth-style:
 
 Status: Partial
 
-- `ai-node` is the initial implemented profile.
+- Default supported profiles include `ai-node`, `email-node`, `voice-node`, and `interaction-node`.
 - Future node types can reuse the same onboarding and registration contract with profile-specific payload extensions.
 
 Current expectation:

@@ -118,6 +118,7 @@ Default:
 - `ai-node`
 - `email-node`
 - `voice-node`
+- `interaction-node`
 
 ## Compatibility Layer
 

@@ -259,10 +259,10 @@ def _node_status_inactive_after_s() -> int:
 
 
 def _supported_node_types() -> set[str]:
-    raw = str(os.getenv("SYNTHIA_NODE_ONBOARDING_SUPPORTED_TYPES", "ai-node,email-node,voice-node")).strip()
+    raw = str(os.getenv("SYNTHIA_NODE_ONBOARDING_SUPPORTED_TYPES", "ai-node,email-node,voice-node,interaction-node")).strip()
     values = {item.strip() for item in raw.split(",") if item.strip()}
     if not values:
-        values = {"ai-node", "email-node", "voice-node"}
+        values = {"ai-node", "email-node", "voice-node", "interaction-node"}
     aliases: set[str] = set()
     for value in values:
         canonical = _canonical_node_type(value)

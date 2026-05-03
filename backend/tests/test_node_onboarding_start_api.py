@@ -197,6 +197,17 @@ class TestNodeOnboardingStartApi(unittest.TestCase):
         self.assertEqual(resp.json()["session"]["node_type"], "voice")
         self.assertEqual(resp.json()["session"]["requested_node_type"], "voice-node")
 
+    def test_interaction_node_is_supported_by_default(self) -> None:
+        payload = self._payload()
+        payload["node_name"] = "interaction-node"
+        payload["node_type"] = "interaction-node"
+        payload["node_nonce"] = "nonce-interaction"
+        with patch.dict(os.environ, {"SYNTHIA_NODE_ONBOARDING_SUPPORTED_TYPES": ""}, clear=False):
+            resp = self.client.post("/api/system/nodes/onboarding/sessions", json=payload)
+        self.assertEqual(resp.status_code, 200, resp.text)
+        self.assertEqual(resp.json()["session"]["node_type"], "interaction")
+        self.assertEqual(resp.json()["session"]["requested_node_type"], "interaction-node")
+
     def test_protocol_version_unsupported(self) -> None:
         payload = self._payload()
         payload["protocol_version"] = "99.9"
