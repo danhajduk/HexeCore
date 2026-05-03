@@ -1,6 +1,16 @@
 # Node Domain Event Promotion
 
-Status: Proposed
+Status: Partially implemented
+
+Implemented in Core:
+
+- listener service: `backend/app/core/node_domain_events.py`
+- startup wiring: `backend/app/main.py`
+- recent operator decisions: `GET /api/system/mqtt/node-domain-events/decisions`
+- accepted generic input schema reference: `docs/json_schema/node_originated_domain_event.schema.json`
+- promoted output schema reference: `docs/json_schema/core_promoted_node_domain_event.schema.json`
+
+The current implementation validates a generic node-originated event envelope in Core. The Email-node-owned schema listed below remains a node repository contract and is not present in this repository.
 
 ## Purpose
 
@@ -87,13 +97,14 @@ For each received message, Core should:
 
 Node-originated event schema:
 
+- `docs/json_schema/node_originated_domain_event.schema.json`
 - `HexeEmail/docs/schemas/email-node-domain-event.schema.json`
 
 Core-promoted event schema:
 
 - `docs/json_schema/core_promoted_node_domain_event.schema.json`
 
-Core should treat the node-originated schema as the validation contract for Email-node input events. The promoted schema is the contract for events republished under `hexe/events/#`.
+Core currently treats the generic node-originated schema as the local validation contract and should also accept the Email-node schema when that node-owned repository contract is available. The promoted schema is the contract for events republished under `hexe/events/#`.
 
 ## Event Payload Policy
 

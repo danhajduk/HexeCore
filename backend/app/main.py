@@ -21,6 +21,7 @@ from .core import (
     CoreSystemNotificationService,
     DevelopmentNotificationTrigger,
     LocalDesktopNotificationConsumer,
+    NodeDomainEventPromoterService,
     NodeOperationalNotificationService,
     NotificationBridgeService,
     NodeNotificationProxyService,
@@ -634,6 +635,9 @@ def create_app() -> FastAPI:
             notification_proxy = getattr(app.state, "notification_proxy", None)
             if notification_proxy is not None:
                 await notification_proxy.start()
+            node_domain_event_promoter = getattr(app.state, "node_domain_event_promoter", None)
+            if node_domain_event_promoter is not None:
+                await node_domain_event_promoter.start()
             mqtt_startup_reconciler = getattr(app.state, "mqtt_startup_reconciler", None)
             if mqtt_startup_reconciler is not None:
                 try:
@@ -861,6 +865,9 @@ def create_app() -> FastAPI:
         notification_proxy = getattr(app.state, "notification_proxy", None)
         if notification_proxy is not None:
             await notification_proxy.stop()
+        node_domain_event_promoter = getattr(app.state, "node_domain_event_promoter", None)
+        if node_domain_event_promoter is not None:
+            await node_domain_event_promoter.stop()
         mqtt_runtime_boundary = getattr(app.state, "mqtt_runtime_boundary", None)
         if mqtt_runtime_boundary is not None:
             stop = getattr(mqtt_runtime_boundary, "stop", None)
@@ -1068,6 +1075,11 @@ def create_app() -> FastAPI:
         app.state.notification_publisher,
         mqtt_manager,
         mqtt_integration_state_store,
+    )
+    app.state.node_domain_event_promoter = NodeDomainEventPromoterService(
+        mqtt_manager,
+        mqtt_integration_state_store,
+        mqtt_observability_store,
     )
     app.state.notification_producer = CoreStartupNotificationProducer(
         app.state.notification_publisher,

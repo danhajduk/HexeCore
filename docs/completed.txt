@@ -870,3 +870,10 @@ Task 921: Implement boot order loader and merger - Completed on 04/09/2026 11:15
 Task 922: Implement Supervisor boot loop execution - Completed on 04/09/2026 11:17
 Task 923: Add Supervisor boot loop telemetry - Completed on 04/09/2026 11:19
 Task 924: Expose boot loop manual trigger and status API - Completed on 04/09/2026 11:20
+Task 925: Add Core node domain event promoter service - Completed on 05/02/2026 17:06
+Task 926: Validate node domain event producer identity and payload schema - Completed on 05/02/2026 17:06
+Task 927: Enforce node domain event privacy and payload safety policy - Completed on 05/02/2026 17:06
+Task 928: Add node domain event deduplication and noisy-node limiting - Completed on 05/02/2026 17:06
+Task 929: Publish accepted node domain events to Core-owned event topics - Completed on 05/02/2026 17:06
+Task 930: Record node domain event promotion decisions for operators - Completed on 05/02/2026 17:06
+Task 931: Add node domain event promotion tests and verified docs - Completed on 05/02/2026 17:06

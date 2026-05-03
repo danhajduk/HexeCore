@@ -166,6 +166,32 @@ class _FakeAuditStore:
         return out
 
 
+class _FakeObservabilityStore:
+    def __init__(self) -> None:
+        self.items: list[dict[str, object]] = []
+
+    async def append_event(
+        self,
+        *,
+        event_type: str,
+        source: str,
+        severity: str = "info",
+        metadata: dict | None = None,
+    ):
+        item = {
+            "event_type": event_type,
+            "source": source,
+            "severity": severity,
+            "metadata": metadata or {},
+            "created_at": str(time.time()),
+        }
+        self.items.append(item)
+        return item
+
+    async def list_events(self, limit: int = 100):
+        return list(reversed(self.items))[: max(1, min(1000, int(limit)))]
+
+
 class TestMqttAdminLifecycleApi(unittest.TestCase):
     def setUp(self) -> None:
         self.env_patch = patch.dict(os.environ, {"SYNTHIA_ADMIN_TOKEN": "test-token"}, clear=False)
@@ -177,6 +203,7 @@ class TestMqttAdminLifecycleApi(unittest.TestCase):
         self.credential_store = MqttCredentialStore(str(Path(self.tmpdir.name) / "mqtt_credentials.json"))
         self.runtime = _FakeRuntimeReconciler()
         self.audit = _FakeAuditStore()
+        self.observability = _FakeObservabilityStore()
         self.registry = AddonRegistry(
             addons={
                 "vision": BackendAddon(
@@ -216,6 +243,7 @@ class TestMqttAdminLifecycleApi(unittest.TestCase):
                 acl_compiler=MqttAclCompiler(),
                 credential_store=self.credential_store,
                 runtime_reconciler=self.runtime,
+                observability_store=self.observability,
                 audit_store=self.audit,
             ),
             prefix="/api/system",
@@ -225,6 +253,36 @@ class TestMqttAdminLifecycleApi(unittest.TestCase):
     def tearDown(self) -> None:
         self.tmpdir.cleanup()
         self.env_patch.stop()
+
+    def test_node_domain_event_decisions_endpoint_filters_promotion_events(self) -> None:
+        asyncio.run(
+            self.observability.append_event(
+                event_type="connection_established",
+                source="mqtt_manager",
+                severity="info",
+                metadata={"reason_code": 0},
+            )
+        )
+        asyncio.run(
+            self.observability.append_event(
+                event_type="node_domain_event_promotion",
+                source="node_domain_event_promoter",
+                severity="info",
+                metadata={"node_id": "email-node-1", "decision": "accepted"},
+            )
+        )
+
+        res = self.client.get(
+            "/api/system/mqtt/node-domain-events/decisions",
+            headers={"X-Admin-Token": "test-token"},
+        )
+
+        self.assertEqual(res.status_code, 200, res.text)
+        payload = res.json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(len(payload["items"]), 1)
+        self.assertEqual(payload["items"][0]["event_type"], "node_domain_event_promotion")
+        self.assertEqual(payload["items"][0]["metadata"]["decision"], "accepted")
 
     def test_principal_actions_and_generic_user_lifecycle(self) -> None:
         create = self.client.post(

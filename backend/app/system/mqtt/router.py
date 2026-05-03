@@ -1970,6 +1970,23 @@ def build_mqtt_router(
             return {"ok": True, "items": []}
         return {"ok": True, "items": await observability_store.list_events(limit=limit)}
 
+    @router.get("/mqtt/node-domain-events/decisions")
+    async def mqtt_node_domain_event_decisions(
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+        limit: int = 100,
+    ):
+        require_admin_token(x_admin_token, request)
+        if observability_store is None:
+            return {"ok": True, "items": []}
+        raw_items = await observability_store.list_events(limit=max(int(limit) * 5, int(limit)))
+        items = [
+            item
+            for item in raw_items
+            if str(item.get("event_type") or "") == "node_domain_event_promotion"
+        ][: max(1, min(1000, int(limit)))]
+        return {"ok": True, "items": items}
+
     @router.get("/mqtt/audit")
     async def mqtt_authority_audit_events(
         request: Request,

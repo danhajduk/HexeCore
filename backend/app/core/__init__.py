@@ -2,6 +2,13 @@ from .notification_debug import DevelopmentNotificationTrigger
 from .notification_bridge import NotificationBridgeService
 from .node_operational_notification_service import NodeOperationalNotificationService
 from .notification_proxy import NodeNotificationProxyService
+from .node_domain_events import (
+    NODE_DOMAIN_EVENT_PROMOTION_POLICY,
+    NODE_DOMAIN_EVENT_TOPIC_FILTER,
+    CorePromotedNodeDomainEvent,
+    NodeDomainEventPromoterService,
+    NodeOriginatedDomainEvent,
+)
 from .notification_publisher import CoreNotificationPublisher
 from .notification_consumer import LocalDesktopNotificationConsumer
 from .notification_producer import CoreStartupNotificationProducer
@@ -41,10 +48,15 @@ __all__ = [
     "INTERNAL_POPUP_TOPIC",
     "INTERNAL_STATE_TOPIC",
     "NODE_NOTIFICATION_REQUEST_TOPIC_FILTER",
+    "NODE_DOMAIN_EVENT_PROMOTION_POLICY",
+    "NODE_DOMAIN_EVENT_TOPIC_FILTER",
     "DevelopmentNotificationTrigger",
     "NotificationBridgeService",
     "NodeOperationalNotificationService",
     "NodeNotificationProxyService",
+    "CorePromotedNodeDomainEvent",
+    "NodeDomainEventPromoterService",
+    "NodeOriginatedDomainEvent",
     "CoreNotificationPublisher",
     "CoreSystemNotificationService",
     "LocalDesktopNotificationConsumer",
