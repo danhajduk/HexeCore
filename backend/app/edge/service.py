@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 import re
 from urllib.parse import urlsplit
@@ -33,6 +34,7 @@ from .models import (
     ProvisioningState,
     utcnow_iso,
 )
+from .runtime_status import merge_cloudflared_runtime_status
 from .store import EdgeGatewayStore
 
 HOSTNAME_PATTERN = re.compile(r"^[a-z0-9.-]+$")
@@ -246,6 +248,11 @@ class EdgeGatewayService:
         settings = await self.get_cloudflare_settings()
         publications = await self.list_publications()
         tunnel = await self._store.get_tunnel_status()
+        if self._supervisor_client is not None:
+            runtime_payload = await asyncio.to_thread(self._supervisor_client.get_runtime_state, "cloudflared")
+            refreshed = merge_cloudflared_runtime_status(tunnel, runtime_payload)
+            if refreshed != tunnel:
+                tunnel = await self._store.set_tunnel_status(refreshed)
         provisioning = await self._store.get_provisioning_state()
         reconcile_state = await self._store.get_reconcile_state()
         target_health = self._target_health(publications)

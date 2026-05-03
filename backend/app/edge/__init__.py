@@ -13,6 +13,7 @@ from .models import (
 )
 from .proxy import EdgeProxyService
 from .router import build_edge_router
+from .runtime_status import merge_cloudflared_runtime_status
 from .service import EdgeGatewayService
 from .store import EdgeGatewayStore
 
@@ -33,4 +34,5 @@ __all__ = [
     "EdgeTargetHealth",
     "EdgeTunnelStatus",
     "build_edge_router",
+    "merge_cloudflared_runtime_status",
 ]

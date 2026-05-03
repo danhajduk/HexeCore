@@ -29,7 +29,7 @@ from .core import (
 from .core.logging import setup_logging
 from .core.health import router as health_router
 from .architecture import build_architecture_router
-from .edge import EdgeGatewayService, EdgeGatewayStore, build_edge_router
+from .edge import EdgeGatewayService, EdgeGatewayStore, build_edge_router, merge_cloudflared_runtime_status
 from .addons.registry import build_registry, list_addons, register_addons
 from .addons.install_sessions import InstallSessionsStore
 from .addons.proxy import AddonProxy, build_proxy_router
@@ -311,6 +311,16 @@ def create_app() -> FastAPI:
 
             if not cloudflare_settings.enabled and not tunnel_status.configured:
                 return items
+
+            supervisor_client = getattr(app.state, "supervisor_client", None)
+            if supervisor_client is not None:
+                try:
+                    runtime_payload = await asyncio.to_thread(supervisor_client.get_runtime_state, "cloudflared")
+                    refreshed = merge_cloudflared_runtime_status(tunnel_status, runtime_payload)
+                    if refreshed != tunnel_status:
+                        tunnel_status = await edge_store.set_tunnel_status(refreshed)
+                except Exception:
+                    log.debug("Failed to refresh Cloudflared runtime state from Supervisor", exc_info=True)
 
             runtime_state = str(tunnel_status.runtime_state or "unknown")
             desired_state = "running" if cloudflare_settings.enabled else "stopped"
