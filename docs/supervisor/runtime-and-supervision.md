@@ -24,6 +24,8 @@ Status: Implemented
   - `POST /api/supervisor/runtimes/{node_id}/services/{service_id}/start`
   - `POST /api/supervisor/runtimes/{node_id}/services/{service_id}/stop`
   - `POST /api/supervisor/runtimes/{node_id}/services/{service_id}/restart`
+- Node service status responses may be either `{"services": {...}}` or a flat service map such as `{"backend": "running", "worker": "exited"}`; Supervisor normalizes both forms.
+- Node service action proxy calls use `HEXE_SUPERVISOR_NODE_SERVICE_ACTION_TIMEOUT_S` with a default of 30 seconds. Normal node status calls keep the shorter default request timeout.
 - Supervisor enriches runtime summaries with host-local resource metrics when a runtime or service metadata entry identifies a Supervisor-visible process or container:
   - direct process: `pid`
   - systemd-managed process: `systemd_unit` or `systemd_service`, resolved through `systemctl --user show ... MainPID`

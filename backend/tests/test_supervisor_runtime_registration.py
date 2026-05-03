@@ -131,6 +131,29 @@ class TestSupervisorRuntimeRegistration(unittest.TestCase):
             self.assertEqual(stopped.status_code, 200, stopped.text)
             self.assertEqual(stopped.json()["runtime"]["desired_state"], "stopped")
 
+    def test_normalizes_flat_node_service_status_payload(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            supervisor = SupervisorDomainService(self._runtime_service(Path(tmpdir) / "services"))
+
+            services = supervisor._normalize_node_services(  # noqa: SLF001
+                {
+                    "backend": "defined",
+                    "openwakeword": "running",
+                    "piper_tts": "exited",
+                }
+            )
+
+        by_id = {item.service_id: item for item in services}
+        self.assertEqual(by_id["backend"].service_state, "defined")
+        self.assertEqual(by_id["openwakeword"].service_state, "running")
+        self.assertEqual(by_id["piper_tts"].service_state, "exited")
+
+    def test_node_service_action_timeout_is_configurable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            supervisor = SupervisorDomainService(self._runtime_service(Path(tmpdir) / "services"))
+
+            self.assertEqual(supervisor._node_service_action_timeout_s(), 30.0)  # noqa: SLF001
+
     def test_heartbeat_for_unknown_runtime_returns_not_found(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)

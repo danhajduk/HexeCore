@@ -143,11 +143,19 @@ class SupervisorDomainService:
             raise HTTPException(status_code=400, detail="node_api_base_url_invalid")
         return base_url.rstrip("/")
 
-    def _node_api_request(self, node_id: str, *, method: str, path: str, payload: dict | None = None) -> dict:
+    def _node_api_request(
+        self,
+        node_id: str,
+        *,
+        method: str,
+        path: str,
+        payload: dict | None = None,
+        timeout_s: float = 4.0,
+    ) -> dict:
         base_url = self._resolve_node_api_base_url(node_id)
         url = f"{base_url}{path}"
         try:
-            with httpx.Client(timeout=4.0) as client:
+            with httpx.Client(timeout=timeout_s) as client:
                 response = client.request(method.upper(), url, json=payload)
         except httpx.RequestError as exc:
             raise HTTPException(status_code=502, detail=f"node_api_unreachable: {exc}") from exc
@@ -162,7 +170,7 @@ class SupervisorDomainService:
     def _normalize_node_services(self, payload: dict) -> list[SupervisorNodeServiceSummary]:
         services_raw = payload.get("services")
         if not isinstance(services_raw, dict):
-            return []
+            services_raw = payload
         normalized: list[SupervisorNodeServiceSummary] = []
         for service_id, value in services_raw.items():
             if isinstance(value, dict):
@@ -214,13 +222,27 @@ class SupervisorDomainService:
             context={"runtime_id": node_id, "service_id": service_id, "action": normalized_action},
         )
         payload = {"target": service_id}
-        response = self._node_api_request(node_id, method="POST", path=f"/api/services/{normalized_action}", payload=payload)
+        response = self._node_api_request(
+            node_id,
+            method="POST",
+            path=f"/api/services/{normalized_action}",
+            payload=payload,
+            timeout_s=self._node_service_action_timeout_s(),
+        )
         return SupervisorNodeServiceActionResult(
             action=normalized_action,
             node_id=node_id,
             service_id=str(service_id),
             result=response if isinstance(response, dict) else {"response": response},
         )
+
+    def _node_service_action_timeout_s(self) -> float:
+        raw = str(os.getenv("HEXE_SUPERVISOR_NODE_SERVICE_ACTION_TIMEOUT_S", "30")).strip()
+        try:
+            parsed = float(raw)
+        except Exception:
+            return 30.0
+        return max(4.0, parsed)
 
     def _freshness_state(self, last_seen_at: str | None, *, health_status: str, runtime_state: str) -> str:
         if str(runtime_state or "").strip().lower() == "error" or str(health_status or "").strip().lower() == "error":
