@@ -58,6 +58,7 @@ class NodeRegistrationRecord:
     ui_health_endpoint: str | None = None
     api_base_url: str | None = None
     declared_capabilities: list[str] = field(default_factory=list)
+    capability_endpoints: dict[str, dict[str, object]] = field(default_factory=dict)
     enabled_providers: list[str] = field(default_factory=list)
     provider_intelligence: list[dict[str, object]] = field(default_factory=list)
     capability_declaration_version: str | None = None
@@ -83,6 +84,11 @@ class NodeRegistrationRecord:
             "api_base_url": self.api_base_url,
             "capabilities_summary": list(self.capabilities_summary or []),
             "declared_capabilities": list(self.declared_capabilities or []),
+            "capability_endpoints": {
+                str(key): dict(value)
+                for key, value in (self.capability_endpoints or {}).items()
+                if isinstance(value, dict)
+            },
             "enabled_providers": list(self.enabled_providers or []),
             "provider_intelligence": [dict(item) for item in self.provider_intelligence if isinstance(item, dict)],
             "capability_declaration_version": self.capability_declaration_version,
@@ -160,6 +166,16 @@ class NodeRegistrationsStore:
             )
             enabled_providers_raw = item.get("enabled_providers")
             enabled_providers = [str(v).strip() for v in enabled_providers_raw] if isinstance(enabled_providers_raw, list) else []
+            capability_endpoints_raw = item.get("capability_endpoints")
+            capability_endpoints = (
+                {
+                    str(key).strip(): dict(value)
+                    for key, value in capability_endpoints_raw.items()
+                    if str(key).strip() and isinstance(value, dict)
+                }
+                if isinstance(capability_endpoints_raw, dict)
+                else {}
+            )
             provider_intelligence_raw = item.get("provider_intelligence")
             provider_intelligence = (
                 [dict(v) for v in provider_intelligence_raw if isinstance(v, dict)]
@@ -197,6 +213,7 @@ class NodeRegistrationsStore:
                 api_base_url=api_base_url,
                 capabilities_summary=[v for v in capabilities if v],
                 declared_capabilities=[v for v in declared_capabilities if v],
+                capability_endpoints=capability_endpoints,
                 enabled_providers=[v for v in enabled_providers if v],
                 provider_intelligence=provider_intelligence,
                 capability_declaration_version=str(item.get("capability_declaration_version") or "").strip() or None,

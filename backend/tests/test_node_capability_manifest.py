@@ -18,6 +18,15 @@ class TestNodeCapabilityManifest(unittest.TestCase):
                 "node_software_version": "0.2.0",
             },
             "declared_task_families": ["task.classification", "task.summarization"],
+            "declared_capabilities": ["task.classification", "task.summarization"],
+            "capability_endpoints": {
+                "task.summarization": {
+                    "transport": "http",
+                    "method": "POST",
+                    "path": "/api/summarize",
+                    "url": "http://ai-node.local:9002/api/summarize",
+                }
+            },
             "supported_providers": ["openai", "local-llm"],
             "enabled_providers": ["openai"],
             "provider_intelligence": [
@@ -51,6 +60,8 @@ class TestNodeCapabilityManifest(unittest.TestCase):
         self.assertEqual(payload["manifest_version"], CAPABILITY_DECLARATION_SCHEMA_VERSION)
         self.assertEqual(payload["node"]["node_id"], "node-abc123")
         self.assertEqual(payload["enabled_providers"], ["openai"])
+        self.assertEqual(payload["declared_capabilities"], ["task.classification", "task.summarization"])
+        self.assertEqual(payload["capability_endpoints"]["task.summarization"]["method"], "POST")
         self.assertEqual(payload["provider_intelligence"][0]["provider"], "openai")
         self.assertEqual(payload["provider_intelligence"][0]["available_models"][0]["model_id"], "gpt-4o-mini")
 
@@ -75,6 +86,12 @@ class TestNodeCapabilityManifest(unittest.TestCase):
     def test_rejects_unknown_nested_keys(self) -> None:
         payload = self._payload()
         payload["environment_hints"]["extra_key"] = "nope"
+        with self.assertRaises(CapabilityManifestValidationError):
+            validate_capability_declaration(payload)
+
+    def test_rejects_capability_endpoint_for_undeclared_capability(self) -> None:
+        payload = self._payload()
+        payload["capability_endpoints"]["task.captioning"] = {"transport": "http"}
         with self.assertRaises(CapabilityManifestValidationError):
             validate_capability_declaration(payload)
 

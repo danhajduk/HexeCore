@@ -146,6 +146,15 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
                 "node_software_version": "0.2.0",
             },
             "declared_task_families": ["task.classification", "task.summarization"],
+            "declared_capabilities": ["task.classification", "task.summarization"],
+            "capability_endpoints": {
+                "task.summarization": {
+                    "transport": "http",
+                    "method": "POST",
+                    "path": "/api/summarize",
+                    "url": "http://ai-node.local:9002/api/summarize",
+                }
+            },
             "supported_providers": ["openai", "local-llm"],
             "enabled_providers": ["openai"],
             "provider_intelligence": [
@@ -187,6 +196,7 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
         self.assertEqual(payload["node_id"], node_id)
         self.assertEqual(payload["manifest_version"], "1.0")
         self.assertEqual(payload["declared_capabilities"], ["task.classification", "task.summarization"])
+        self.assertEqual(payload["capability_endpoints"]["task.summarization"]["method"], "POST")
         self.assertEqual(payload["enabled_providers"], ["openai"])
         self.assertEqual(payload["provider_intelligence"][0]["provider"], "openai")
         self.assertEqual(payload["provider_intelligence"][0]["available_models"][0]["model_id"], "gpt-4o-mini")
@@ -202,6 +212,7 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
         self.assertIsNotNone(registration)
         assert registration is not None
         self.assertEqual(registration.declared_capabilities, ["task.classification", "task.summarization"])
+        self.assertEqual(registration.capability_endpoints["task.summarization"]["path"], "/api/summarize")
         self.assertEqual(registration.enabled_providers, ["openai"])
         self.assertEqual(registration.provider_intelligence[0]["provider"], "openai")
         self.assertEqual(registration.capability_declaration_version, "1.0")
@@ -264,6 +275,8 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
         node_id, trust_token = self._trusted_node()
         manifest = self._manifest(node_id)
         manifest["declared_task_families"] = ["task.classification", "task.unknown.future"]
+        manifest["declared_capabilities"] = ["task.classification", "task.unknown.future"]
+        manifest["capability_endpoints"] = {}
         with patch.dict(os.environ, {"SYNTHIA_NODE_ALLOWED_TASK_FAMILIES": "task.classification,task.summarization"}, clear=False):
             res = self.client.post(
                 "/api/system/nodes/capabilities/declaration",

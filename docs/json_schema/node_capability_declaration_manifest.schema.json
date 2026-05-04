@@ -61,6 +61,26 @@
       },
       "description": "Declared task families. Core lowercases and de-duplicates these during validation."
     },
+    "declared_capabilities": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9._/-]{1,127}$"
+      },
+      "description": "Optional compatibility alias for declared_task_families. When present, it must match declared_task_families."
+    },
+    "capability_endpoints": {
+      "type": "object",
+      "default": {},
+      "propertyNames": {
+        "pattern": "^[a-z0-9][a-z0-9._/-]{1,127}$"
+      },
+      "additionalProperties": {
+        "type": "object"
+      },
+      "description": "Optional per-capability invocation metadata such as transport, method, path, URL, schema names, and TTL limits. Keys must be declared capabilities."
+    },
     "supported_providers": {
       "type": "array",
       "minItems": 1,

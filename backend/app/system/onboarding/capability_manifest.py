@@ -153,6 +153,8 @@ class CapabilityDeclaration(BaseModel):
     manifest_version: str = Field(..., min_length=1, max_length=16)
     node: CapabilityNodeMetadata
     declared_task_families: list[str] = Field(..., min_length=1)
+    declared_capabilities: list[str] = Field(default_factory=list)
+    capability_endpoints: dict[str, dict[str, Any]] = Field(default_factory=dict)
     supported_providers: list[str] = Field(..., min_length=1)
     enabled_providers: list[str] = Field(default_factory=list)
     node_features: CapabilityNodeFeatures
@@ -179,6 +181,36 @@ class CapabilityDeclaration(BaseModel):
             if not _TASK_FAMILY_RE.match(item):
                 raise ValueError("invalid_task_family")
         return values
+
+    @field_validator("declared_capabilities", mode="before")
+    @classmethod
+    def _validate_declared_capabilities(cls, value: Any) -> list[str]:
+        if value is None:
+            return []
+        if not isinstance(value, list):
+            raise ValueError("declared_capabilities_must_be_list")
+        values = _clean_list([str(item) for item in value])
+        for item in values:
+            if not _TASK_FAMILY_RE.match(item):
+                raise ValueError("invalid_declared_capability")
+        return values
+
+    @field_validator("capability_endpoints", mode="before")
+    @classmethod
+    def _validate_capability_endpoints(cls, value: Any) -> dict[str, dict[str, Any]]:
+        if value is None:
+            return {}
+        if not isinstance(value, dict):
+            raise ValueError("capability_endpoints_must_be_object")
+        out: dict[str, dict[str, Any]] = {}
+        for raw_key, raw_endpoint in value.items():
+            key = str(raw_key or "").strip().lower()
+            if not _TASK_FAMILY_RE.match(key):
+                raise ValueError("invalid_capability_endpoint_key")
+            if not isinstance(raw_endpoint, dict):
+                raise ValueError("capability_endpoint_must_be_object")
+            out[key] = dict(raw_endpoint)
+        return out
 
     @field_validator("supported_providers", mode="before")
     @classmethod
@@ -208,6 +240,12 @@ class CapabilityDeclaration(BaseModel):
 
     @model_validator(mode="after")
     def _validate_enabled_subset(self) -> "CapabilityDeclaration":
+        if self.declared_capabilities and self.declared_capabilities != self.declared_task_families:
+            raise ValueError("declared_capabilities_must_match_declared_task_families")
+        endpoint_keys = set(self.capability_endpoints)
+        declared = set(self.declared_task_families)
+        if endpoint_keys - declared:
+            raise ValueError("capability_endpoint_not_declared")
         supported = set(self.supported_providers)
         for provider in self.enabled_providers:
             if provider not in supported:

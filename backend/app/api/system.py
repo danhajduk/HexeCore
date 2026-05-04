@@ -1003,6 +1003,11 @@ def build_system_router(
             )
 
         registration.declared_capabilities = list(manifest.get("declared_task_families") or [])
+        registration.capability_endpoints = {
+            str(key): dict(value)
+            for key, value in dict(manifest.get("capability_endpoints") or {}).items()
+            if str(key).strip() and isinstance(value, dict)
+        }
         registration.enabled_providers = list(manifest.get("enabled_providers") or [])
         registration.provider_intelligence = [
             dict(item) for item in list(manifest.get("provider_intelligence") or []) if isinstance(item, dict)
@@ -1068,6 +1073,7 @@ def build_system_router(
             "manifest_version": registration.capability_declaration_version,
             "accepted_at": registration.capability_declaration_timestamp,
             "declared_capabilities": list(registration.declared_capabilities),
+            "capability_endpoints": dict(registration.capability_endpoints or {}),
             "enabled_providers": list(registration.enabled_providers),
             "provider_intelligence": [dict(item) for item in list(registration.provider_intelligence or []) if isinstance(item, dict)],
             "unified_model_descriptors": (
