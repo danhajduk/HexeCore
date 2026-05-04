@@ -3,7 +3,6 @@
   "description": "Catalog of Core-owned schemas generated from app.nodes.models_resolution.",
   "schemas": {
     "NodeEffectiveBudgetView": {
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
       "properties": {
         "admissible": {
           "default": false,
@@ -169,7 +168,6 @@
       "type": "object"
     },
     "NodeServiceAuthorizeRequest": {
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
       "properties": {
         "model_id": {
           "anyOf": [
@@ -434,7 +432,6 @@
           "type": "object"
         }
       },
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
       "properties": {
         "auth_mode": {
           "default": "service_token",
@@ -452,10 +449,27 @@
           ],
           "default": null
         },
+        "capability_endpoint": {
+          "additionalProperties": true,
+          "title": "Capability Endpoint",
+          "type": "object"
+        },
         "declared_capacity": {
           "additionalProperties": true,
           "title": "Declared Capacity",
           "type": "object"
+        },
+        "execution_endpoint_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Execution Endpoint Url"
         },
         "grant_id": {
           "anyOf": [
@@ -560,7 +574,6 @@
       "type": "object"
     },
     "TaskExecutionResolutionRequest": {
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
       "properties": {
         "node_id": {
           "minLength": 1,
@@ -806,10 +819,27 @@
               ],
               "default": null
             },
+            "capability_endpoint": {
+              "additionalProperties": true,
+              "title": "Capability Endpoint",
+              "type": "object"
+            },
             "declared_capacity": {
               "additionalProperties": true,
               "title": "Declared Capacity",
               "type": "object"
+            },
+            "execution_endpoint_url": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Execution Endpoint Url"
             },
             "grant_id": {
               "anyOf": [
@@ -914,7 +944,6 @@
           "type": "object"
         }
       },
-      "$schema": "https://json-schema.org/draft/2020-12/schema",
       "properties": {
         "candidates": {
           "items": {

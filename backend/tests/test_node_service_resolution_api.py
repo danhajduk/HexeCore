@@ -187,8 +187,10 @@ class TestNodeServiceResolutionApi(unittest.TestCase):
         task_families: list[str] | None = None,
         enabled_providers: list[str] | None = None,
         provider_intelligence: list[dict] | None = None,
+        capability_endpoints: dict | None = None,
     ) -> dict:
-        return {
+        declared_task_families = list(task_families if task_families is not None else ["task.summarization"])
+        manifest = {
             "manifest_version": "1.0",
             "node": {
                 "node_id": node_id,
@@ -196,7 +198,8 @@ class TestNodeServiceResolutionApi(unittest.TestCase):
                 "node_name": "main-ai-node",
                 "node_software_version": "0.2.0",
             },
-            "declared_task_families": list(task_families if task_families is not None else ["task.summarization"]),
+            "declared_task_families": declared_task_families,
+            "declared_capabilities": declared_task_families,
             "supported_providers": list(enabled_providers if enabled_providers is not None else ["openai"]),
             "enabled_providers": list(enabled_providers if enabled_providers is not None else ["openai"]),
             "provider_intelligence": list(
@@ -228,6 +231,9 @@ class TestNodeServiceResolutionApi(unittest.TestCase):
                 "region": "home",
             },
         }
+        if capability_endpoints is not None:
+            manifest["capability_endpoints"] = dict(capability_endpoints)
+        return manifest
 
     def _configure_node_for_resolution(self) -> tuple[str, str]:
         node_id, trust_token = self._trusted_node()
@@ -487,6 +493,63 @@ class TestNodeServiceResolutionApi(unittest.TestCase):
         self.assertEqual(candidate["provider"], "openai")
         self.assertEqual(candidate["models_allowed"], ["gpt-4o-mini"])
         self.assertEqual(candidate["budget_view"]["budget_node_id"], provider_node_id)
+
+    def test_resolution_includes_declared_capability_endpoint_metadata(self) -> None:
+        provider_node_id, provider_trust_token = self._trusted_node()
+        declared = self.client.post(
+            "/api/system/nodes/capabilities/declaration",
+            json={
+                "manifest": self._manifest(
+                    provider_node_id,
+                    task_families=["voice.tts.synthesize"],
+                    enabled_providers=["piper"],
+                    provider_intelligence=[],
+                    capability_endpoints={
+                        "voice.tts.synthesize": {
+                            "method": "POST",
+                            "transport": "http",
+                            "path": "/api/tts/synthesize",
+                            "url": "http://127.0.0.1:9004/api/tts/synthesize",
+                            "request_schema": "TtsSynthesizeRequest",
+                            "response_schema": "TtsSynthesizeResponse",
+                            "supported_formats": ["wav"],
+                        }
+                    },
+                )
+            },
+            headers={"X-Node-Trust-Token": provider_trust_token},
+        )
+        self.assertEqual(declared.status_code, 200, declared.text)
+        budget_declared = self.client.post(
+            "/api/system/nodes/budgets/declaration",
+            headers={"X-Node-Trust-Token": provider_trust_token},
+            json={"node_id": provider_node_id, "compute_unit": "cost_units", "supported_providers": ["piper"]},
+        )
+        self.assertEqual(budget_declared.status_code, 200, budget_declared.text)
+        configured = self.client.put(
+            f"/api/system/nodes/budgets/{provider_node_id}",
+            headers={"X-Admin-Token": "test-token"},
+            json={"node_budget": {"node_money_limit": None, "node_compute_limit": None, "compute_unit": "cost_units"}},
+        )
+        self.assertEqual(configured.status_code, 200, configured.text)
+
+        resolved = self.client.post(
+            "/api/system/nodes/services/resolve",
+            headers={"X-Node-Trust-Token": provider_trust_token},
+            json={
+                "node_id": provider_node_id,
+                "task_family": "voice.tts.synthesize",
+                "preferred_provider": "piper",
+            },
+        )
+        self.assertEqual(resolved.status_code, 200, resolved.text)
+        payload = resolved.json()
+        self.assertEqual(payload["selected_service_id"], f"node-service:{provider_node_id}:piper")
+        candidate = payload["candidates"][0]
+        self.assertEqual(candidate["provider_api_base_url"], "http://127.0.0.1:9004")
+        self.assertEqual(candidate["execution_endpoint_url"], "http://127.0.0.1:9004/api/tts/synthesize")
+        self.assertEqual(candidate["capability_endpoint"]["method"], "POST")
+        self.assertEqual(candidate["capability_endpoint"]["path"], "/api/tts/synthesize")
 
     def test_resolution_and_authorization_accept_top_level_type(self) -> None:
         node_id, trust_token = self._configure_node_for_resolution()

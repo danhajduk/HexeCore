@@ -27,6 +27,27 @@ def _normalize_url_for_match(value: Any) -> str:
     return f"{parsed.scheme.lower()}://{parsed.netloc.lower()}{path}"
 
 
+def _endpoint_url(endpoint: dict[str, Any]) -> str:
+    return _clean_text(endpoint.get("url") or endpoint.get("url_template"))
+
+
+def _base_url_from_endpoint(endpoint: dict[str, Any]) -> str | None:
+    url = _endpoint_url(endpoint)
+    if not url:
+        return None
+    parsed = urlsplit(url)
+    if not parsed.scheme or not parsed.netloc:
+        return None
+    declared_path = _clean_text(endpoint.get("path"))
+    parsed_path = parsed.path.rstrip("/")
+    if declared_path:
+        normalized_declared_path = declared_path.rstrip("/")
+        if parsed_path.endswith(normalized_declared_path):
+            base_path = parsed_path[: -len(normalized_declared_path)].rstrip("/")
+            return f"{parsed.scheme}://{parsed.netloc}{base_path}"
+    return f"{parsed.scheme}://{parsed.netloc}"
+
+
 class NodeServiceResolutionService:
     def __init__(self, catalog_store, *, node_registrations_store=None, model_routing_registry_service=None) -> None:
         self._catalog_store = catalog_store
@@ -173,6 +194,19 @@ class NodeServiceResolutionService:
             ]
             if task_family not in capabilities:
                 continue
+            capability_endpoints = getattr(registration, "capability_endpoints", {}) or {}
+            capability_endpoint = (
+                dict(capability_endpoints.get(task_family) or {})
+                if isinstance(capability_endpoints, dict) and isinstance(capability_endpoints.get(task_family), dict)
+                else {}
+            )
+            execution_endpoint_url = _endpoint_url(capability_endpoint) if capability_endpoint else ""
+            endpoint_base_url = _base_url_from_endpoint(capability_endpoint) if capability_endpoint else None
+            api_base_url = (
+                endpoint_base_url
+                or _clean_text(getattr(registration, "api_base_url", None))
+                or _clean_text(getattr(registration, "requested_api_base_url", None))
+            )
             providers = [
                 _clean_text(item, lower=True)
                 for item in list(getattr(registration, "enabled_providers", []) or [])
@@ -187,8 +221,10 @@ class NodeServiceResolutionService:
                         "service_type": "node-runtime",
                         "service": "node-runtime",
                         "node_id": registration.node_id,
-                        "endpoint": getattr(registration, "api_base_url", None),
-                        "base_url": getattr(registration, "api_base_url", None),
+                        "endpoint": api_base_url,
+                        "base_url": api_base_url,
+                        "execution_endpoint_url": execution_endpoint_url or None,
+                        "capability_endpoint": capability_endpoint,
                         "health": "healthy",
                         "health_status": "healthy",
                         "capabilities": capabilities,
@@ -303,6 +339,9 @@ class NodeServiceResolutionService:
                 if not required_scopes:
                     required_scopes = [f"service.execute:{task_family}"]
 
+                capability_endpoint = item.get("capability_endpoint") if isinstance(item.get("capability_endpoint"), dict) else {}
+                execution_endpoint_url = _clean_text(item.get("execution_endpoint_url") or _endpoint_url(capability_endpoint))
+
                 declared_capacity = item.get("declared_capacity")
                 if not isinstance(declared_capacity, dict):
                     declared_capacity = item.get("service_capacity") if isinstance(item.get("service_capacity"), dict) else {}
@@ -312,6 +351,8 @@ class NodeServiceResolutionService:
                         service_id=_clean_text(item.get("service_id") or item.get("service") or service_key),
                         provider_node_id=provider_node_id or None,
                         provider_api_base_url=self._provider_api_base_url(provider_node_id, item),
+                        execution_endpoint_url=execution_endpoint_url or None,
+                        capability_endpoint=dict(capability_endpoint or {}),
                         service_type=_clean_text(item.get("service_type") or item.get("service")),
                         provider=provider or None,
                         models_allowed=allowed_models,

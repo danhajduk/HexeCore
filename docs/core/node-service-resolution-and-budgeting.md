@@ -133,6 +133,9 @@ Retained MQTT service catalogs are still accepted through the existing MQTT serv
     {
       "service_id": "summary-service",
       "service_type": "ai-inference",
+      "provider_api_base_url": "http://127.0.0.1:9100",
+      "execution_endpoint_url": "http://127.0.0.1:9100",
+      "capability_endpoint": {},
       "provider": "openai",
       "models_allowed": ["gpt-4o-mini"],
       "required_scopes": ["service.execute:task.summarization"],
@@ -163,6 +166,7 @@ Core combines:
 - accepted capability profile
 - governance `routing_policy_constraints`
 - service catalog candidates
+- trusted-node `capability_endpoints` metadata for declared node-runtime capabilities
 - current budget-policy and derived grants
 
 ### Resolution Filters
