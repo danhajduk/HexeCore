@@ -1,7 +1,7 @@
 # Proxied UI Forwarded-Header Contract
 
 Status: Implemented (baseline headers)
-Last updated: 2026-03-22
+Last updated: 2026-05-06
 
 ## Purpose
 
@@ -20,6 +20,8 @@ Current meanings:
 - `X-Forwarded-Host`: the public host seen by the browser when the request reached Core
 - `X-Forwarded-Proto`: the browser-visible request scheme at Core, such as `http` or `https`
 - `X-Forwarded-Prefix`: the public mount prefix owned by Core for that proxied surface
+
+When Core itself is reached through a trusted upstream tunnel or edge proxy, Core preserves the first incoming `X-Forwarded-Host` and valid `X-Forwarded-Proto` value when forwarding to the proxied target. This lets targets generate absolute OAuth redirect URLs with the browser-visible tunnel host and `https` scheme instead of Core's local origin.
 
 ## Contextual Identity Headers
 

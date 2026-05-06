@@ -43,6 +43,24 @@ DEFAULT_REQUEST_HEADER_ALLOWLIST = {
     "user-agent",
 }
 
+FORWARDED_PROTO_VALUES = {"http", "https"}
+
+
+def _first_header_value(value: str | None) -> str:
+    return str(value or "").split(",", 1)[0].strip()
+
+
+def _public_forwarded_host(headers: Any, fallback: str) -> str:
+    forwarded_host = _first_header_value(headers.get("x-forwarded-host"))
+    return forwarded_host or fallback
+
+
+def _public_forwarded_proto(headers: Any, fallback: str) -> str:
+    forwarded_proto = _first_header_value(headers.get("x-forwarded-proto")).lower()
+    if forwarded_proto in FORWARDED_PROTO_VALUES:
+        return forwarded_proto
+    return fallback
+
 HTML_ROOT_URL_ATTR_RE = re.compile(r'(?P<prefix>\b(?:src|href|action)=["\'])(?P<path>/[^"\']*)')
 ROOT_URL_STRING_RE = re.compile(r'(?P<quote>["\'])(?P<path>/[^"\']*)(?P=quote)')
 
@@ -86,8 +104,11 @@ class ReverseProxyService:
             if lowered not in self._request_header_allowlist:
                 continue
             headers[key] = value
-        headers["X-Forwarded-Host"] = request.headers.get("host", request.url.netloc)
-        headers["X-Forwarded-Proto"] = request.url.scheme
+        headers["X-Forwarded-Host"] = _public_forwarded_host(
+            request.headers,
+            request.headers.get("host", request.url.netloc),
+        )
+        headers["X-Forwarded-Proto"] = _public_forwarded_proto(request.headers, request.url.scheme)
         headers["X-Forwarded-Prefix"] = public_prefix.rstrip("/") or "/"
         for key, value in (extra_headers or {}).items():
             if str(key).strip() and str(value).strip():
@@ -264,8 +285,11 @@ class ReverseProxyService:
             if lowered not in self._request_header_allowlist:
                 continue
             headers[key] = value
-        headers["X-Forwarded-Host"] = websocket.headers.get("host", websocket.url.netloc)
-        headers["X-Forwarded-Proto"] = websocket.url.scheme
+        headers["X-Forwarded-Host"] = _public_forwarded_host(
+            websocket.headers,
+            websocket.headers.get("host", websocket.url.netloc),
+        )
+        headers["X-Forwarded-Proto"] = _public_forwarded_proto(websocket.headers, websocket.url.scheme)
         headers["X-Forwarded-Prefix"] = public_prefix.rstrip("/") or "/"
         for key, value in (extra_headers or {}).items():
             if str(key).strip() and str(value).strip():

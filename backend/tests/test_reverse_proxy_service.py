@@ -58,6 +58,41 @@ class TestReverseProxyService(unittest.TestCase):
         self.assertEqual(headers["X-Hexe-Addon-Id"], "mqtt")
         self.assertNotIn("Cookie", headers)
 
+    def test_build_request_headers_preserves_outer_tunnel_forwarded_host_and_proto(self) -> None:
+        service = ReverseProxyService()
+        request = _request(
+            path="/nodes/proxy/no-json/node-1/google/gmail/callback",
+            headers=[
+                (b"host", b"127.0.0.1:9001"),
+                (b"x-forwarded-host", b"a75d480287c33cab.hexe-ai.com"),
+                (b"x-forwarded-proto", b"https"),
+                (b"accept", b"text/html"),
+            ],
+        )
+
+        headers = service.build_request_headers(
+            request,
+            public_prefix="/nodes/proxy/no-json/node-1",
+            extra_headers={"X-Hexe-Node-Id": "node-1"},
+        )
+
+        self.assertEqual(headers["X-Forwarded-Host"], "a75d480287c33cab.hexe-ai.com")
+        self.assertEqual(headers["X-Forwarded-Proto"], "https")
+        self.assertEqual(headers["X-Forwarded-Prefix"], "/nodes/proxy/no-json/node-1")
+
+    def test_build_request_headers_ignores_invalid_outer_forwarded_proto(self) -> None:
+        service = ReverseProxyService()
+        request = _request(
+            headers=[
+                (b"host", b"core.local:9001"),
+                (b"x-forwarded-proto", b"javascript"),
+            ],
+        )
+
+        headers = service.build_request_headers(request, public_prefix="/addons/proxy/mqtt")
+
+        self.assertEqual(headers["X-Forwarded-Proto"], "https")
+
     def test_rewrite_root_relative_urls_respects_proxy_prefix_and_ignore_list(self) -> None:
         original = b"""
         <script src="/assets/main.js"></script>
