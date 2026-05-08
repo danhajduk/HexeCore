@@ -61,6 +61,7 @@ class TestMqttEffectiveAccess(unittest.TestCase):
         self.assertIn("#", by_id["core.runtime"].subscribe_scopes)
         self.assertIn("$SYS/#", by_id["core.runtime"].subscribe_scopes)
         self.assertIn("hexe/core/mqtt/info", by_id["core.runtime"].publish_scopes)
+        self.assertIn("hexe/events/#", by_id["core.runtime"].publish_scopes)
         self.assertIn("hexe/notify/internal/#", by_id["core.runtime"].publish_scopes)
         self.assertIn("hexe-notify/#", by_id["core.runtime"].publish_scopes)
 

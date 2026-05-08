@@ -63,6 +63,7 @@ GENERIC_USER_RESERVED_ACL_DENIES: tuple[str, ...] = (
 )
 GENERIC_USER_NOTIFY_EXTERNAL_TOPIC = "hexe-notify/#"
 CORE_RUNTIME_NOTIFY_WRITE_TOPICS: tuple[str, ...] = (
+    f"{MQTT_TOPIC_ROOT}/events/#",
     f"{MQTT_TOPIC_ROOT}/notify/internal/#",
     "hexe-notify/#",
 )

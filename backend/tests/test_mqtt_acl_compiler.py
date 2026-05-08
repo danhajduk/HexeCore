@@ -60,6 +60,7 @@ class TestMqttAclCompiler(unittest.TestCase):
 
         self.assertIn("user hx_core.runtime", acl)
         self.assertIn("topic write hexe/core/mqtt/info", acl)
+        self.assertIn("topic write hexe/events/#", acl)
         self.assertIn("topic write hexe/notify/internal/#", acl)
         self.assertIn("topic write hexe-notify/#", acl)
         self.assertIn("topic read #", acl)
