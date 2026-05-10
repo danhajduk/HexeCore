@@ -551,6 +551,73 @@ class TestNodeServiceResolutionApi(unittest.TestCase):
         self.assertEqual(candidate["capability_endpoint"]["method"], "POST")
         self.assertEqual(candidate["capability_endpoint"]["path"], "/api/tts/synthesize")
 
+    def test_image_generation_resolution_defaults_to_openai_mini_model(self) -> None:
+        provider_node_id, provider_trust_token = self._trusted_node()
+        declared = self.client.post(
+            "/api/system/nodes/capabilities/declaration",
+            json={
+                "manifest": self._manifest(
+                    provider_node_id,
+                    task_families=["task.image_generation"],
+                    enabled_providers=["openai"],
+                    provider_intelligence=[
+                        {
+                            "provider": "openai",
+                            "available_models": [
+                                {"model_id": "gpt-image-1-mini"},
+                                {"model_id": "gpt-image-1.5"},
+                            ],
+                        }
+                    ],
+                )
+            },
+            headers={"X-Node-Trust-Token": provider_trust_token},
+        )
+        self.assertEqual(declared.status_code, 200, declared.text)
+        budget_declared = self.client.post(
+            "/api/system/nodes/budgets/declaration",
+            headers={"X-Node-Trust-Token": provider_trust_token},
+            json={"node_id": provider_node_id, "compute_unit": "tokens", "supported_providers": ["openai"]},
+        )
+        self.assertEqual(budget_declared.status_code, 200, budget_declared.text)
+        configured = self.client.put(
+            f"/api/system/nodes/budgets/{provider_node_id}",
+            headers={"X-Admin-Token": "test-token"},
+            json={"node_budget": {"node_money_limit": 10.0, "node_compute_limit": 10000.0, "compute_unit": "tokens"}},
+        )
+        self.assertEqual(configured.status_code, 200, configured.text)
+
+        resolved = self.client.post(
+            "/api/system/nodes/services/resolve",
+            headers={"X-Node-Trust-Token": provider_trust_token},
+            json={
+                "node_id": provider_node_id,
+                "task_family": "task.image_generation",
+                "preferred_provider": "openai",
+            },
+        )
+        self.assertEqual(resolved.status_code, 200, resolved.text)
+        payload = resolved.json()
+        self.assertEqual(payload["selected_service_id"], f"node-service:{provider_node_id}:openai")
+        self.assertEqual(len(payload["candidates"]), 1)
+        candidate = payload["candidates"][0]
+        self.assertEqual(candidate["models_allowed"], ["gpt-image-1-mini"])
+        self.assertEqual(candidate["budget_view"]["model_id"], "gpt-image-1-mini")
+
+        authorized = self.client.post(
+            "/api/system/nodes/services/authorize",
+            headers={"X-Node-Trust-Token": provider_trust_token},
+            json={
+                "node_id": provider_node_id,
+                "task_family": "task.image_generation",
+                "provider": "openai",
+                "model_id": "mini",
+            },
+        )
+        self.assertEqual(authorized.status_code, 200, authorized.text)
+        self.assertEqual(authorized.json()["model_id"], "gpt-image-1-mini")
+        self.assertEqual(authorized.json()["resolution"]["models_allowed"], ["gpt-image-1-mini"])
+
     def test_resolution_and_authorization_accept_top_level_type(self) -> None:
         node_id, trust_token = self._configure_node_for_resolution()
         resolved = self.client.post(

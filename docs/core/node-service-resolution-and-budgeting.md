@@ -180,6 +180,8 @@ Candidates are filtered by:
 - preferred provider/model when requested
 - admissible current budget grant on the selected provider node
 
+For `task.image_generation` with provider `openai`, Core defaults an unspecified model to `gpt-image-1-mini`. Callers may also send `preferred_model` or `model_id` as `mini`; Core resolves that shorthand to `gpt-image-1-mini` during resolution and authorization.
+
 ### Governance Freshness Gate
 
 Resolution and authorization are blocked when the node governance freshness state is `outdated`.

@@ -39,6 +39,7 @@ from ..system.onboarding import (
 from ..system.onboarding.provider_capability_normalization import normalize_capacity_descriptor
 from ..system.runtime import StandaloneRuntimeService
 from ..system.services import NodeServiceResolutionService, ServiceCatalogStore
+from ..system.services.node_resolution import normalize_model_preference_for_task
 from .admin import require_admin_token
 
 
@@ -1832,14 +1833,30 @@ def build_system_router(
             raise HTTPException(status_code=404, detail={"error": "service_provider_not_found", "message": "no candidate service available"})
         service_id = str(body.service_id or "").strip()
         provider = str(body.provider or body.preferred_provider or "").strip().lower()
-        model_id = str(body.model_id or body.preferred_model or "").strip().lower()
+        requested_model_id = str(body.model_id or body.preferred_model or "").strip().lower()
+
+        def _candidate_model_match(item) -> tuple[bool, str | None]:
+            candidate_models = [str(v).strip().lower() for v in item.models_allowed]
+            normalized_model_id = normalize_model_preference_for_task(
+                task_family=str(body.task_family or "").strip(),
+                provider=str(item.provider or provider or "").strip().lower(),
+                preferred_model=requested_model_id,
+            )
+            if normalized_model_id and candidate_models and normalized_model_id not in candidate_models:
+                return False, None
+            if normalized_model_id:
+                return True, normalized_model_id
+            if len(candidate_models) == 1:
+                return True, candidate_models[0]
+            return True, None
+
         candidate = next(
             (
                 item
                 for item in resolution.candidates
                 if (not service_id or item.service_id == service_id)
                 and (not provider or str(item.provider or "").strip().lower() == provider)
-                and (not model_id or not item.models_allowed or model_id in [str(v).strip().lower() for v in item.models_allowed])
+                and _candidate_model_match(item)[0]
             ),
             None,
         )
@@ -1847,6 +1864,7 @@ def build_system_router(
             raise HTTPException(status_code=403, detail={"error": "service_candidate_not_authorized", "message": "requested service candidate not authorized"})
         if candidate.budget_view is None or not bool(candidate.budget_view.admissible):
             raise HTTPException(status_code=403, detail={"error": "budget_not_admissible", "message": "no admissible budget grant available"})
+        _, selected_model_id = _candidate_model_match(candidate)
         token, claims = await _issue_service_token_for_node(
             node_id=node_id,
             audience=candidate.service_id,
@@ -1871,7 +1889,7 @@ def build_system_router(
             "node_id": node_id,
             "service_id": candidate.service_id,
             "provider": candidate.provider,
-            "model_id": model_id or None,
+            "model_id": selected_model_id,
             "grant_id": candidate.grant_id,
             "required_scopes": list(candidate.required_scopes or []),
             "expires_at": datetime.fromtimestamp(int(claims["exp"]), tz=timezone.utc).isoformat(),

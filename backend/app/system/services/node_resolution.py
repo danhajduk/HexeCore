@@ -31,6 +31,25 @@ def _endpoint_url(endpoint: dict[str, Any]) -> str:
     return _clean_text(endpoint.get("url") or endpoint.get("url_template"))
 
 
+def default_model_for_task(*, task_family: str, provider: str | None) -> str:
+    task_key = _clean_text(task_family, lower=True)
+    provider_key = _clean_text(provider, lower=True)
+    if task_key == "task.image_generation" and provider_key == "openai":
+        return "gpt-image-1-mini"
+    return ""
+
+
+def normalize_model_preference_for_task(*, task_family: str, provider: str | None, preferred_model: str | None) -> str:
+    model_key = _clean_text(preferred_model, lower=True)
+    if not model_key:
+        return ""
+    task_key = _clean_text(task_family, lower=True)
+    provider_key = _clean_text(provider, lower=True)
+    if task_key == "task.image_generation" and provider_key == "openai" and model_key == "mini":
+        return "gpt-image-1-mini"
+    return model_key
+
+
 def _base_url_from_endpoint(endpoint: dict[str, Any]) -> str | None:
     url = _endpoint_url(endpoint)
     if not url:
@@ -302,6 +321,11 @@ class NodeServiceResolutionService:
                 provider = _clean_text(item.get("provider"), lower=True)
                 if preferred_provider and provider and provider != preferred_provider:
                     continue
+                candidate_model = normalize_model_preference_for_task(
+                    task_family=task_family,
+                    provider=provider,
+                    preferred_model=preferred_model,
+                ) or default_model_for_task(task_family=task_family, provider=provider)
 
                 catalog_models = [
                     _clean_text(model.get("model_id") if isinstance(model, dict) else model, lower=True)
@@ -309,25 +333,25 @@ class NodeServiceResolutionService:
                     if _clean_text(model.get("model_id") if isinstance(model, dict) else model, lower=True)
                 ]
                 allowed_models = catalog_models
-                if preferred_model:
+                if candidate_model:
                     if allowed_models:
-                        allowed_models = [model for model in allowed_models if model == preferred_model]
-                    elif preferred_model:
-                        allowed_models = [preferred_model]
-                if preferred_model and not allowed_models:
+                        allowed_models = [model for model in allowed_models if model == candidate_model]
+                    else:
+                        allowed_models = [candidate_model]
+                if candidate_model and not allowed_models:
                     continue
 
                 provider_node_id = self._resolve_provider_node_id(
                     service_item=item,
                     provider=provider,
-                    preferred_model=preferred_model,
+                    preferred_model=candidate_model,
                     allowed_models=allowed_models,
                 )
                 budget_view_payload = budget_service.effective_budget_view(
                     node_id=provider_node_id or request.node_id,
                     task_family=task_family,
                     provider=provider or None,
-                    model_id=preferred_model or None,
+                    model_id=candidate_model or None,
                 )
                 budget_view = NodeEffectiveBudgetView.model_validate(budget_view_payload)
                 if budget_view.status in {"no_matching_grant", "not_configured", "revoked", "expired"}:
