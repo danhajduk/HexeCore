@@ -214,6 +214,23 @@ describe("RenderedNodeUiPage helpers", () => {
     ).toBe("1 page payload · 1 surface");
   });
 
+  it("accepts page snapshot manifests that omit default surfaces", () => {
+    const pageSnapshotManifest = {
+      ...manifest,
+      pages: [
+        {
+          id: "overview",
+          title: "Overview",
+          page_endpoint: "/api/node/ui/pages/overview",
+          refresh: { mode: "near_live", interval_ms: 15000 },
+        },
+      ],
+    } as NodeUiManifest;
+
+    expect(resolveNodeUiAdvertisedHealthSurface(pageSnapshotManifest)?.id).toBe("node.health");
+    expect(resolveNodeUiManifestDataLabel(pageSnapshotManifest)).toBe("1 global surface · 1 page payload");
+  });
+
   it("resolves executable action metadata from surface manifests", () => {
     const actionSurface: NodeUiSurface = {
       ...surface("manual"),

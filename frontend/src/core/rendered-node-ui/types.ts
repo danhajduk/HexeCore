@@ -44,7 +44,7 @@ export type NodeUiPage = {
   description?: string | null;
   page_endpoint?: string | null;
   refresh?: NodeUiRefreshPolicy | null;
-  surfaces: NodeUiSurface[];
+  surfaces?: NodeUiSurface[];
 };
 
 export type NodeUiManifest = {

@@ -57,7 +57,7 @@ export function nodeUiActionConfirmationMessage(action: NodeUiAction): string | 
 }
 
 export function resolveNodeUiPageSurfaces(page: NodeUiPage): NodeUiSurface[] {
-  return page.surfaces.filter((surface) =>
+  return (page.surfaces || []).filter((surface) =>
     ["warning_banner", "runtime_service", "provider_status", "record_list", "action_panel"].includes(surface.kind),
   );
 }
@@ -65,7 +65,7 @@ export function resolveNodeUiPageSurfaces(page: NodeUiPage): NodeUiSurface[] {
 export function resolveNodeUiAdvertisedHealthSurface(manifest: NodeUiManifest): NodeUiSurface | null {
   if (manifest.health) return manifest.health;
   for (const page of manifest.pages) {
-    const healthSurface = page.surfaces.find((surface) => surface.kind === "health_strip");
+    const healthSurface = (page.surfaces || []).find((surface) => surface.kind === "health_strip");
     if (healthSurface) return healthSurface;
   }
   return null;
@@ -79,7 +79,7 @@ export function resolveNodeUiPageCards(cards: NodeUiPageCard[]): NodeUiPageCard[
 
 export function resolveNodeUiManifestDataLabel(manifest: NodeUiManifest): string {
   const pagePayloadCount = manifest.pages.filter((page) => Boolean(page.page_endpoint)).length;
-  const surfaceCount = manifest.pages.reduce((total, page) => total + page.surfaces.length, 0);
+  const surfaceCount = manifest.pages.reduce((total, page) => total + (page.surfaces || []).length, 0);
   const globalSurfaceCount = manifest.health ? 1 : 0;
   const labels: string[] = [];
   if (globalSurfaceCount) labels.push(`${globalSurfaceCount} global surface`);

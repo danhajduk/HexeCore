@@ -6,7 +6,7 @@ import "./rendered-node-ui-card-gallery.css";
 
 export default function RenderedNodeUiCardGallery() {
   const surfaces = pilotNodeUiManifest.pages
-    .flatMap((page) => page.surfaces)
+    .flatMap((page) => page.surfaces || [])
     .concat(pilotNodeUiManifest.health ? [pilotNodeUiManifest.health] : [])
     .filter((surface) => ["health_strip", "warning_banner"].includes(surface.kind));
 
