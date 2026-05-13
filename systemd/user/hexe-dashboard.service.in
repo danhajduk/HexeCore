@@ -1,6 +1,6 @@
 [Unit]
 Description=Hexe Dashboard Browser
-After=graphical-session.target hexe-backend.service hexe-frontend-dev.service network-online.target
+After=graphical-session.target hexe-backend.service network-online.target
 Wants=network-online.target
 
 [Service]
@@ -9,7 +9,7 @@ Environment=DISPLAY=:0
 Environment=XAUTHORITY=/home/dan/.Xauthority
 Environment=HOME=/home/dan
 Environment=CHROME_BIN=/usr/bin/google-chrome-stable
-Environment=SYNTHIA_DASHBOARD_URL=http://127.0.0.1/
+Environment=SYNTHIA_DASHBOARD_URL=http://127.0.0.1:9001/
 
 ExecStartPre=/usr/bin/sleep 5
 ExecStartPre=/usr/bin/bash -lc 'DISPLAY=:0 xset s off -dpms s noblank || true'

@@ -1,0 +1,182 @@
+# Node Requirements For Core-Rendered UI
+
+Status: Not developed
+
+## Purpose
+
+This document defines what each node must eventually provide so Hexe Core can render operational node UI from Core-owned components.
+
+During the first infrastructure phase, implementation tasks are Core-only. Nodes should not remove their existing operational UI until Core can render equivalent operator workflows and production Core UI hosting is in place.
+
+## Production Assumption
+
+Core-rendered node UI runs from the production Core UI, not the Vite development server.
+
+Node requirements therefore assume:
+
+- the operator browser talks to the Core public origin
+- Core talks to node APIs over trusted internal service resolution
+- nodes do not require browser access to private node addresses
+- node-hosted operational React apps are transitional only
+- node-local UI is retained for setup, recovery, and diagnostics while migration is incomplete
+
+## Required Node Surfaces
+
+Each migratable node must eventually expose these surfaces.
+
+### UI Manifest
+
+Endpoint:
+
+```http
+GET /api/node/ui-manifest
+```
+
+The manifest must be small and declarative. It describes pages, surfaces, data endpoints, action endpoints, detail endpoint templates, and refresh policy. It must not include full page data.
+
+Required manifest fields:
+
+- `schema_version`
+- `node_id`
+- `node_type`
+- `display_name`
+- `pages`
+- page `id`, `title`, and `surfaces`
+- surface `id`, `kind`, `title`, `data_endpoint`, and `refresh`
+- action metadata when a surface supports operator actions
+
+Forbidden manifest content:
+
+- React components
+- arbitrary HTML
+- inline scripts
+- browser-executable code
+- secrets or credentials
+- large full-page data payloads
+
+### Summary/Data Endpoints
+
+Nodes must provide card-specific data endpoints for visible Core surfaces.
+
+Expected examples:
+
+```http
+GET /api/node/ui/overview/health
+GET /api/node/ui/overview/warnings
+GET /api/node/ui/runtime/services
+GET /api/node/ui/{node_domain}/{surface}
+```
+
+Data responses must be shaped for the Core card kind, not for node frontend internals.
+
+Initial card kinds:
+
+- `node_overview`
+- `health_strip`
+- `facts_card`
+- `warning_banner`
+- `action_panel`
+- `runtime_service`
+- `provider_status`
+
+Later card kinds:
+
+- `record_list`
+- `detail_drawer`
+- `settings_form`
+- `resource_grid`
+- `artifact_browser`
+- `event_timeline`
+
+### Detail Endpoints
+
+Nodes must expose detail endpoints only for records the operator opens or selects. Detail data should not be bundled into the manifest or initial page payload.
+
+Examples:
+
+```http
+GET /api/voice/intents/{intent_id}
+GET /api/gmail/messages/{message_id}
+GET /api/scheduled-tasks/{task_id}
+```
+
+### Action Endpoints
+
+Nodes must expose explicit action endpoints for mutations and operator commands.
+
+Examples:
+
+```http
+POST /api/voice/intents/dispatch
+POST /api/voice/intents/invoke
+PUT /api/tts/settings
+POST /api/services/restart
+POST /api/gmail/fetch
+POST /api/scheduled-tasks/{task_id}/retry
+```
+
+Actions must remain authoritative on the node side. A manifest can describe an action, but it must not grant permission by itself.
+
+## Refresh Requirements
+
+Each surface must declare one refresh mode.
+
+Supported modes:
+
+- `live`: poll every 1-5 seconds while visible
+- `near_live`: poll every 10-30 seconds while visible
+- `manual`: fetch on page/card open and explicit refresh
+- `detail`: fetch only when expanded or selected
+- `static`: fetch once until the manifest or node revision changes
+
+Nodes should avoid endpoints that require Core to fetch every operational detail up front.
+
+## Security Requirements
+
+Nodes must preserve existing trust boundaries.
+
+Required behavior:
+
+- authorize every manifest, data, detail, and action endpoint
+- validate all action input server-side
+- avoid returning secrets in UI data responses
+- reveal sensitive detail data only when the operator has permission
+- return structured status and error payloads
+- include confirmation metadata in the manifest for destructive or sensitive actions
+
+Core must treat node manifest content as untrusted data. Nodes must treat Core calls as privileged only when they carry valid trusted credentials or service tokens.
+
+## Node UI Modes
+
+Nodes should eventually support these local UI modes:
+
+- `full`: current node-hosted operational UI, useful during migration
+- `setup_only`: first boot, Core pairing, trust registration, recovery diagnostics, and handoff to Core
+- `disabled`: no node-hosted UI except health/API surfaces
+
+Initial migration should keep nodes in `full`. Mature nodes can move to `setup_only` only after Core-rendered UI has operational parity. `disabled` should wait until Core has strong recovery and diagnostics coverage.
+
+## Minimum Pilot Node Contract
+
+A first pilot node should provide:
+
+- `/api/node/ui-manifest`
+- `/api/node/ui/overview/health`
+- `/api/node/ui/overview/warnings`
+- `/api/node/ui/runtime/services`
+- one domain-specific summary endpoint
+- one detail endpoint if the domain surface lists records
+- one safe action endpoint for proving Core action execution
+
+The existing node-hosted UI must remain unchanged during the pilot.
+
+## What Nodes Should Not Do
+
+Nodes should not:
+
+- ship Core operational card React components
+- require the browser to fetch from private node addresses
+- embed local dev server URLs in manifests or card data
+- expose one giant endpoint containing all node operational state
+- rely on the manifest as an authorization mechanism
+- remove setup/recovery UI before Core provides equivalent operational coverage

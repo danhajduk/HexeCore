@@ -116,17 +116,8 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 deactivate
 
-echo "[bootstrap] Frontend deps"
-cd "$INSTALL_DIR/frontend"
-npm install
-
-echo "[bootstrap] Sync addon frontends"
-cd "$INSTALL_DIR"
-if [[ -x "$INSTALL_DIR/scripts/sync-addons-frontend.sh" ]]; then
-  "$INSTALL_DIR/scripts/sync-addons-frontend.sh"
-else
-  echo "[bootstrap] WARN: scripts/sync-addons-frontend.sh not found/executable; skipping"
-fi
+echo "[bootstrap] Production frontend build"
+"$INSTALL_DIR/scripts/build-frontend.sh"
 
 echo "[bootstrap] Ensure update script exists + executable"
 if [[ ! -f "$INSTALL_DIR/scripts/update.sh" ]]; then
@@ -171,10 +162,6 @@ install_user_unit_from_template \
   "$UNIT_DST_DIR/hexe-backend.service"
 
 install_user_unit_from_template \
-  "$UNIT_SRC_DIR/hexe-frontend-dev.service.in" \
-  "$UNIT_DST_DIR/hexe-frontend-dev.service"
-
-install_user_unit_from_template \
   "$UNIT_SRC_DIR/hexe-updater.service.in" \
   "$UNIT_DST_DIR/hexe-updater.service"
 
@@ -188,20 +175,20 @@ install_user_unit_from_template \
 
 systemctl --user daemon-reload
 
+if systemctl --user cat hexe-frontend-dev.service >/dev/null 2>&1; then
+  echo "[bootstrap] Disabling legacy production frontend dev service"
+  systemctl --user disable --now hexe-frontend-dev.service || true
+fi
+
 if command -v loginctl >/dev/null 2>&1; then
   echo "[bootstrap] Enabling linger for $USER (optional)"
   sudo loginctl enable-linger "$USER" || true
 fi
-echo "[update] configure frontend API target"
-REPO_DIR="$INSTALL_DIR"
-"$REPO_DIR/scripts/configure-frontend-api.sh"
 
 echo "[bootstrap] Enabling + starting services"
 set +e
 systemctl --user enable --now hexe-backend.service
 BACKEND_RC=$?
-systemctl --user enable --now hexe-frontend-dev.service
-FRONTEND_RC=$?
 set -e
 
 if [[ $BACKEND_RC -ne 0 ]]; then
@@ -211,16 +198,9 @@ if [[ $BACKEND_RC -ne 0 ]]; then
   exit 1
 fi
 
-if [[ $FRONTEND_RC -ne 0 ]]; then
-  echo "[bootstrap] ERROR: frontend failed"
-  systemctl --user status hexe-frontend-dev.service --no-pager || true
-  journalctl --user -u hexe-frontend-dev.service -n 120 --no-pager || true
-  exit 1
-fi
-
 echo "[bootstrap] $PLATFORM_NAME bootstrap complete."
 echo "Backend:  http://$(hostname -I | awk '{print $1}'):9001/api/health"
-echo "Frontend: http://$(hostname -I | awk '{print $1}')"
+echo "Frontend: http://$(hostname -I | awk '{print $1}'):9001/"
 echo "Updater unit installed: hexe-updater.service (Hexe updater trigger: systemctl --user start hexe-updater.service)"
 echo "Supervisor unit installed: hexe-supervisor.service (Hexe supervisor trigger: systemctl --user start hexe-supervisor.service)"
 echo "Supervisor API unit installed: hexe-supervisor-api.service (Hexe supervisor API trigger: systemctl --user start hexe-supervisor-api.service)"

@@ -880,3 +880,9 @@ Task 931: Add node domain event promotion tests and verified docs - Completed on
 Task 932: Add Supervisor-local resource sampling for managed process and container identities - Completed on 05/02/2026 19:16
 Task 933: Wire Supervisor-owned CPU and memory metrics into node and aux runtime summaries - Completed on 05/02/2026 19:16
 Task 934: Document Supervisor metrics ownership and verification behavior - Completed on 05/02/2026 19:16
+Task 932: Discover Core UI runtime and rendered-node migration boundaries - Completed on 05/12/2026 20:03
+Task 933: Serve the built Core frontend artifact in production - Completed on 05/12/2026 20:03
+Task 934: Add production UI route precedence and SPA fallback tests - Completed on 05/12/2026 20:03
+Task 935: Update bootstrap update and backend reload scripts for production UI builds - Completed on 05/12/2026 20:03
+Task 936: Replace production systemd wiring for Core UI - Completed on 05/12/2026 20:03
+Task 937: Tighten production frontend configuration and same-origin API behavior - Completed on 05/12/2026 20:03

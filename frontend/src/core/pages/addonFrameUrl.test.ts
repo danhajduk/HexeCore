@@ -29,7 +29,7 @@ describe("addonUiFrameSrc", () => {
     ).toBe("https://a75d480287c33cab.hexe-ai.com/addons/proxy/mqtt/");
   });
 
-  it("keeps the backend port fallback for LAN/default-port access", () => {
+  it("uses the same origin for production LAN/default-port access", () => {
     expect(
       addonUiFrameSrc("mqtt", "", {
         origin: "http://10.0.0.100",
@@ -37,7 +37,7 @@ describe("addonUiFrameSrc", () => {
         protocol: "http:",
         port: "",
       }),
-    ).toBe("http://10.0.0.100:9001/addons/proxy/mqtt/");
+    ).toBe("http://10.0.0.100/addons/proxy/mqtt/");
   });
 
   it("keeps the backend port fallback for frontend dev servers", () => {

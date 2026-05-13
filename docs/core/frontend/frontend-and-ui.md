@@ -12,6 +12,17 @@ Status: Implemented
 - Shell layout wraps route output and admin session context.
 - Platform branding is loaded through `PlatformBrandingProvider` in `frontend/src/core/branding.tsx` and sourced from `GET /api/system/platform`.
 
+## Production UI Hosting
+
+Status: Implemented
+
+- Production Core UI is served from the built `frontend/dist` artifact by the Core backend.
+- The production static frontend router is mounted after API, node proxy, addon proxy, and websocket proxy routes so backend-owned paths keep precedence.
+- React route refreshes fall back to `frontend/dist/index.html`; missing static assets and reserved backend paths return backend 404 responses instead of the SPA shell.
+- The default production browser model is same-origin: Core UI, `/api/*`, node proxy routes, and addon proxy routes share the Core public origin.
+- Vite remains a development workflow only. Development CORS origins are enabled only when `HEXE_ENABLE_DEV_CORS=1` or explicit `HEXE_CORS_ALLOW_ORIGINS` values are configured.
+- Production install, update, backend reload, and reload-all scripts rebuild the frontend artifact before restarting Core services.
+
 ## Route and Page Model
 
 Status: Implemented

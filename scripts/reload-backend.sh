@@ -3,6 +3,11 @@ set -euo pipefail
 
 backend_unit="hexe-backend.service"
 
+if [[ "${SKIP_FRONTEND_BUILD:-0}" != "1" ]]; then
+  echo "[reload-backend] Rebuilding production frontend"
+  "$(cd "$(dirname "$0")" && pwd)/build-frontend.sh"
+fi
+
 echo "[reload-backend] Reloading user systemd units"
 systemctl --user daemon-reload
 

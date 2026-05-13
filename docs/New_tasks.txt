@@ -47,3 +47,14 @@ Standards reference:
 
 Do not edit above this line:
 #######################################################################
+
+[TODO] Task 938: Define the Core-owned node UI manifest contract
+[TODO] Task 939: Define initial Core-owned node card response contracts
+[TODO] Task 940: Build Core manifest fetch and validation service
+[TODO] Task 941: Build Core rendered-node UI data loading layer
+[TODO] Task 942: Build Core renderer registry and first shared card renderers
+[TODO] Task 943: Build Core manifest-backed node page shell
+[TODO] Task 944: Build Core node action execution layer
+[TODO] Task 945: Add pilot rendered-node UI fixtures and integration tests
+[TODO] Task 946: Add rendered-node UI feature gate and legacy proxied-UI fallback
+[TODO] Task 947: Update verified docs for production Core UI and rendered-node UI migration

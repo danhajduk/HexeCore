@@ -1,5 +1,5 @@
 [Unit]
-Description=Hexe Frontend Dev Service (Vite on 5173)
+Description=Hexe Frontend Dev Service (development only, Vite on 5173)
 After=network.target
 
 [Service]

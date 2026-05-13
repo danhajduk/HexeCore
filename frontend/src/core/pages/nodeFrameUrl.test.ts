@@ -34,7 +34,7 @@ describe("nodeUiFrameSrc", () => {
     ).toBe("https://a75d480287c33cab.hexe-ai.com/nodes/proxy/ui/node-1/");
   });
 
-  it("keeps the backend port fallback for LAN/default-port access", () => {
+  it("uses the same origin for production LAN/default-port access", () => {
     expect(
       nodeUiFrameSrc(
         "node-1",
@@ -47,7 +47,7 @@ describe("nodeUiFrameSrc", () => {
           port: "",
         },
       ),
-    ).toBe("http://10.0.0.100:9001/nodes/proxy/ui/node-1/");
+    ).toBe("http://10.0.0.100/nodes/proxy/ui/node-1/");
   });
 
   it("keeps the backend port fallback for frontend dev servers", () => {

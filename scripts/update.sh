@@ -60,17 +60,8 @@ source .venv/bin/activate
 pip install -r requirements.txt
 deactivate
 
-echo "[update] frontend deps"
-cd "$REPO_DIR/frontend"
-npm install
-
-echo "[update] sync addon frontends"
-cd "$REPO_DIR"
-if [[ -x "$REPO_DIR/scripts/sync-addons-frontend.sh" ]]; then
-  "$REPO_DIR/scripts/sync-addons-frontend.sh"
-fi
-echo "[update] configure frontend API target"
-"$REPO_DIR/scripts/configure-frontend-api.sh"
+echo "[update] production frontend build"
+"$REPO_DIR/scripts/build-frontend.sh"
 
 if [[ "$SERVICE_UPDATE" == "true" ]]; then
   echo "[update] reinstalling systemd user units"
@@ -92,7 +83,6 @@ if [[ "$SERVICE_UPDATE" == "true" ]]; then
   }
 
   install_unit "$UNIT_SRC_DIR/hexe-backend.service.in" "$UNIT_DST_DIR/hexe-backend.service"
-  install_unit "$UNIT_SRC_DIR/hexe-frontend-dev.service.in" "$UNIT_DST_DIR/hexe-frontend-dev.service"
   install_unit "$UNIT_SRC_DIR/hexe-updater.service.in" "$UNIT_DST_DIR/hexe-updater.service"
   if [[ -f "$UNIT_SRC_DIR/${DASHBOARD_UNIT}.in" ]]; then
     install_unit "$UNIT_SRC_DIR/${DASHBOARD_UNIT}.in" "$UNIT_DST_DIR/${DASHBOARD_UNIT}"
@@ -125,8 +115,11 @@ if [[ "$SERVICE_UPDATE" == "true" ]]; then
   fi
 
   systemctl --user daemon-reload
+  if systemctl --user cat hexe-frontend-dev.service >/dev/null 2>&1; then
+    echo "[update] disabling legacy production frontend dev service"
+    systemctl --user disable --now hexe-frontend-dev.service || true
+  fi
   systemctl --user restart hexe-backend.service
-  systemctl --user restart hexe-frontend-dev.service
   if [[ -f "$UNIT_DST_DIR/${DASHBOARD_UNIT}" ]]; then
     systemctl --user restart "$DASHBOARD_UNIT"
   fi
@@ -140,7 +133,6 @@ fi
 
 echo "[update] restart services"
 systemctl --user restart hexe-backend.service
-systemctl --user restart hexe-frontend-dev.service
 if systemctl --user cat hexe-dashboard.service >/dev/null 2>&1; then
   systemctl --user restart hexe-dashboard.service
 fi

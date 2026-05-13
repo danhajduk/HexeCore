@@ -255,3 +255,87 @@ Preserved details:
 - Promotion accept, reject, limit, redact, dedupe, and noisy-node decisions must be recorded in Core observability.
 - Recent noisy-node and promotion decisions should be exposed through an operator API.
 - Trusted nodes may subscribe to Core-promoted domain events under `hexe/events/#`, but must not receive broad publish access to `hexe/events/#`.
+
+## Task 932-947
+Original task details preserved from the Core-owned node UI migration planning block formerly embedded in `docs/New_tasks.txt`.
+
+Active normalized queue entries:
+
+- Task 932: Discover Core UI runtime and rendered-node migration boundaries
+- Task 933: Serve the built Core frontend artifact in production
+- Task 934: Add production UI route precedence and SPA fallback tests
+- Task 935: Update bootstrap update and backend reload scripts for production UI builds
+- Task 936: Replace production systemd wiring for Core UI
+- Task 937: Tighten production frontend configuration and same-origin API behavior
+- Task 938: Define the Core-owned node UI manifest contract
+- Task 939: Define initial Core-owned node card response contracts
+- Task 940: Build Core manifest fetch and validation service
+- Task 941: Build Core rendered-node UI data loading layer
+- Task 942: Build Core renderer registry and first shared card renderers
+- Task 943: Build Core manifest-backed node page shell
+- Task 944: Build Core node action execution layer
+- Task 945: Add pilot rendered-node UI fixtures and integration tests
+- Task 946: Add rendered-node UI feature gate and legacy proxied-UI fallback
+- Task 947: Update verified docs for production Core UI and rendered-node UI migration
+
+Scope and boundaries:
+
+- Work in the Core repository only.
+- Do not implement node-side repository changes from this queue.
+- Preserve node-side requirements under `docs/nodes/ui-mogration/`.
+- Existing node-hosted operational UIs must remain usable until Core-rendered UI reaches feature parity.
+- Use existing Core conventions for backend, frontend, scripts, systemd units, tests, and docs.
+- Make minimal, production-ready changes in small reviewable units.
+- Commit completed implementation work task-by-task when this queue is executed.
+
+Reference docs and code to inspect before implementation:
+
+- `docs/nodes/future-dev/core-rendered-node-ui-migration.md`
+- `docs/nodes/ui-mogration/README.md`
+- `docs/nodes/ui-mogration/node-requirements.md`
+- `docs/core/frontend/frontend-and-ui.md`
+- `docs/core/frontend/proxied-ui-contract.md`
+- `docs/core/api/proxied-ui-metadata.md`
+- `docs/core/api/proxied-ui-forwarded-headers.md`
+- `frontend/package.json`
+- `frontend/vite.config.ts`
+- `backend/app/main.py`
+- `backend/app/nodes/proxy.py`
+- `backend/app/addons/proxy.py`
+- `backend/app/reverse_proxy.py`
+- `scripts/bootstrap.sh`
+- `scripts/update.sh`
+- `scripts/configure-frontend-api.sh`
+- `scripts/reload-backend.sh`
+- `systemd/user/hexe-frontend-dev.service.in`
+- `systemd/user/hexe-backend.service.in`
+- `systemd/user/hexe-dashboard.service.in`
+
+Preserved task details:
+
+- Task 932 discovers the existing Core backend, frontend, auth/session, node proxy, addon proxy, websocket proxy, deployment scripts, and systemd boundaries before changing runtime behavior. Completion requires concise implementation notes or doc updates that cite concrete files and confirm the migration remains Core-only.
+- Task 933 adds production serving for the built `frontend/dist` artifact. Completion requires `npm run build` to produce the artifact, Core production runtime to serve it, browser refresh to work on nested Core routes, and `/api/*`, `/nodes/{node_id}/ui/*`, `/addons/{addon_id}/*`, and websocket proxy routes to remain unshadowed by SPA fallback.
+- Task 934 adds regression coverage for static asset serving, SPA fallback, and route precedence. Completion requires targeted backend tests proving Core API, node UI proxy, addon UI proxy, and websocket proxy paths still route correctly with production UI hosting enabled.
+- Task 935 updates install/update/backend reload flows to install frontend dependencies and run production frontend builds when needed. Completion requires fresh install, update, and the backend reload helper path to rebuild or preserve the built Core UI correctly without requiring the Vite dev server as the production runtime.
+- Task 936 replaces production systemd wiring for the Core UI. Completion requires production units not to run `npm run dev`, dashboard/service dependencies to stop depending on `hexe-frontend-dev.service`, and the operator-facing URL to use the production Core UI. Keep a clearly developer-only Vite workflow.
+- Task 937 tightens production frontend configuration so production browser API traffic uses relative same-origin paths. Completion requires dev-only CORS origins and Vite proxy behavior to be development-only, while admin session, node proxy, addon proxy, and websocket flows still work from production origin.
+- Task 938 defines the canonical Core-owned node UI manifest contract. It must cover `schema_version`, node identity, node type, display name, pages, surfaces, data endpoints, action endpoints, detail endpoint templates, refresh policy, and optional revision. It must reject React components, arbitrary HTML, inline scripts, browser-executable code, secrets, and giant full-page data payloads.
+- Task 939 defines initial Core-owned card response contracts for `node_overview`, `health_strip`, `facts_card`, `warning_banner`, `action_panel`, `runtime_service`, and `provider_status`. It must include shared conventions for `updated_at`, tones, empty states, stale data, errors, retry metadata, and confirmation metadata.
+- Task 940 builds the Core service/client path that fetches and validates manifests from trusted nodes through existing discovery/service-resolution boundaries. Completion requires tests for successful fetch, unsupported manifest version, validation failure, trust failure, and operator-readable fetch failure.
+- Task 941 builds a shared frontend data loading layer for rendered-node cards. It must support lazy visible-card loading, cache keys by node id/surface id/endpoint/revision, request deduplication, manual refresh, stale state, retry state, request cancellation, and visibility-aware polling for `live`, `near_live`, `manual`, `detail`, and `static` modes.
+- Task 942 builds the frontend renderer registry and the first shared card renderers: `node_overview`, `health_strip`, `facts_card`, and `warning_banner`. Completion requires loading, success, empty, stale, error, retry, and unsupported-kind states to render without breaking existing proxied node UI.
+- Task 943 builds the Core-owned manifest-backed node page shell with navigation, layout, responsive behavior, page selection, card placement, and refresh controls. Completion requires a Core route to render a manifest-backed node page without using a node-hosted React app while the legacy proxied node UI remains available.
+- Task 944 builds Core-controlled action execution for manifest-declared node actions. It must support method, endpoint, request metadata, confirmation metadata, success state, error state, and audit logging. Node endpoints remain authoritative for authorization and validation, and destructive or sensitive actions require confirmation metadata.
+- Task 945 adds a static Voice-like or Email-like pilot fixture with overview, health, warnings, runtime, one domain page, one action, and one refresh policy. Completion requires integration tests for manifest fetch, validation, rendering, card data loading, refresh, and action execution using fake node endpoints, without requiring a real node repository.
+- Task 946 adds a feature gate for Core-rendered node UI and a fallback path to the current proxied node UI. Completion requires operators to opt into Core-rendered node UI per environment or node and disabling the feature to return operators to the existing proxied UI path.
+- Task 947 updates verified docs after implementation only. It must update Core frontend/API docs and node migration handoff docs to reflect implemented behavior, link canonical Core contracts from `docs/nodes/ui-mogration/node-requirements.md`, and avoid documenting planned behavior as implemented.
+
+Definition of done preserved from the original planning block:
+
+- Core production UI no longer depends on the Vite dev server.
+- Core serves the built UI without breaking API, node proxy, addon proxy, or websocket routes.
+- Backend reload/rebuild helper scripts do not leave production Core serving stale or missing UI assets.
+- Core owns rendered node UI layout, cards, data loading, refresh behavior, actions, and operator states.
+- Nodes provide manifests, data endpoints, detail endpoints, and action endpoints only.
+- Node-local UI remains available for setup, recovery, diagnostics, and migration fallback.
+- The first pilot can render useful node operational UI in Core without requiring node repository changes in this queue.

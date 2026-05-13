@@ -3,7 +3,6 @@ set -euo pipefail
 
 units=(
   "hexe-backend.service"
-  "hexe-frontend-dev.service"
 )
 updater_unit="hexe-updater.service"
 supervisor_unit="hexe-supervisor.service"
@@ -12,6 +11,9 @@ dashboard_unit="hexe-dashboard.service"
 
 echo "[reload-all] Reloading user systemd units"
 systemctl --user daemon-reload
+
+echo "[reload-all] Rebuilding production frontend"
+"$(cd "$(dirname "$0")" && pwd)/build-frontend.sh"
 
 if systemctl --user cat "$supervisor_unit" >/dev/null 2>&1; then
   units+=("$supervisor_unit")

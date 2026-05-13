@@ -41,6 +41,7 @@ from .api.admin_registry import build_admin_registry_router
 from .api.addons_registry import build_addons_registry_router
 from .api.addons_install import build_addons_install_router
 from .proxy_routes import ProxyRouteRedirectMiddleware
+from .frontend_static import build_frontend_static_router
 from .system.api_metrics import ApiMetricsCollector, ApiMetricsMiddleware
 from app.system.sampler import (
     stats_fast_sampler_loop,
@@ -113,6 +114,23 @@ from app.store.catalog import catalog_refresh_due
 
 setup_logging()
 log = logging.getLogger("synthia.core")
+
+
+def _configured_cors_origins() -> list[str]:
+    raw = str(os.getenv("HEXE_CORS_ALLOW_ORIGINS", "")).strip()
+    if raw:
+        return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+    dev_cors = str(os.getenv("HEXE_ENABLE_DEV_CORS", "0")).strip().lower()
+    if dev_cors in {"1", "true", "yes", "on"}:
+        return [
+            "http://localhost",
+            "http://127.0.0.1",
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+        ]
+
+    return []
 
 
 def create_app() -> FastAPI:
@@ -884,18 +902,15 @@ def create_app() -> FastAPI:
             if callable(stop):
                 await stop()
 
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=[
-            "http://localhost",
-            "http://127.0.0.1",
-            "http://localhost:5173",
-            "http://127.0.0.1:5173",
-        ],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    cors_origins = _configured_cors_origins()
+    if cors_origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=cors_origins,
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
 
     # Core routes
     app.include_router(health_router, prefix="/api")
@@ -1271,6 +1286,9 @@ def create_app() -> FastAPI:
     )
     app.include_router(build_proxy_router(addon_proxy))
     app.include_router(build_node_ui_proxy_router(app.state.node_ui_proxy))
+    frontend_static_router = build_frontend_static_router()
+    if frontend_static_router is not None:
+        app.include_router(frontend_static_router)
 
     return app
 
