@@ -66,8 +66,9 @@ function CardShell({
   children: ReactNode;
 }) {
   const errors = data.errors || [];
+  const stateClass = [data.stale ? "is-stale" : "", data.empty ? "is-empty" : ""].filter(Boolean).join(" ");
   return (
-    <article className={`rendered-node-card kind-${surface.kind} ${data.stale ? "is-stale" : ""}`}>
+    <article className={`rendered-node-card kind-${surface.kind} ${stateClass}`}>
       <header className="rendered-node-card-head">
         <div>
           <h3>{surface.title}</h3>

@@ -8,7 +8,7 @@ import {
   UnsupportedNodeUiCard,
   getNodeUiCardRenderer,
 } from "./renderers";
-import type { ActionPanelCardResponse, HealthStripCardResponse, NodeUiSurface } from "./types";
+import type { ActionPanelCardResponse, HealthStripCardResponse, NodeUiSurface, WarningBannerCardResponse } from "./types";
 
 const surface: NodeUiSurface = {
   id: "node.health",
@@ -61,6 +61,23 @@ describe("rendered node UI renderers", () => {
 
     expect(html).toContain("Future Card");
     expect(html).toContain("Unsupported card kind: future_card");
+  });
+
+  it("marks empty card states for neutral styling", () => {
+    const data: WarningBannerCardResponse = {
+      kind: "warning_banner",
+      updated_at: "2026-05-13T01:00:00Z",
+      empty: true,
+      warnings: [],
+    };
+
+    const html = renderToStaticMarkup(
+      <NodeUiCard surface={{ ...surface, kind: "warning_banner", title: "Operational Warnings" }} data={data} />,
+    );
+
+    expect(html).toContain("kind-warning_banner");
+    expect(html).toContain("is-empty");
+    expect(html).toContain("No data.");
   });
 
   it("keeps action buttons disabled until an action handler is provided", () => {

@@ -25,6 +25,9 @@
   gap: 0;
   padding: 0;
   overflow: hidden;
+}
+
+.rendered-node-card.kind-warning_banner:not(.is-empty) {
   border-color: hsl(var(--sx-warning) / 0.32);
   background:
     linear-gradient(180deg, hsl(var(--sx-warning) / 0.08), transparent 42%),
