@@ -45,7 +45,7 @@ describe("rendered node UI renderers", () => {
 
     const html = renderToStaticMarkup(<NodeUiCard surface={surface} data={data} />);
 
-    expect(html).toContain("Node Health");
+    expect(html).not.toContain("Node Health");
     expect(html).toContain("Trust");
     expect(html).toContain("trusted");
     expect(html).toContain("Runtime");

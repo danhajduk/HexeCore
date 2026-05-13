@@ -184,18 +184,24 @@ export function NodeOverviewCard({ surface, data }: NodeUiCardRendererProps<Node
 }
 
 export function HealthStripCard({ surface, data }: NodeUiCardRendererProps<HealthStripCardResponse>) {
+  const errors = data.errors || [];
   return (
-    <CardShell surface={surface} data={data}>
-      <div className="rendered-node-health-strip">
-        {(data.items || []).map((item) => (
-          <div key={item.id} className={`rendered-node-health-item ${toneClass(item.tone)}`}>
-            <span>{item.label}</span>
-            <strong>{item.value}</strong>
-            {item.detail ? <small>{item.detail}</small> : null}
-          </div>
-        ))}
-      </div>
-    </CardShell>
+    <article className={`rendered-node-card kind-${surface.kind} ${data.stale ? "is-stale" : ""}`}>
+      {errors.length > 0 ? <ErrorList errors={errors} /> : null}
+      {data.empty ? (
+        <div className="rendered-node-empty">No data.</div>
+      ) : (
+        <div className="rendered-node-health-strip">
+          {(data.items || []).map((item) => (
+            <div key={item.id} className={`rendered-node-health-item ${toneClass(item.tone)}`}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              {item.detail ? <small>{item.detail}</small> : null}
+            </div>
+          ))}
+        </div>
+      )}
+    </article>
   );
 }
 
