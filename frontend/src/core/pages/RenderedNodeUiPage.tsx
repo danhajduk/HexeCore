@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Layers3, RefreshCw, ServerCog } from "lucide-react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 
 import {
   executeNodeUiAction,
@@ -22,6 +22,17 @@ import "./rendered-node-ui-page.css";
 export function resolveSelectedNodeUiPage(manifest: NodeUiManifest, selectedPageId?: string | null): NodeUiPage {
   const pages = manifest.pages || [];
   return pages.find((page) => page.id === selectedPageId) || pages[0];
+}
+
+export function resolveNodeUiPageQueryId(value?: string | null): string | null {
+  const trimmed = String(value || "").trim();
+  return trimmed || null;
+}
+
+export function nodeUiPageSearchParams(pageId: string): URLSearchParams {
+  const params = new URLSearchParams();
+  params.set("id", pageId);
+  return params;
 }
 
 export function nodeUiSurfacePollInterval(surface: NodeUiSurface): number | null {
@@ -305,13 +316,16 @@ function LegacyNodeUiFallback({ nodeId }: { nodeId: string }) {
 
 export default function RenderedNodeUiPage() {
   const { nodeId = "" } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const manifestState = useNodeUiManifest(nodeId);
   const manifest = manifestState.data?.manifest || null;
-  const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
+  const selectedPageId = resolveNodeUiPageQueryId(searchParams.get("id"));
 
   useEffect(() => {
-    setSelectedPageId(null);
-  }, [nodeId, manifestState.data?.manifest_revision]);
+    if (!manifest || !selectedPageId) return;
+    const selectedExists = manifest.pages.some((page) => page.id === selectedPageId);
+    if (!selectedExists) setSearchParams(new URLSearchParams(), { replace: true });
+  }, [manifest, selectedPageId, setSearchParams]);
 
   const activePage = useMemo(
     () => (manifest ? resolveSelectedNodeUiPage(manifest, selectedPageId) : null),
@@ -401,7 +415,7 @@ export default function RenderedNodeUiPage() {
                   role="tab"
                   aria-selected={page.id === activePage.id}
                   className={page.id === activePage.id ? "is-active" : ""}
-                  onClick={() => setSelectedPageId(page.id)}
+                  onClick={() => setSearchParams(nodeUiPageSearchParams(page.id))}
                 >
                   <span className="rendered-node-tab-title">{page.title}</span>
                 </button>

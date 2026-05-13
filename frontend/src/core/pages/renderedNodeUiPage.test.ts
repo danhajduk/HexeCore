@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   nodeUiActionConfirmationMessage,
+  nodeUiPageSearchParams,
   nodeUiRefreshPollInterval,
   nodeUiSurfacePollInterval,
+  resolveNodeUiPageQueryId,
   resolveNodeUiAdvertisedHealthSurface,
   resolveNodeUiManifestDataLabel,
   resolveNodeUiPageCards,
@@ -39,6 +41,12 @@ describe("RenderedNodeUiPage helpers", () => {
     expect(resolveSelectedNodeUiPage(manifest, "runtime").id).toBe("runtime");
     expect(resolveSelectedNodeUiPage(manifest, "missing").id).toBe("overview");
     expect(resolveSelectedNodeUiPage(manifest).id).toBe("overview");
+  });
+
+  it("uses the id query parameter as the selected page key", () => {
+    expect(resolveNodeUiPageQueryId("runtime")).toBe("runtime");
+    expect(resolveNodeUiPageQueryId("  ")).toBeNull();
+    expect(nodeUiPageSearchParams("runtime").toString()).toBe("id=runtime");
   });
 
   it("polls only live and near-live surfaces with explicit intervals", () => {
