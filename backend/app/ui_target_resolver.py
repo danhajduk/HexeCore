@@ -26,6 +26,23 @@ class ResolvedProxyTarget:
     health_endpoint: str | None = None
 
 
+def _text_attr(obj: object, name: str) -> str | None:
+    value = str(getattr(obj, name, "") or "").strip()
+    return value or None
+
+
+def _node_api_base_url(node: object) -> str | None:
+    runtime = getattr(node, "runtime", None)
+    return derive_node_api_base_url(
+        api_base_url=_text_attr(node, "api_base_url")
+        or _text_attr(node, "requested_api_base_url")
+        or _text_attr(runtime, "api_base_url"),
+        ui_base_url=_text_attr(node, "ui_base_url") or _text_attr(runtime, "ui_base_url"),
+        requested_ui_endpoint=_text_attr(node, "requested_ui_endpoint"),
+        requested_hostname=_text_attr(node, "requested_hostname"),
+    )
+
+
 class UiTargetResolver:
     def __init__(self, *, addon_registry=None, nodes_service=None) -> None:
         self._addon_registry = addon_registry
@@ -125,21 +142,15 @@ class UiTargetResolver:
         if self._nodes_service is None:
             raise HTTPException(status_code=500, detail="nodes_service_unavailable")
         node = self._nodes_service.get_node(node_id)
-        ui_target = self.resolve_node_ui(node_id)
-        api_base = derive_node_api_base_url(
-            api_base_url=str(getattr(node, "api_base_url", "") or "").strip() or None,
-            ui_base_url=str(getattr(node, "ui_base_url", "") or "").strip() or None,
-            requested_ui_endpoint=str(getattr(node, "requested_ui_endpoint", "") or "").strip() or None,
-            requested_hostname=str(getattr(node, "requested_hostname", "") or "").strip() or None,
-        )
+        api_base = _node_api_base_url(node)
         if not api_base:
             raise HTTPException(status_code=404, detail="node_api_endpoint_not_configured")
         return ResolvedProxyTarget(
             kind="node",
             target_id=node_id,
             surface="api",
-            source=ui_target.source,
+            source="node_registration",
             public_prefix=f"/api/nodes/{node_id}",
             target_base=api_base,
-            health_endpoint=ui_target.health_endpoint,
+            health_endpoint=_text_attr(node, "ui_health_endpoint"),
         )

@@ -7,7 +7,13 @@ import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
-from app.nodes import NodeRecord, NodeUiManifestFetchResponse, NodeUiManifestFetchService, build_nodes_router
+from app.nodes import (
+    NodeRecord,
+    NodeRuntimeSummary,
+    NodeUiManifestFetchResponse,
+    NodeUiManifestFetchService,
+    build_nodes_router,
+)
 
 
 def _manifest(*, revision: str | None = "rev-1") -> dict[str, object]:
@@ -103,6 +109,29 @@ class TestNodeUiManifestFetchService(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(response.ok)
         self.assertEqual(seen_urls, ["http://node-host.local:8081/api/node/ui-manifest"])
+
+    async def test_fetches_manifest_from_runtime_api_base_when_registration_metadata_is_missing(self) -> None:
+        seen_urls: list[str] = []
+        node = _node(api_base_url=None, ui_enabled=False, ui_base_url=None)
+        node.runtime = NodeRuntimeSummary(
+            desired_state="running",
+            runtime_state="running",
+            lifecycle_state="running",
+            health_status="healthy",
+            api_base_url="http://runtime-node.local:9004",
+        )
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen_urls.append(str(request.url))
+            return httpx.Response(200, json=_manifest())
+
+        self.client = httpx.AsyncClient(transport=httpx.MockTransport(handler), follow_redirects=False)
+        service = NodeUiManifestFetchService(_FakeNodesService(node), client=self.client)
+
+        response = await service.fetch_manifest("node-1")
+
+        self.assertTrue(response.ok)
+        self.assertEqual(seen_urls, ["http://runtime-node.local:9004/api/node/ui-manifest"])
 
     async def test_returns_endpoint_not_configured_when_no_api_base_can_be_derived(self) -> None:
         self.client = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(500)))

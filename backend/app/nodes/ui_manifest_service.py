@@ -27,6 +27,23 @@ NodeUiManifestFetchStatus = Literal[
 ]
 
 
+def _text_attr(obj: object, name: str) -> str | None:
+    value = str(getattr(obj, name, "") or "").strip()
+    return value or None
+
+
+def _node_runtime_api_base_url(node: object) -> str | None:
+    runtime = getattr(node, "runtime", None)
+    return derive_node_api_base_url(
+        api_base_url=_text_attr(node, "api_base_url")
+        or _text_attr(node, "requested_api_base_url")
+        or _text_attr(runtime, "api_base_url"),
+        ui_base_url=_text_attr(node, "ui_base_url") or _text_attr(runtime, "ui_base_url"),
+        requested_ui_endpoint=_text_attr(node, "requested_ui_endpoint"),
+        requested_hostname=_text_attr(node, "requested_hostname"),
+    )
+
+
 def _env_float(name: str, default: float) -> float:
     try:
         return max(0.1, float(os.getenv(name, str(default)).strip()))
@@ -79,12 +96,7 @@ class NodeUiManifestFetchService:
                 "Core only fetches rendered UI manifests from trusted nodes.",
             )
 
-        api_base = derive_node_api_base_url(
-            api_base_url=str(getattr(node, "api_base_url", "") or "").strip() or None,
-            ui_base_url=str(getattr(node, "ui_base_url", "") or "").strip() or None,
-            requested_ui_endpoint=str(getattr(node, "requested_ui_endpoint", "") or "").strip() or None,
-            requested_hostname=str(getattr(node, "requested_hostname", "") or "").strip() or None,
-        )
+        api_base = _node_runtime_api_base_url(node)
         if not api_base:
             return self._error(
                 node_id,

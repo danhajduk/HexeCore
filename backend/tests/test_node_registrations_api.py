@@ -145,6 +145,94 @@ class TestNodeRegistrationsApi(unittest.TestCase):
         self.assertIsNone(registration["ui_health_endpoint"])
         self.assertEqual(registration["api_base_url"], "http://office-node.local:8081/api")
 
+    def test_update_registration_metadata_for_existing_node(self) -> None:
+        started = self.client.post(
+            "/api/system/nodes/onboarding/sessions",
+            json={
+                "node_name": "metadata-node",
+                "node_type": "ai-node",
+                "node_software_version": "1.0.0",
+                "protocol_version": "1.0",
+                "node_nonce": "nonce-metadata-1",
+            },
+        )
+        self.assertEqual(started.status_code, 200, started.text)
+        session_id = started.json()["session"]["session_id"]
+        state = started.json()["session"]["approval_url"].split("state=", 1)[1]
+        approve = self.client.post(
+            f"/api/system/nodes/onboarding/sessions/{session_id}/approve?state={state}",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(approve.status_code, 200, approve.text)
+        node_id = approve.json()["registration"]["node_id"]
+        self.assertIsNone(approve.json()["registration"]["api_base_url"])
+
+        updated = self.client.put(
+            f"/api/system/nodes/registrations/{node_id}/metadata",
+            headers={"X-Admin-Token": "test-token"},
+            json={
+                "metadata_schema_version": "1.0",
+                "hostname": "10.0.0.100",
+                "api_base_url": "http://10.0.0.100:9004",
+                "ui_endpoint": "http://10.0.0.100:8082",
+                "ui_enabled": False,
+                "ui_base_url": "http://10.0.0.100:8082",
+                "ui_mode": "spa",
+                "ui_health_endpoint": None,
+            },
+        )
+
+        self.assertEqual(updated.status_code, 200, updated.text)
+        registration = updated.json()["registration"]
+        self.assertEqual(registration["requested_hostname"], "10.0.0.100")
+        self.assertEqual(registration["requested_api_base_url"], "http://10.0.0.100:9004")
+        self.assertEqual(registration["api_base_url"], "http://10.0.0.100:9004/api")
+        self.assertFalse(registration["ui_enabled"])
+        self.assertIsNone(registration["ui_base_url"])
+        self.assertEqual(registration["trust_status"], "approved")
+
+    def test_update_registration_metadata_rejects_extra_core_owned_fields(self) -> None:
+        created = self._start_and_approve("metadata-safe-node", "ai-node", "nonce-metadata-2")
+
+        updated = self.client.put(
+            f"/api/system/nodes/registrations/{created['node_id']}/metadata",
+            headers={"X-Admin-Token": "test-token"},
+            json={
+                "metadata_schema_version": "1.0",
+                "hostname": "10.0.0.101",
+                "api_base_url": "http://10.0.0.101:9004",
+                "ui_endpoint": None,
+                "ui_enabled": False,
+                "ui_base_url": None,
+                "ui_mode": "spa",
+                "ui_health_endpoint": None,
+                "trust_status": "trusted",
+            },
+        )
+
+        self.assertEqual(updated.status_code, 422, updated.text)
+
+    def test_update_registration_metadata_rejects_invalid_api_base_url(self) -> None:
+        created = self._start_and_approve("metadata-invalid-node", "ai-node", "nonce-metadata-3")
+
+        updated = self.client.put(
+            f"/api/system/nodes/registrations/{created['node_id']}/metadata",
+            headers={"X-Admin-Token": "test-token"},
+            json={
+                "metadata_schema_version": "1.0",
+                "hostname": "10.0.0.102",
+                "api_base_url": "not-a-url",
+                "ui_endpoint": None,
+                "ui_enabled": False,
+                "ui_base_url": None,
+                "ui_mode": "spa",
+                "ui_health_endpoint": None,
+            },
+        )
+
+        self.assertEqual(updated.status_code, 400, updated.text)
+        self.assertEqual(updated.json()["detail"], "api_base_url_invalid")
+
     def test_finalize_marks_registration_trusted(self) -> None:
         started = self.client.post(
             "/api/system/nodes/onboarding/sessions",

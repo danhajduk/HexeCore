@@ -77,6 +77,7 @@ Deterministic behavior rules:
 
 - `GET /api/system/nodes/registrations` (admin auth)
 - `GET /api/system/nodes/registrations/{node_id}` (admin auth)
+- `PUT /api/system/nodes/registrations/{node_id}/metadata` (admin auth)
 - `GET /api/system/nodes/trust-status/{node_id}` (node trust token or admin auth)
 
 Registration payloads include canonical Core-side UI metadata:
@@ -85,6 +86,13 @@ Registration payloads include canonical Core-side UI metadata:
 - `ui_mode`
 - `ui_health_endpoint`
 - `api_base_url`
+
+Registration metadata refresh:
+- accepts the full node-owned metadata payload defined by [full-onboarding-metadata.schema.json](./json/full-onboarding-metadata.schema.json)
+- updates only endpoint/UI metadata: `requested_hostname`, `requested_ui_endpoint`, `requested_api_base_url`, `ui_enabled`, `ui_base_url`, `ui_mode`, `ui_health_endpoint`, and `api_base_url`
+- rejects extra Core-owned fields such as trust, identity, governance, MQTT, capability profile, and budget state
+- is intended for already-registered nodes whose onboarding metadata was missing, stale, or created before `api_base_url` was available
+- does not reissue trust or require deleting the existing registration
 
 Registry node metadata rules:
 - `ui_base_url` is normalized to an absolute `http://` or `https://` URL when present.
@@ -98,6 +106,7 @@ Current node API proxy behavior:
 - `GET|POST|PUT|PATCH|DELETE /api/nodes/{node_id}/{path...}` proxies to the node `api_base_url`
 - Core strips the `/api/nodes/{node_id}` prefix before forwarding
 - legacy node records without explicit API metadata still fall back to the UI-origin-derived API base so older nodes remain proxyable
+- when registration API metadata is absent, Core can fall back to the supervisor runtime API base exposed by the node registry view
 
 Supports optional list filters:
 - `node_type`

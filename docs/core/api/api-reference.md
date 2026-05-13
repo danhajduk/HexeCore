@@ -42,6 +42,7 @@ Status: Implemented
   - `POST /api/system/nodes/onboarding/sessions/{session_id}/reject` (admin session/token required)
   - `POST /api/system/nodes/onboarding/sessions/cancel-active` (admin session/token required; cancels all active `pending` and `approved` onboarding sessions)
   - `GET /api/system/nodes/onboarding/sessions/{session_id}/finalize?node_nonce=...`
+  - `PUT /api/system/nodes/registrations/{node_id}/metadata` (admin session/token required; refreshes full node-owned endpoint/UI metadata without changing trust or identity)
   - `GET /api/system/nodes/registrations` (admin session/token required)
   - `GET /api/system/nodes/registrations/{node_id}` (admin session/token required)
   - `DELETE /api/system/nodes/registrations/{node_id}` (admin session/token required)

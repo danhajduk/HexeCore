@@ -9,11 +9,12 @@ import secrets
 import time
 import uuid
 from datetime import datetime, timezone
+from typing import Literal
 from urllib.parse import urlsplit
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from ..nodes import NodeServiceAuthorizeRequest, TaskExecutionResolutionRequest
 from ..addons.registry import AddonRegistry, list_addons
@@ -40,6 +41,7 @@ from ..system.onboarding.provider_capability_normalization import normalize_capa
 from ..system.runtime import StandaloneRuntimeService
 from ..system.services import NodeServiceResolutionService, ServiceCatalogStore
 from ..system.services.node_resolution import normalize_model_preference_for_task
+from ..ui_metadata import derive_node_api_base_url, derive_node_ui_metadata
 from .admin import require_admin_token
 
 
@@ -61,6 +63,19 @@ class NodeOnboardingStartRequest(BaseModel):
 
 class NodeOnboardingRejectRequest(BaseModel):
     rejection_reason: str | None = None
+
+
+class NodeRegistrationMetadataUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    hostname: str | None
+    ui_endpoint: str | None
+    api_base_url: str | None
+    ui_enabled: bool
+    ui_base_url: str | None
+    ui_mode: Literal["spa", "server"]
+    ui_health_endpoint: str | None
+    metadata_schema_version: str = Field(default="1.0")
 
 
 class NodeCapabilityDeclarationRequest(BaseModel):
@@ -922,6 +937,66 @@ def build_system_router(
             raise HTTPException(status_code=404, detail="node_registration_not_found")
         _observe_governance_freshness(node_id)
         return {"ok": True, "registration": node_registry_payload(item, node_governance_status_service)}
+
+    @router.put("/system/nodes/registrations/{node_id}/metadata")
+    def update_node_registration_metadata(
+        node_id: str,
+        body: NodeRegistrationMetadataUpdateRequest,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        _enforce_csrf_for_cookie_session(request, x_admin_token)
+        if node_registrations_store is None:
+            raise HTTPException(status_code=503, detail="node_registrations_unavailable")
+        item = node_registrations_store.get(node_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="node_registration_not_found")
+        if str(body.metadata_schema_version or "").strip() not in {"1.0"}:
+            raise HTTPException(status_code=400, detail="metadata_schema_version_unsupported")
+
+        requested_hostname = str(body.hostname or "").strip() or None
+        requested_ui_endpoint = str(body.ui_endpoint or "").strip() or None
+        requested_api_base_url = str(body.api_base_url or "").strip() or None
+        explicit_ui_base_url = str(body.ui_base_url or "").strip() or None
+        ui_health_endpoint = str(body.ui_health_endpoint or "").strip() or None
+        try:
+            ui_enabled, ui_base_url, ui_mode, normalized_health_endpoint = derive_node_ui_metadata(
+                requested_hostname=requested_hostname,
+                requested_ui_endpoint=requested_ui_endpoint,
+                requested_api_base_url=requested_api_base_url,
+                ui_enabled=body.ui_enabled,
+                ui_base_url=explicit_ui_base_url,
+                ui_mode=body.ui_mode,
+                ui_health_endpoint=ui_health_endpoint,
+            )
+            api_base_url = derive_node_api_base_url(
+                api_base_url=requested_api_base_url,
+                ui_base_url=ui_base_url or explicit_ui_base_url,
+                requested_ui_endpoint=requested_ui_endpoint,
+                requested_hostname=requested_hostname,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
+        item.requested_hostname = requested_hostname
+        item.requested_ui_endpoint = requested_ui_endpoint
+        item.requested_api_base_url = requested_api_base_url
+        item.ui_enabled = ui_enabled
+        item.ui_base_url = ui_base_url
+        item.ui_mode = ui_mode
+        item.ui_health_endpoint = normalized_health_endpoint
+        item.api_base_url = api_base_url
+        updated = node_registrations_store.upsert(item)
+        _record_audit(
+            audit_store,
+            event_type="node_registration_metadata_updated",
+            actor_role="admin",
+            actor_id=_admin_actor(x_admin_token),
+            details={"node_id": str(node_id or "")},
+        )
+        _observe_governance_freshness(node_id)
+        return {"ok": True, "registration": node_registry_payload(updated, node_governance_status_service)}
 
     @router.get("/system/nodes/registry")
     def list_node_registry(

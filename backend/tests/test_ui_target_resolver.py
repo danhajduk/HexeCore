@@ -112,6 +112,34 @@ class TestUiTargetResolver(unittest.TestCase):
         api_target = resolver.resolve_node_api("node-1")
         self.assertEqual(api_target.target_base, "http://10.0.0.9:8765/api")
 
+    def test_resolve_node_api_uses_runtime_api_base_without_enabled_node_ui(self) -> None:
+        runtime = type(
+            "Runtime",
+            (),
+            {
+                "api_base_url": "http://10.0.0.100:9004",
+                "ui_base_url": "http://10.0.0.100:8082",
+            },
+        )()
+        node = type(
+            "Node",
+            (),
+            {
+                "ui_enabled": False,
+                "ui_base_url": None,
+                "ui_health_endpoint": None,
+                "api_base_url": None,
+                "requested_api_base_url": None,
+                "requested_ui_endpoint": None,
+                "requested_hostname": None,
+                "runtime": runtime,
+            },
+        )()
+        resolver = UiTargetResolver(nodes_service=_NodesService(node))
+        api_target = resolver.resolve_node_api("node-1")
+        self.assertEqual(api_target.public_prefix, "/api/nodes/node-1")
+        self.assertEqual(api_target.target_base, "http://10.0.0.100:9004/api")
+
 
 if __name__ == "__main__":
     unittest.main()

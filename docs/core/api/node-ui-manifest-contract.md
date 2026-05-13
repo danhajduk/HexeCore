@@ -22,7 +22,7 @@ Core exposes the validated manifest to the production Core UI through:
 GET /api/nodes/{node_id}/ui-manifest
 ```
 
-This route is admin-session/token protected. The browser calls Core only; Core resolves the node API base URL and fetches the node-local manifest endpoint server-side.
+This route is admin-session/token protected. The browser calls Core only; Core resolves the node API base URL and fetches the node-local manifest endpoint server-side. Core prefers registration API metadata and can fall back to the supervisor runtime API base when registration metadata is missing.
 
 Response shape:
 
