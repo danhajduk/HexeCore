@@ -82,3 +82,124 @@ export type NodeUiLoadState<T> = {
   data: T | null;
   error: string | null;
 };
+
+export type NodeUiTone = "neutral" | "info" | "success" | "warning" | "error" | "danger";
+
+export type NodeUiCardError = {
+  code: string;
+  message: string;
+  tone?: NodeUiTone;
+  retryable?: boolean;
+};
+
+export type NodeUiRetryState = {
+  retry_after_ms?: number | null;
+  action_label?: string | null;
+};
+
+export type NodeUiCardResponseBase = {
+  kind: string;
+  updated_at: string;
+  stale?: boolean;
+  empty?: boolean;
+  errors?: NodeUiCardError[];
+  retry?: NodeUiRetryState | null;
+};
+
+export type NodeUiFact = {
+  id: string;
+  label: string;
+  value?: string | number | boolean | null;
+  unit?: string | null;
+  tone?: NodeUiTone;
+  detail?: string | null;
+};
+
+export type NodeOverviewCardResponse = NodeUiCardResponseBase & {
+  kind: "node_overview";
+  identity?: NodeUiFact[];
+  lifecycle?: NodeUiFact[];
+  trust?: NodeUiFact[];
+  software?: NodeUiFact[];
+  core_pairing?: NodeUiFact[];
+};
+
+export type HealthStripCardResponse = NodeUiCardResponseBase & {
+  kind: "health_strip";
+  items?: Array<{
+    id: string;
+    label: string;
+    value: string;
+    tone?: NodeUiTone;
+    detail?: string | null;
+  }>;
+};
+
+export type FactsCardResponse = NodeUiCardResponseBase & {
+  kind: "facts_card";
+  title?: string | null;
+  facts?: NodeUiFact[];
+};
+
+export type NodeUiActionState = {
+  id: string;
+  label?: string | null;
+  enabled?: boolean;
+  reason?: string | null;
+  tone?: NodeUiTone;
+};
+
+export type WarningBannerCardResponse = NodeUiCardResponseBase & {
+  kind: "warning_banner";
+  warnings?: Array<{
+    id: string;
+    title: string;
+    message?: string | null;
+    tone?: NodeUiTone;
+    actions?: NodeUiActionState[];
+  }>;
+};
+
+export type ActionPanelCardResponse = NodeUiCardResponseBase & {
+  kind: "action_panel";
+  groups?: Array<{
+    id: string;
+    label: string;
+    actions?: NodeUiActionState[];
+  }>;
+};
+
+export type RuntimeServiceCardResponse = NodeUiCardResponseBase & {
+  kind: "runtime_service";
+  services?: Array<{
+    id: string;
+    label: string;
+    runtime_state?: "unknown" | "stopped" | "starting" | "running" | "degraded" | "error";
+    health_status?: NodeUiTone;
+    facts?: NodeUiFact[];
+    actions?: NodeUiActionState[];
+  }>;
+};
+
+export type ProviderStatusCardResponse = NodeUiCardResponseBase & {
+  kind: "provider_status";
+  providers?: Array<{
+    id: string;
+    label: string;
+    provider?: string | null;
+    state?: "unknown" | "ready" | "degraded" | "unavailable" | "disabled" | "error";
+    tone?: NodeUiTone;
+    facts?: NodeUiFact[];
+    quotas?: NodeUiFact[];
+    errors?: NodeUiCardError[];
+  }>;
+};
+
+export type NodeUiCardResponse =
+  | NodeOverviewCardResponse
+  | HealthStripCardResponse
+  | FactsCardResponse
+  | WarningBannerCardResponse
+  | ActionPanelCardResponse
+  | RuntimeServiceCardResponse
+  | ProviderStatusCardResponse;

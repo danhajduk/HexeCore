@@ -48,7 +48,6 @@ Standards reference:
 Do not edit above this line:
 #######################################################################
 
-[TODO] Task 942: Build Core renderer registry and first shared card renderers
 [TODO] Task 943: Build Core manifest-backed node page shell
 [TODO] Task 944: Build Core node action execution layer
 [TODO] Task 945: Add pilot rendered-node UI fixtures and integration tests

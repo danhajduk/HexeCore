@@ -14,6 +14,10 @@ Backend validation models:
 
 - `backend/app/nodes/ui_cards.py`
 
+Core frontend renderer registry:
+
+- `frontend/src/core/rendered-node-ui/renderers.tsx`
+
 ## Shared Response Fields
 
 Every initial card response includes:
