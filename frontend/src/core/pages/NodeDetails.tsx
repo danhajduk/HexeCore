@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { useAdminSession } from "../auth/AdminSessionContext";
 import { usePlatformBranding } from "../branding";
-import { renderedNodeUiFeatureEnabled } from "../rendered-node-ui/featureGate";
 import { nodeUiFrameSrc } from "./nodeFrameUrl";
 import "./node-details.css";
 
@@ -132,6 +131,10 @@ function lifecycleSteps(node: NodeRecord): LifecycleStep[] {
   ];
 }
 
+export function nodeCanOpenRenderedCoreUi(node?: Pick<NodeRecord, "status"> | null): boolean {
+  return String(node?.status?.trust_status || "").trim().toLowerCase() === "trusted";
+}
+
 function formatMap(values?: Record<string, number>): string {
   const entries = Object.entries(values || {});
   if (entries.length === 0) return "-";
@@ -217,7 +220,6 @@ export default function NodeDetails() {
   const lifecycle = useMemo(() => (node ? lifecycleSteps(node) : []), [node]);
   const capabilityCategories = useMemo(() => node?.capabilities.taxonomy.categories || [], [node]);
   const routingProviders = useMemo(() => routing?.providers || [], [routing]);
-  const renderedNodeUiEnabled = useMemo(() => renderedNodeUiFeatureEnabled(), []);
   const nodeUiHref = useMemo(
     () => nodeUiFrameSrc(nodeId, node?.requested_ui_endpoint, node?.requested_hostname),
     [nodeId, node?.requested_hostname, node?.requested_ui_endpoint],
@@ -254,7 +256,7 @@ export default function NodeDetails() {
           <p className="node-subtitle">Canonical details for this trusted node from `/api/nodes/{nodeId}`.</p>
         </div>
         <div className="node-hero-actions">
-          {renderedNodeUiEnabled && node?.status.trust_status === "trusted" ? (
+          {nodeCanOpenRenderedCoreUi(node) ? (
             <Link to={`/nodes/${encodeURIComponent(nodeId)}/rendered-ui`} className="node-btn">
               Open Core UI
             </Link>

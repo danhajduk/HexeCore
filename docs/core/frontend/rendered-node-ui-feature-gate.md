@@ -25,7 +25,7 @@ Default state: disabled.
 
 ## Fallback
 
-When disabled, `/nodes/:nodeId/rendered-ui` does not fetch the node manifest and offers the legacy route:
+Trusted node detail pages can link to `/nodes/:nodeId/rendered-ui` even while the gate is disabled so operators can discover the Core-owned route. When disabled, `/nodes/:nodeId/rendered-ui` does not fetch the node manifest and offers the legacy route:
 
 ```text
 /nodes/:nodeId/UI
