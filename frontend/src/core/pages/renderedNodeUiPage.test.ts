@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   nodeUiActionConfirmationMessage,
+  nodeUiPageHasLiveSurface,
   nodeUiSurfacePollInterval,
   resolveNodeUiAction,
   resolveSelectedNodeUiPage,
@@ -41,6 +42,13 @@ describe("RenderedNodeUiPage helpers", () => {
     expect(nodeUiSurfacePollInterval(surface("near_live", 15000))).toBe(15000);
     expect(nodeUiSurfacePollInterval(surface("manual"))).toBeNull();
     expect(nodeUiSurfacePollInterval(surface("live"))).toBeNull();
+  });
+
+  it("marks pages with live or near-live surfaces", () => {
+    expect(nodeUiPageHasLiveSurface({ id: "live", title: "Live", surfaces: [surface("near_live", 15000)] })).toBe(
+      true,
+    );
+    expect(nodeUiPageHasLiveSurface({ id: "manual", title: "Manual", surfaces: [surface("manual")] })).toBe(false);
   });
 
   it("resolves executable action metadata from surface manifests", () => {

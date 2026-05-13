@@ -38,6 +38,10 @@ export function nodeUiActionConfirmationMessage(action: NodeUiAction): string | 
   return confirmation.message || confirmation.title || `Run ${action.label}?`;
 }
 
+export function nodeUiPageHasLiveSurface(page: NodeUiPage): boolean {
+  return page.surfaces.some((surface) => surface.refresh?.mode === "live" || surface.refresh?.mode === "near_live");
+}
+
 function SurfaceCard({ nodeId, surface }: { nodeId: string; surface: NodeUiSurface }) {
   const data = useNodeSurfaceData<NodeUiCardResponse>(nodeId, surface.data_endpoint);
   const pollInterval = nodeUiSurfacePollInterval(surface);
@@ -190,15 +194,23 @@ export default function RenderedNodeUiPage() {
         </div>
       ) : manifest && activePage ? (
         <>
-          <nav className="rendered-node-tabs" aria-label="Node UI pages">
+          <nav className="rendered-node-tabs" aria-label="Node UI pages" role="tablist">
             {manifest.pages.map((page) => (
               <button
                 key={page.id}
                 type="button"
+                role="tab"
+                aria-selected={page.id === activePage.id}
                 className={page.id === activePage.id ? "is-active" : ""}
                 onClick={() => setSelectedPageId(page.id)}
               >
-                {page.title}
+                <span className="rendered-node-tab-title">{page.title}</span>
+                <span className="rendered-node-tab-meta">
+                  <span>
+                    {page.surfaces.length} surface{page.surfaces.length === 1 ? "" : "s"}
+                  </span>
+                  {nodeUiPageHasLiveSurface(page) ? <span className="rendered-node-tab-live">Live</span> : null}
+                </span>
               </button>
             ))}
           </nav>
