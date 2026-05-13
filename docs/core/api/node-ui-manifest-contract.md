@@ -49,6 +49,10 @@ Core fetch/validation service:
 
 - `backend/app/nodes/ui_manifest_service.py`
 
+Core frontend data-loading layer:
+
+- `frontend/src/core/rendered-node-ui/`
+
 Current schema version:
 
 - `1.0`

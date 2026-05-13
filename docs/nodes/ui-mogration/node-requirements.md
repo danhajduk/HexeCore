@@ -58,6 +58,8 @@ The Core endpoint is admin-session/token protected and returns structured states
 
 The manifest must be small and declarative. It describes pages, surfaces, data endpoints, action endpoints, detail endpoint templates, and refresh policy. It must not include full page data.
 
+Core frontend code maps manifest `data_endpoint` values through Core-owned node proxy paths. For example, `/api/node/ui/overview/health` becomes `/api/nodes/{node_id}/node/ui/overview/health` in the browser.
+
 Canonical Core contract:
 
 - [Core-Owned Node UI Manifest Contract](../../core/api/node-ui-manifest-contract.md)
