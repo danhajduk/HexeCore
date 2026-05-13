@@ -219,6 +219,26 @@
   min-width: 0;
 }
 
+.rendered-node-content-wrap {
+  position: relative;
+  display: grid;
+  gap: var(--sx-space-4);
+  min-width: 0;
+}
+
+.rendered-node-content-wrap > .rendered-node-loading-content {
+  display: grid;
+  gap: var(--sx-space-4);
+}
+
+.rendered-node-content-wrap.is-loading > .rendered-node-loading-content,
+.rendered-node-surface-wrap.is-loading > .rendered-node-loading-content {
+  filter: blur(2px);
+  opacity: 0.62;
+  pointer-events: none;
+  user-select: none;
+}
+
 .rendered-node-surface-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -242,53 +262,6 @@
   border: 1px solid hsl(var(--sx-border));
   border-radius: var(--sx-radius-sm);
   font-size: 13px;
-}
-
-.rendered-node-loader {
-  display: flex;
-  align-items: center;
-  gap: var(--sx-space-2);
-  min-width: 0;
-}
-
-.rendered-node-loader strong {
-  display: block;
-  font-size: 14px;
-}
-
-.rendered-node-loader p {
-  margin: 3px 0 0;
-  color: hsl(var(--sx-text-muted));
-  font-size: 13px;
-}
-
-.rendered-node-loader-bars {
-  display: inline-flex;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 3px;
-  flex: 0 0 auto;
-  width: 34px;
-  height: 34px;
-  border: 1px solid hsl(var(--sx-text) / 0.12);
-  border-radius: var(--sx-radius-sm);
-  background: hsl(var(--sx-text) / 0.04);
-}
-
-.rendered-node-loader-bars span {
-  width: 4px;
-  height: 10px;
-  border-radius: 999px;
-  background: hsl(var(--sx-primary));
-  animation: rendered-node-loader-bars 820ms ease-in-out infinite;
-}
-
-.rendered-node-loader-bars span:nth-child(2) {
-  animation-delay: 110ms;
-}
-
-.rendered-node-loader-bars span:nth-child(3) {
-  animation-delay: 220ms;
 }
 
 .rendered-node-refresh-overlay {
@@ -315,6 +288,84 @@
   border: 1px solid hsl(var(--sx-border));
   border-radius: var(--sx-radius-md);
   background: hsl(var(--sx-panel));
+}
+
+.rendered-node-loading-shell {
+  display: block;
+  position: relative;
+  min-height: 72px;
+  overflow: hidden;
+}
+
+.rendered-node-loading-shell.is-health-strip {
+  min-height: 92px;
+}
+
+.rendered-node-loading-backdrop {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(70px, 1fr));
+  gap: var(--sx-space-2);
+  filter: blur(2px);
+  opacity: 0.48;
+}
+
+.rendered-node-loading-backdrop span {
+  min-height: 42px;
+  border: 1px solid hsl(var(--sx-text) / 0.1);
+  border-radius: var(--sx-radius-sm);
+  background:
+    linear-gradient(90deg, transparent, hsl(var(--sx-text) / 0.08), transparent),
+    hsl(var(--sx-text) / 0.035);
+  background-size: 220% 100%;
+  animation: rendered-node-loading-sheen 1400ms ease-in-out infinite;
+}
+
+.rendered-node-loading-backdrop span:nth-child(2) {
+  animation-delay: 120ms;
+}
+
+.rendered-node-loading-backdrop span:nth-child(3) {
+  animation-delay: 240ms;
+}
+
+.rendered-node-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  gap: 8px;
+  align-content: center;
+  justify-items: center;
+  padding: var(--sx-space-3);
+  border-radius: var(--sx-radius-md);
+  background: hsl(var(--sx-bg) / 0.24);
+  backdrop-filter: blur(3px);
+  pointer-events: none;
+}
+
+.rendered-node-loading-overlay span {
+  max-width: min(260px, 100%);
+  padding: 5px 10px;
+  border: 1px solid hsl(var(--sx-text) / 0.12);
+  border-radius: 999px;
+  background: hsl(var(--sx-panel) / 0.86);
+  color: hsl(var(--sx-text-muted));
+  font-size: 12px;
+  font-weight: 700;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rendered-node-loading-spinner {
+  width: 42px;
+  height: 42px;
+  border: 3px solid hsl(var(--sx-text) / 0.14);
+  border-top-color: hsl(var(--sx-primary));
+  border-radius: 999px;
+  box-shadow: 0 0 24px hsl(var(--sx-primary) / 0.2);
+  animation: rendered-node-spin 760ms linear infinite;
 }
 
 .rendered-node-surface-state {
@@ -344,16 +395,13 @@
   border-color: hsl(var(--sx-warning) / 0.5);
 }
 
-@keyframes rendered-node-loader-bars {
-  0%,
-  100% {
-    height: 8px;
-    opacity: 0.55;
+@keyframes rendered-node-loading-sheen {
+  0% {
+    background-position: 120% 0;
   }
 
-  45% {
-    height: 19px;
-    opacity: 1;
+  100% {
+    background-position: -120% 0;
   }
 }
 

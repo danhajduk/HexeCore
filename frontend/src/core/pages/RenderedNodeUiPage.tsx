@@ -55,18 +55,11 @@ function loadingClass(isLoading: boolean): string {
   return isLoading ? " is-loading" : "";
 }
 
-function RenderedNodeLoading({ title = "Loading", detail }: { title?: string; detail?: string }) {
+function RenderedNodeLoadingOverlay({ label = "Loading" }: { label?: string }) {
   return (
-    <div className="rendered-node-loader" role="status" aria-live="polite">
-      <div className="rendered-node-loader-bars" aria-hidden="true">
-        <span />
-        <span />
-        <span />
-      </div>
-      <div>
-        <strong>{title}</strong>
-        {detail ? <p>{detail}</p> : null}
-      </div>
+    <div className="rendered-node-loading-overlay" role="status" aria-live="polite">
+      <div className="rendered-node-loading-spinner" aria-hidden="true" />
+      <span>{label}</span>
     </div>
   );
 }
@@ -104,8 +97,13 @@ function SurfaceCard({ nodeId, surface }: { nodeId: string; surface: NodeUiSurfa
 
   if (data.status === "loading" && !data.data) {
     return (
-      <article className={`rendered-node-surface-state${surfaceLayoutClass(surface)}`}>
-        <RenderedNodeLoading title={surface.title} detail="Fetching surface data" />
+      <article className={`rendered-node-surface-state rendered-node-loading-shell${surfaceLayoutClass(surface)}`}>
+        <div className="rendered-node-loading-backdrop" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
+        <RenderedNodeLoadingOverlay label={surface.title} />
       </article>
     );
   }
@@ -125,10 +123,13 @@ function SurfaceCard({ nodeId, surface }: { nodeId: string; surface: NodeUiSurfa
   }
 
   return (
-    <div className={`rendered-node-surface-wrap${surfaceLayoutClass(surface)}`}>
-      <NodeUiCard surface={surface} data={data.data} onAction={(action) => void handleAction(action)} />
-      {actionMessage ? <div className="rendered-node-action-status tone-success">{actionMessage}</div> : null}
-      {actionError ? <div className="rendered-node-action-status tone-error">{actionError}</div> : null}
+    <div className={`rendered-node-surface-wrap${surfaceLayoutClass(surface)}${loadingClass(data.status === "loading")}`}>
+      <div className="rendered-node-loading-content">
+        <NodeUiCard surface={surface} data={data.data} onAction={(action) => void handleAction(action)} />
+        {actionMessage ? <div className="rendered-node-action-status tone-success">{actionMessage}</div> : null}
+        {actionError ? <div className="rendered-node-action-status tone-error">{actionError}</div> : null}
+      </div>
+      {data.status === "loading" ? <RenderedNodeLoadingOverlay label={`Refreshing ${surface.title}`} /> : null}
       <button
         type="button"
         className={`rendered-node-refresh rendered-node-refresh-overlay${loadingClass(data.status === "loading")}`}
@@ -215,8 +216,13 @@ export default function RenderedNodeUiPage() {
       </header>
 
       {manifestState.status === "loading" && !manifestState.data ? (
-        <div className="rendered-node-shell-state">
-          <RenderedNodeLoading title="Loading manifest" detail="Asking the node for its rendered UI contract" />
+        <div className="rendered-node-shell-state rendered-node-loading-shell">
+          <div className="rendered-node-loading-backdrop" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </div>
+          <RenderedNodeLoadingOverlay label="Loading manifest" />
         </div>
       ) : manifestState.status === "error" ? (
         <div className="rendered-node-shell-state rendered-node-shell-error">
@@ -230,30 +236,33 @@ export default function RenderedNodeUiPage() {
           <LegacyNodeUiFallback nodeId={nodeId} />
         </div>
       ) : manifest && activePage ? (
-        <>
-          <nav className="rendered-node-tabs" aria-label="Node UI pages" role="tablist">
-            {manifest.pages.map((page) => (
-              <button
-                key={page.id}
-                type="button"
-                role="tab"
-                aria-selected={page.id === activePage.id}
-                className={page.id === activePage.id ? "is-active" : ""}
-                onClick={() => setSelectedPageId(page.id)}
-              >
-                <span className="rendered-node-tab-title">{page.title}</span>
-              </button>
-            ))}
-          </nav>
-
-          <section className="rendered-node-page-section">
-            <div className="rendered-node-surface-grid">
-              {resolveNodeUiPageSurfaces(activePage).map((surface) => (
-                <SurfaceCard key={surface.id} nodeId={nodeId} surface={surface} />
+        <div className={`rendered-node-content-wrap${loadingClass(manifestState.status === "loading")}`}>
+          <div className="rendered-node-loading-content">
+            <nav className="rendered-node-tabs" aria-label="Node UI pages" role="tablist">
+              {manifest.pages.map((page) => (
+                <button
+                  key={page.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={page.id === activePage.id}
+                  className={page.id === activePage.id ? "is-active" : ""}
+                  onClick={() => setSelectedPageId(page.id)}
+                >
+                  <span className="rendered-node-tab-title">{page.title}</span>
+                </button>
               ))}
-            </div>
-          </section>
-        </>
+            </nav>
+
+            <section className="rendered-node-page-section">
+              <div className="rendered-node-surface-grid">
+                {resolveNodeUiPageSurfaces(activePage).map((surface) => (
+                  <SurfaceCard key={surface.id} nodeId={nodeId} surface={surface} />
+                ))}
+              </div>
+            </section>
+          </div>
+          {manifestState.status === "loading" ? <RenderedNodeLoadingOverlay label="Refreshing manifest" /> : null}
+        </div>
       ) : (
         <div className="rendered-node-shell-state rendered-node-shell-error">Manifest has no pages.</div>
       )}
