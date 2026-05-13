@@ -51,6 +51,26 @@ function surfaceLayoutClass(surface: NodeUiSurface): string {
   return surface.kind === "health_strip" ? " is-health-strip" : "";
 }
 
+function loadingClass(isLoading: boolean): string {
+  return isLoading ? " is-loading" : "";
+}
+
+function RenderedNodeLoading({ title = "Loading", detail }: { title?: string; detail?: string }) {
+  return (
+    <div className="rendered-node-loader" role="status" aria-live="polite">
+      <div className="rendered-node-loader-bars" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </div>
+      <div>
+        <strong>{title}</strong>
+        {detail ? <p>{detail}</p> : null}
+      </div>
+    </div>
+  );
+}
+
 function SurfaceCard({ nodeId, surface }: { nodeId: string; surface: NodeUiSurface }) {
   const data = useNodeSurfaceData<NodeUiCardResponse>(nodeId, surface.data_endpoint);
   const pollInterval = nodeUiSurfacePollInterval(surface);
@@ -85,8 +105,7 @@ function SurfaceCard({ nodeId, surface }: { nodeId: string; surface: NodeUiSurfa
   if (data.status === "loading" && !data.data) {
     return (
       <article className={`rendered-node-surface-state${surfaceLayoutClass(surface)}`}>
-        <h3>{surface.title}</h3>
-        <p>Loading...</p>
+        <RenderedNodeLoading title={surface.title} detail="Fetching surface data" />
       </article>
     );
   }
@@ -110,7 +129,13 @@ function SurfaceCard({ nodeId, surface }: { nodeId: string; surface: NodeUiSurfa
       <NodeUiCard surface={surface} data={data.data} onAction={(action) => void handleAction(action)} />
       {actionMessage ? <div className="rendered-node-action-status tone-success">{actionMessage}</div> : null}
       {actionError ? <div className="rendered-node-action-status tone-error">{actionError}</div> : null}
-      <button type="button" className="rendered-node-refresh rendered-node-refresh-overlay" onClick={data.reload} title="Refresh">
+      <button
+        type="button"
+        className={`rendered-node-refresh rendered-node-refresh-overlay${loadingClass(data.status === "loading")}`}
+        onClick={data.reload}
+        title="Refresh"
+        aria-busy={data.status === "loading"}
+      >
         <RefreshCw size={16} aria-hidden="true" />
       </button>
     </div>
@@ -178,9 +203,10 @@ export default function RenderedNodeUiPage() {
           ) : null}
           <button
             type="button"
-            className="rendered-node-refresh rendered-node-refresh-wide"
+            className={`rendered-node-refresh rendered-node-refresh-wide${loadingClass(manifestState.status === "loading")}`}
             onClick={manifestState.reload}
             title="Refresh manifest"
+            aria-busy={manifestState.status === "loading"}
           >
             <span>Refresh</span>
             <RefreshCw size={16} aria-hidden="true" />
@@ -189,7 +215,9 @@ export default function RenderedNodeUiPage() {
       </header>
 
       {manifestState.status === "loading" && !manifestState.data ? (
-        <div className="rendered-node-shell-state">Loading manifest...</div>
+        <div className="rendered-node-shell-state">
+          <RenderedNodeLoading title="Loading manifest" detail="Asking the node for its rendered UI contract" />
+        </div>
       ) : manifestState.status === "error" ? (
         <div className="rendered-node-shell-state rendered-node-shell-error">
           <span>{manifestState.error}</span>
