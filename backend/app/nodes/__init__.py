@@ -33,6 +33,11 @@ from .ui_manifest import (
     NodeUiSurface,
     validate_node_ui_manifest,
 )
+from .ui_manifest_service import (
+    NODE_UI_MANIFEST_ENDPOINT_PATH,
+    NodeUiManifestFetchResponse,
+    NodeUiManifestFetchService,
+)
 from .ui_cards import (
     ActionPanelCardResponse,
     FactsCardResponse,
@@ -76,6 +81,9 @@ __all__ = [
     "NodeUiRefreshPolicy",
     "NodeUiSurface",
     "validate_node_ui_manifest",
+    "NODE_UI_MANIFEST_ENDPOINT_PATH",
+    "NodeUiManifestFetchResponse",
+    "NodeUiManifestFetchService",
     "ActionPanelCardResponse",
     "FactsCardResponse",
     "HealthStripCardResponse",

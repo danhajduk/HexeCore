@@ -14,6 +14,27 @@ GET /api/node/ui-manifest
 
 Core owns the manifest schema, validation behavior, rendering, layout, refresh behavior, loading states, error states, and action execution UX.
 
+## Core Fetch API
+
+Core exposes the validated manifest to the production Core UI through:
+
+```http
+GET /api/nodes/{node_id}/ui-manifest
+```
+
+This route is admin-session/token protected. The browser calls Core only; Core resolves the node API base URL and fetches the node-local manifest endpoint server-side.
+
+Response shape:
+
+- `ok`: `true` when Core fetched and validated the manifest
+- `status`: one of `available`, `node_not_found`, `node_not_trusted`, `endpoint_not_configured`, `fetch_failed`, or `invalid_manifest`
+- `manifest`: the validated manifest payload when `ok=true`
+- `manifest_revision`: the active manifest revision when provided by the node
+- `cached_manifest_revision`: the most recent valid revision Core has seen for the node, when available
+- `error_code` and `detail`: operator-readable failure state when `ok=false`
+
+Core fetches manifests only for trusted nodes. Core caches valid manifests by node id and manifest revision when a revision is provided. Unversioned manifests are cached as the latest unversioned manifest for that node.
+
 ## Schema
 
 Canonical JSON Schema:
@@ -23,6 +44,10 @@ Canonical JSON Schema:
 Backend validation model:
 
 - `backend/app/nodes/ui_manifest.py`
+
+Core fetch/validation service:
+
+- `backend/app/nodes/ui_manifest_service.py`
 
 Current schema version:
 

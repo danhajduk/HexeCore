@@ -86,6 +86,10 @@ Status: Implemented
   - `GET /api/system/nodes/capabilities/profiles/{profile_id}` (admin session/token required)
   - `POST /api/services/register`
   - `GET /api/services/resolve`
+- Node registry and Core-rendered node UI:
+  - `GET /api/nodes`
+  - `GET /api/nodes/{node_id}`
+  - `GET /api/nodes/{node_id}/ui-manifest` (admin session/token required; Core fetches `GET /api/node/ui-manifest` from trusted nodes, validates it, and returns an operator-readable fetch state)
 
 Platform metadata currently includes:
 

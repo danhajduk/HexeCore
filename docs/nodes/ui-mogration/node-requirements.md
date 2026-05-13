@@ -48,6 +48,14 @@ Endpoint:
 GET /api/node/ui-manifest
 ```
 
+Core reads this endpoint server-side and exposes the validated result to the production Core UI at:
+
+```http
+GET /api/nodes/{node_id}/ui-manifest
+```
+
+The Core endpoint is admin-session/token protected and returns structured states for untrusted nodes, missing node API endpoints, fetch failures, and contract validation failures.
+
 The manifest must be small and declarative. It describes pages, surfaces, data endpoints, action endpoints, detail endpoint templates, and refresh policy. It must not include full page data.
 
 Canonical Core contract:

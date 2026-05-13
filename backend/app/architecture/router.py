@@ -118,7 +118,7 @@ def build_architecture_router() -> APIRouter:
                     "role": "external_execution_layer",
                     "module_paths": ["backend/app/nodes", "backend/app/system/onboarding"],
                     "docs_path": "docs/nodes",
-                    "routes": ["/api/nodes", "/api/nodes/{node_id}"],
+                    "routes": ["/api/nodes", "/api/nodes/{node_id}", "/api/nodes/{node_id}/ui-manifest"],
                 },
             ],
         }
