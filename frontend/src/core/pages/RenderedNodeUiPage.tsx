@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Layers3, RefreshCw, ServerCog } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 
@@ -118,17 +118,31 @@ function RenderedNodeLoadingOverlay({ label = "Loading" }: { label?: string }) {
   );
 }
 
+export function nodeUiHealthFallbackEndpoint(surface: NodeUiSurface): string | null {
+  if (surface.kind !== "health_strip") return null;
+  return surface.data_endpoint === "/api/node/ui/health" ? "/api/node/ui/overview/health" : null;
+}
+
 function SurfaceCard({ nodeId, surface }: { nodeId: string; surface: NodeUiSurface }) {
-  const data = useNodeSurfaceData<NodeUiCardResponse>(nodeId, surface.data_endpoint);
+  const primaryData = useNodeSurfaceData<NodeUiCardResponse>(nodeId, surface.data_endpoint);
+  const fallbackEndpoint = nodeUiHealthFallbackEndpoint(surface);
+  const fallbackData = useNodeSurfaceData<NodeUiCardResponse>(nodeId, fallbackEndpoint, {
+    enabled: Boolean(fallbackEndpoint && primaryData.status === "error" && !primaryData.data),
+  });
+  const data = fallbackEndpoint && primaryData.status === "error" && !primaryData.data ? fallbackData : primaryData;
   const pollInterval = nodeUiSurfacePollInterval(surface);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const reload = useCallback(() => {
+    primaryData.reload();
+    if (fallbackEndpoint) fallbackData.reload();
+  }, [fallbackData.reload, fallbackEndpoint, primaryData.reload]);
 
   useEffect(() => {
     if (!pollInterval) return;
-    const timer = window.setInterval(() => data.reload(), pollInterval);
+    const timer = window.setInterval(() => reload(), pollInterval);
     return () => window.clearInterval(timer);
-  }, [data.reload, pollInterval]);
+  }, [pollInterval, reload]);
 
   async function handleAction(actionState: NodeUiActionState) {
     const action = resolveNodeUiAction(surface, actionState);
@@ -143,7 +157,7 @@ function SurfaceCard({ nodeId, surface }: { nodeId: string; surface: NodeUiSurfa
     try {
       await executeNodeUiAction(nodeId, action);
       setActionMessage(`${action.label} complete.`);
-      data.reload();
+      reload();
     } catch (error: unknown) {
       setActionError(error instanceof Error ? error.message : String(error));
     }
@@ -169,7 +183,7 @@ function SurfaceCard({ nodeId, surface }: { nodeId: string; surface: NodeUiSurfa
           <h3>{surface.title}</h3>
           <p>{data.error || "Surface data unavailable."}</p>
         </div>
-        <button type="button" className="rendered-node-refresh" onClick={data.reload} title="Refresh">
+        <button type="button" className="rendered-node-refresh" onClick={reload} title="Refresh">
           <RefreshCw size={16} aria-hidden="true" />
         </button>
       </article>
@@ -186,7 +200,7 @@ function SurfaceCard({ nodeId, surface }: { nodeId: string; surface: NodeUiSurfa
       <button
         type="button"
         className="rendered-node-refresh rendered-node-refresh-overlay"
-        onClick={data.reload}
+        onClick={reload}
         title="Refresh"
         aria-busy={data.status === "loading"}
       >

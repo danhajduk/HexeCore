@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   nodeUiActionConfirmationMessage,
+  nodeUiHealthFallbackEndpoint,
   nodeUiPageSearchParams,
   nodeUiRefreshPollInterval,
   nodeUiSurfacePollInterval,
@@ -62,6 +63,16 @@ describe("RenderedNodeUiPage helpers", () => {
     expect(nodeUiSurfacePollInterval(surface("manual"))).toBeNull();
     expect(nodeUiSurfacePollInterval(surface("live"))).toBeNull();
     expect(nodeUiRefreshPollInterval({ mode: "near_live", interval_ms: 15000 })).toBe(15000);
+  });
+
+  it("keeps the rollout fallback from global health to the legacy overview health endpoint", () => {
+    expect(nodeUiHealthFallbackEndpoint(surface("near_live", 15000))).toBe("/api/node/ui/overview/health");
+    expect(
+      nodeUiHealthFallbackEndpoint({
+        ...surface("near_live", 15000),
+        data_endpoint: "/api/node/ui/overview/health",
+      }),
+    ).toBeNull();
   });
 
   it("keeps only redesigned surfaces without mutating the manifest page", () => {

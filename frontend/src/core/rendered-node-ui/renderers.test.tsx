@@ -60,6 +60,23 @@ describe("rendered node UI renderers", () => {
     expect(html).toContain("Runtime");
   });
 
+  it("renders legacy health strip item fields during endpoint rollout", () => {
+    const data = {
+      kind: "health_strip",
+      updated_at: "2026-05-13T01:00:00Z",
+      items: [
+        { id: "trust", label: "Trust", value: "trusted", tone: "success" },
+        { id: "runtime", label: "Runtime", value: "running", tone: "success" },
+      ],
+    } as unknown as HealthStripCardResponse;
+
+    const html = renderToStaticMarkup(<NodeUiCard surface={surface} data={data} />);
+
+    expect(html).toContain("Trust");
+    expect(html).toContain("trusted");
+    expect(html).toContain("Runtime");
+  });
+
   it("renders unsupported card states safely", () => {
     const html = renderToStaticMarkup(
       <NodeUiCard

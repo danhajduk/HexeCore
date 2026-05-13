@@ -69,6 +69,18 @@ function formatUpdatedAt(value?: string | null): string {
   return new Date(parsed).toLocaleString();
 }
 
+type HealthStripItemPayload = NonNullable<HealthStripCardResponse["items"]>[number];
+
+function healthStateName(item: HealthStripItemPayload): string {
+  const legacy = item as typeof item & { label?: string | null };
+  return String(item.state_name || legacy.label || "-").trim() || "-";
+}
+
+function healthCurrentState(item: HealthStripItemPayload): string {
+  const legacy = item as typeof item & { value?: string | null };
+  return String(item.current_state || legacy.value || "-").trim() || "-";
+}
+
 function formatPercent(value: unknown): string | null {
   const number = Number(value);
   if (!Number.isFinite(number)) return null;
@@ -229,12 +241,16 @@ export function HealthStripCard({ surface, data }: NodeUiCardRendererProps<Healt
         <div className="rendered-node-empty">No data.</div>
       ) : (
         <div className="rendered-node-health-strip">
-          {(data.items || []).map((item) => (
-            <div key={item.state_name} className={`rendered-node-health-item ${toneClass(item.tone)}`}>
-              <span>{item.state_name}</span>
-              <strong>{item.current_state}</strong>
-            </div>
-          ))}
+          {(data.items || []).map((item, index) => {
+            const stateName = healthStateName(item);
+            const currentState = healthCurrentState(item);
+            return (
+              <div key={`${stateName}-${index}`} className={`rendered-node-health-item ${toneClass(item.tone)}`}>
+                <span>{stateName}</span>
+                <strong>{currentState}</strong>
+              </div>
+            );
+          })}
         </div>
       )}
     </article>
