@@ -1,37 +1,32 @@
-# Rendered Node UI Feature Gate
+# Rendered Node UI Advertisement Gate
 
 Status: Implemented
 
 ## Purpose
 
-Rendered node UI is opt-in while nodes migrate from node-hosted operational UI to Core-owned UI. The legacy proxied iframe route remains available as fallback.
+Rendered node UI is enabled per node when that node advertises a valid Core-rendered UI manifest. The legacy proxied iframe route remains available as fallback.
 
 Implementation:
 
-- `frontend/src/core/rendered-node-ui/featureGate.ts`
-- `frontend/src/core/pages/RenderedNodeUiPage.tsx`
 - `frontend/src/core/pages/NodeDetails.tsx`
+- `frontend/src/core/pages/RenderedNodeUiPage.tsx`
+- `frontend/src/core/rendered-node-ui/hooks.ts`
 
-## Gate Controls
+## Gate Behavior
 
-The feature is enabled when either:
+Node details checks `GET /api/nodes/{node_id}/ui-manifest` for trusted nodes.
 
-- `VITE_RENDERED_NODE_UI=true` in frontend build-time configuration
-- browser local storage key `hexe.renderedNodeUi.enabled` is set to `true`, `1`, `yes`, `on`, or `enabled`
+If Core returns `ok: true`, the node has advertised the new Core-rendered UI and the **Open Core UI** entrypoint is enabled.
 
-Local storage can also force-disable with `false`, `0`, `no`, `off`, or `disabled`.
-
-Default state: disabled.
+If Core returns any other state, the Core UI entrypoint is disabled and exposes the manifest failure reason as the button tooltip.
 
 ## Fallback
 
-Trusted node detail pages can link to `/nodes/:nodeId/rendered-ui` even while the gate is disabled so operators can discover the Core-owned route. When disabled, `/nodes/:nodeId/rendered-ui` does not fetch the node manifest and offers the legacy route:
+`/nodes/:nodeId/rendered-ui` also fetches the manifest directly. Manifest load failures and invalid manifest states preserve the legacy UI fallback link:
 
 ```text
 /nodes/:nodeId/UI
 ```
-
-Manifest load failures and invalid manifest states also preserve the legacy UI fallback link.
 
 ## Verification
 

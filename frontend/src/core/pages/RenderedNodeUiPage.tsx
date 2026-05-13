@@ -14,7 +14,6 @@ import {
   type NodeUiPage,
   type NodeUiSurface,
 } from "../rendered-node-ui";
-import { renderedNodeUiFeatureEnabled } from "../rendered-node-ui/featureGate";
 import "./rendered-node-ui-page.css";
 
 export function resolveSelectedNodeUiPage(manifest: NodeUiManifest, selectedPageId?: string | null): NodeUiPage {
@@ -115,8 +114,7 @@ function LegacyNodeUiFallback({ nodeId }: { nodeId: string }) {
 
 export default function RenderedNodeUiPage() {
   const { nodeId = "" } = useParams();
-  const renderedNodeUiEnabled = useMemo(() => renderedNodeUiFeatureEnabled(), []);
-  const manifestState = useNodeUiManifest(nodeId, { enabled: renderedNodeUiEnabled });
+  const manifestState = useNodeUiManifest(nodeId);
   const manifest = manifestState.data?.manifest || null;
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
 
@@ -151,12 +149,7 @@ export default function RenderedNodeUiPage() {
         </button>
       </header>
 
-      {!renderedNodeUiEnabled ? (
-        <div className="rendered-node-shell-state">
-          <strong>Core-rendered UI is disabled.</strong>
-          <LegacyNodeUiFallback nodeId={nodeId} />
-        </div>
-      ) : manifestState.status === "loading" && !manifestState.data ? (
+      {manifestState.status === "loading" && !manifestState.data ? (
         <div className="rendered-node-shell-state">Loading manifest...</div>
       ) : manifestState.status === "error" ? (
         <div className="rendered-node-shell-state rendered-node-shell-error">

@@ -24,7 +24,7 @@ Core is currently implemented across:
 - MQTT authority and messaging policy
 - trusted-node trust, governance, and telemetry authority
 - production operator UI hosting
-- feature-gated Core-rendered node UI infrastructure
+- manifest-advertised Core-rendered node UI infrastructure
 
 ## Extension Rules
 

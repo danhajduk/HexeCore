@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { useAdminSession } from "../auth/AdminSessionContext";
 import { usePlatformBranding } from "../branding";
+import { useNodeUiManifest, type NodeUiLoadState, type NodeUiManifestFetchResponse } from "../rendered-node-ui";
 import { nodeUiFrameSrc } from "./nodeFrameUrl";
 import "./node-details.css";
 
@@ -135,6 +136,20 @@ export function nodeCanOpenRenderedCoreUi(node?: Pick<NodeRecord, "status"> | nu
   return String(node?.status?.trust_status || "").trim().toLowerCase() === "trusted";
 }
 
+export function renderedCoreUiAdvertised(
+  node: Pick<NodeRecord, "status"> | null | undefined,
+  manifestState: Pick<NodeUiLoadState<NodeUiManifestFetchResponse>, "data">,
+): boolean {
+  return nodeCanOpenRenderedCoreUi(node) && manifestState.data?.ok === true;
+}
+
+export function renderedCoreUiUnavailableReason(
+  manifestState: Pick<NodeUiLoadState<NodeUiManifestFetchResponse>, "status" | "data" | "error">,
+): string {
+  if (manifestState.status === "idle" || manifestState.status === "loading") return "Checking Core UI manifest.";
+  return manifestState.error || manifestState.data?.detail || manifestState.data?.error_code || manifestState.data?.status || "Core UI manifest unavailable.";
+}
+
 function formatMap(values?: Record<string, number>): string {
   const entries = Object.entries(values || {});
   if (entries.length === 0) return "-";
@@ -220,6 +235,10 @@ export default function NodeDetails() {
   const lifecycle = useMemo(() => (node ? lifecycleSteps(node) : []), [node]);
   const capabilityCategories = useMemo(() => node?.capabilities.taxonomy.categories || [], [node]);
   const routingProviders = useMemo(() => routing?.providers || [], [routing]);
+  const canCheckRenderedCoreUi = nodeCanOpenRenderedCoreUi(node);
+  const renderedCoreUiManifest = useNodeUiManifest(nodeId, { enabled: canCheckRenderedCoreUi });
+  const renderedCoreUiAvailable = renderedCoreUiAdvertised(node, renderedCoreUiManifest);
+  const renderedCoreUiReason = renderedCoreUiUnavailableReason(renderedCoreUiManifest);
   const nodeUiHref = useMemo(
     () => nodeUiFrameSrc(nodeId, node?.requested_ui_endpoint, node?.requested_hostname),
     [nodeId, node?.requested_hostname, node?.requested_ui_endpoint],
@@ -256,10 +275,18 @@ export default function NodeDetails() {
           <p className="node-subtitle">Canonical details for this trusted node from `/api/nodes/{nodeId}`.</p>
         </div>
         <div className="node-hero-actions">
-          {nodeCanOpenRenderedCoreUi(node) ? (
-            <Link to={`/nodes/${encodeURIComponent(nodeId)}/rendered-ui`} className="node-btn">
-              Open Core UI
-            </Link>
+          {canCheckRenderedCoreUi ? (
+            renderedCoreUiAvailable ? (
+              <Link to={`/nodes/${encodeURIComponent(nodeId)}/rendered-ui`} className="node-btn">
+                Open Core UI
+              </Link>
+            ) : (
+              <button type="button" className="node-btn" disabled title={renderedCoreUiReason}>
+                {renderedCoreUiManifest.status === "loading" || renderedCoreUiManifest.status === "idle"
+                  ? "Checking Core UI"
+                  : "Core UI unavailable"}
+              </button>
+            )
           ) : null}
           {nodeUiHref ? (
             <Link to={`/nodes/${encodeURIComponent(nodeId)}/UI`} className="node-btn">

@@ -65,6 +65,11 @@
   min-height: 36px;
 }
 
+.node-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .node-btn-danger {
   background: hsl(4 72% 38% / 0.2);
   border-color: hsl(4 72% 52% / 0.5);

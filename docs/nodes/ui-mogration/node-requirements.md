@@ -6,7 +6,7 @@ Status: Partially implemented
 
 This document defines what each node must eventually provide so Hexe Core can render operational node UI from Core-owned components.
 
-During the first infrastructure phase, implementation tasks are Core-only. Core now has production UI hosting and feature-gated rendered-node UI infrastructure, but nodes should not remove their existing operational UI until equivalent operator workflows are verified for that node class.
+During the first infrastructure phase, implementation tasks are Core-only. Core now has production UI hosting and manifest-advertised rendered-node UI infrastructure, but nodes should not remove their existing operational UI until equivalent operator workflows are verified for that node class.
 
 ## Production Assumption
 
@@ -62,7 +62,7 @@ Core frontend code maps manifest `data_endpoint` values through Core-owned node 
 
 Core action execution follows the same routing rule for manifest action endpoints. Card data may enable or disable an action id, but the executable method, endpoint, sensitivity, and confirmation metadata must come from the manifest action entry.
 
-Rendered node UI remains feature-gated during migration. Nodes should keep legacy operational UI available until Core enables rendered UI for that node class and fallback behavior has been verified.
+Rendered node UI remains gated by a valid Core-rendered UI manifest during migration. Nodes should keep legacy operational UI available until Core can validate that manifest and fallback behavior has been verified.
 
 Canonical Core contract:
 

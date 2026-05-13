@@ -12,7 +12,7 @@ Route:
 /nodes/:nodeId/rendered-ui
 ```
 
-The legacy proxied iframe route remains available at `/nodes/:nodeId/UI` as a fallback while rendered node UI is feature-gated.
+The legacy proxied iframe route remains available at `/nodes/:nodeId/UI` as a fallback while rendered node UI is gated by manifest advertisement.
 
 ## Behavior
 
