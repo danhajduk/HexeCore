@@ -58,7 +58,9 @@ export function nodeUiActionConfirmationMessage(action: NodeUiAction): string | 
 
 export function resolveNodeUiPageSurfaces(page: NodeUiPage): NodeUiSurface[] {
   return page.surfaces.filter((surface) =>
-    ["health_strip", "warning_banner", "runtime_service", "provider_status"].includes(surface.kind),
+    ["health_strip", "warning_banner", "runtime_service", "provider_status", "record_list", "action_panel"].includes(
+      surface.kind,
+    ),
   );
 }
 
@@ -72,7 +74,9 @@ export function resolveNodeUiAdvertisedHealthSurface(manifest: NodeUiManifest): 
 
 export function resolveNodeUiPageCards(cards: NodeUiPageCard[]): NodeUiPageCard[] {
   return cards.filter((card) =>
-    ["health_strip", "warning_banner", "runtime_service", "provider_status"].includes(card.kind),
+    ["health_strip", "warning_banner", "runtime_service", "provider_status", "record_list", "action_panel"].includes(
+      card.kind,
+    ),
   );
 }
 

@@ -67,6 +67,8 @@ describe("RenderedNodeUiPage helpers", () => {
         { ...surface("manual"), id: "node.warnings", kind: "warning_banner", title: "Operational Warnings" },
         { ...surface("near_live", 15000), id: "runtime.services", kind: "runtime_service", title: "Runtime Services" },
         { ...surface("near_live", 30000), id: "runtime.providers", kind: "provider_status", title: "Provider Status" },
+        { ...surface("near_live", 10000), id: "voice.endpoints", kind: "record_list", title: "Voice Endpoints" },
+        { ...surface("near_live", 10000), id: "voice.endpoint_actions", kind: "action_panel", title: "Endpoint Actions" },
         { ...surface("static"), id: "node.facts", kind: "facts_card", title: "Facts" },
       ],
     };
@@ -76,6 +78,8 @@ describe("RenderedNodeUiPage helpers", () => {
       "node.warnings",
       "runtime.services",
       "runtime.providers",
+      "voice.endpoints",
+      "voice.endpoint_actions",
     ]);
     expect(overview.surfaces.map((item) => item.id)).toEqual([
       "node.overview",
@@ -83,6 +87,8 @@ describe("RenderedNodeUiPage helpers", () => {
       "node.warnings",
       "runtime.services",
       "runtime.providers",
+      "voice.endpoints",
+      "voice.endpoint_actions",
       "node.facts",
     ]);
   });
@@ -136,6 +142,16 @@ describe("RenderedNodeUiPage helpers", () => {
         kind: "provider_status",
         data: { kind: "provider_status", updated_at: "2026-05-13T01:00:00Z" },
       },
+      {
+        id: "voice.endpoints",
+        kind: "record_list",
+        data: { kind: "record_list", updated_at: "2026-05-13T01:00:00Z" },
+      },
+      {
+        id: "voice.endpoint_actions",
+        kind: "action_panel",
+        data: { kind: "action_panel", updated_at: "2026-05-13T01:00:00Z" },
+      },
     ];
 
     expect(resolveNodeUiPageCards(cards).map((item) => item.id)).toEqual([
@@ -143,6 +159,8 @@ describe("RenderedNodeUiPage helpers", () => {
       "node.warnings",
       "runtime.services",
       "runtime.providers",
+      "voice.endpoints",
+      "voice.endpoint_actions",
     ]);
     expect(cards.map((item) => item.id)).toEqual([
       "node.overview",
@@ -151,6 +169,8 @@ describe("RenderedNodeUiPage helpers", () => {
       "node.warnings",
       "runtime.services",
       "runtime.providers",
+      "voice.endpoints",
+      "voice.endpoint_actions",
     ]);
   });
 

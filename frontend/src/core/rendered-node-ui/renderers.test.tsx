@@ -13,6 +13,7 @@ import type {
   HealthStripCardResponse,
   NodeUiSurface,
   ProviderStatusCardResponse,
+  RecordListCardResponse,
   RuntimeServiceCardResponse,
   WarningBannerCardResponse,
 } from "./types";
@@ -33,6 +34,7 @@ describe("rendered node UI renderers", () => {
       "health_strip",
       "node_overview",
       "provider_status",
+      "record_list",
       "runtime_service",
       "warning_banner",
     ]);
@@ -139,6 +141,42 @@ describe("rendered node UI renderers", () => {
     expect(html).toContain("TTS Provider");
     expect(html).toContain("piper");
     expect(html).toContain("en_US-lessac");
+  });
+
+  it("renders endpoint record list payloads from the voice node", () => {
+    const data: RecordListCardResponse = {
+      kind: "record_list",
+      updated_at: "2026-05-13T01:00:00Z",
+      summary: { endpoint_count: 2, active_endpoint_id: "esp-box-1" },
+      columns: [
+        { id: "name", label: "Name" },
+        { id: "status", label: "Status" },
+        { id: "device_state", label: "Device" },
+        { id: "firmware_version", label: "Firmware" },
+      ],
+      records: [
+        {
+          id: "esp-box-1",
+          endpoint_id: "esp-box-1",
+          name: "Kitchen",
+          status: "online",
+          tone: "success",
+          active: true,
+          device_state: "idle",
+          firmware_version: "0.1.0",
+        },
+      ],
+    };
+
+    const html = renderToStaticMarkup(
+      <NodeUiCard surface={{ ...surface, kind: "record_list", title: "Voice Endpoints" }} data={data} />,
+    );
+
+    expect(html).toContain("Kitchen");
+    expect(html).toContain("Online");
+    expect(html).toContain("Active");
+    expect(html).toContain("0.1.0");
+    expect(html).toContain("Endpoint Count");
   });
 
   it("keeps action buttons disabled until an action handler is provided", () => {

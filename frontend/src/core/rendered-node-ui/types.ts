@@ -148,6 +148,7 @@ export type NodeUiActionState = {
   label?: string | null;
   enabled?: boolean;
   reason?: string | null;
+  disabled_reason?: string | null;
   tone?: NodeUiTone;
 };
 
@@ -169,6 +170,27 @@ export type ActionPanelCardResponse = NodeUiCardResponseBase & {
     label: string;
     actions?: NodeUiActionState[];
   }>;
+};
+
+export type NodeUiRecordValue = string | number | boolean | null | undefined;
+
+export type RecordListCardResponse = NodeUiCardResponseBase & {
+  kind: "record_list";
+  summary?: Record<string, NodeUiRecordValue>;
+  columns?: Array<{
+    id: string;
+    label: string;
+  }>;
+  records?: Array<
+    Record<string, NodeUiRecordValue | Record<string, unknown>> & {
+      id: string;
+      name?: string | null;
+      status?: string | null;
+      tone?: NodeUiTone;
+      active?: boolean;
+      detail_ref?: Record<string, unknown>;
+    }
+  >;
 };
 
 export type RuntimeServiceCardResponse = NodeUiCardResponseBase & {
@@ -214,6 +236,7 @@ export type NodeUiCardResponse =
   | FactsCardResponse
   | WarningBannerCardResponse
   | ActionPanelCardResponse
+  | RecordListCardResponse
   | RuntimeServiceCardResponse
   | ProviderStatusCardResponse;
 

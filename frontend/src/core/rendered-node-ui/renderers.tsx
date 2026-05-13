@@ -11,9 +11,11 @@ import type {
   NodeUiCardResponse,
   NodeUiCardResponseBase,
   NodeUiFact,
+  NodeUiRecordValue,
   NodeUiSurface,
   NodeUiTone,
   ProviderStatusCardResponse,
+  RecordListCardResponse,
   RuntimeServiceCardResponse,
   WarningBannerCardResponse,
 } from "./types";
@@ -49,6 +51,17 @@ function formatValue(value: NodeUiFact["value"], unit?: string | null): string {
   return unit ? `${text} ${unit}` : text;
 }
 
+function formatRecordValue(value: NodeUiRecordValue): string {
+  if (value === null || value === undefined || value === "") return "-";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  return String(value);
+}
+
+function readRecordValue(value: unknown): NodeUiRecordValue {
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean" || value == null) return value;
+  return null;
+}
+
 function formatUpdatedAt(value?: string | null): string {
   if (!value) return "";
   const parsed = Date.parse(value);
@@ -72,6 +85,10 @@ function formatBytes(value: unknown): string | null {
 
 function compactFacts(facts: Array<NodeUiFact | null | undefined>): NodeUiFact[] {
   return facts.filter((fact): fact is NodeUiFact => Boolean(fact && fact.value !== null && fact.value !== undefined && fact.value !== ""));
+}
+
+function summaryFacts(summary?: Record<string, NodeUiRecordValue>): NodeUiFact[] {
+  return Object.entries(summary || {}).map(([id, value]) => ({ id, label: labelize(id), value: formatRecordValue(value) }));
 }
 
 function CardShell({
@@ -142,12 +159,13 @@ function ActionButton({
   onAction?: ActionHandler;
 }) {
   const enabled = action.enabled !== false && Boolean(onAction);
+  const disabledReason = action.disabled_reason || action.reason;
   return (
     <button
       type="button"
       className={`rendered-node-action ${toneClass(action.tone)}`}
       disabled={!enabled}
-      title={action.reason || action.label || action.id}
+      title={disabledReason || action.label || action.id}
       onClick={() => {
         if (enabled) onAction?.(action, surface);
       }}
@@ -272,6 +290,45 @@ export function ActionPanelCard({ surface, data, onAction }: NodeUiCardRendererP
   );
 }
 
+export function RecordListCard({ surface, data }: NodeUiCardRendererProps<RecordListCardResponse>) {
+  const records = data.records || [];
+  const columns = data.columns || [];
+  return (
+    <CardShell surface={surface} data={data}>
+      {data.summary ? <FactGrid facts={summaryFacts(data.summary)} /> : null}
+      <div className="rendered-node-record-list">
+        {records.map((record) => {
+          const title = formatRecordValue(
+            readRecordValue(record.name) || readRecordValue(record.session_id) || readRecordValue(record.endpoint_id) || record.id,
+          );
+          const status = formatRecordValue(readRecordValue(record.status));
+          return (
+            <section key={record.id} className={`rendered-node-record-item ${record.active ? "is-active" : ""}`}>
+              <div className="rendered-node-record-main">
+                <div>
+                  <h4>{title}</h4>
+                  {record.active ? <span className="rendered-node-record-active">Active</span> : null}
+                </div>
+                {record.status ? <span className={`rendered-node-pill ${toneClass(record.tone)}`}>{labelize(status)}</span> : null}
+              </div>
+              <dl className="rendered-node-record-fields">
+                {columns
+                  .filter((column) => column.id !== "name" && column.id !== "session_id" && column.id !== "status")
+                  .map((column) => (
+                    <div key={column.id}>
+                      <dt>{column.label}</dt>
+                      <dd>{formatRecordValue(readRecordValue(record[column.id]))}</dd>
+                    </div>
+                  ))}
+              </dl>
+            </section>
+          );
+        })}
+      </div>
+    </CardShell>
+  );
+}
+
 export function RuntimeServiceCard({ surface, data, onAction }: NodeUiCardRendererProps<RuntimeServiceCardResponse>) {
   return (
     <CardShell surface={surface} data={data}>
@@ -357,6 +414,7 @@ export const NODE_UI_CARD_RENDERERS: Record<string, NodeUiCardRenderer<any>> = {
   facts_card: FactsCard,
   warning_banner: WarningBannerCard,
   action_panel: ActionPanelCard,
+  record_list: RecordListCard,
   runtime_service: RuntimeServiceCard,
   provider_status: ProviderStatusCard,
 };
