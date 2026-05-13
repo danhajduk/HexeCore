@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, RefreshCw } from "lucide-react";
+import { ArrowLeft, Layers3, RefreshCw, ServerCog } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 
 import {
@@ -126,6 +126,7 @@ export default function RenderedNodeUiPage() {
     () => (manifest ? resolveSelectedNodeUiPage(manifest, selectedPageId) : null),
     [manifest, selectedPageId],
   );
+  const surfaceCount = manifest?.pages.reduce((total, page) => total + page.surfaces.length, 0) || 0;
 
   return (
     <section className="rendered-node-page">
@@ -135,18 +136,43 @@ export default function RenderedNodeUiPage() {
             <ArrowLeft size={16} aria-hidden="true" />
             <span>Node details</span>
           </Link>
-          <div className="rendered-node-eyebrow">Core-rendered node UI</div>
-          <h1>{manifest?.display_name || nodeId}</h1>
-          {manifest ? (
-            <p>
-              {manifest.node_type}
-              {manifest.manifest_revision ? ` · ${manifest.manifest_revision}` : ""}
-            </p>
-          ) : null}
+          <div className="rendered-node-title-main">
+            <div className="rendered-node-title-icon" aria-hidden="true">
+              <ServerCog size={22} />
+            </div>
+            <div>
+              <div className="rendered-node-eyebrow">Core-rendered node UI</div>
+              <h1>{manifest?.display_name || nodeId}</h1>
+              {manifest ? (
+                <p>
+                  {manifest.node_type}
+                  {manifest.manifest_revision ? ` · ${manifest.manifest_revision}` : ""}
+                </p>
+              ) : null}
+            </div>
+          </div>
         </div>
-        <button type="button" className="rendered-node-refresh" onClick={manifestState.reload} title="Refresh manifest">
-          <RefreshCw size={16} aria-hidden="true" />
-        </button>
+        <div className="rendered-node-page-actions">
+          {manifest ? (
+            <div className="rendered-node-header-meta" aria-label="Manifest summary">
+              <span>{manifest.pages.length} pages</span>
+              <span>{surfaceCount} surfaces</span>
+              <span>
+                <Layers3 size={14} aria-hidden="true" />
+                Schema {manifest.schema_version}
+              </span>
+            </div>
+          ) : null}
+          <button
+            type="button"
+            className="rendered-node-refresh rendered-node-refresh-wide"
+            onClick={manifestState.reload}
+            title="Refresh manifest"
+          >
+            <span>Refresh</span>
+            <RefreshCw size={16} aria-hidden="true" />
+          </button>
+        </div>
       </header>
 
       {manifestState.status === "loading" && !manifestState.data ? (
