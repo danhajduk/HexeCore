@@ -112,40 +112,14 @@
 
 .rendered-card-gallery-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--sx-space-3);
   align-items: start;
 }
 
 .rendered-card-gallery-item {
   display: grid;
-  gap: var(--sx-space-2);
   min-width: 0;
-}
-
-.rendered-card-gallery-item-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sx-space-2);
-  min-width: 0;
-  padding: 0 2px;
-}
-
-.rendered-card-gallery-item-head span {
-  overflow: hidden;
-  color: hsl(var(--sx-text-muted));
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.rendered-card-gallery-item-head strong {
-  overflow: hidden;
-  font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 @media (max-width: 720px) {

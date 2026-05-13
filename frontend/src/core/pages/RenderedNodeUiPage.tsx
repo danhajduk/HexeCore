@@ -46,21 +46,11 @@ export function nodeUiActionConfirmationMessage(action: NodeUiAction): string | 
 }
 
 export function resolveNodeUiPageSurfaces(page: NodeUiPage): NodeUiSurface[] {
-  return page.surfaces.filter((surface) => surface.kind !== "node_overview").sort((left, right) => {
-    if (left.kind === right.kind) return 0;
-    if (left.kind === "health_strip") return -1;
-    if (right.kind === "health_strip") return 1;
-    return 0;
-  });
+  return page.surfaces.filter((surface) => surface.kind === "health_strip");
 }
 
 export function resolveNodeUiPageCards(cards: NodeUiPageCard[]): NodeUiPageCard[] {
-  return cards.filter((card) => card.kind !== "node_overview").sort((left, right) => {
-    if (left.kind === right.kind) return 0;
-    if (left.kind === "health_strip") return -1;
-    if (right.kind === "health_strip") return 1;
-    return 0;
-  });
+  return cards.filter((card) => card.kind === "health_strip");
 }
 
 export function resolveNodeUiManifestDataLabel(manifest: NodeUiManifest): string {

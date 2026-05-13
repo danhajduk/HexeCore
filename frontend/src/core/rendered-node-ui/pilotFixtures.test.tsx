@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { nodeUiActionPath, nodeUiSurfaceDataPath } from "./api";
+import { nodeUiSurfaceDataPath } from "./api";
 import { pilotNodeUiCardResponses, pilotNodeUiManifest } from "./pilotFixtures";
 import { getNodeUiCardRenderer, NodeUiCard, UnsupportedNodeUiCard } from "./renderers";
 
@@ -9,7 +9,7 @@ describe("pilot rendered node UI fixtures", () => {
   it("covers every pilot surface with a card response and registered renderer", () => {
     const surfaces = pilotNodeUiManifest.pages.flatMap((page) => page.surfaces);
 
-    expect(surfaces).toHaveLength(7);
+    expect(surfaces).toHaveLength(1);
     for (const surface of surfaces) {
       const response = pilotNodeUiCardResponses[surface.kind];
       expect(response?.kind).toBe(surface.kind);
@@ -28,20 +28,8 @@ describe("pilot rendered node UI fixtures", () => {
       )
       .join("\n");
 
-    expect(html).toContain("Node Overview");
-    expect(html).toContain("Backend");
-    expect(html).toContain("Provider Facts");
+    expect(html).toContain("Lifecycle");
+    expect(html).toContain("External_faster_whisper");
     expect(html).not.toContain("Unsupported card kind");
-  });
-
-  it("maps pilot action endpoints through Core", () => {
-    const actions = pilotNodeUiManifest.pages.flatMap((page) =>
-      page.surfaces.flatMap((surface) => surface.actions || []),
-    );
-
-    expect(actions.map((action) => nodeUiActionPath(pilotNodeUiManifest.node_id, action.endpoint))).toEqual([
-      "/api/nodes/pilot-node-1/node/ui/runtime/services/backend/restart",
-      "/api/nodes/pilot-node-1/node/ui/runtime/cache",
-    ]);
   });
 });

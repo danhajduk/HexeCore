@@ -48,7 +48,7 @@ describe("RenderedNodeUiPage helpers", () => {
     expect(nodeUiRefreshPollInterval({ mode: "near_live", interval_ms: 15000 })).toBe(15000);
   });
 
-  it("omits node overview cards and places health strip surfaces first without mutating the manifest page", () => {
+  it("keeps only health strip surfaces during the focused redesign pass without mutating the manifest page", () => {
     const overview = {
       id: "overview",
       title: "Overview",
@@ -59,14 +59,11 @@ describe("RenderedNodeUiPage helpers", () => {
       ],
     };
 
-    expect(resolveNodeUiPageSurfaces(overview).map((item) => item.id)).toEqual([
-      "node.health",
-      "node.facts",
-    ]);
+    expect(resolveNodeUiPageSurfaces(overview).map((item) => item.id)).toEqual(["node.health"]);
     expect(overview.surfaces.map((item) => item.id)).toEqual(["node.overview", "node.health", "node.facts"]);
   });
 
-  it("omits node overview cards and places health strip cards first for page snapshots", () => {
+  it("keeps only health strip cards for page snapshots during the focused redesign pass", () => {
     const cards: NodeUiPageCard[] = [
       {
         id: "node.overview",
@@ -85,7 +82,7 @@ describe("RenderedNodeUiPage helpers", () => {
       },
     ];
 
-    expect(resolveNodeUiPageCards(cards).map((item) => item.id)).toEqual(["node.health", "node.facts"]);
+    expect(resolveNodeUiPageCards(cards).map((item) => item.id)).toEqual(["node.health"]);
     expect(cards.map((item) => item.id)).toEqual(["node.overview", "node.facts", "node.health"]);
   });
 

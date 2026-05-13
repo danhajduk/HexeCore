@@ -1,31 +1,11 @@
-import { useState } from "react";
-import { ArrowLeft, Boxes, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Boxes } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import {
-  NodeUiCard,
-  pilotNodeUiCardResponses,
-  pilotNodeUiManifest,
-  type NodeUiActionState,
-  type NodeUiSurface,
-} from "../rendered-node-ui";
+import { NodeUiCard, pilotNodeUiCardResponses, pilotNodeUiManifest } from "../rendered-node-ui";
 import "./rendered-node-ui-card-gallery.css";
 
-type ActionNotice = {
-  surfaceTitle: string;
-  actionLabel: string;
-};
-
 export default function RenderedNodeUiCardGallery() {
-  const [lastAction, setLastAction] = useState<ActionNotice | null>(null);
-  const surfaces = pilotNodeUiManifest.pages.flatMap((page) => page.surfaces);
-
-  function handleAction(action: NodeUiActionState, surface: NodeUiSurface) {
-    setLastAction({
-      surfaceTitle: surface.title,
-      actionLabel: action.label || action.id,
-    });
-  }
+  const surfaces = pilotNodeUiManifest.pages.flatMap((page) => page.surfaces).filter((surface) => surface.kind === "health_strip");
 
   return (
     <section className="rendered-card-gallery">
@@ -42,7 +22,7 @@ export default function RenderedNodeUiCardGallery() {
             <div>
               <div className="rendered-card-gallery-eyebrow">Rendered node UI helper</div>
               <h1>Card gallery</h1>
-              <p>Fixture previews for every supported Core-rendered node card.</p>
+              <p>Health strip preview at rendered page width.</p>
             </div>
           </div>
         </div>
@@ -52,26 +32,13 @@ export default function RenderedNodeUiCardGallery() {
         </div>
       </header>
 
-      {lastAction ? (
-        <div className="rendered-card-gallery-notice">
-          <CheckCircle2 size={16} aria-hidden="true" />
-          <span>
-            Preview action: {lastAction.actionLabel} on {lastAction.surfaceTitle}
-          </span>
-        </div>
-      ) : null}
-
       <div className="rendered-card-gallery-grid">
         {surfaces.map((surface) => {
           const data = pilotNodeUiCardResponses[surface.kind];
           if (!data) return null;
           return (
             <section key={surface.id} className="rendered-card-gallery-item">
-              <div className="rendered-card-gallery-item-head">
-                <span>{surface.kind}</span>
-                <strong>{surface.title}</strong>
-              </div>
-              <NodeUiCard surface={surface} data={data} onAction={handleAction} />
+              <NodeUiCard surface={surface} data={data} />
             </section>
           );
         })}
