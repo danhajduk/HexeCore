@@ -13,7 +13,7 @@
 }
 
 .rendered-node-card.kind-health_strip {
-  padding: var(--sx-space-2);
+  padding: 5px;
   border-color: hsl(var(--sx-text) / 0.1);
   border-radius: calc(var(--sx-radius-lg) + 2px);
   background:
@@ -134,16 +134,16 @@
 .rendered-node-health-strip {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: var(--sx-space-2);
+  gap: 6px;
   min-width: 0;
 }
 
 .rendered-node-health-item {
   display: grid;
   align-content: center;
-  gap: 7px;
-  min-height: 68px;
-  padding: 11px 12px;
+  gap: 4px;
+  min-height: 37px;
+  padding: 6px 8px;
   border-color: hsl(var(--sx-text) / 0.09);
   border-radius: var(--sx-radius-sm);
   background: hsl(var(--sx-text) / 0.035);
@@ -151,30 +151,30 @@
 
 .rendered-node-health-item span {
   color: hsl(var(--sx-text-muted));
-  font-size: 11px;
+  font-size: 10px;
   text-transform: uppercase;
 }
 
 .rendered-node-health-item strong {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   width: fit-content;
   min-width: 0;
   max-width: 100%;
-  padding: 4px 10px;
+  padding: 2px 8px;
   border: 1px solid hsl(var(--sx-border));
   border-radius: 999px;
   color: hsl(var(--sx-text));
   overflow-wrap: anywhere;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
 }
 
 .rendered-node-health-item strong::before {
   flex: 0 0 auto;
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 999px;
   background: currentColor;
   content: "";
