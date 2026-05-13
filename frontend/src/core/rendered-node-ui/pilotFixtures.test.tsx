@@ -9,7 +9,7 @@ describe("pilot rendered node UI fixtures", () => {
   it("covers every pilot surface with a card response and registered renderer", () => {
     const surfaces = pilotNodeUiManifest.pages.flatMap((page) => page.surfaces);
 
-    expect(surfaces).toHaveLength(1);
+    expect(surfaces).toHaveLength(2);
     for (const surface of surfaces) {
       const response = pilotNodeUiCardResponses[surface.kind];
       expect(response?.kind).toBe(surface.kind);
@@ -30,6 +30,8 @@ describe("pilot rendered node UI fixtures", () => {
 
     expect(html).toContain("Lifecycle");
     expect(html).toContain("External_faster_whisper");
+    expect(html).toContain("Governance refresh due");
+    expect(html).toContain("STT engine using fallback");
     expect(html).not.toContain("Unsupported card kind");
   });
 });

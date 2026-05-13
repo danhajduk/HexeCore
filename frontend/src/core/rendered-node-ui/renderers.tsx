@@ -215,15 +215,18 @@ export function FactsCard({ surface, data }: NodeUiCardRendererProps<FactsCardRe
 }
 
 export function WarningBannerCard({ surface, data, onAction }: NodeUiCardRendererProps<WarningBannerCardResponse>) {
+  const warnings = data.warnings || [];
   return (
     <CardShell surface={surface} data={data}>
       <div className="rendered-node-warning-list">
-        {(data.warnings || []).map((warning) => (
+        {warnings.map((warning) => (
           <section key={warning.id} className={`rendered-node-warning ${toneClass(warning.tone)}`}>
             <div className="rendered-node-warning-copy">
-              <AlertTriangle size={18} aria-hidden="true" />
+              <span className="rendered-node-warning-icon">
+                <AlertTriangle size={16} aria-hidden="true" />
+              </span>
               <div>
-                <h4>{warning.title}</h4>
+                <h4>{warning.title || labelize(warning.id)}</h4>
                 {warning.message ? <p>{warning.message}</p> : null}
               </div>
             </div>

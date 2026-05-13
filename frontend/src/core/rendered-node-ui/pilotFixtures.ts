@@ -18,6 +18,27 @@ export const pilotNodeUiManifest: NodeUiManifest = {
           data_endpoint: "/api/node/ui/overview/health",
           refresh: { mode: "near_live", interval_ms: 15000 },
         },
+        {
+          id: "node.warnings",
+          kind: "warning_banner",
+          title: "Operational Warnings",
+          data_endpoint: "/api/node/ui/overview/warnings",
+          actions: [
+            {
+              id: "refresh_governance",
+              label: "Refresh governance",
+              method: "POST",
+              endpoint: "/api/node/ui/actions/refresh-status",
+            },
+            {
+              id: "open_provider_setup",
+              label: "Open provider setup",
+              method: "POST",
+              endpoint: "/api/node/ui/actions/open-provider-setup",
+            },
+          ],
+          refresh: { mode: "manual" },
+        },
       ],
     },
   ],
@@ -35,6 +56,26 @@ export const pilotNodeUiCardResponses: Record<string, NodeUiCardResponse> = {
       { id: "providers", label: "Providers", value: "Configured", tone: "info" },
       { id: "stt", label: "STT", value: "External_faster_whisper", tone: "success" },
       { id: "tts", label: "TTS", value: "Piper", tone: "success" },
+    ],
+  },
+  warning_banner: {
+    kind: "warning_banner",
+    updated_at: "2026-05-13T01:00:00Z",
+    warnings: [
+      {
+        id: "governance",
+        title: "Governance refresh due",
+        message: "Policy sync is older than the preferred freshness window.",
+        tone: "warning",
+        actions: [{ id: "refresh_governance", label: "Refresh governance", enabled: true, tone: "warning" }],
+      },
+      {
+        id: "provider.stt",
+        title: "STT engine using fallback",
+        message: "The node is ready, but speech recognition is using the deterministic fallback engine.",
+        tone: "info",
+        actions: [{ id: "open_provider_setup", label: "Open provider setup", enabled: true, tone: "info" }],
+      },
     ],
   },
 };

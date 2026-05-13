@@ -5,7 +5,9 @@ import { NodeUiCard, pilotNodeUiCardResponses, pilotNodeUiManifest } from "../re
 import "./rendered-node-ui-card-gallery.css";
 
 export default function RenderedNodeUiCardGallery() {
-  const surfaces = pilotNodeUiManifest.pages.flatMap((page) => page.surfaces).filter((surface) => surface.kind === "health_strip");
+  const surfaces = pilotNodeUiManifest.pages
+    .flatMap((page) => page.surfaces)
+    .filter((surface) => ["health_strip", "warning_banner"].includes(surface.kind));
 
   return (
     <section className="rendered-card-gallery">
@@ -22,7 +24,7 @@ export default function RenderedNodeUiCardGallery() {
             <div>
               <div className="rendered-card-gallery-eyebrow">Rendered node UI helper</div>
               <h1>Card gallery</h1>
-              <p>Health strip preview at rendered page width.</p>
+              <p>Rendered page card previews.</p>
             </div>
           </div>
         </div>
@@ -38,7 +40,7 @@ export default function RenderedNodeUiCardGallery() {
           if (!data) return null;
           return (
             <section key={surface.id} className="rendered-card-gallery-item">
-              <NodeUiCard surface={surface} data={data} />
+              <NodeUiCard surface={surface} data={data} onAction={() => undefined} />
             </section>
           );
         })}
