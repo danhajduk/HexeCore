@@ -15,12 +15,20 @@ function initialState<T>(): NodeUiLoadState<T> {
   };
 }
 
-export function useNodeUiManifest(nodeId: string): ReloadableNodeUiLoadState<NodeUiManifestFetchResponse> {
+export function useNodeUiManifest(
+  nodeId: string,
+  options: { enabled?: boolean } = {},
+): ReloadableNodeUiLoadState<NodeUiManifestFetchResponse> {
   const [state, setState] = useState<NodeUiLoadState<NodeUiManifestFetchResponse>>(initialState);
   const [reloadKey, setReloadKey] = useState(0);
   const reload = useCallback(() => setReloadKey((value) => value + 1), []);
+  const enabled = options.enabled ?? true;
 
   useEffect(() => {
+    if (!enabled) {
+      setState(initialState<NodeUiManifestFetchResponse>());
+      return;
+    }
     const target = String(nodeId || "").trim();
     if (!target) {
       setState({ status: "error", data: null, error: "node_id_required" });
@@ -42,7 +50,7 @@ export function useNodeUiManifest(nodeId: string): ReloadableNodeUiLoadState<Nod
     return () => {
       controller.abort();
     };
-  }, [nodeId, reloadKey]);
+  }, [nodeId, enabled, reloadKey]);
 
   return { ...state, reload };
 }

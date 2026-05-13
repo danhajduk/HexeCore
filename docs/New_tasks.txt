@@ -48,5 +48,4 @@ Standards reference:
 Do not edit above this line:
 #######################################################################
 
-[TODO] Task 946: Add rendered-node UI feature gate and legacy proxied-UI fallback
 [TODO] Task 947: Update verified docs for production Core UI and rendered-node UI migration

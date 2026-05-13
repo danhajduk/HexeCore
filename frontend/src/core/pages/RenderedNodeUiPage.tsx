@@ -14,6 +14,7 @@ import {
   type NodeUiPage,
   type NodeUiSurface,
 } from "../rendered-node-ui";
+import { renderedNodeUiFeatureEnabled } from "../rendered-node-ui/featureGate";
 import "./rendered-node-ui-page.css";
 
 export function resolveSelectedNodeUiPage(manifest: NodeUiManifest, selectedPageId?: string | null): NodeUiPage {
@@ -104,9 +105,18 @@ function SurfaceCard({ nodeId, surface }: { nodeId: string; surface: NodeUiSurfa
   );
 }
 
+function LegacyNodeUiFallback({ nodeId }: { nodeId: string }) {
+  return (
+    <Link to={`/nodes/${encodeURIComponent(nodeId)}/UI`} className="rendered-node-fallback-link">
+      Open legacy UI
+    </Link>
+  );
+}
+
 export default function RenderedNodeUiPage() {
   const { nodeId = "" } = useParams();
-  const manifestState = useNodeUiManifest(nodeId);
+  const renderedNodeUiEnabled = useMemo(() => renderedNodeUiFeatureEnabled(), []);
+  const manifestState = useNodeUiManifest(nodeId, { enabled: renderedNodeUiEnabled });
   const manifest = manifestState.data?.manifest || null;
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
 
@@ -141,14 +151,23 @@ export default function RenderedNodeUiPage() {
         </button>
       </header>
 
-      {manifestState.status === "loading" && !manifestState.data ? (
+      {!renderedNodeUiEnabled ? (
+        <div className="rendered-node-shell-state">
+          <strong>Core-rendered UI is disabled.</strong>
+          <LegacyNodeUiFallback nodeId={nodeId} />
+        </div>
+      ) : manifestState.status === "loading" && !manifestState.data ? (
         <div className="rendered-node-shell-state">Loading manifest...</div>
       ) : manifestState.status === "error" ? (
-        <div className="rendered-node-shell-state rendered-node-shell-error">{manifestState.error}</div>
+        <div className="rendered-node-shell-state rendered-node-shell-error">
+          <span>{manifestState.error}</span>
+          <LegacyNodeUiFallback nodeId={nodeId} />
+        </div>
       ) : manifestState.data && !manifestState.data.ok ? (
         <div className="rendered-node-shell-state rendered-node-shell-error">
           <strong>{manifestState.data.status}</strong>
           <span>{manifestState.data.detail || manifestState.data.error_code}</span>
+          <LegacyNodeUiFallback nodeId={nodeId} />
         </div>
       ) : manifest && activePage ? (
         <>

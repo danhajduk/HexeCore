@@ -163,6 +163,12 @@
   color: hsl(var(--sx-text-muted));
 }
 
+.rendered-node-fallback-link {
+  width: fit-content;
+  color: hsl(var(--sx-primary));
+  font-size: 13px;
+}
+
 .rendered-node-shell-error,
 .rendered-node-surface-error {
   border-color: hsl(var(--sx-warning) / 0.5);
