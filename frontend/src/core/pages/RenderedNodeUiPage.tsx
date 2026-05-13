@@ -39,7 +39,7 @@ export function nodeUiActionConfirmationMessage(action: NodeUiAction): string | 
 }
 
 export function resolveNodeUiPageSurfaces(page: NodeUiPage): NodeUiSurface[] {
-  return [...page.surfaces].sort((left, right) => {
+  return page.surfaces.filter((surface) => surface.kind !== "node_overview").sort((left, right) => {
     if (left.kind === right.kind) return 0;
     if (left.kind === "health_strip") return -1;
     if (right.kind === "health_strip") return 1;

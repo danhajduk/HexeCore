@@ -44,7 +44,7 @@ describe("RenderedNodeUiPage helpers", () => {
     expect(nodeUiSurfacePollInterval(surface("live"))).toBeNull();
   });
 
-  it("places health strip surfaces first without mutating the manifest page", () => {
+  it("omits node overview cards and places health strip surfaces first without mutating the manifest page", () => {
     const overview = {
       id: "overview",
       title: "Overview",
@@ -57,7 +57,6 @@ describe("RenderedNodeUiPage helpers", () => {
 
     expect(resolveNodeUiPageSurfaces(overview).map((item) => item.id)).toEqual([
       "node.health",
-      "node.overview",
       "node.facts",
     ]);
     expect(overview.surfaces.map((item) => item.id)).toEqual(["node.overview", "node.health", "node.facts"]);
