@@ -53,6 +53,10 @@ Core frontend data-loading layer:
 
 - `frontend/src/core/rendered-node-ui/`
 
+Core manifest-backed page shell:
+
+- `frontend/src/core/pages/RenderedNodeUiPage.tsx`
+
 Current schema version:
 
 - `1.0`

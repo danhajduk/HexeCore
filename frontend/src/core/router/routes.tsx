@@ -6,6 +6,7 @@ import Addons from "../pages/Addons";
 import AddonFrame from "../pages/AddonFrame";
 import NodeDetails from "../pages/NodeDetails";
 import NodeFrame from "../pages/NodeFrame";
+import RenderedNodeUiPage from "../pages/RenderedNodeUiPage";
 import ProxyLogin from "../pages/ProxyLogin";
 import Settings from "../pages/Settings";
 import EdgeGateway from "../pages/EdgeGateway";
@@ -36,6 +37,7 @@ export function buildRoutes(isAdmin: boolean, ready: boolean): RouteObject[] {
     { path: "/proxy-login", element: <ProxyLogin /> },
     { path: "/store", element: protectedRoute(<AddonStorePage />) },
     { path: "/addons", element: protectedRoute(<Addons />) },
+    { path: "/nodes/:nodeId/rendered-ui", element: protectedRoute(<RenderedNodeUiPage />) },
     { path: "/nodes/:nodeId/UI", element: protectedRoute(<NodeFrame />) },
     { path: "/nodes/:nodeId", element: protectedRoute(<NodeDetails />) },
     { path: "/addons/:addonId/:section", element: protectedRoute(<AddonFrame />) },

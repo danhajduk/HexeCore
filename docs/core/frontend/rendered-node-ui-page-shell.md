@@ -1,0 +1,34 @@
+# Rendered Node UI Page Shell
+
+Status: Implemented
+
+## Purpose
+
+The rendered node UI page shell composes the Core-owned manifest loader, surface data loader, and shared card renderer registry into an operator page.
+
+Route:
+
+```text
+/nodes/:nodeId/rendered-ui
+```
+
+The legacy proxied iframe route remains available at `/nodes/:nodeId/UI` until the rendered UI feature gate and fallback behavior are implemented.
+
+## Behavior
+
+The page shell:
+
+- loads the validated manifest from `/api/nodes/{node_id}/ui-manifest`
+- renders manifest pages as tabs
+- loads surface data through Core-owned `/api/nodes/{node_id}/...` proxy paths
+- renders surfaces through the shared card renderer registry
+- enables polling only for `live` and `near_live` surfaces with explicit `interval_ms`
+- leaves action buttons disabled until the Core action execution layer is implemented
+
+## Verification
+
+Targeted tests:
+
+```bash
+cd frontend && npm test -- rendered-node-ui renderedNodeUiPage
+```

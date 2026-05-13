@@ -891,3 +891,4 @@ Task 939: Define initial Core-owned node card response contracts - Completed on 
 Task 940: Build Core manifest fetch and validation service - Completed on 05/12/2026 20:31
 Task 941: Build Core rendered-node UI data loading layer - Completed on 05/12/2026 20:35
 Task 942: Build Core renderer registry and first shared card renderers - Completed on 05/12/2026 20:40
+Task 943: Build Core manifest-backed node page shell - Completed on 05/12/2026 20:43

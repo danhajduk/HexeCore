@@ -252,6 +252,11 @@ export default function NodeDetails() {
           <p className="node-subtitle">Canonical details for this trusted node from `/api/nodes/{nodeId}`.</p>
         </div>
         <div className="node-hero-actions">
+          {node?.status.trust_status === "trusted" ? (
+            <Link to={`/nodes/${encodeURIComponent(nodeId)}/rendered-ui`} className="node-btn">
+              Open Core UI
+            </Link>
+          ) : null}
           {nodeUiHref ? (
             <Link to={`/nodes/${encodeURIComponent(nodeId)}/UI`} className="node-btn">
               Open UI
