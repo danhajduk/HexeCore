@@ -146,7 +146,7 @@ function SurfaceCard({ nodeId, surface }: { nodeId: string; surface: NodeUiSurfa
     }
   }
 
-  if (data.status === "loading" && !data.data) {
+  if ((data.status === "idle" || data.status === "loading") && !data.data) {
     return (
       <article className={`rendered-node-surface-state rendered-node-loading-shell${surfaceLayoutClass(surface)}`}>
         <div className="rendered-node-loading-backdrop" aria-hidden="true">
@@ -247,7 +247,7 @@ function PageSnapshotSection({ nodeId, page }: { nodeId: string; page: NodeUiPag
     return () => window.clearInterval(timer);
   }, [pageData.reload, pollInterval]);
 
-  if (pageData.status === "loading" && !pageData.data) {
+  if ((pageData.status === "idle" || pageData.status === "loading") && !pageData.data) {
     return (
       <section className="rendered-node-page-section">
         <div className="rendered-node-surface-grid">
@@ -423,11 +423,11 @@ export default function RenderedNodeUiPage() {
             </nav>
 
             {activePage.page_endpoint ? (
-              <PageSnapshotSection nodeId={nodeId} page={activePage} />
+              <PageSnapshotSection key={activePage.id} nodeId={nodeId} page={activePage} />
             ) : advertisedHealthSurface ? (
-              <LegacySurfaceSection nodeId={nodeId} surfaces={[advertisedHealthSurface]} />
+              <LegacySurfaceSection key={activePage.id} nodeId={nodeId} surfaces={[advertisedHealthSurface]} />
             ) : (
-              <LegacySurfaceSection nodeId={nodeId} surfaces={resolveNodeUiPageSurfaces(activePage)} />
+              <LegacySurfaceSection key={activePage.id} nodeId={nodeId} surfaces={resolveNodeUiPageSurfaces(activePage)} />
             )}
           </div>
         </div>
