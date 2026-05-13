@@ -211,7 +211,7 @@ class TestNodeUiManifestFetchService(unittest.IsolatedAsyncioTestCase):
                 else:
                     os.environ["SYNTHIA_NODE_UI_MANIFEST_DEBUG_LOG"] = previous
 
-    async def test_reports_latest_cached_manifest_revision_on_failure(self) -> None:
+    async def test_returns_latest_cached_manifest_without_waiting_for_refetch(self) -> None:
         responses = [httpx.Response(200, json=_manifest(revision="rev-2")), httpx.Response(503)]
 
         def handler(request: httpx.Request) -> httpx.Response:
@@ -223,8 +223,34 @@ class TestNodeUiManifestFetchService(unittest.IsolatedAsyncioTestCase):
         second = await service.fetch_manifest("node-1")
 
         self.assertTrue(first.ok)
-        self.assertFalse(second.ok)
+        self.assertTrue(second.ok)
+        self.assertTrue(second.cached)
+        self.assertEqual(second.manifest_revision, "rev-2")
         self.assertEqual(second.cached_manifest_revision, "rev-2")
+        self.assertEqual(len(responses), 1)
+
+    async def test_refreshes_cached_manifest_in_background_after_refresh_window(self) -> None:
+        responses = [
+            httpx.Response(200, json=_manifest(revision="rev-1")),
+            httpx.Response(200, json=_manifest(revision="rev-2")),
+        ]
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return responses.pop(0)
+
+        service = self._service(handler)
+
+        first = await service.fetch_manifest("node-1")
+        service._latest_fetch_at["node-1"] = 0.0
+        second = await service.fetch_manifest("node-1")
+        await service._refresh_tasks["node-1"]
+        third = await service.fetch_manifest("node-1")
+
+        self.assertEqual(first.manifest_revision, "rev-1")
+        self.assertTrue(second.cached)
+        self.assertEqual(second.manifest_revision, "rev-1")
+        self.assertTrue(third.cached)
+        self.assertEqual(third.manifest_revision, "rev-2")
 
     async def test_returns_node_not_found_as_failure_state(self) -> None:
         self.client = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(500)))

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import os
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
@@ -19,6 +21,7 @@ from .ui_manifest import NodeUiManifest, NodeUiManifestValidationError, validate
 
 NODE_UI_MANIFEST_ENDPOINT_PATH = "node/ui-manifest"
 NODE_UI_MANIFEST_TIMEOUT_SECONDS = 5.0
+NODE_UI_MANIFEST_REFRESH_AFTER_SECONDS = 30.0
 NODE_UI_MANIFEST_DEBUG_LOG_PATH = "logs/rendered-node-ui-manifest.jsonl"
 
 NodeUiManifestFetchStatus = Literal[
@@ -98,6 +101,8 @@ class NodeUiManifestFetchService:
         self._client = client
         self._cache: dict[tuple[str, str], NodeUiManifest] = {}
         self._latest_cache_key: dict[str, tuple[str, str]] = {}
+        self._latest_fetch_at: dict[str, float] = {}
+        self._refresh_tasks: dict[str, asyncio.Task[None]] = {}
 
     def cached_manifest(self, node_id: str, manifest_revision: str | None = None) -> NodeUiManifest | None:
         if manifest_revision is not None:
@@ -134,6 +139,14 @@ class NodeUiManifestFetchService:
             )
 
         target_url = ReverseProxyService.build_target_url(api_base, NODE_UI_MANIFEST_ENDPOINT_PATH)
+        cached = self.cached_manifest(node_id)
+        if cached is not None:
+            self._refresh_cached_manifest_if_due(node_id, target_url)
+            return self._available(node_id, cached, cached=True)
+
+        return await self._fetch_from_node(node_id, target_url)
+
+    async def _fetch_from_node(self, node_id: str, target_url: str) -> NodeUiManifestFetchResponse:
         try:
             response = await self._get(target_url)
         except httpx.HTTPError as exc:
@@ -170,15 +183,44 @@ class NodeUiManifestFetchService:
         cache_key = (node_id, manifest.manifest_revision or "__unversioned__")
         self._cache[cache_key] = manifest
         self._latest_cache_key[node_id] = cache_key
+        self._latest_fetch_at[node_id] = time.monotonic()
+        return self._available(node_id, manifest, cached=False)
+
+    def _available(self, node_id: str, manifest: NodeUiManifest, *, cached: bool) -> NodeUiManifestFetchResponse:
         return NodeUiManifestFetchResponse(
             node_id=node_id,
             ok=True,
             status="available",
             manifest=manifest.to_payload(),
             manifest_revision=manifest.manifest_revision,
-            cached=False,
+            cached=cached,
             cached_manifest_revision=manifest.manifest_revision,
         )
+
+    def _refresh_cached_manifest_if_due(self, node_id: str, target_url: str) -> None:
+        refresh_after = _env_float(
+            "SYNTHIA_NODE_UI_MANIFEST_REFRESH_AFTER_SECONDS",
+            NODE_UI_MANIFEST_REFRESH_AFTER_SECONDS,
+        )
+        last_fetch_at = self._latest_fetch_at.get(node_id, 0.0)
+        if time.monotonic() - last_fetch_at < refresh_after:
+            return
+        existing = self._refresh_tasks.get(node_id)
+        if existing is not None and not existing.done():
+            return
+
+        async def refresh() -> None:
+            try:
+                await self._fetch_from_node(node_id, target_url)
+            finally:
+                task = self._refresh_tasks.get(node_id)
+                if task is asyncio.current_task():
+                    self._refresh_tasks.pop(node_id, None)
+
+        try:
+            self._refresh_tasks[node_id] = asyncio.create_task(refresh())
+        except RuntimeError:
+            return
 
     async def _get(self, target_url: str) -> httpx.Response:
         headers = {"Accept": "application/json"}

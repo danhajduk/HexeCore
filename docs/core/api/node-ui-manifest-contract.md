@@ -33,7 +33,7 @@ Response shape:
 - `cached_manifest_revision`: the most recent valid revision Core has seen for the node, when available
 - `error_code` and `detail`: operator-readable failure state when `ok=false`
 
-Core fetches manifests only for trusted nodes. Core caches valid manifests by node id and manifest revision when a revision is provided. Unversioned manifests are cached as the latest unversioned manifest for that node.
+Core fetches manifests only for trusted nodes. Core caches valid manifests by node id and manifest revision when a revision is provided. Unversioned manifests are cached as the latest unversioned manifest for that node. Once a valid manifest is cached, Core serves that cached manifest immediately and refreshes the node manifest in the background after the refresh window, so rendered UI page loads do not block on intermittent manifest fetch latency.
 
 ## Schema
 
