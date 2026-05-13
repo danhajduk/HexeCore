@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Layers3, RefreshCw, ServerCog } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 
@@ -100,22 +100,7 @@ function RenderedNodeLoadingOverlay({ label = "Loading" }: { label?: string }) {
   );
 }
 
-type SurfaceLoadSnapshot = {
-  status: "idle" | "loading" | "ready" | "error";
-  hasData: boolean;
-};
-
-function SurfaceCard({
-  nodeId,
-  surface,
-  onDataStatusChange,
-  showRefreshOverlay = true,
-}: {
-  nodeId: string;
-  surface: NodeUiSurface;
-  onDataStatusChange?: (surfaceId: string, snapshot: SurfaceLoadSnapshot | null) => void;
-  showRefreshOverlay?: boolean;
-}) {
+function SurfaceCard({ nodeId, surface }: { nodeId: string; surface: NodeUiSurface }) {
   const data = useNodeSurfaceData<NodeUiCardResponse>(nodeId, surface.data_endpoint);
   const pollInterval = nodeUiSurfacePollInterval(surface);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
@@ -126,14 +111,6 @@ function SurfaceCard({
     const timer = window.setInterval(() => data.reload(), pollInterval);
     return () => window.clearInterval(timer);
   }, [data.reload, pollInterval]);
-
-  useEffect(() => {
-    onDataStatusChange?.(surface.id, { status: data.status, hasData: Boolean(data.data) });
-  }, [data.status, data.data, onDataStatusChange, surface.id]);
-
-  useEffect(() => {
-    return () => onDataStatusChange?.(surface.id, null);
-  }, [onDataStatusChange, surface.id]);
 
   async function handleAction(actionState: NodeUiActionState) {
     const action = resolveNodeUiAction(surface, actionState);
@@ -182,22 +159,15 @@ function SurfaceCard({
   }
 
   return (
-    <div
-      className={`rendered-node-surface-wrap${surfaceLayoutClass(surface)}${loadingClass(
-        showRefreshOverlay && data.status === "loading",
-      )}`}
-    >
+    <div className={`rendered-node-surface-wrap${surfaceLayoutClass(surface)}`}>
       <div className="rendered-node-loading-content">
         <NodeUiCard surface={surface} data={data.data} onAction={(action) => void handleAction(action)} />
         {actionMessage ? <div className="rendered-node-action-status tone-success">{actionMessage}</div> : null}
         {actionError ? <div className="rendered-node-action-status tone-error">{actionError}</div> : null}
       </div>
-      {showRefreshOverlay && data.status === "loading" ? (
-        <RenderedNodeLoadingOverlay label={`Refreshing ${surface.title}`} />
-      ) : null}
       <button
         type="button"
-        className={`rendered-node-refresh rendered-node-refresh-overlay${loadingClass(data.status === "loading")}`}
+        className="rendered-node-refresh rendered-node-refresh-overlay"
         onClick={data.reload}
         title="Refresh"
         aria-busy={data.status === "loading"}
@@ -295,7 +265,7 @@ function PageSnapshotSection({ nodeId, page }: { nodeId: string; page: NodeUiPag
   const cards = resolveNodeUiPageCards(pageData.data.cards || []);
 
   return (
-    <section className={`rendered-node-page-section rendered-node-content-wrap${loadingClass(pageData.status === "loading")}`}>
+    <section className="rendered-node-page-section rendered-node-content-wrap">
       <div className="rendered-node-loading-content">
         <div className="rendered-node-surface-grid">
           {cards.map((card) => (
@@ -303,42 +273,20 @@ function PageSnapshotSection({ nodeId, page }: { nodeId: string; page: NodeUiPag
           ))}
         </div>
       </div>
-      {pageData.status === "loading" ? <RenderedNodeLoadingOverlay label={`Refreshing ${page.title}`} /> : null}
     </section>
   );
 }
 
-function LegacySurfaceSection({ nodeId, page, surfaces }: { nodeId: string; page: NodeUiPage; surfaces: NodeUiSurface[] }) {
-  const [surfaceStates, setSurfaceStates] = useState<Record<string, SurfaceLoadSnapshot>>({});
-  const handleSurfaceStatusChange = useCallback((surfaceId: string, snapshot: SurfaceLoadSnapshot | null) => {
-    setSurfaceStates((current) => {
-      const next = { ...current };
-      if (snapshot) {
-        next[surfaceId] = snapshot;
-      } else {
-        delete next[surfaceId];
-      }
-      return next;
-    });
-  }, []);
-  const isRefreshing = Object.values(surfaceStates).some((state) => state.status === "loading" && state.hasData);
-
+function LegacySurfaceSection({ nodeId, surfaces }: { nodeId: string; surfaces: NodeUiSurface[] }) {
   return (
-    <section className={`rendered-node-page-section rendered-node-content-wrap${loadingClass(isRefreshing)}`}>
+    <section className="rendered-node-page-section rendered-node-content-wrap">
       <div className="rendered-node-loading-content">
         <div className="rendered-node-surface-grid">
           {surfaces.map((surface) => (
-            <SurfaceCard
-              key={surface.id}
-              nodeId={nodeId}
-              surface={surface}
-              onDataStatusChange={handleSurfaceStatusChange}
-              showRefreshOverlay={false}
-            />
+            <SurfaceCard key={surface.id} nodeId={nodeId} surface={surface} />
           ))}
         </div>
       </div>
-      {isRefreshing ? <RenderedNodeLoadingOverlay label={`Refreshing ${page.title}`} /> : null}
     </section>
   );
 }
@@ -405,7 +353,9 @@ export default function RenderedNodeUiPage() {
           ) : null}
           <button
             type="button"
-            className={`rendered-node-refresh rendered-node-refresh-wide${loadingClass(manifestState.status === "loading")}`}
+            className={`rendered-node-refresh rendered-node-refresh-wide${loadingClass(
+              manifestState.status === "loading" && !manifestState.data,
+            )}`}
             onClick={manifestState.reload}
             title="Refresh manifest"
             aria-busy={manifestState.status === "loading"}
@@ -455,11 +405,11 @@ export default function RenderedNodeUiPage() {
             </nav>
 
             {advertisedHealthSurface ? (
-              <LegacySurfaceSection nodeId={nodeId} page={activePage} surfaces={[advertisedHealthSurface]} />
+              <LegacySurfaceSection nodeId={nodeId} surfaces={[advertisedHealthSurface]} />
             ) : activePage.page_endpoint ? (
               <PageSnapshotSection nodeId={nodeId} page={activePage} />
             ) : (
-              <LegacySurfaceSection nodeId={nodeId} page={activePage} surfaces={resolveNodeUiPageSurfaces(activePage)} />
+              <LegacySurfaceSection nodeId={nodeId} surfaces={resolveNodeUiPageSurfaces(activePage)} />
             )}
           </div>
         </div>
