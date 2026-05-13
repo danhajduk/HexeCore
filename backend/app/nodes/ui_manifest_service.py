@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
 import os
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Literal
 
 import httpx
@@ -16,6 +19,7 @@ from .ui_manifest import NodeUiManifest, NodeUiManifestValidationError, validate
 
 NODE_UI_MANIFEST_ENDPOINT_PATH = "node/ui-manifest"
 NODE_UI_MANIFEST_TIMEOUT_SECONDS = 5.0
+NODE_UI_MANIFEST_DEBUG_LOG_PATH = "logs/rendered-node-ui-manifest.jsonl"
 
 NodeUiManifestFetchStatus = Literal[
     "available",
@@ -49,6 +53,30 @@ def _env_float(name: str, default: float) -> float:
         return max(0.1, float(os.getenv(name, str(default)).strip()))
     except Exception:
         return default
+
+
+def _debug_manifest_log_path() -> Path | None:
+    configured = os.getenv("SYNTHIA_NODE_UI_MANIFEST_DEBUG_LOG", NODE_UI_MANIFEST_DEBUG_LOG_PATH).strip()
+    if configured.lower() in {"", "0", "false", "off", "none"}:
+        return None
+    return Path(configured)
+
+
+def _append_debug_manifest_log(node_id: str, payload: Any) -> None:
+    path = _debug_manifest_log_path()
+    if path is None:
+        return
+    entry = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "node_id": node_id,
+        "manifest": payload,
+    }
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(entry, sort_keys=True, separators=(",", ":")) + "\n")
+    except OSError:
+        return
 
 
 class NodeUiManifestFetchResponse(BaseModel):
@@ -123,6 +151,8 @@ class NodeUiManifestFetchService:
             payload = response.json()
         except ValueError:
             return self._error(node_id, "invalid_manifest", "node_manifest_invalid_json", "Manifest response was not JSON.")
+
+        _append_debug_manifest_log(node_id, payload)
 
         if not isinstance(payload, dict):
             return self._error(

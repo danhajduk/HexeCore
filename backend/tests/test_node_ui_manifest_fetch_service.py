@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
 import os
+import tempfile
 import unittest
+from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, HTTPException
@@ -185,6 +188,28 @@ class TestNodeUiManifestFetchService(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(response.ok)
         self.assertEqual(response.status, "invalid_manifest")
         self.assertEqual(response.error_code, "manifest_validation_failed")
+
+    async def test_writes_fetched_manifest_payload_to_debug_log(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            log_path = Path(tmp) / "node-ui-manifest.jsonl"
+            previous = os.environ.get("SYNTHIA_NODE_UI_MANIFEST_DEBUG_LOG")
+            os.environ["SYNTHIA_NODE_UI_MANIFEST_DEBUG_LOG"] = str(log_path)
+            try:
+                service = self._service(lambda request: httpx.Response(200, json=_manifest()))
+
+                response = await service.fetch_manifest("node-1")
+
+                self.assertTrue(response.ok)
+                lines = log_path.read_text(encoding="utf-8").splitlines()
+                self.assertEqual(len(lines), 1)
+                entry = json.loads(lines[0])
+                self.assertEqual(entry["node_id"], "node-1")
+                self.assertEqual(entry["manifest"]["display_name"], "Voice Node")
+            finally:
+                if previous is None:
+                    os.environ.pop("SYNTHIA_NODE_UI_MANIFEST_DEBUG_LOG", None)
+                else:
+                    os.environ["SYNTHIA_NODE_UI_MANIFEST_DEBUG_LOG"] = previous
 
     async def test_reports_latest_cached_manifest_revision_on_failure(self) -> None:
         responses = [httpx.Response(200, json=_manifest(revision="rev-2")), httpx.Response(503)]
