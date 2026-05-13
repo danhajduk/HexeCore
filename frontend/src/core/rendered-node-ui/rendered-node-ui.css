@@ -138,10 +138,17 @@
 .rendered-node-overview-groups,
 .rendered-node-action-groups,
 .rendered-node-list,
+.rendered-node-runtime-grid,
+.rendered-node-provider-grid,
 .rendered-node-warning-list,
 .rendered-node-errors {
   display: grid;
   gap: var(--sx-space-2);
+}
+
+.rendered-node-runtime-grid,
+.rendered-node-provider-grid {
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
 }
 
 .rendered-node-subsection {
@@ -236,10 +243,62 @@
 
 .rendered-node-warning,
 .rendered-node-list-item,
+.rendered-node-runtime-item,
+.rendered-node-provider-item,
 .rendered-node-action-group {
   display: grid;
   gap: var(--sx-space-2);
   padding: var(--sx-space-2);
+}
+
+.rendered-node-runtime-item,
+.rendered-node-provider-item {
+  min-width: 0;
+  border: 1px solid hsl(var(--sx-text) / 0.1);
+  border-radius: var(--sx-radius-sm);
+  background: hsl(var(--sx-text) / 0.025);
+}
+
+.rendered-node-card.kind-runtime_service,
+.rendered-node-card.kind-provider_status {
+  background:
+    linear-gradient(180deg, hsl(var(--sx-text) / 0.035), transparent 34%),
+    hsl(var(--sx-panel));
+}
+
+.rendered-node-card.kind-runtime_service .rendered-node-list-head,
+.rendered-node-card.kind-provider_status .rendered-node-list-head {
+  align-items: center;
+  gap: 10px;
+}
+
+.rendered-node-card.kind-runtime_service .rendered-node-list-head > div,
+.rendered-node-card.kind-provider_status .rendered-node-list-head > div {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.rendered-node-card.kind-runtime_service .rendered-node-list-head svg,
+.rendered-node-card.kind-provider_status .rendered-node-list-head svg {
+  margin-top: 0;
+  color: hsl(var(--sx-text-muted));
+}
+
+.rendered-node-card.kind-runtime_service .rendered-node-fact-grid,
+.rendered-node-card.kind-provider_status .rendered-node-fact-grid {
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+}
+
+.rendered-node-card.kind-runtime_service .rendered-node-fact,
+.rendered-node-card.kind-provider_status .rendered-node-fact {
+  padding: 8px;
+  background: hsl(var(--sx-text) / 0.025);
+}
+
+.rendered-node-card.kind-runtime_service .rendered-node-fact dd,
+.rendered-node-card.kind-provider_status .rendered-node-fact dd {
+  font-size: 14px;
 }
 
 .rendered-node-card.kind-warning_banner .rendered-node-warning-list {

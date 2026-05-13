@@ -173,9 +173,20 @@ export type ActionPanelCardResponse = NodeUiCardResponseBase & {
 
 export type RuntimeServiceCardResponse = NodeUiCardResponseBase & {
   kind: "runtime_service";
+  actions?: NodeUiActionState[];
+  supervisor?: Record<string, unknown>;
   services?: Array<{
     id: string;
     label: string;
+    state?: string | null;
+    tone?: NodeUiTone;
+    healthy?: boolean;
+    provider?: string | null;
+    model?: string | null;
+    resource_usage?: Record<string, unknown>;
+    last_error?: string | null;
+    restart_supported?: boolean;
+    restart_target?: string | null;
     runtime_state?: "unknown" | "stopped" | "starting" | "running" | "degraded" | "error";
     health_status?: NodeUiTone;
     facts?: NodeUiFact[];

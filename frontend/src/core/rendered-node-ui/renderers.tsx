@@ -56,6 +56,24 @@ function formatUpdatedAt(value?: string | null): string {
   return new Date(parsed).toLocaleString();
 }
 
+function formatPercent(value: unknown): string | null {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return null;
+  return `${number.toFixed(number >= 10 ? 1 : 2)}%`;
+}
+
+function formatBytes(value: unknown): string | null {
+  const bytes = Number(value);
+  if (!Number.isFinite(bytes) || bytes <= 0) return null;
+  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  return `${Math.round(bytes / 1024)} KB`;
+}
+
+function compactFacts(facts: Array<NodeUiFact | null | undefined>): NodeUiFact[] {
+  return facts.filter((fact): fact is NodeUiFact => Boolean(fact && fact.value !== null && fact.value !== undefined && fact.value !== ""));
+}
+
 function CardShell({
   surface,
   data,
@@ -257,23 +275,38 @@ export function ActionPanelCard({ surface, data, onAction }: NodeUiCardRendererP
 export function RuntimeServiceCard({ surface, data, onAction }: NodeUiCardRendererProps<RuntimeServiceCardResponse>) {
   return (
     <CardShell surface={surface} data={data}>
-      <div className="rendered-node-list">
-        {(data.services || []).map((service) => (
-          <section key={service.id} className="rendered-node-list-item">
-            <div className="rendered-node-list-head">
-              <Activity size={18} aria-hidden="true" />
-              <div>
-                <h4>{service.label}</h4>
-                <span className={`rendered-node-pill ${toneClass(service.health_status)}`}>
-                  {labelize(service.runtime_state)}
-                </span>
+      <div className="rendered-node-runtime-grid">
+        {(data.services || []).map((service) => {
+          const resourceUsage = service.resource_usage || {};
+          const facts = compactFacts([
+            ...(service.facts || []),
+            service.provider ? { id: `${service.id}.provider`, label: "Provider", value: service.provider } : null,
+            service.model ? { id: `${service.id}.model`, label: "Model", value: service.model } : null,
+            { id: `${service.id}.cpu`, label: "CPU", value: formatPercent(resourceUsage.process_cpu_percent) },
+            { id: `${service.id}.rss`, label: "Memory", value: formatBytes(resourceUsage.process_memory_rss_bytes) },
+            { id: `${service.id}.load`, label: "Load 1m", value: resourceUsage.system_load_1m as string | number | null },
+          ]);
+          const state = service.state || service.runtime_state || "unknown";
+          const tone = service.tone || service.health_status || (service.healthy === false ? "danger" : "neutral");
+          return (
+            <section key={service.id} className="rendered-node-runtime-item">
+              <div className="rendered-node-list-head">
+                <Activity size={18} aria-hidden="true" />
+                <div>
+                  <h4>{service.label}</h4>
+                  <span className={`rendered-node-pill ${toneClass(tone)}`}>{labelize(state)}</span>
+                </div>
               </div>
-            </div>
-            <FactGrid facts={service.facts} />
-            <ActionRow actions={service.actions} surface={surface} onAction={onAction} />
-          </section>
-        ))}
+              <FactGrid facts={facts} />
+              {service.last_error ? (
+                <ErrorList errors={[{ code: `${service.id}.last_error`, message: service.last_error, tone: "danger" }]} />
+              ) : null}
+              <ActionRow actions={service.actions} surface={surface} onAction={onAction} />
+            </section>
+          );
+        })}
       </div>
+      <ActionRow actions={data.actions} surface={surface} onAction={onAction} />
     </CardShell>
   );
 }
@@ -281,9 +314,9 @@ export function RuntimeServiceCard({ surface, data, onAction }: NodeUiCardRender
 export function ProviderStatusCard({ surface, data }: NodeUiCardRendererProps<ProviderStatusCardResponse>) {
   return (
     <CardShell surface={surface} data={data}>
-      <div className="rendered-node-list">
+      <div className="rendered-node-provider-grid">
         {(data.providers || []).map((provider) => (
-          <section key={provider.id} className="rendered-node-list-item">
+          <section key={provider.id} className="rendered-node-provider-item">
             <div className="rendered-node-list-head">
               <Activity size={18} aria-hidden="true" />
               <div>
@@ -291,8 +324,13 @@ export function ProviderStatusCard({ surface, data }: NodeUiCardRendererProps<Pr
                 <span className={`rendered-node-pill ${toneClass(provider.tone)}`}>{labelize(provider.state)}</span>
               </div>
             </div>
-            {provider.provider ? <p className="rendered-node-muted">{provider.provider}</p> : null}
-            <FactGrid facts={[...(provider.facts || []), ...(provider.quotas || [])]} />
+            <FactGrid
+              facts={compactFacts([
+                provider.provider ? { id: `${provider.id}.provider`, label: "Provider", value: provider.provider } : null,
+                ...(provider.facts || []),
+                ...(provider.quotas || []),
+              ])}
+            />
             {provider.errors && provider.errors.length > 0 ? <ErrorList errors={provider.errors} /> : null}
           </section>
         ))}

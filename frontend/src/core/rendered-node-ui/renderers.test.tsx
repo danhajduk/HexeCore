@@ -8,7 +8,14 @@ import {
   UnsupportedNodeUiCard,
   getNodeUiCardRenderer,
 } from "./renderers";
-import type { ActionPanelCardResponse, HealthStripCardResponse, NodeUiSurface, WarningBannerCardResponse } from "./types";
+import type {
+  ActionPanelCardResponse,
+  HealthStripCardResponse,
+  NodeUiSurface,
+  ProviderStatusCardResponse,
+  RuntimeServiceCardResponse,
+  WarningBannerCardResponse,
+} from "./types";
 
 const surface: NodeUiSurface = {
   id: "node.health",
@@ -78,6 +85,60 @@ describe("rendered node UI renderers", () => {
     expect(html).toContain("kind-warning_banner");
     expect(html).toContain("is-empty");
     expect(html).toContain("No data.");
+  });
+
+  it("renders runtime service payloads from the voice node", () => {
+    const data: RuntimeServiceCardResponse = {
+      kind: "runtime_service",
+      updated_at: "2026-05-13T01:00:00Z",
+      services: [
+        {
+          id: "backend",
+          label: "Backend",
+          state: "running",
+          tone: "success",
+          resource_usage: {
+            process_cpu_percent: 7.25,
+            process_memory_rss_bytes: 91238400,
+            system_load_1m: 1.5,
+          },
+        },
+      ],
+    };
+
+    const html = renderToStaticMarkup(
+      <NodeUiCard surface={{ ...surface, kind: "runtime_service", title: "Runtime Services" }} data={data} />,
+    );
+
+    expect(html).toContain("Backend");
+    expect(html).toContain("Running");
+    expect(html).toContain("7.25%");
+    expect(html).toContain("87.0 MB");
+  });
+
+  it("renders provider status payloads from the voice node", () => {
+    const data: ProviderStatusCardResponse = {
+      kind: "provider_status",
+      updated_at: "2026-05-13T01:00:00Z",
+      providers: [
+        {
+          id: "tts",
+          label: "TTS Provider",
+          provider: "piper",
+          state: "ready",
+          tone: "success",
+          facts: [{ id: "model", label: "Model", value: "en_US-lessac" }],
+        },
+      ],
+    };
+
+    const html = renderToStaticMarkup(
+      <NodeUiCard surface={{ ...surface, kind: "provider_status", title: "Provider Status" }} data={data} />,
+    );
+
+    expect(html).toContain("TTS Provider");
+    expect(html).toContain("piper");
+    expect(html).toContain("en_US-lessac");
   });
 
   it("keeps action buttons disabled until an action handler is provided", () => {

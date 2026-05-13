@@ -46,7 +46,9 @@ export function nodeUiActionConfirmationMessage(action: NodeUiAction): string | 
 }
 
 export function resolveNodeUiPageSurfaces(page: NodeUiPage): NodeUiSurface[] {
-  return page.surfaces.filter((surface) => ["health_strip", "warning_banner"].includes(surface.kind));
+  return page.surfaces.filter((surface) =>
+    ["health_strip", "warning_banner", "runtime_service", "provider_status"].includes(surface.kind),
+  );
 }
 
 export function resolveNodeUiAdvertisedHealthSurface(manifest: NodeUiManifest): NodeUiSurface | null {
@@ -58,7 +60,9 @@ export function resolveNodeUiAdvertisedHealthSurface(manifest: NodeUiManifest): 
 }
 
 export function resolveNodeUiPageCards(cards: NodeUiPageCard[]): NodeUiPageCard[] {
-  return cards.filter((card) => ["health_strip", "warning_banner"].includes(card.kind));
+  return cards.filter((card) =>
+    ["health_strip", "warning_banner", "runtime_service", "provider_status"].includes(card.kind),
+  );
 }
 
 export function resolveNodeUiManifestDataLabel(manifest: NodeUiManifest): string {

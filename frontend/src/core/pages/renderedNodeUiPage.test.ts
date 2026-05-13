@@ -57,15 +57,24 @@ describe("RenderedNodeUiPage helpers", () => {
         { ...surface("manual"), id: "node.overview", kind: "node_overview", title: "Overview" },
         { ...surface("near_live", 15000), id: "node.health", kind: "health_strip", title: "Node Health" },
         { ...surface("manual"), id: "node.warnings", kind: "warning_banner", title: "Operational Warnings" },
+        { ...surface("near_live", 15000), id: "runtime.services", kind: "runtime_service", title: "Runtime Services" },
+        { ...surface("near_live", 30000), id: "runtime.providers", kind: "provider_status", title: "Provider Status" },
         { ...surface("static"), id: "node.facts", kind: "facts_card", title: "Facts" },
       ],
     };
 
-    expect(resolveNodeUiPageSurfaces(overview).map((item) => item.id)).toEqual(["node.health", "node.warnings"]);
+    expect(resolveNodeUiPageSurfaces(overview).map((item) => item.id)).toEqual([
+      "node.health",
+      "node.warnings",
+      "runtime.services",
+      "runtime.providers",
+    ]);
     expect(overview.surfaces.map((item) => item.id)).toEqual([
       "node.overview",
       "node.health",
       "node.warnings",
+      "runtime.services",
+      "runtime.providers",
       "node.facts",
     ]);
   });
@@ -109,10 +118,32 @@ describe("RenderedNodeUiPage helpers", () => {
         kind: "warning_banner",
         data: { kind: "warning_banner", updated_at: "2026-05-13T01:00:00Z" },
       },
+      {
+        id: "runtime.services",
+        kind: "runtime_service",
+        data: { kind: "runtime_service", updated_at: "2026-05-13T01:00:00Z" },
+      },
+      {
+        id: "runtime.providers",
+        kind: "provider_status",
+        data: { kind: "provider_status", updated_at: "2026-05-13T01:00:00Z" },
+      },
     ];
 
-    expect(resolveNodeUiPageCards(cards).map((item) => item.id)).toEqual(["node.health", "node.warnings"]);
-    expect(cards.map((item) => item.id)).toEqual(["node.overview", "node.facts", "node.health", "node.warnings"]);
+    expect(resolveNodeUiPageCards(cards).map((item) => item.id)).toEqual([
+      "node.health",
+      "node.warnings",
+      "runtime.services",
+      "runtime.providers",
+    ]);
+    expect(cards.map((item) => item.id)).toEqual([
+      "node.overview",
+      "node.facts",
+      "node.health",
+      "node.warnings",
+      "runtime.services",
+      "runtime.providers",
+    ]);
   });
 
   it("summarizes page payloads and legacy surfaces in the manifest header", () => {
