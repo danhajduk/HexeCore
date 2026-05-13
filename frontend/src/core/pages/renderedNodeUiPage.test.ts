@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   nodeUiActionConfirmationMessage,
   nodeUiSurfacePollInterval,
+  resolveNodeUiPageSurfaces,
   resolveNodeUiAction,
   resolveSelectedNodeUiPage,
 } from "./RenderedNodeUiPage";
@@ -41,6 +42,25 @@ describe("RenderedNodeUiPage helpers", () => {
     expect(nodeUiSurfacePollInterval(surface("near_live", 15000))).toBe(15000);
     expect(nodeUiSurfacePollInterval(surface("manual"))).toBeNull();
     expect(nodeUiSurfacePollInterval(surface("live"))).toBeNull();
+  });
+
+  it("places health strip surfaces first without mutating the manifest page", () => {
+    const overview = {
+      id: "overview",
+      title: "Overview",
+      surfaces: [
+        { ...surface("manual"), id: "node.overview", kind: "node_overview", title: "Overview" },
+        { ...surface("near_live", 15000), id: "node.health", kind: "health_strip", title: "Node Health" },
+        { ...surface("static"), id: "node.facts", kind: "facts_card", title: "Facts" },
+      ],
+    };
+
+    expect(resolveNodeUiPageSurfaces(overview).map((item) => item.id)).toEqual([
+      "node.health",
+      "node.overview",
+      "node.facts",
+    ]);
+    expect(overview.surfaces.map((item) => item.id)).toEqual(["node.overview", "node.health", "node.facts"]);
   });
 
   it("resolves executable action metadata from surface manifests", () => {

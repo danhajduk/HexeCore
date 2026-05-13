@@ -67,7 +67,7 @@ function CardShell({
 }) {
   const errors = data.errors || [];
   return (
-    <article className={`rendered-node-card ${data.stale ? "is-stale" : ""}`}>
+    <article className={`rendered-node-card kind-${surface.kind} ${data.stale ? "is-stale" : ""}`}>
       <header className="rendered-node-card-head">
         <div>
           <h3>{surface.title}</h3>

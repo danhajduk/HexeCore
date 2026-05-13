@@ -236,6 +236,11 @@
   min-width: 0;
 }
 
+.rendered-node-surface-wrap.is-health-strip,
+.rendered-node-surface-state.is-health-strip {
+  grid-column: 1 / -1;
+}
+
 .rendered-node-action-status {
   margin-top: 8px;
   padding: 8px 10px;

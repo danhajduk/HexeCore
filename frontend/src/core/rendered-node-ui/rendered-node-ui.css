@@ -12,6 +12,21 @@
   border-color: hsl(var(--sx-warning) / 0.5);
 }
 
+.rendered-node-card.kind-health_strip {
+  align-items: center;
+  grid-template-columns: minmax(180px, 0.42fr) minmax(0, 1fr);
+  gap: var(--sx-space-3);
+  padding: calc(var(--sx-space-2) + 2px);
+}
+
+.rendered-node-card.kind-health_strip .rendered-node-card-head {
+  align-items: center;
+}
+
+.rendered-node-card.kind-health_strip .rendered-node-card-meta {
+  justify-content: flex-start;
+}
+
 .rendered-node-card-head,
 .rendered-node-list-head,
 .rendered-node-warning-copy {
@@ -123,15 +138,19 @@
 }
 
 .rendered-node-health-strip {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--sx-space-2);
+  min-width: 0;
 }
 
 .rendered-node-health-item {
-  display: grid;
-  gap: 4px;
-  padding: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 7px 11px;
+  border-radius: 999px;
 }
 
 .rendered-node-health-item span {
@@ -140,8 +159,9 @@
 }
 
 .rendered-node-health-item strong {
+  min-width: 0;
   overflow-wrap: anywhere;
-  font-size: 17px;
+  font-size: 13px;
 }
 
 .rendered-node-warning,
@@ -233,6 +253,10 @@
 }
 
 @media (max-width: 720px) {
+  .rendered-node-card.kind-health_strip {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .rendered-node-card-head {
     display: grid;
   }

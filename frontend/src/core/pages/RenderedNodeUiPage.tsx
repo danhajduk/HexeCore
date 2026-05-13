@@ -38,6 +38,19 @@ export function nodeUiActionConfirmationMessage(action: NodeUiAction): string | 
   return confirmation.message || confirmation.title || `Run ${action.label}?`;
 }
 
+export function resolveNodeUiPageSurfaces(page: NodeUiPage): NodeUiSurface[] {
+  return [...page.surfaces].sort((left, right) => {
+    if (left.kind === right.kind) return 0;
+    if (left.kind === "health_strip") return -1;
+    if (right.kind === "health_strip") return 1;
+    return 0;
+  });
+}
+
+function surfaceLayoutClass(surface: NodeUiSurface): string {
+  return surface.kind === "health_strip" ? " is-health-strip" : "";
+}
+
 function SurfaceCard({ nodeId, surface }: { nodeId: string; surface: NodeUiSurface }) {
   const data = useNodeSurfaceData<NodeUiCardResponse>(nodeId, surface.data_endpoint);
   const pollInterval = nodeUiSurfacePollInterval(surface);
@@ -71,7 +84,7 @@ function SurfaceCard({ nodeId, surface }: { nodeId: string; surface: NodeUiSurfa
 
   if (data.status === "loading" && !data.data) {
     return (
-      <article className="rendered-node-surface-state">
+      <article className={`rendered-node-surface-state${surfaceLayoutClass(surface)}`}>
         <h3>{surface.title}</h3>
         <p>Loading...</p>
       </article>
@@ -80,7 +93,7 @@ function SurfaceCard({ nodeId, surface }: { nodeId: string; surface: NodeUiSurfa
 
   if (data.status === "error" || !data.data) {
     return (
-      <article className="rendered-node-surface-state rendered-node-surface-error">
+      <article className={`rendered-node-surface-state rendered-node-surface-error${surfaceLayoutClass(surface)}`}>
         <div>
           <h3>{surface.title}</h3>
           <p>{data.error || "Surface data unavailable."}</p>
@@ -93,7 +106,7 @@ function SurfaceCard({ nodeId, surface }: { nodeId: string; surface: NodeUiSurfa
   }
 
   return (
-    <div className="rendered-node-surface-wrap">
+    <div className={`rendered-node-surface-wrap${surfaceLayoutClass(surface)}`}>
       <NodeUiCard surface={surface} data={data.data} onAction={(action) => void handleAction(action)} />
       {actionMessage ? <div className="rendered-node-action-status tone-success">{actionMessage}</div> : null}
       {actionError ? <div className="rendered-node-action-status tone-error">{actionError}</div> : null}
@@ -213,7 +226,7 @@ export default function RenderedNodeUiPage() {
               </div>
             </div>
             <div className="rendered-node-surface-grid">
-              {activePage.surfaces.map((surface) => (
+              {resolveNodeUiPageSurfaces(activePage).map((surface) => (
                 <SurfaceCard key={surface.id} nodeId={nodeId} surface={surface} />
               ))}
             </div>
