@@ -22,6 +22,7 @@ Current node code boundaries:
 - migration-foundation route exposure through:
   - `GET /api/nodes`
   - `GET /api/nodes/{node_id}`
+  - `GET /api/nodes/{node_id}/ui-manifest`
 
 The new top-level node routes reuse the existing canonical registration payload shape.
 
@@ -69,10 +70,12 @@ Compatibility note: Hexe Nodes is the current display label, and active MQTT nam
 - [scheduled-work-execution-contract.md](./scheduled-work-execution-contract.md)
 - [node-phase2-lifecycle-contract.md](./node-phase2-lifecycle-contract.md)
 - [node-lifecycle.md](./node-lifecycle.md)
+- [ui-mogration/node-requirements.md](./ui-mogration/node-requirements.md)
+- [future-dev/core-rendered-node-ui-migration.md](./future-dev/core-rendered-node-ui-migration.md)
 
 ## See Also
 
 - [../architecture.md](../architecture.md)
-- [../fastapi/api-reference.md](../fastapi/api-reference.md)
-- [../mqtt/mqtt-platform.md](../mqtt/mqtt-platform.md)
+- [../core/api/api-reference.md](../core/api/api-reference.md)
+- [../mqtt/README.md](../mqtt/README.md)
 - [../temp-ai-node/README.md](../temp-ai-node/README.md)

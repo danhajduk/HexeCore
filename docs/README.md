@@ -256,7 +256,8 @@ The bootstrap script performs:
 Installed services include:
 
 -   `hexe-backend.service`
--   `hexe-frontend-dev.service`
+-   `hexe-dashboard.service`
+-   development-only `hexe-frontend-dev.service` when explicitly used outside production
 -   supervisor runtime services
 -   update helpers
 

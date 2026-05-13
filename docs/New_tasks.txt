@@ -47,5 +47,3 @@ Standards reference:
 
 Do not edit above this line:
 #######################################################################
-
-[TODO] Task 947: Update verified docs for production Core UI and rendered-node UI migration

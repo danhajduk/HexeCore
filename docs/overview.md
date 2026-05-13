@@ -50,6 +50,7 @@ Current top-level routes:
 
 - `GET /api/nodes`
 - `GET /api/nodes/{node_id}`
+- `GET /api/nodes/{node_id}/ui-manifest`
 
 ## Current Platform Shape
 

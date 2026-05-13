@@ -73,6 +73,7 @@ The migration foundation exposes:
 
 - `GET /api/nodes`
 - `GET /api/nodes/{node_id}`
+- `GET /api/nodes/{node_id}/ui-manifest`
 
 These routes reuse the existing canonical node registration payload shape.
 

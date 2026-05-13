@@ -107,14 +107,14 @@ Status: Implemented
 
 ## Planned
 
-Status: Planned
+Status: Not developed
 
 - Formal feature-flag framework across frontend capabilities.
 - Offline-first UI behavior.
 
 ## Archived Legacy Behavior
 
-Status: Archived Legacy
+Status: Implemented
 
 - Split UI/theme docs (`frontend.md`, `theme.md`, `ui-theme.md`, `addon-ui-styling.md`) were consolidated into this canonical document.
 

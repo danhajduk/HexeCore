@@ -66,7 +66,7 @@ Status: Implemented
 
 ## Planned
 
-Status: Planned
+Status: Not developed
 
 - Unified migration framework for all JSON and SQLite contract evolution.
 - Centralized schema registry with versioned cross-subsystem compatibility checks.

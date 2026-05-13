@@ -93,7 +93,7 @@ Status: Implemented
 
 ## MQTT Identity Model
 
-Status: Implemented (Phase 2 basis), Partial (future expansion)
+Status: Partially implemented
 
 - Effective-access model compiles principal permissions into deterministic ACL outputs.
 - Generic users are blocked from reserved platform families.
@@ -101,7 +101,7 @@ Status: Implemented (Phase 2 basis), Partial (future expansion)
 
 ## Archived Legacy Behavior
 
-Status: Archived Legacy
+Status: Implemented
 
 - Earlier split identity guidance from `auth-and-users.md` and MQTT authority design notes has been consolidated here.
 

@@ -895,3 +895,4 @@ Task 943: Build Core manifest-backed node page shell - Completed on 05/12/2026 2
 Task 944: Build Core node action execution layer - Completed on 05/12/2026 20:47
 Task 945: Add pilot rendered-node UI fixtures and integration tests - Completed on 05/12/2026 20:50
 Task 946: Add rendered-node UI feature gate and legacy proxied-UI fallback - Completed on 05/12/2026 20:53
+Task 947: Update verified docs for production Core UI and rendered-node UI migration - Completed on 05/12/2026 20:57

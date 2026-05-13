@@ -1,10 +1,30 @@
 # Core-Rendered Node UI Migration
 
+Status: Partially implemented
+
 ## Purpose
 
 Move Hexe node operator UIs toward a shared Core-rendered model. Nodes should expose structured UI manifests, data endpoints, and action endpoints. Core should own layout, visual design, navigation, permissions UX, card components, and refresh behavior.
 
 The goal is one consistent Core experience across Voice, Email, AI, Interaction, and future nodes while allowing each node to remain domain-specific through its data, capabilities, and actions.
+
+## Current Core Infrastructure
+
+Status: Implemented
+
+Core now includes the infrastructure needed to pilot this migration:
+
+- production Core UI hosting from the built `frontend/dist` artifact
+- admin-gated manifest fetch endpoint at `GET /api/nodes/{node_id}/ui-manifest`
+- Core manifest and card response validators with JSON Schemas
+- frontend data loaders for manifest and surface endpoints
+- shared renderer registry for the initial card kinds
+- manifest-backed page shell at `/nodes/:nodeId/rendered-ui`
+- Core-routed action execution from manifest metadata
+- rendered-node UI feature gate with legacy `/nodes/:nodeId/UI` fallback
+- pilot fixtures and integration tests for the initial card set
+
+Node-side implementation remains Not developed in this repository. Nodes still need to expose their own `/api/node/ui-manifest`, card data endpoints, detail endpoints, and action endpoints.
 
 ## Target Model
 
@@ -47,7 +67,7 @@ Node
 
 Each node should expose a small manifest that describes pages, surfaces, data endpoints, action endpoints, and refresh policy. The manifest should not contain full page data.
 
-Proposed endpoint:
+Node endpoint:
 
 ```http
 GET /api/node/ui-manifest

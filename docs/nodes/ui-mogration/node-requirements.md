@@ -1,12 +1,12 @@
 # Node Requirements For Core-Rendered UI
 
-Status: Not developed
+Status: Partially implemented
 
 ## Purpose
 
 This document defines what each node must eventually provide so Hexe Core can render operational node UI from Core-owned components.
 
-During the first infrastructure phase, implementation tasks are Core-only. Nodes should not remove their existing operational UI until Core can render equivalent operator workflows and production Core UI hosting is in place.
+During the first infrastructure phase, implementation tasks are Core-only. Core now has production UI hosting and feature-gated rendered-node UI infrastructure, but nodes should not remove their existing operational UI until equivalent operator workflows are verified for that node class.
 
 ## Production Assumption
 

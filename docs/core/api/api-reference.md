@@ -135,7 +135,7 @@ Registry payloads include canonical UI proxy metadata for Core-managed embedding
 
 ## MQTT APIs
 
-Status: Implemented (broad), Partial (future phases)
+Status: Partially implemented
 
 Representative routes under `/api/system`:
 - setup/control: `/mqtt/status`, `/mqtt/setup-summary`, `/mqtt/setup/apply`, `/mqtt/setup/test-connection`, `/mqtt/setup-state`
@@ -204,7 +204,7 @@ Request model for `POST /api/telemetry/usage`:
 
 ## Planned
 
-Status: Planned
+Status: Not developed
 
 - Formal OpenAPI-focused endpoint stability tiers.
 - Explicit deprecation lifecycle metadata per endpoint group.

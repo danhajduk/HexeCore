@@ -13,6 +13,7 @@ Core is currently implemented across:
 - `backend/app/api/`
 - `backend/app/system/`
 - `frontend/`
+- `frontend/dist` production static artifact served by Core backend when built
 
 ## Core Responsibilities
 
@@ -22,6 +23,8 @@ Core is currently implemented across:
 - scheduler orchestration and workload admission
 - MQTT authority and messaging policy
 - trusted-node trust, governance, and telemetry authority
+- production operator UI hosting
+- feature-gated Core-rendered node UI infrastructure
 
 ## Extension Rules
 

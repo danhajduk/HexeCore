@@ -16,7 +16,7 @@ Implementation:
 
 The feature is enabled when either:
 
-- `VITE_RENDERED_NODE_UI=true` at frontend build/runtime configuration
+- `VITE_RENDERED_NODE_UI=true` in frontend build-time configuration
 - browser local storage key `hexe.renderedNodeUi.enabled` is set to `true`, `1`, `yes`, `on`, or `enabled`
 
 Local storage can also force-disable with `false`, `0`, `no`, `off`, or `disabled`.

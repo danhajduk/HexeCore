@@ -37,7 +37,7 @@ Status: Implemented
 
 ## Interaction With Runtime and Supervisor
 
-Status: Partial
+Status: Partially implemented
 
 - Core owns desired behavior and invokes runtime boundaries (`ensure_running`, `start`, `stop`, `rebuild`).
 - Standalone runtime service and supervisor-related contracts remain active, with behavior segmented in runtime docs.
@@ -51,7 +51,7 @@ Status: Implemented
 
 ## Known Legacy Context
 
-Status: Archived Legacy
+Status: Implemented
 
 - Prior supervisor/standalone mismatch analysis was transferred from task artifact docs and retained in archive for historical traceability.
 
