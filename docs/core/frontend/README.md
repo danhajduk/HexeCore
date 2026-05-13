@@ -5,6 +5,7 @@ This folder is the canonical home for Hexe Core frontend documentation.
 ## Included Docs
 
 - [frontend-and-ui.md](./frontend-and-ui.md)
+- [rendered-node-ui-actions.md](./rendered-node-ui-actions.md)
 - [rendered-node-ui-data-loading.md](./rendered-node-ui-data-loading.md)
 - [rendered-node-ui-page-shell.md](./rendered-node-ui-page-shell.md)
 - [rendered-node-ui-renderers.md](./rendered-node-ui-renderers.md)

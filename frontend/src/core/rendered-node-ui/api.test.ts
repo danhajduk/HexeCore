@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  executeNodeUiAction,
   fetchNodeSurfaceData,
   fetchNodeUiManifest,
+  nodeUiActionPath,
   nodeUiManifestPath,
   nodeUiSurfaceDataPath,
   type NodeUiFetcher,
@@ -69,6 +71,43 @@ describe("rendered node UI data API", () => {
 
     expect(response.state).toBe("healthy");
     expect(response.path).toBe("/api/nodes/node-1/node/ui/overview/health");
+  });
+
+  it("executes node actions through Core", async () => {
+    const calls: Array<{ input: string; init?: RequestInit }> = [];
+    const fetcher: NodeUiFetcher = async (input, init) => {
+      calls.push({ input: String(input), init });
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    };
+
+    const response = await executeNodeUiAction(
+      "node-1",
+      { method: "POST", endpoint: "/api/node/ui/runtime/restart" },
+      { service_id: "backend" },
+      { fetcher },
+    );
+
+    expect(nodeUiActionPath("node-1", "/api/node/ui/runtime/restart")).toBe(
+      "/api/nodes/node-1/node/ui/runtime/restart",
+    );
+    expect(response.ok).toBe(true);
+    expect(calls[0].input).toBe("/api/nodes/node-1/node/ui/runtime/restart");
+    expect(calls[0].init?.method).toBe("POST");
+    expect(calls[0].init?.credentials).toBe("include");
+    expect(calls[0].init?.body).toBe(JSON.stringify({ service_id: "backend" }));
+  });
+
+  it("handles empty action responses", async () => {
+    const fetcher: NodeUiFetcher = async () => new Response(null, { status: 204 });
+
+    await expect(
+      executeNodeUiAction("node-1", { method: "DELETE", endpoint: "/api/node/ui/runtime/cache" }, undefined, {
+        fetcher,
+      }),
+    ).resolves.toEqual({});
   });
 
   it("surfaces structured error details", async () => {

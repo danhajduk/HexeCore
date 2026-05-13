@@ -57,6 +57,11 @@ Core manifest-backed page shell:
 
 - `frontend/src/core/pages/RenderedNodeUiPage.tsx`
 
+Core action execution layer:
+
+- `frontend/src/core/rendered-node-ui/api.ts`
+- `frontend/src/core/pages/RenderedNodeUiPage.tsx`
+
 Current schema version:
 
 - `1.0`

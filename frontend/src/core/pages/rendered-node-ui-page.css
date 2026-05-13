@@ -113,6 +113,14 @@
   min-width: 0;
 }
 
+.rendered-node-action-status {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid hsl(var(--sx-border));
+  border-radius: var(--sx-radius-sm);
+  font-size: 13px;
+}
+
 .rendered-node-refresh-overlay {
   position: absolute;
   top: 10px;

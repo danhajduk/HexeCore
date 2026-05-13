@@ -29,7 +29,7 @@ Unknown card kinds render a safe unsupported state instead of executing node-pro
 
 ## Action Rendering
 
-Action-bearing cards render action controls from card data, but buttons remain disabled unless a Core action handler is passed in. Action execution is owned by a later action layer and must remain routed through Core.
+Action-bearing cards render action controls from card data, but buttons remain disabled unless a Core action handler is passed in. Action execution is routed through the Core action layer, which resolves executable metadata from the manifest.
 
 ## Verification
 

@@ -60,6 +60,8 @@ The manifest must be small and declarative. It describes pages, surfaces, data e
 
 Core frontend code maps manifest `data_endpoint` values through Core-owned node proxy paths. For example, `/api/node/ui/overview/health` becomes `/api/nodes/{node_id}/node/ui/overview/health` in the browser.
 
+Core action execution follows the same routing rule for manifest action endpoints. Card data may enable or disable an action id, but the executable method, endpoint, sensitivity, and confirmation metadata must come from the manifest action entry.
+
 Canonical Core contract:
 
 - [Core-Owned Node UI Manifest Contract](../../core/api/node-ui-manifest-contract.md)

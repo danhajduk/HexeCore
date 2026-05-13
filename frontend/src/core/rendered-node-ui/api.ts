@@ -1,5 +1,5 @@
 import { API_BASE } from "../api/client";
-import type { NodeUiManifestFetchResponse } from "./types";
+import type { NodeUiAction, NodeUiManifestFetchResponse } from "./types";
 
 export type NodeUiFetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
@@ -51,6 +51,13 @@ async function fetchJson<T>(path: string, options: FetchOptions = {}): Promise<T
   return response.json() as Promise<T>;
 }
 
+async function readJsonOrEmpty<T>(response: Response): Promise<T> {
+  if (response.status === 204) return {} as T;
+  const text = await response.text();
+  if (!text.trim()) return {} as T;
+  return JSON.parse(text) as T;
+}
+
 export function nodeUiManifestPath(nodeId: string): string {
   return `/api/nodes/${encodeURIComponent(requireNodeId(nodeId))}/ui-manifest`;
 }
@@ -58,6 +65,10 @@ export function nodeUiManifestPath(nodeId: string): string {
 export function nodeUiSurfaceDataPath(nodeId: string, endpoint: string): string {
   const corePath = readCoreEndpointPath(endpoint);
   return `/api/nodes/${encodeURIComponent(requireNodeId(nodeId))}/${corePath}`;
+}
+
+export function nodeUiActionPath(nodeId: string, endpoint: string): string {
+  return nodeUiSurfaceDataPath(nodeId, endpoint);
 }
 
 export async function fetchNodeUiManifest(
@@ -73,4 +84,29 @@ export async function fetchNodeSurfaceData<T>(
   options: FetchOptions = {},
 ): Promise<T> {
   return fetchJson<T>(nodeUiSurfaceDataPath(nodeId, endpoint), options);
+}
+
+export async function executeNodeUiAction<T = Record<string, unknown>>(
+  nodeId: string,
+  action: Pick<NodeUiAction, "method" | "endpoint">,
+  body?: unknown,
+  options: FetchOptions = {},
+): Promise<T> {
+  const fetcher = options.fetcher || globalThis.fetch;
+  const init: RequestInit = {
+    method: action.method,
+    credentials: "include",
+    cache: "no-store",
+    signal: options.signal,
+  };
+  if (body !== undefined) {
+    init.headers = { "Content-Type": "application/json" };
+    init.body = JSON.stringify(body);
+  }
+
+  const response = await fetcher(`${API_BASE}${nodeUiActionPath(nodeId, action.endpoint)}`, init);
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+  return readJsonOrEmpty<T>(response);
 }

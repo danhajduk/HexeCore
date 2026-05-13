@@ -3,9 +3,12 @@ import { ArrowLeft, RefreshCw } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 
 import {
+  executeNodeUiAction,
   NodeUiCard,
   useNodeSurfaceData,
   useNodeUiManifest,
+  type NodeUiAction,
+  type NodeUiActionState,
   type NodeUiCardResponse,
   type NodeUiManifest,
   type NodeUiPage,
@@ -25,15 +28,46 @@ export function nodeUiSurfacePollInterval(surface: NodeUiSurface): number | null
   return Number.isFinite(interval) && interval > 0 ? interval : null;
 }
 
+export function resolveNodeUiAction(surface: NodeUiSurface, actionState: NodeUiActionState): NodeUiAction | null {
+  return (surface.actions || []).find((action) => action.id === actionState.id) || null;
+}
+
+export function nodeUiActionConfirmationMessage(action: NodeUiAction): string | null {
+  const confirmation = action.confirmation;
+  if (!confirmation?.required) return null;
+  return confirmation.message || confirmation.title || `Run ${action.label}?`;
+}
+
 function SurfaceCard({ nodeId, surface }: { nodeId: string; surface: NodeUiSurface }) {
   const data = useNodeSurfaceData<NodeUiCardResponse>(nodeId, surface.data_endpoint);
   const pollInterval = nodeUiSurfacePollInterval(surface);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!pollInterval) return;
     const timer = window.setInterval(() => data.reload(), pollInterval);
     return () => window.clearInterval(timer);
   }, [data.reload, pollInterval]);
+
+  async function handleAction(actionState: NodeUiActionState) {
+    const action = resolveNodeUiAction(surface, actionState);
+    setActionMessage(null);
+    setActionError(null);
+    if (!action) {
+      setActionError("Action is not declared in the manifest.");
+      return;
+    }
+    const confirmation = nodeUiActionConfirmationMessage(action);
+    if (confirmation && !window.confirm(confirmation)) return;
+    try {
+      await executeNodeUiAction(nodeId, action);
+      setActionMessage(`${action.label} complete.`);
+      data.reload();
+    } catch (error: unknown) {
+      setActionError(error instanceof Error ? error.message : String(error));
+    }
+  }
 
   if (data.status === "loading" && !data.data) {
     return (
@@ -60,7 +94,9 @@ function SurfaceCard({ nodeId, surface }: { nodeId: string; surface: NodeUiSurfa
 
   return (
     <div className="rendered-node-surface-wrap">
-      <NodeUiCard surface={surface} data={data.data} />
+      <NodeUiCard surface={surface} data={data.data} onAction={(action) => void handleAction(action)} />
+      {actionMessage ? <div className="rendered-node-action-status tone-success">{actionMessage}</div> : null}
+      {actionError ? <div className="rendered-node-action-status tone-error">{actionError}</div> : null}
       <button type="button" className="rendered-node-refresh rendered-node-refresh-overlay" onClick={data.reload} title="Refresh">
         <RefreshCw size={16} aria-hidden="true" />
       </button>

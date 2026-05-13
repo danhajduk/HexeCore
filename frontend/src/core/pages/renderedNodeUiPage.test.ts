@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { nodeUiSurfacePollInterval, resolveSelectedNodeUiPage } from "./RenderedNodeUiPage";
+import {
+  nodeUiActionConfirmationMessage,
+  nodeUiSurfacePollInterval,
+  resolveNodeUiAction,
+  resolveSelectedNodeUiPage,
+} from "./RenderedNodeUiPage";
 import type { NodeUiManifest, NodeUiSurface } from "../rendered-node-ui";
 
 const manifest: NodeUiManifest = {
@@ -36,5 +41,26 @@ describe("RenderedNodeUiPage helpers", () => {
     expect(nodeUiSurfacePollInterval(surface("near_live", 15000))).toBe(15000);
     expect(nodeUiSurfacePollInterval(surface("manual"))).toBeNull();
     expect(nodeUiSurfacePollInterval(surface("live"))).toBeNull();
+  });
+
+  it("resolves executable action metadata from surface manifests", () => {
+    const actionSurface: NodeUiSurface = {
+      ...surface("manual"),
+      actions: [
+        {
+          id: "restart",
+          label: "Restart",
+          method: "POST",
+          endpoint: "/api/node/ui/runtime/restart",
+          confirmation: { required: true, message: "Restart service?" },
+        },
+      ],
+    };
+
+    const action = resolveNodeUiAction(actionSurface, { id: "restart", enabled: true });
+
+    expect(action?.endpoint).toBe("/api/node/ui/runtime/restart");
+    expect(resolveNodeUiAction(actionSurface, { id: "missing", enabled: true })).toBeNull();
+    expect(action ? nodeUiActionConfirmationMessage(action) : null).toBe("Restart service?");
   });
 });
