@@ -247,12 +247,6 @@ export default function RenderedNodeUiPage() {
           </nav>
 
           <section className="rendered-node-page-section">
-            <div className="rendered-node-section-head">
-              <div>
-                <h2>{activePage.title}</h2>
-                {activePage.description ? <p>{activePage.description}</p> : null}
-              </div>
-            </div>
             <div className="rendered-node-surface-grid">
               {resolveNodeUiPageSurfaces(activePage).map((surface) => (
                 <SurfaceCard key={surface.id} nodeId={nodeId} surface={surface} />
