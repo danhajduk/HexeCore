@@ -90,6 +90,11 @@ GET /api/node/ui/{node_domain}/{surface}
 
 Data responses must be shaped for the Core card kind, not for node frontend internals.
 
+Canonical Core card response contracts:
+
+- [Core-Owned Node UI Card Response Contracts](../../core/api/node-ui-card-response-contracts.md)
+- [node_ui_card_responses.schema.json](../../json_schema/node_ui_card_responses.schema.json)
+
 Initial card kinds:
 
 - `node_overview`

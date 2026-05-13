@@ -48,7 +48,6 @@ Standards reference:
 Do not edit above this line:
 #######################################################################
 
-[TODO] Task 939: Define initial Core-owned node card response contracts
 [TODO] Task 940: Build Core manifest fetch and validation service
 [TODO] Task 941: Build Core rendered-node UI data loading layer
 [TODO] Task 942: Build Core renderer registry and first shared card renderers

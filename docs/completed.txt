@@ -887,3 +887,4 @@ Task 935: Update bootstrap update and backend reload scripts for production UI b
 Task 936: Replace production systemd wiring for Core UI - Completed on 05/12/2026 20:03
 Task 937: Tighten production frontend configuration and same-origin API behavior - Completed on 05/12/2026 20:03
 Task 938: Define the Core-owned node UI manifest contract - Completed on 05/12/2026 20:20
+Task 939: Define initial Core-owned node card response contracts - Completed on 05/12/2026 20:24

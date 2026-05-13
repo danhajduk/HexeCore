@@ -1,0 +1,1604 @@
+{
+  "$id": "https://hexe.local/schemas/node_ui_card_responses.schema.json",
+  "description": "Schema catalog for initial Core-rendered node UI card data responses.",
+  "schemas": {
+    "ActionPanelCardResponse": {
+      "$defs": {
+        "ActionGroup": {
+          "additionalProperties": false,
+          "properties": {
+            "actions": {
+              "items": {
+                "$ref": "#/$defs/NodeUiActionState"
+              },
+              "title": "Actions",
+              "type": "array"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "label": {
+              "title": "Label",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "label"
+          ],
+          "title": "ActionGroup",
+          "type": "object"
+        },
+        "NodeUiActionState": {
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "default": true,
+              "title": "Enabled",
+              "type": "boolean"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "label": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Label"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Reason"
+            },
+            "tone": {
+              "$ref": "#/$defs/NodeUiTone",
+              "default": "neutral"
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "title": "NodeUiActionState",
+          "type": "object"
+        },
+        "NodeUiCardError": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "title": "Code",
+              "type": "string"
+            },
+            "message": {
+              "title": "Message",
+              "type": "string"
+            },
+            "retryable": {
+              "default": false,
+              "title": "Retryable",
+              "type": "boolean"
+            },
+            "tone": {
+              "$ref": "#/$defs/NodeUiTone",
+              "default": "error"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "title": "NodeUiCardError",
+          "type": "object"
+        },
+        "NodeUiRetryState": {
+          "additionalProperties": false,
+          "properties": {
+            "action_label": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Action Label"
+            },
+            "retry_after_ms": {
+              "anyOf": [
+                {
+                  "maximum": 3600000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Retry After Ms"
+            }
+          },
+          "title": "NodeUiRetryState",
+          "type": "object"
+        },
+        "NodeUiTone": {
+          "enum": [
+            "neutral",
+            "info",
+            "success",
+            "warning",
+            "error",
+            "danger"
+          ],
+          "title": "NodeUiTone",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "empty": {
+          "default": false,
+          "title": "Empty",
+          "type": "boolean"
+        },
+        "errors": {
+          "items": {
+            "$ref": "#/$defs/NodeUiCardError"
+          },
+          "title": "Errors",
+          "type": "array"
+        },
+        "groups": {
+          "items": {
+            "$ref": "#/$defs/ActionGroup"
+          },
+          "title": "Groups",
+          "type": "array"
+        },
+        "kind": {
+          "const": "action_panel",
+          "default": "action_panel",
+          "title": "Kind",
+          "type": "string"
+        },
+        "retry": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NodeUiRetryState"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "stale": {
+          "default": false,
+          "title": "Stale",
+          "type": "boolean"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "updated_at"
+      ],
+      "title": "ActionPanelCardResponse",
+      "type": "object"
+    },
+    "FactsCardResponse": {
+      "$defs": {
+        "NodeUiCardError": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "title": "Code",
+              "type": "string"
+            },
+            "message": {
+              "title": "Message",
+              "type": "string"
+            },
+            "retryable": {
+              "default": false,
+              "title": "Retryable",
+              "type": "boolean"
+            },
+            "tone": {
+              "$ref": "#/$defs/NodeUiTone",
+              "default": "error"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "title": "NodeUiCardError",
+          "type": "object"
+        },
+        "NodeUiFact": {
+          "additionalProperties": false,
+          "properties": {
+            "detail": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Detail"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "label": {
+              "title": "Label",
+              "type": "string"
+            },
+            "tone": {
+              "$ref": "#/$defs/NodeUiTone",
+              "default": "neutral"
+            },
+            "unit": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Unit"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Value"
+            }
+          },
+          "required": [
+            "id",
+            "label"
+          ],
+          "title": "NodeUiFact",
+          "type": "object"
+        },
+        "NodeUiRetryState": {
+          "additionalProperties": false,
+          "properties": {
+            "action_label": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Action Label"
+            },
+            "retry_after_ms": {
+              "anyOf": [
+                {
+                  "maximum": 3600000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Retry After Ms"
+            }
+          },
+          "title": "NodeUiRetryState",
+          "type": "object"
+        },
+        "NodeUiTone": {
+          "enum": [
+            "neutral",
+            "info",
+            "success",
+            "warning",
+            "error",
+            "danger"
+          ],
+          "title": "NodeUiTone",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "empty": {
+          "default": false,
+          "title": "Empty",
+          "type": "boolean"
+        },
+        "errors": {
+          "items": {
+            "$ref": "#/$defs/NodeUiCardError"
+          },
+          "title": "Errors",
+          "type": "array"
+        },
+        "facts": {
+          "items": {
+            "$ref": "#/$defs/NodeUiFact"
+          },
+          "title": "Facts",
+          "type": "array"
+        },
+        "kind": {
+          "const": "facts_card",
+          "default": "facts_card",
+          "title": "Kind",
+          "type": "string"
+        },
+        "retry": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NodeUiRetryState"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "stale": {
+          "default": false,
+          "title": "Stale",
+          "type": "boolean"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "updated_at"
+      ],
+      "title": "FactsCardResponse",
+      "type": "object"
+    },
+    "HealthStripCardResponse": {
+      "$defs": {
+        "HealthStripItem": {
+          "additionalProperties": false,
+          "properties": {
+            "detail": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Detail"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "label": {
+              "title": "Label",
+              "type": "string"
+            },
+            "tone": {
+              "$ref": "#/$defs/NodeUiTone",
+              "default": "neutral"
+            },
+            "value": {
+              "title": "Value",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "label",
+            "value"
+          ],
+          "title": "HealthStripItem",
+          "type": "object"
+        },
+        "NodeUiCardError": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "title": "Code",
+              "type": "string"
+            },
+            "message": {
+              "title": "Message",
+              "type": "string"
+            },
+            "retryable": {
+              "default": false,
+              "title": "Retryable",
+              "type": "boolean"
+            },
+            "tone": {
+              "$ref": "#/$defs/NodeUiTone",
+              "default": "error"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "title": "NodeUiCardError",
+          "type": "object"
+        },
+        "NodeUiRetryState": {
+          "additionalProperties": false,
+          "properties": {
+            "action_label": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Action Label"
+            },
+            "retry_after_ms": {
+              "anyOf": [
+                {
+                  "maximum": 3600000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Retry After Ms"
+            }
+          },
+          "title": "NodeUiRetryState",
+          "type": "object"
+        },
+        "NodeUiTone": {
+          "enum": [
+            "neutral",
+            "info",
+            "success",
+            "warning",
+            "error",
+            "danger"
+          ],
+          "title": "NodeUiTone",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "empty": {
+          "default": false,
+          "title": "Empty",
+          "type": "boolean"
+        },
+        "errors": {
+          "items": {
+            "$ref": "#/$defs/NodeUiCardError"
+          },
+          "title": "Errors",
+          "type": "array"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/HealthStripItem"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "kind": {
+          "const": "health_strip",
+          "default": "health_strip",
+          "title": "Kind",
+          "type": "string"
+        },
+        "retry": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NodeUiRetryState"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "stale": {
+          "default": false,
+          "title": "Stale",
+          "type": "boolean"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "updated_at"
+      ],
+      "title": "HealthStripCardResponse",
+      "type": "object"
+    },
+    "NodeOverviewCardResponse": {
+      "$defs": {
+        "NodeUiCardError": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "title": "Code",
+              "type": "string"
+            },
+            "message": {
+              "title": "Message",
+              "type": "string"
+            },
+            "retryable": {
+              "default": false,
+              "title": "Retryable",
+              "type": "boolean"
+            },
+            "tone": {
+              "$ref": "#/$defs/NodeUiTone",
+              "default": "error"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "title": "NodeUiCardError",
+          "type": "object"
+        },
+        "NodeUiFact": {
+          "additionalProperties": false,
+          "properties": {
+            "detail": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Detail"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "label": {
+              "title": "Label",
+              "type": "string"
+            },
+            "tone": {
+              "$ref": "#/$defs/NodeUiTone",
+              "default": "neutral"
+            },
+            "unit": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Unit"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Value"
+            }
+          },
+          "required": [
+            "id",
+            "label"
+          ],
+          "title": "NodeUiFact",
+          "type": "object"
+        },
+        "NodeUiRetryState": {
+          "additionalProperties": false,
+          "properties": {
+            "action_label": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Action Label"
+            },
+            "retry_after_ms": {
+              "anyOf": [
+                {
+                  "maximum": 3600000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Retry After Ms"
+            }
+          },
+          "title": "NodeUiRetryState",
+          "type": "object"
+        },
+        "NodeUiTone": {
+          "enum": [
+            "neutral",
+            "info",
+            "success",
+            "warning",
+            "error",
+            "danger"
+          ],
+          "title": "NodeUiTone",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "core_pairing": {
+          "items": {
+            "$ref": "#/$defs/NodeUiFact"
+          },
+          "title": "Core Pairing",
+          "type": "array"
+        },
+        "empty": {
+          "default": false,
+          "title": "Empty",
+          "type": "boolean"
+        },
+        "errors": {
+          "items": {
+            "$ref": "#/$defs/NodeUiCardError"
+          },
+          "title": "Errors",
+          "type": "array"
+        },
+        "identity": {
+          "items": {
+            "$ref": "#/$defs/NodeUiFact"
+          },
+          "title": "Identity",
+          "type": "array"
+        },
+        "kind": {
+          "const": "node_overview",
+          "default": "node_overview",
+          "title": "Kind",
+          "type": "string"
+        },
+        "lifecycle": {
+          "items": {
+            "$ref": "#/$defs/NodeUiFact"
+          },
+          "title": "Lifecycle",
+          "type": "array"
+        },
+        "retry": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NodeUiRetryState"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "software": {
+          "items": {
+            "$ref": "#/$defs/NodeUiFact"
+          },
+          "title": "Software",
+          "type": "array"
+        },
+        "stale": {
+          "default": false,
+          "title": "Stale",
+          "type": "boolean"
+        },
+        "trust": {
+          "items": {
+            "$ref": "#/$defs/NodeUiFact"
+          },
+          "title": "Trust",
+          "type": "array"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "updated_at"
+      ],
+      "title": "NodeOverviewCardResponse",
+      "type": "object"
+    },
+    "ProviderStatusCardResponse": {
+      "$defs": {
+        "NodeUiCardError": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "title": "Code",
+              "type": "string"
+            },
+            "message": {
+              "title": "Message",
+              "type": "string"
+            },
+            "retryable": {
+              "default": false,
+              "title": "Retryable",
+              "type": "boolean"
+            },
+            "tone": {
+              "$ref": "#/$defs/NodeUiTone",
+              "default": "error"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "title": "NodeUiCardError",
+          "type": "object"
+        },
+        "NodeUiFact": {
+          "additionalProperties": false,
+          "properties": {
+            "detail": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Detail"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "label": {
+              "title": "Label",
+              "type": "string"
+            },
+            "tone": {
+              "$ref": "#/$defs/NodeUiTone",
+              "default": "neutral"
+            },
+            "unit": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Unit"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Value"
+            }
+          },
+          "required": [
+            "id",
+            "label"
+          ],
+          "title": "NodeUiFact",
+          "type": "object"
+        },
+        "NodeUiProviderState": {
+          "enum": [
+            "unknown",
+            "ready",
+            "degraded",
+            "unavailable",
+            "disabled",
+            "error"
+          ],
+          "title": "NodeUiProviderState",
+          "type": "string"
+        },
+        "NodeUiRetryState": {
+          "additionalProperties": false,
+          "properties": {
+            "action_label": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Action Label"
+            },
+            "retry_after_ms": {
+              "anyOf": [
+                {
+                  "maximum": 3600000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Retry After Ms"
+            }
+          },
+          "title": "NodeUiRetryState",
+          "type": "object"
+        },
+        "NodeUiTone": {
+          "enum": [
+            "neutral",
+            "info",
+            "success",
+            "warning",
+            "error",
+            "danger"
+          ],
+          "title": "NodeUiTone",
+          "type": "string"
+        },
+        "ProviderStatusItem": {
+          "additionalProperties": false,
+          "properties": {
+            "errors": {
+              "items": {
+                "$ref": "#/$defs/NodeUiCardError"
+              },
+              "title": "Errors",
+              "type": "array"
+            },
+            "facts": {
+              "items": {
+                "$ref": "#/$defs/NodeUiFact"
+              },
+              "title": "Facts",
+              "type": "array"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "label": {
+              "title": "Label",
+              "type": "string"
+            },
+            "provider": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Provider"
+            },
+            "quotas": {
+              "items": {
+                "$ref": "#/$defs/NodeUiFact"
+              },
+              "title": "Quotas",
+              "type": "array"
+            },
+            "state": {
+              "$ref": "#/$defs/NodeUiProviderState",
+              "default": "unknown"
+            },
+            "tone": {
+              "$ref": "#/$defs/NodeUiTone",
+              "default": "neutral"
+            }
+          },
+          "required": [
+            "id",
+            "label"
+          ],
+          "title": "ProviderStatusItem",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "empty": {
+          "default": false,
+          "title": "Empty",
+          "type": "boolean"
+        },
+        "errors": {
+          "items": {
+            "$ref": "#/$defs/NodeUiCardError"
+          },
+          "title": "Errors",
+          "type": "array"
+        },
+        "kind": {
+          "const": "provider_status",
+          "default": "provider_status",
+          "title": "Kind",
+          "type": "string"
+        },
+        "providers": {
+          "items": {
+            "$ref": "#/$defs/ProviderStatusItem"
+          },
+          "title": "Providers",
+          "type": "array"
+        },
+        "retry": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NodeUiRetryState"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "stale": {
+          "default": false,
+          "title": "Stale",
+          "type": "boolean"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "updated_at"
+      ],
+      "title": "ProviderStatusCardResponse",
+      "type": "object"
+    },
+    "RuntimeServiceCardResponse": {
+      "$defs": {
+        "NodeUiActionState": {
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "default": true,
+              "title": "Enabled",
+              "type": "boolean"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "label": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Label"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Reason"
+            },
+            "tone": {
+              "$ref": "#/$defs/NodeUiTone",
+              "default": "neutral"
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "title": "NodeUiActionState",
+          "type": "object"
+        },
+        "NodeUiCardError": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "title": "Code",
+              "type": "string"
+            },
+            "message": {
+              "title": "Message",
+              "type": "string"
+            },
+            "retryable": {
+              "default": false,
+              "title": "Retryable",
+              "type": "boolean"
+            },
+            "tone": {
+              "$ref": "#/$defs/NodeUiTone",
+              "default": "error"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "title": "NodeUiCardError",
+          "type": "object"
+        },
+        "NodeUiFact": {
+          "additionalProperties": false,
+          "properties": {
+            "detail": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Detail"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "label": {
+              "title": "Label",
+              "type": "string"
+            },
+            "tone": {
+              "$ref": "#/$defs/NodeUiTone",
+              "default": "neutral"
+            },
+            "unit": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Unit"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Value"
+            }
+          },
+          "required": [
+            "id",
+            "label"
+          ],
+          "title": "NodeUiFact",
+          "type": "object"
+        },
+        "NodeUiRetryState": {
+          "additionalProperties": false,
+          "properties": {
+            "action_label": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Action Label"
+            },
+            "retry_after_ms": {
+              "anyOf": [
+                {
+                  "maximum": 3600000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Retry After Ms"
+            }
+          },
+          "title": "NodeUiRetryState",
+          "type": "object"
+        },
+        "NodeUiRuntimeState": {
+          "enum": [
+            "unknown",
+            "stopped",
+            "starting",
+            "running",
+            "degraded",
+            "error"
+          ],
+          "title": "NodeUiRuntimeState",
+          "type": "string"
+        },
+        "NodeUiTone": {
+          "enum": [
+            "neutral",
+            "info",
+            "success",
+            "warning",
+            "error",
+            "danger"
+          ],
+          "title": "NodeUiTone",
+          "type": "string"
+        },
+        "RuntimeServiceItem": {
+          "additionalProperties": false,
+          "properties": {
+            "actions": {
+              "items": {
+                "$ref": "#/$defs/NodeUiActionState"
+              },
+              "title": "Actions",
+              "type": "array"
+            },
+            "facts": {
+              "items": {
+                "$ref": "#/$defs/NodeUiFact"
+              },
+              "title": "Facts",
+              "type": "array"
+            },
+            "health_status": {
+              "$ref": "#/$defs/NodeUiTone",
+              "default": "neutral"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "label": {
+              "title": "Label",
+              "type": "string"
+            },
+            "runtime_state": {
+              "$ref": "#/$defs/NodeUiRuntimeState",
+              "default": "unknown"
+            }
+          },
+          "required": [
+            "id",
+            "label"
+          ],
+          "title": "RuntimeServiceItem",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "empty": {
+          "default": false,
+          "title": "Empty",
+          "type": "boolean"
+        },
+        "errors": {
+          "items": {
+            "$ref": "#/$defs/NodeUiCardError"
+          },
+          "title": "Errors",
+          "type": "array"
+        },
+        "kind": {
+          "const": "runtime_service",
+          "default": "runtime_service",
+          "title": "Kind",
+          "type": "string"
+        },
+        "retry": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NodeUiRetryState"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "services": {
+          "items": {
+            "$ref": "#/$defs/RuntimeServiceItem"
+          },
+          "title": "Services",
+          "type": "array"
+        },
+        "stale": {
+          "default": false,
+          "title": "Stale",
+          "type": "boolean"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "updated_at"
+      ],
+      "title": "RuntimeServiceCardResponse",
+      "type": "object"
+    },
+    "WarningBannerCardResponse": {
+      "$defs": {
+        "NodeUiActionState": {
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "default": true,
+              "title": "Enabled",
+              "type": "boolean"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "label": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Label"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Reason"
+            },
+            "tone": {
+              "$ref": "#/$defs/NodeUiTone",
+              "default": "neutral"
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "title": "NodeUiActionState",
+          "type": "object"
+        },
+        "NodeUiCardError": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "title": "Code",
+              "type": "string"
+            },
+            "message": {
+              "title": "Message",
+              "type": "string"
+            },
+            "retryable": {
+              "default": false,
+              "title": "Retryable",
+              "type": "boolean"
+            },
+            "tone": {
+              "$ref": "#/$defs/NodeUiTone",
+              "default": "error"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "title": "NodeUiCardError",
+          "type": "object"
+        },
+        "NodeUiRetryState": {
+          "additionalProperties": false,
+          "properties": {
+            "action_label": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Action Label"
+            },
+            "retry_after_ms": {
+              "anyOf": [
+                {
+                  "maximum": 3600000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Retry After Ms"
+            }
+          },
+          "title": "NodeUiRetryState",
+          "type": "object"
+        },
+        "NodeUiTone": {
+          "enum": [
+            "neutral",
+            "info",
+            "success",
+            "warning",
+            "error",
+            "danger"
+          ],
+          "title": "NodeUiTone",
+          "type": "string"
+        },
+        "WarningItem": {
+          "additionalProperties": false,
+          "properties": {
+            "actions": {
+              "items": {
+                "$ref": "#/$defs/NodeUiActionState"
+              },
+              "title": "Actions",
+              "type": "array"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "message": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Message"
+            },
+            "title": {
+              "title": "Title",
+              "type": "string"
+            },
+            "tone": {
+              "$ref": "#/$defs/NodeUiTone",
+              "default": "warning"
+            }
+          },
+          "required": [
+            "id",
+            "title"
+          ],
+          "title": "WarningItem",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "empty": {
+          "default": false,
+          "title": "Empty",
+          "type": "boolean"
+        },
+        "errors": {
+          "items": {
+            "$ref": "#/$defs/NodeUiCardError"
+          },
+          "title": "Errors",
+          "type": "array"
+        },
+        "kind": {
+          "const": "warning_banner",
+          "default": "warning_banner",
+          "title": "Kind",
+          "type": "string"
+        },
+        "retry": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NodeUiRetryState"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "stale": {
+          "default": false,
+          "title": "Stale",
+          "type": "boolean"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        },
+        "warnings": {
+          "items": {
+            "$ref": "#/$defs/WarningItem"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "updated_at"
+      ],
+      "title": "WarningBannerCardResponse",
+      "type": "object"
+    }
+  },
+  "title": "Core-owned node UI card response schemas",
+  "type": "object"
+}
