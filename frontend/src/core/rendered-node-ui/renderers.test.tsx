@@ -22,7 +22,7 @@ const surface: NodeUiSurface = {
   id: "node.health",
   kind: "health_strip",
   title: "Node Health",
-  data_endpoint: "/api/node/ui/overview/health",
+  data_endpoint: "/api/node/ui/health",
   refresh: { mode: "near_live", interval_ms: 15000 },
 };
 
@@ -47,8 +47,8 @@ describe("rendered node UI renderers", () => {
       kind: "health_strip",
       updated_at: "2026-05-13T01:00:00Z",
       items: [
-        { id: "trust", label: "Trust", value: "trusted", tone: "success" },
-        { id: "runtime", label: "Runtime", value: "running", tone: "success" },
+        { state_name: "Trust", current_state: "trusted", tone: "success" },
+        { state_name: "Runtime", current_state: "running", tone: "success" },
       ],
     };
 

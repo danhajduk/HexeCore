@@ -420,39 +420,22 @@
         "HealthStripItem": {
           "additionalProperties": false,
           "properties": {
-            "detail": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Detail"
-            },
-            "id": {
-              "title": "Id",
+            "current_state": {
+              "title": "Current State",
               "type": "string"
             },
-            "label": {
-              "title": "Label",
+            "state_name": {
+              "title": "State Name",
               "type": "string"
             },
             "tone": {
-              "$ref": "#/$defs/NodeUiTone",
-              "default": "neutral"
-            },
-            "value": {
-              "title": "Value",
-              "type": "string"
+              "$ref": "#/$defs/NodeUiTone"
             }
           },
           "required": [
-            "id",
-            "label",
-            "value"
+            "state_name",
+            "current_state",
+            "tone"
           ],
           "title": "HealthStripItem",
           "type": "object"

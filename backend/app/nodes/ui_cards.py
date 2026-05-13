@@ -179,22 +179,17 @@ class NodeOverviewCardResponse(NodeUiCardResponseBase):
 class HealthStripItem(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    id: str
-    label: str
-    value: str
-    tone: NodeUiTone = NodeUiTone.NEUTRAL
-    detail: str | None = None
+    state_name: str
+    current_state: str
+    tone: NodeUiTone
 
-    @field_validator("id")
+    @field_validator("state_name", "current_state")
     @classmethod
-    def _validate_id_field(cls, value: str) -> str:
-        return _validate_id(value)
-
-    @field_validator("label", "value", "detail")
-    @classmethod
-    def _validate_text(cls, value: str | None) -> str | None:
+    def _validate_text(cls, value: str | None) -> str:
         cleaned = _clean_text(value)
         if value is not None and cleaned is None:
+            raise ValueError("text_required")
+        if cleaned is None:
             raise ValueError("text_required")
         return cleaned
 

@@ -20,6 +20,13 @@ const manifest: NodeUiManifest = {
   node_id: "node-1",
   node_type: "voice",
   display_name: "Voice Node",
+  health: {
+    id: "node.health",
+    kind: "health_strip",
+    title: "Health",
+    data_endpoint: "/api/node/ui/health",
+    refresh: { mode: "near_live", interval_ms: 15000 },
+  },
   pages: [
     { id: "overview", title: "Overview", surfaces: [] },
     { id: "runtime", title: "Runtime", surfaces: [] },
@@ -31,7 +38,7 @@ function surface(mode: NodeUiSurface["refresh"]["mode"], interval_ms?: number): 
     id: "node.health",
     kind: "health_strip",
     title: "Health",
-    data_endpoint: "/api/node/ui/overview/health",
+    data_endpoint: "/api/node/ui/health",
     refresh: { mode, interval_ms },
   };
 }
@@ -74,7 +81,6 @@ describe("RenderedNodeUiPage helpers", () => {
     };
 
     expect(resolveNodeUiPageSurfaces(overview).map((item) => item.id)).toEqual([
-      "node.health",
       "node.warnings",
       "runtime.services",
       "runtime.providers",
@@ -93,11 +99,12 @@ describe("RenderedNodeUiPage helpers", () => {
     ]);
   });
 
-  it("advertises the first manifest health strip across every page", () => {
+  it("advertises the top-level manifest health strip across every page", () => {
     const sharedHealth = surface("near_live", 15000);
     expect(
       resolveNodeUiAdvertisedHealthSurface({
         ...manifest,
+        health: sharedHealth,
         pages: [
           { id: "overview", title: "Overview", surfaces: [sharedHealth] },
           {
@@ -155,7 +162,6 @@ describe("RenderedNodeUiPage helpers", () => {
     ];
 
     expect(resolveNodeUiPageCards(cards).map((item) => item.id)).toEqual([
-      "node.health",
       "node.warnings",
       "runtime.services",
       "runtime.providers",
@@ -178,6 +184,7 @@ describe("RenderedNodeUiPage helpers", () => {
     expect(
       resolveNodeUiManifestDataLabel({
         ...manifest,
+        health: undefined,
         pages: [
           {
             id: "overview",

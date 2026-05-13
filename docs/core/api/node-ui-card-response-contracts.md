@@ -69,21 +69,21 @@ Action-bearing cards refer to action ids from the manifest. A card data response
 
 ### `health_strip`
 
+Each health strip item carries the display name of the state, the current state, and the tone flag Core uses for color coding.
+
 ```json
 {
   "kind": "health_strip",
   "updated_at": "2026-05-13T01:00:00Z",
   "items": [
     {
-      "id": "lifecycle",
-      "label": "Lifecycle",
-      "value": "operational",
+      "state_name": "Lifecycle",
+      "current_state": "operational",
       "tone": "success"
     },
     {
-      "id": "trust",
-      "label": "Trust",
-      "value": "trusted",
+      "state_name": "Trust",
+      "current_state": "trusted",
       "tone": "success"
     }
   ]

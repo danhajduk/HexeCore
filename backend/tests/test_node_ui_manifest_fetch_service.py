@@ -25,19 +25,19 @@ def _manifest(*, revision: str | None = "rev-1") -> dict[str, object]:
         "node_id": "node-1",
         "node_type": "voice",
         "display_name": "Voice Node",
+        "health": {
+            "id": "node.health",
+            "kind": "health_strip",
+            "title": "Health",
+            "data_endpoint": "/api/node/ui/health",
+            "refresh": {"mode": "near_live", "interval_ms": 15000},
+        },
         "pages": [
             {
                 "id": "overview",
                 "title": "Overview",
-                "surfaces": [
-                    {
-                        "id": "node.health",
-                        "kind": "health_strip",
-                        "title": "Health",
-                        "data_endpoint": "/api/node/ui/overview/health",
-                        "refresh": {"mode": "near_live", "interval_ms": 15000},
-                    }
-                ],
+                "page_endpoint": "/api/node/ui/pages/overview",
+                "refresh": {"mode": "near_live", "interval_ms": 15000},
             }
         ],
     }

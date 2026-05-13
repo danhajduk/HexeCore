@@ -58,13 +58,12 @@ export function nodeUiActionConfirmationMessage(action: NodeUiAction): string | 
 
 export function resolveNodeUiPageSurfaces(page: NodeUiPage): NodeUiSurface[] {
   return page.surfaces.filter((surface) =>
-    ["health_strip", "warning_banner", "runtime_service", "provider_status", "record_list", "action_panel"].includes(
-      surface.kind,
-    ),
+    ["warning_banner", "runtime_service", "provider_status", "record_list", "action_panel"].includes(surface.kind),
   );
 }
 
 export function resolveNodeUiAdvertisedHealthSurface(manifest: NodeUiManifest): NodeUiSurface | null {
+  if (manifest.health) return manifest.health;
   for (const page of manifest.pages) {
     const healthSurface = page.surfaces.find((surface) => surface.kind === "health_strip");
     if (healthSurface) return healthSurface;
@@ -74,16 +73,16 @@ export function resolveNodeUiAdvertisedHealthSurface(manifest: NodeUiManifest): 
 
 export function resolveNodeUiPageCards(cards: NodeUiPageCard[]): NodeUiPageCard[] {
   return cards.filter((card) =>
-    ["health_strip", "warning_banner", "runtime_service", "provider_status", "record_list", "action_panel"].includes(
-      card.kind,
-    ),
+    ["warning_banner", "runtime_service", "provider_status", "record_list", "action_panel"].includes(card.kind),
   );
 }
 
 export function resolveNodeUiManifestDataLabel(manifest: NodeUiManifest): string {
   const pagePayloadCount = manifest.pages.filter((page) => Boolean(page.page_endpoint)).length;
   const surfaceCount = manifest.pages.reduce((total, page) => total + page.surfaces.length, 0);
+  const globalSurfaceCount = manifest.health ? 1 : 0;
   const labels: string[] = [];
+  if (globalSurfaceCount) labels.push(`${globalSurfaceCount} global surface`);
   if (pagePayloadCount) labels.push(`${pagePayloadCount} page payload${pagePayloadCount === 1 ? "" : "s"}`);
   if (surfaceCount) labels.push(`${surfaceCount} surface${surfaceCount === 1 ? "" : "s"}`);
   return labels.join(" · ") || "No data surfaces";
@@ -297,6 +296,9 @@ function PageSnapshotSection({ nodeId, page }: { nodeId: string; page: NodeUiPag
 }
 
 function LegacySurfaceSection({ nodeId, surfaces }: { nodeId: string; surfaces: NodeUiSurface[] }) {
+  if (surfaces.length === 0) {
+    return <section className="rendered-node-page-section rendered-node-content-wrap" />;
+  }
   return (
     <section className="rendered-node-page-section rendered-node-content-wrap">
       <div className="rendered-node-loading-content">
@@ -411,6 +413,12 @@ export default function RenderedNodeUiPage() {
       ) : manifest && activePage ? (
         <div className="rendered-node-content-wrap">
           <div className="rendered-node-loading-content">
+            {advertisedHealthSurface ? (
+              <div className="rendered-node-global-health">
+                <SurfaceCard nodeId={nodeId} surface={advertisedHealthSurface} />
+              </div>
+            ) : null}
+
             <nav className="rendered-node-tabs" aria-label="Node UI pages" role="tablist">
               {manifest.pages.map((page) => (
                 <button
@@ -428,8 +436,6 @@ export default function RenderedNodeUiPage() {
 
             {activePage.page_endpoint ? (
               <PageSnapshotSection key={activePage.id} nodeId={nodeId} page={activePage} />
-            ) : advertisedHealthSurface ? (
-              <LegacySurfaceSection key={activePage.id} nodeId={nodeId} surfaces={[advertisedHealthSurface]} />
             ) : (
               <LegacySurfaceSection key={activePage.id} nodeId={nodeId} surfaces={resolveNodeUiPageSurfaces(activePage)} />
             )}

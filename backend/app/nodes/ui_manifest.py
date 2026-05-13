@@ -238,6 +238,7 @@ class NodeUiManifest(BaseModel):
     node_id: str
     node_type: str
     display_name: str
+    health: NodeUiSurface | None = None
     pages: list[NodeUiPage] = Field(..., min_length=1)
 
     @field_validator("manifest_revision", "node_id", "node_type")
@@ -260,6 +261,15 @@ class NodeUiManifest(BaseModel):
         page_ids: set[str] = set()
         surface_ids: set[str] = set()
         action_ids: set[tuple[str, str]] = set()
+        if self.health is not None:
+            if self.health.kind != "health_strip":
+                raise ValueError("health_surface_must_be_health_strip")
+            surface_ids.add(self.health.id)
+            for action in self.health.actions:
+                key = (self.health.id, action.id)
+                if key in action_ids:
+                    raise ValueError("duplicate_action_id")
+                action_ids.add(key)
         for page in self.pages:
             if page.id in page_ids:
                 raise ValueError("duplicate_page_id")

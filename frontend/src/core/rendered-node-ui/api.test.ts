@@ -18,8 +18,8 @@ describe("rendered node UI data API", () => {
   });
 
   it("maps node-local API data endpoints through the Core node proxy", () => {
-    expect(nodeUiSurfaceDataPath("node-1", "/api/node/ui/overview/health")).toBe(
-      "/api/nodes/node-1/node/ui/overview/health",
+    expect(nodeUiSurfaceDataPath("node-1", "/api/node/ui/health")).toBe(
+      "/api/nodes/node-1/node/ui/health",
     );
     expect(nodeUiPageDataPath("node-1", "/api/node/ui/pages/overview")).toBe(
       "/api/nodes/node-1/node/ui/pages/overview",
@@ -70,12 +70,12 @@ describe("rendered node UI data API", () => {
 
     const response = await fetchNodeSurfaceData<{ state: string; path: string }>(
       "node-1",
-      "/api/node/ui/overview/health",
+      "/api/node/ui/health",
       { fetcher },
     );
 
     expect(response.state).toBe("healthy");
-    expect(response.path).toBe("/api/nodes/node-1/node/ui/overview/health");
+    expect(response.path).toBe("/api/nodes/node-1/node/ui/health");
   });
 
   it("loads page snapshot data through Core", async () => {

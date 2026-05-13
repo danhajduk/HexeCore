@@ -7,7 +7,9 @@ import { getNodeUiCardRenderer, NodeUiCard, UnsupportedNodeUiCard } from "./rend
 
 describe("pilot rendered node UI fixtures", () => {
   it("covers every pilot surface with a card response and registered renderer", () => {
-    const surfaces = pilotNodeUiManifest.pages.flatMap((page) => page.surfaces);
+    const surfaces = pilotNodeUiManifest.pages
+      .flatMap((page) => page.surfaces)
+      .concat(pilotNodeUiManifest.health ? [pilotNodeUiManifest.health] : []);
 
     expect(surfaces).toHaveLength(2);
     for (const surface of surfaces) {
@@ -23,6 +25,7 @@ describe("pilot rendered node UI fixtures", () => {
   it("renders every pilot card kind", () => {
     const html = pilotNodeUiManifest.pages
       .flatMap((page) => page.surfaces)
+      .concat(pilotNodeUiManifest.health ? [pilotNodeUiManifest.health] : [])
       .map((surface) =>
         renderToStaticMarkup(<NodeUiCard surface={surface} data={pilotNodeUiCardResponses[surface.kind]} />),
       )

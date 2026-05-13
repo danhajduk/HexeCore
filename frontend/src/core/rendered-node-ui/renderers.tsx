@@ -230,10 +230,9 @@ export function HealthStripCard({ surface, data }: NodeUiCardRendererProps<Healt
       ) : (
         <div className="rendered-node-health-strip">
           {(data.items || []).map((item) => (
-            <div key={item.id} className={`rendered-node-health-item ${toneClass(item.tone)}`}>
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
-              {item.detail ? <small>{item.detail}</small> : null}
+            <div key={item.state_name} className={`rendered-node-health-item ${toneClass(item.tone)}`}>
+              <span>{item.state_name}</span>
+              <strong>{item.current_state}</strong>
             </div>
           ))}
         </div>

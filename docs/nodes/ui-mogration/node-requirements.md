@@ -56,7 +56,7 @@ GET /api/nodes/{node_id}/ui-manifest
 
 The Core endpoint is admin-session/token protected and returns structured states for untrusted nodes, missing node API endpoints, fetch failures, and contract validation failures.
 
-The manifest must be small and declarative. It describes pages, page snapshot endpoints or legacy surfaces, action endpoints, detail endpoint templates, and refresh policy. It must not include full page data directly in the manifest.
+The manifest must be small and declarative. It describes the global health strip, pages, page snapshot endpoints or legacy surfaces, action endpoints, detail endpoint templates, and refresh policy. It must not include full page data directly in the manifest.
 
 Core frontend code maps manifest `page_endpoint` and legacy `data_endpoint` values through Core-owned node proxy paths. For example, `/api/node/ui/pages/overview` becomes `/api/nodes/{node_id}/node/ui/pages/overview` in the browser.
 
@@ -76,6 +76,7 @@ Required manifest fields:
 - `node_type`
 - `display_name`
 - `pages`
+- optional top-level `health` surface with kind `health_strip`
 - page `id`, `title`, and either `page_endpoint` plus `refresh`, or legacy `surfaces`
 - legacy surface `id`, `kind`, `title`, `data_endpoint`, and `refresh`
 - action metadata when a surface supports operator actions
@@ -96,6 +97,7 @@ Nodes should provide one page snapshot endpoint per rendered page. The page snap
 Expected examples:
 
 ```http
+GET /api/node/ui/health
 GET /api/node/ui/pages/overview
 GET /api/node/ui/pages/runtime
 ```
@@ -103,7 +105,6 @@ GET /api/node/ui/pages/runtime
 Legacy per-card data endpoints remain supported during migration:
 
 ```http
-GET /api/node/ui/overview/health
 GET /api/node/ui/overview/warnings
 GET /api/node/ui/runtime/services
 GET /api/node/ui/{node_domain}/{surface}
@@ -210,7 +211,7 @@ Initial migration should keep nodes in `full`. Mature nodes should move to `setu
 A first pilot node should provide:
 
 - `/api/node/ui-manifest`
-- `/api/node/ui/overview/health`
+- `/api/node/ui/health`
 - `/api/node/ui/overview/warnings`
 - `/api/node/ui/runtime/services`
 - one domain-specific summary endpoint

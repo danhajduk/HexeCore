@@ -251,6 +251,10 @@
   min-width: 0;
 }
 
+.rendered-node-global-health {
+  min-width: 0;
+}
+
 .rendered-node-surface-wrap.is-health-strip,
 .rendered-node-surface-state.is-health-strip {
   grid-column: 1 / -1;

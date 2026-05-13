@@ -336,6 +336,17 @@
       "title": "Display Name",
       "type": "string"
     },
+    "health": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/NodeUiSurface"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "pages": {
       "items": {
         "$ref": "#/$defs/NodeUiPage"

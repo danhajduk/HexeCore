@@ -11,6 +11,13 @@ def pilot_node_ui_manifest() -> dict[str, object]:
         "node_id": "pilot-node-1",
         "node_type": "voice",
         "display_name": "Pilot Voice Node",
+        "health": {
+            "id": "node.health",
+            "kind": "health_strip",
+            "title": "Health",
+            "data_endpoint": "/api/node/ui/health",
+            "refresh": {"mode": "near_live", "interval_ms": 15000},
+        },
         "pages": [
             {
                 "id": "overview",
@@ -22,13 +29,6 @@ def pilot_node_ui_manifest() -> dict[str, object]:
                         "title": "Node Overview",
                         "data_endpoint": "/api/node/ui/overview",
                         "refresh": {"mode": "manual"},
-                    },
-                    {
-                        "id": "node.health",
-                        "kind": "health_strip",
-                        "title": "Health",
-                        "data_endpoint": "/api/node/ui/overview/health",
-                        "refresh": {"mode": "near_live", "interval_ms": 15000},
                     },
                     {
                         "id": "node.warnings",
@@ -126,8 +126,8 @@ def pilot_node_ui_card_responses() -> dict[str, dict[str, object]]:
             "kind": "health_strip",
             "updated_at": PILOT_UPDATED_AT,
             "items": [
-                {"id": "lifecycle", "label": "Lifecycle", "value": "running", "tone": "success"},
-                {"id": "providers", "label": "Providers", "value": "ready", "tone": "success"},
+                {"state_name": "Lifecycle", "current_state": "running", "tone": "success"},
+                {"state_name": "Providers", "current_state": "ready", "tone": "success"},
             ],
         },
         "warning_banner": {

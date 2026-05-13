@@ -24,16 +24,16 @@ The response is the server-validated `NodeUiManifestFetchResponse`. UI code must
 
 ## Surface Data Loading
 
-Manifest `data_endpoint` values are node-local API paths such as:
+Manifest `data_endpoint` values are node-local API paths such as the global health endpoint:
 
 ```http
-/api/node/ui/overview/health
+/api/node/ui/health
 ```
 
 The frontend data layer maps them to Core proxy paths:
 
 ```http
-/api/nodes/{node_id}/node/ui/overview/health
+/api/nodes/{node_id}/node/ui/health
 ```
 
 Browser code must not call private node origins directly and must not accept absolute manifest endpoints.
@@ -47,7 +47,7 @@ Browser code must not call private node origins directly and must not accept abs
 - `error`: displayable failure text, when available
 - `reload()`: explicit reload function
 
-`useNodeSurfaceData(nodeId, endpoint)` returns the same load shape for a single surface data endpoint.
+`useNodeSurfaceData(nodeId, endpoint)` returns the same load shape for a single surface data endpoint. The rendered node page shell uses it for the top-level manifest `health` surface, so health refreshes independently from the selected tab or page snapshot.
 
 Renderer tasks should use these hooks instead of issuing direct `fetch()` calls.
 

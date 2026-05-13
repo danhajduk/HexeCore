@@ -15,18 +15,18 @@ class TestNodeUiManifest(unittest.TestCase):
             "node_id": "voice-node-1",
             "node_type": "voice",
             "display_name": "Voice Node",
+            "health": {
+                "id": "node.health",
+                "kind": "health_strip",
+                "title": "Node Health",
+                "data_endpoint": "/api/node/ui/health",
+                "refresh": {"mode": "near_live", "interval_ms": 15000},
+            },
             "pages": [
                 {
                     "id": "overview",
                     "title": "Overview",
                     "surfaces": [
-                        {
-                            "id": "node.health",
-                            "kind": "health_strip",
-                            "title": "Node Health",
-                            "data_endpoint": "/api/node/ui/overview/health",
-                            "refresh": {"mode": "near_live", "interval_ms": 15000},
-                        },
                         {
                             "id": "node.actions",
                             "kind": "action_panel",
@@ -73,8 +73,8 @@ class TestNodeUiManifest(unittest.TestCase):
 
         self.assertEqual(manifest.schema_version, "1.0")
         self.assertEqual(manifest.node_id, "voice-node-1")
-        self.assertEqual(manifest.pages[0].surfaces[0].refresh.interval_ms, 15000)
-        self.assertEqual(manifest.pages[0].surfaces[1].actions[0].method, "POST")
+        self.assertEqual(manifest.health.refresh.interval_ms if manifest.health else None, 15000)
+        self.assertEqual(manifest.pages[0].surfaces[0].actions[0].method, "POST")
 
     def test_rejects_unknown_top_level_keys(self) -> None:
         payload = self._payload()
@@ -96,7 +96,7 @@ class TestNodeUiManifest(unittest.TestCase):
 
     def test_rejects_absolute_or_invalid_endpoints(self) -> None:
         payload = self._payload()
-        payload["pages"][0]["surfaces"][0]["data_endpoint"] = "http://node.local/api/node/ui/overview/health"
+        payload["health"]["data_endpoint"] = "http://node.local/api/node/ui/health"
         with self.assertRaises(NodeUiManifestValidationError):
             validate_node_ui_manifest(payload)
 
@@ -108,14 +108,14 @@ class TestNodeUiManifest(unittest.TestCase):
 
     def test_rejects_sensitive_action_without_confirmation(self) -> None:
         payload = self._payload()
-        action = payload["pages"][0]["surfaces"][1]["actions"][0]
+        action = payload["pages"][0]["surfaces"][0]["actions"][0]
         action.pop("confirmation")
         with self.assertRaises(NodeUiManifestValidationError):
             validate_node_ui_manifest(payload)
 
     def test_rejects_polling_refresh_without_valid_interval(self) -> None:
         payload = self._payload()
-        payload["pages"][0]["surfaces"][0]["refresh"]["interval_ms"] = 500
+        payload["health"]["refresh"]["interval_ms"] = 500
         with self.assertRaises(NodeUiManifestValidationError):
             validate_node_ui_manifest(payload)
 

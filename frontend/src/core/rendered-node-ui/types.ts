@@ -53,6 +53,7 @@ export type NodeUiManifest = {
   node_id: string;
   node_type: string;
   display_name: string;
+  health?: NodeUiSurface | null;
   pages: NodeUiPage[];
 };
 
@@ -129,11 +130,9 @@ export type NodeOverviewCardResponse = NodeUiCardResponseBase & {
 export type HealthStripCardResponse = NodeUiCardResponseBase & {
   kind: "health_strip";
   items?: Array<{
-    id: string;
-    label: string;
-    value: string;
-    tone?: NodeUiTone;
-    detail?: string | null;
+    state_name: string;
+    current_state: string;
+    tone: NodeUiTone;
   }>;
 };
 

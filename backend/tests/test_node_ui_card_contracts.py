@@ -39,8 +39,8 @@ class TestNodeUiCardContracts(unittest.TestCase):
                 "kind": "health_strip",
                 "updated_at": UPDATED_AT,
                 "items": [
-                    {"id": "lifecycle", "label": "Lifecycle", "value": "operational", "tone": "success"},
-                    {"id": "trust", "label": "Trust", "value": "trusted", "tone": "success"},
+                    {"state_name": "Lifecycle", "current_state": "operational", "tone": "success"},
+                    {"state_name": "Trust", "current_state": "trusted", "tone": "success"},
                 ],
             },
         )
@@ -152,7 +152,7 @@ class TestNodeUiCardContracts(unittest.TestCase):
                 {
                     "kind": "health_strip",
                     "updated_at": UPDATED_AT,
-                    "items": [{"id": "bad", "label": "<script>x</script>", "value": "bad"}],
+                    "items": [{"state_name": "<script>x</script>", "current_state": "bad", "tone": "error"}],
                 }
             )
 

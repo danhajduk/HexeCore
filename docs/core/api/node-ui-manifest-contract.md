@@ -4,7 +4,7 @@ Status: Implemented
 
 ## Purpose
 
-Core-rendered node UI starts with a node-provided declarative manifest. The manifest tells Core which pages exist and how each page should be loaded. A page can either point to a page snapshot endpoint that returns all card data for the page, or use the older per-surface data endpoint model during migration. It does not contain React components, HTML, scripts, or browser-executable code.
+Core-rendered node UI starts with a node-provided declarative manifest. The manifest tells Core which global health strip and pages exist and how each page should be loaded. A page can either point to a page snapshot endpoint that returns all card data for the page, or use the older per-surface data endpoint model during migration. It does not contain React components, HTML, scripts, or browser-executable code.
 
 Nodes expose the manifest at:
 
@@ -79,6 +79,7 @@ Required top-level fields:
 Optional top-level fields:
 
 - `manifest_revision`
+- `health`: a top-level `health_strip` surface rendered above the tabs on every page
 
 Each page contains:
 
@@ -86,6 +87,8 @@ Each page contains:
 - `title`
 - optional `description`
 - either `page_endpoint` plus `refresh`, or one or more legacy `surfaces`
+
+The top-level `health` surface uses the same surface shape as page surfaces, but its `kind` must be `health_strip`. Core renders it once above the tab bar and fetches its `data_endpoint` independently from page snapshot or page surface calls.
 
 Preferred page snapshot fields:
 
@@ -141,7 +144,7 @@ Manifest endpoints must be node-local relative paths beginning with `/`.
 Allowed examples:
 
 ```http
-/api/node/ui/overview/health
+/api/node/ui/health
 /api/node/ui/pages/overview
 /api/node/ui/runtime/services
 /api/node/ui/voice/intents
@@ -151,7 +154,7 @@ Allowed examples:
 Forbidden examples:
 
 ```http
-http://node.local:8080/api/node/ui/overview/health
+http://node.local:8080/api/node/ui/health
 javascript:alert(1)
 ```
 
@@ -211,6 +214,16 @@ Preferred page snapshot manifest:
   "node_id": "voice-node-1",
   "node_type": "voice",
   "display_name": "Voice Node",
+  "health": {
+    "id": "node.health",
+    "kind": "health_strip",
+    "title": "Health",
+    "data_endpoint": "/api/node/ui/health",
+    "refresh": {
+      "mode": "near_live",
+      "interval_ms": 15000
+    }
+  },
   "pages": [
     {
       "id": "overview",
@@ -237,20 +250,29 @@ Example page snapshot:
   },
   "cards": [
     {
-      "id": "node.health",
-      "kind": "health_strip",
+      "id": "node.warnings",
+      "kind": "warning_banner",
       "data": {
-        "kind": "health_strip",
+        "kind": "warning_banner",
         "updated_at": "2026-05-13T09:46:27Z",
-        "items": [
-          {
-            "id": "lifecycle",
-            "label": "Lifecycle",
-            "value": "Operational",
-            "tone": "success"
-          }
-        ]
+        "warnings": []
       }
+    }
+  ]
+}
+```
+
+Example health response from `GET /api/node/ui/health`:
+
+```json
+{
+  "kind": "health_strip",
+  "updated_at": "2026-05-13T09:46:27Z",
+  "items": [
+    {
+      "state_name": "Lifecycle",
+      "current_state": "Operational",
+      "tone": "success"
     }
   ]
 }
@@ -274,7 +296,7 @@ Legacy per-surface manifest:
           "id": "node.health",
           "kind": "health_strip",
           "title": "Node Health",
-          "data_endpoint": "/api/node/ui/overview/health",
+          "data_endpoint": "/api/node/ui/health",
           "refresh": {
             "mode": "near_live",
             "interval_ms": 15000

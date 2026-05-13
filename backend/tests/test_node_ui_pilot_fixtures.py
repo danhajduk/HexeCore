@@ -33,6 +33,8 @@ class TestNodeUiPilotFixtures(unittest.IsolatedAsyncioTestCase):
         responses = pilot_node_ui_card_responses()
 
         surface_kinds = {surface.kind for page in manifest.pages for surface in page.surfaces}
+        if manifest.health is not None:
+            surface_kinds.add(manifest.health.kind)
 
         self.assertEqual(surface_kinds, set(responses))
         for kind, payload in responses.items():
