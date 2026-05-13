@@ -298,7 +298,7 @@
 }
 
 .rendered-node-loading-shell.is-health-strip {
-  min-height: 52px;
+  min-height: 92px;
 }
 
 .rendered-node-loading-backdrop {
@@ -310,7 +310,7 @@
 }
 
 .rendered-node-loading-backdrop span {
-  min-height: 28px;
+  min-height: 42px;
   border: 1px solid hsl(var(--sx-text) / 0.1);
   border-radius: var(--sx-radius-sm);
   background:
