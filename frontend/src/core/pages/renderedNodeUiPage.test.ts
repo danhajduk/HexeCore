@@ -4,6 +4,7 @@ import {
   nodeUiActionConfirmationMessage,
   nodeUiRefreshPollInterval,
   nodeUiSurfacePollInterval,
+  resolveNodeUiAdvertisedHealthSurface,
   resolveNodeUiManifestDataLabel,
   resolveNodeUiPageCards,
   resolveNodeUiPageSurfaces,
@@ -61,6 +62,23 @@ describe("RenderedNodeUiPage helpers", () => {
 
     expect(resolveNodeUiPageSurfaces(overview).map((item) => item.id)).toEqual(["node.health"]);
     expect(overview.surfaces.map((item) => item.id)).toEqual(["node.overview", "node.health", "node.facts"]);
+  });
+
+  it("advertises the first manifest health strip across every page", () => {
+    const sharedHealth = surface("near_live", 15000);
+    expect(
+      resolveNodeUiAdvertisedHealthSurface({
+        ...manifest,
+        pages: [
+          { id: "overview", title: "Overview", surfaces: [sharedHealth] },
+          {
+            id: "runtime",
+            title: "Runtime",
+            surfaces: [{ ...surface("manual"), id: "runtime.facts", kind: "facts_card", title: "Facts" }],
+          },
+        ],
+      }),
+    ).toBe(sharedHealth);
   });
 
   it("keeps only health strip cards for page snapshots during the focused redesign pass", () => {
