@@ -1,0 +1,335 @@
+{
+  "$defs": {
+    "NodeUiAction": {
+      "additionalProperties": false,
+      "properties": {
+        "confirmation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NodeUiActionConfirmation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "destructive": {
+          "default": false,
+          "title": "Destructive",
+          "type": "boolean"
+        },
+        "endpoint": {
+          "title": "Endpoint",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "method": {
+          "$ref": "#/$defs/NodeUiActionMethod"
+        },
+        "request_schema": {
+          "additionalProperties": true,
+          "title": "Request Schema",
+          "type": "object"
+        },
+        "sensitive": {
+          "default": false,
+          "title": "Sensitive",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "method",
+        "endpoint"
+      ],
+      "title": "NodeUiAction",
+      "type": "object"
+    },
+    "NodeUiActionConfirmation": {
+      "additionalProperties": false,
+      "properties": {
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "tone": {
+          "$ref": "#/$defs/NodeUiConfirmationTone",
+          "default": "warning"
+        }
+      },
+      "title": "NodeUiActionConfirmation",
+      "type": "object"
+    },
+    "NodeUiActionMethod": {
+      "enum": [
+        "POST",
+        "PUT",
+        "PATCH",
+        "DELETE"
+      ],
+      "title": "NodeUiActionMethod",
+      "type": "string"
+    },
+    "NodeUiConfirmationTone": {
+      "enum": [
+        "info",
+        "warning",
+        "danger"
+      ],
+      "title": "NodeUiConfirmationTone",
+      "type": "string"
+    },
+    "NodeUiPage": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "surfaces": {
+          "items": {
+            "$ref": "#/$defs/NodeUiSurface"
+          },
+          "minItems": 1,
+          "title": "Surfaces",
+          "type": "array"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title"
+      ],
+      "title": "NodeUiPage",
+      "type": "object"
+    },
+    "NodeUiRefreshMode": {
+      "enum": [
+        "live",
+        "near_live",
+        "manual",
+        "detail",
+        "static"
+      ],
+      "title": "NodeUiRefreshMode",
+      "type": "string"
+    },
+    "NodeUiRefreshPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "cache_ttl_ms": {
+          "anyOf": [
+            {
+              "maximum": 3600000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cache Ttl Ms"
+        },
+        "interval_ms": {
+          "anyOf": [
+            {
+              "maximum": 300000,
+              "minimum": 1000,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Interval Ms"
+        },
+        "mode": {
+          "$ref": "#/$defs/NodeUiRefreshMode"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "NodeUiRefreshPolicy",
+      "type": "object"
+    },
+    "NodeUiSurface": {
+      "additionalProperties": false,
+      "properties": {
+        "actions": {
+          "items": {
+            "$ref": "#/$defs/NodeUiAction"
+          },
+          "title": "Actions",
+          "type": "array"
+        },
+        "data_endpoint": {
+          "title": "Data Endpoint",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "detail_endpoint_template": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detail Endpoint Template"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "refresh": {
+          "$ref": "#/$defs/NodeUiRefreshPolicy"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "title",
+        "data_endpoint",
+        "refresh"
+      ],
+      "title": "NodeUiSurface",
+      "type": "object"
+    }
+  },
+  "$id": "https://hexe.local/schemas/node_ui_manifest.schema.json",
+  "additionalProperties": false,
+  "description": "Core-owned contract for declarative node UI manifests served by nodes at GET /api/node/ui-manifest.",
+  "properties": {
+    "display_name": {
+      "title": "Display Name",
+      "type": "string"
+    },
+    "manifest_revision": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Manifest Revision"
+    },
+    "node_id": {
+      "title": "Node Id",
+      "type": "string"
+    },
+    "node_type": {
+      "title": "Node Type",
+      "type": "string"
+    },
+    "pages": {
+      "items": {
+        "$ref": "#/$defs/NodeUiPage"
+      },
+      "minItems": 1,
+      "title": "Pages",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "node_id",
+    "node_type",
+    "display_name",
+    "pages"
+  ],
+  "title": "NodeUiManifest",
+  "type": "object"
+}

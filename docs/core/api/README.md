@@ -8,6 +8,7 @@ This folder is the canonical home for Hexe Core API and backend control-plane do
 - [auth-and-identity.md](./auth-and-identity.md)
 - [core-platform.md](./core-platform.md)
 - [data-and-state.md](./data-and-state.md)
+- [node-ui-manifest-contract.md](./node-ui-manifest-contract.md)
 - [telemetry-and-usage.md](./telemetry-and-usage.md)
 
 ## Status

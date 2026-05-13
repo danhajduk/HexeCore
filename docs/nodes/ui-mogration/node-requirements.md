@@ -20,6 +20,22 @@ Node requirements therefore assume:
 - node-hosted operational React apps are transitional only
 - node-local UI is retained for setup, recovery, and diagnostics while migration is incomplete
 
+## Node-Local UI Policy
+
+After a node is migrated to Core-rendered UI, the node must not serve an independent operational UI.
+
+Node-local UI is allowed only for:
+
+- first-boot setup
+- Core pairing and trust registration
+- recovery when Core cannot reach or trust the node
+- local diagnostics that help repair Core connectivity
+- error states that block Core handoff
+
+All normal operator workflows should move to Core-rendered pages. This includes dashboards, health cards, provider status, runtime controls, records, settings, action panels, detail views, artifacts, and event history.
+
+If a node exposes local setup or recovery screens, those screens should clearly hand the operator back to Core once the node is healthy, trusted, and manageable from Core.
+
 ## Required Node Surfaces
 
 Each migratable node must eventually expose these surfaces.
@@ -33,6 +49,11 @@ GET /api/node/ui-manifest
 ```
 
 The manifest must be small and declarative. It describes pages, surfaces, data endpoints, action endpoints, detail endpoint templates, and refresh policy. It must not include full page data.
+
+Canonical Core contract:
+
+- [Core-Owned Node UI Manifest Contract](../../core/api/node-ui-manifest-contract.md)
+- [node_ui_manifest.schema.json](../../json_schema/node_ui_manifest.schema.json)
 
 Required manifest fields:
 
@@ -154,7 +175,9 @@ Nodes should eventually support these local UI modes:
 - `setup_only`: first boot, Core pairing, trust registration, recovery diagnostics, and handoff to Core
 - `disabled`: no node-hosted UI except health/API surfaces
 
-Initial migration should keep nodes in `full`. Mature nodes can move to `setup_only` only after Core-rendered UI has operational parity. `disabled` should wait until Core has strong recovery and diagnostics coverage.
+Initial migration should keep nodes in `full`. Mature nodes should move to `setup_only` after Core-rendered UI has operational parity. `disabled` should wait until Core has strong recovery and diagnostics coverage.
+
+`setup_only` is the intended steady state for most migrated nodes. A mature node should not stay in `full` unless it has documented setup, recovery, or error-handling needs that Core cannot cover yet.
 
 ## Minimum Pilot Node Contract
 
@@ -180,3 +203,4 @@ Nodes should not:
 - expose one giant endpoint containing all node operational state
 - rely on the manifest as an authorization mechanism
 - remove setup/recovery UI before Core provides equivalent operational coverage
+- keep a parallel independent operational UI after Core-rendered UI reaches parity
