@@ -18,6 +18,11 @@ Core frontend renderer registry:
 
 - `frontend/src/core/rendered-node-ui/renderers.tsx`
 
+Pilot contract fixtures:
+
+- `backend/tests/fixtures/node_ui_pilot.py`
+- `frontend/src/core/rendered-node-ui/pilotFixtures.ts`
+
 ## Shared Response Fields
 
 Every initial card response includes:

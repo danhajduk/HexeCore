@@ -48,6 +48,5 @@ Standards reference:
 Do not edit above this line:
 #######################################################################
 
-[TODO] Task 945: Add pilot rendered-node UI fixtures and integration tests
 [TODO] Task 946: Add rendered-node UI feature gate and legacy proxied-UI fallback
 [TODO] Task 947: Update verified docs for production Core UI and rendered-node UI migration
