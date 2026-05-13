@@ -38,10 +38,6 @@ export function nodeUiActionConfirmationMessage(action: NodeUiAction): string | 
   return confirmation.message || confirmation.title || `Run ${action.label}?`;
 }
 
-export function nodeUiPageHasLiveSurface(page: NodeUiPage): boolean {
-  return page.surfaces.some((surface) => surface.refresh?.mode === "live" || surface.refresh?.mode === "near_live");
-}
-
 function SurfaceCard({ nodeId, surface }: { nodeId: string; surface: NodeUiSurface }) {
   const data = useNodeSurfaceData<NodeUiCardResponse>(nodeId, surface.data_endpoint);
   const pollInterval = nodeUiSurfacePollInterval(surface);
@@ -205,12 +201,6 @@ export default function RenderedNodeUiPage() {
                 onClick={() => setSelectedPageId(page.id)}
               >
                 <span className="rendered-node-tab-title">{page.title}</span>
-                <span className="rendered-node-tab-meta">
-                  <span>
-                    {page.surfaces.length} surface{page.surfaces.length === 1 ? "" : "s"}
-                  </span>
-                  {nodeUiPageHasLiveSurface(page) ? <span className="rendered-node-tab-live">Live</span> : null}
-                </span>
               </button>
             ))}
           </nav>
