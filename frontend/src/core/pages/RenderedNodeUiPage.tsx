@@ -46,7 +46,7 @@ export function nodeUiActionConfirmationMessage(action: NodeUiAction): string | 
 }
 
 export function resolveNodeUiPageSurfaces(page: NodeUiPage): NodeUiSurface[] {
-  return page.surfaces.filter((surface) => surface.kind === "health_strip");
+  return page.surfaces.filter((surface) => ["health_strip", "warning_banner"].includes(surface.kind));
 }
 
 export function resolveNodeUiAdvertisedHealthSurface(manifest: NodeUiManifest): NodeUiSurface | null {
@@ -58,7 +58,7 @@ export function resolveNodeUiAdvertisedHealthSurface(manifest: NodeUiManifest): 
 }
 
 export function resolveNodeUiPageCards(cards: NodeUiPageCard[]): NodeUiPageCard[] {
-  return cards.filter((card) => card.kind === "health_strip");
+  return cards.filter((card) => ["health_strip", "warning_banner"].includes(card.kind));
 }
 
 export function resolveNodeUiManifestDataLabel(manifest: NodeUiManifest): string {
@@ -404,10 +404,10 @@ export default function RenderedNodeUiPage() {
               ))}
             </nav>
 
-            {advertisedHealthSurface ? (
-              <LegacySurfaceSection nodeId={nodeId} surfaces={[advertisedHealthSurface]} />
-            ) : activePage.page_endpoint ? (
+            {activePage.page_endpoint ? (
               <PageSnapshotSection nodeId={nodeId} page={activePage} />
+            ) : advertisedHealthSurface ? (
+              <LegacySurfaceSection nodeId={nodeId} surfaces={[advertisedHealthSurface]} />
             ) : (
               <LegacySurfaceSection nodeId={nodeId} surfaces={resolveNodeUiPageSurfaces(activePage)} />
             )}

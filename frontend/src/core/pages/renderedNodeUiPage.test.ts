@@ -49,19 +49,25 @@ describe("RenderedNodeUiPage helpers", () => {
     expect(nodeUiRefreshPollInterval({ mode: "near_live", interval_ms: 15000 })).toBe(15000);
   });
 
-  it("keeps only health strip surfaces during the focused redesign pass without mutating the manifest page", () => {
+  it("keeps only redesigned surfaces without mutating the manifest page", () => {
     const overview = {
       id: "overview",
       title: "Overview",
       surfaces: [
         { ...surface("manual"), id: "node.overview", kind: "node_overview", title: "Overview" },
         { ...surface("near_live", 15000), id: "node.health", kind: "health_strip", title: "Node Health" },
+        { ...surface("manual"), id: "node.warnings", kind: "warning_banner", title: "Operational Warnings" },
         { ...surface("static"), id: "node.facts", kind: "facts_card", title: "Facts" },
       ],
     };
 
-    expect(resolveNodeUiPageSurfaces(overview).map((item) => item.id)).toEqual(["node.health"]);
-    expect(overview.surfaces.map((item) => item.id)).toEqual(["node.overview", "node.health", "node.facts"]);
+    expect(resolveNodeUiPageSurfaces(overview).map((item) => item.id)).toEqual(["node.health", "node.warnings"]);
+    expect(overview.surfaces.map((item) => item.id)).toEqual([
+      "node.overview",
+      "node.health",
+      "node.warnings",
+      "node.facts",
+    ]);
   });
 
   it("advertises the first manifest health strip across every page", () => {
@@ -81,7 +87,7 @@ describe("RenderedNodeUiPage helpers", () => {
     ).toBe(sharedHealth);
   });
 
-  it("keeps only health strip cards for page snapshots during the focused redesign pass", () => {
+  it("keeps only redesigned cards for page snapshots", () => {
     const cards: NodeUiPageCard[] = [
       {
         id: "node.overview",
@@ -98,10 +104,15 @@ describe("RenderedNodeUiPage helpers", () => {
         kind: "health_strip",
         data: { kind: "health_strip", updated_at: "2026-05-13T01:00:00Z" },
       },
+      {
+        id: "node.warnings",
+        kind: "warning_banner",
+        data: { kind: "warning_banner", updated_at: "2026-05-13T01:00:00Z" },
+      },
     ];
 
-    expect(resolveNodeUiPageCards(cards).map((item) => item.id)).toEqual(["node.health"]);
-    expect(cards.map((item) => item.id)).toEqual(["node.overview", "node.facts", "node.health"]);
+    expect(resolveNodeUiPageCards(cards).map((item) => item.id)).toEqual(["node.health", "node.warnings"]);
+    expect(cards.map((item) => item.id)).toEqual(["node.overview", "node.facts", "node.health", "node.warnings"]);
   });
 
   it("summarizes page payloads and legacy surfaces in the manifest header", () => {
