@@ -4,7 +4,7 @@ Status: Partially implemented
 
 ## Purpose
 
-Move Hexe node operator UIs toward a shared Core-rendered model. Nodes should expose structured UI manifests, data endpoints, and action endpoints. Core should own layout, visual design, navigation, permissions UX, card components, and refresh behavior.
+Move Hexe node operator UIs toward a shared Core-rendered model. Nodes should expose structured UI manifests, page snapshot endpoints, and action endpoints. Core should own layout, visual design, navigation, permissions UX, card components, and refresh behavior.
 
 The goal is one consistent Core experience across Voice, Email, AI, Interaction, and future nodes while allowing each node to remain domain-specific through its data, capabilities, and actions.
 
@@ -17,14 +17,14 @@ Core now includes the infrastructure needed to pilot this migration:
 - production Core UI hosting from the built `frontend/dist` artifact
 - admin-gated manifest fetch endpoint at `GET /api/nodes/{node_id}/ui-manifest`
 - Core manifest and card response validators with JSON Schemas
-- frontend data loaders for manifest and surface endpoints
+- frontend data loaders for manifests, page snapshot endpoints, and legacy surface endpoints
 - shared renderer registry for the initial card kinds
 - manifest-backed page shell at `/nodes/:nodeId/rendered-ui`
 - Core-routed action execution from manifest metadata
 - per-node manifest advertisement gate with legacy `/nodes/:nodeId/UI` fallback
 - pilot fixtures and integration tests for the initial card set
 
-Node-side implementation remains Not developed in this repository. Nodes still need to expose their own `/api/node/ui-manifest`, card data endpoints, detail endpoints, and action endpoints.
+Node-side implementation remains Not developed in this repository. Nodes still need to expose their own `/api/node/ui-manifest`, page snapshot endpoints, detail endpoints, and action endpoints.
 
 ## Target Model
 
@@ -44,28 +44,28 @@ Recommended long-term local UI modes:
 
 1. Core discovers a trusted node through existing registration and service discovery.
 2. Core fetches a lightweight node UI manifest.
-3. Core renders node pages and card placeholders from the manifest.
-4. Core lazily fetches only the data for visible pages/cards.
+3. Core renders node pages from the manifest.
+4. Core fetches the active page snapshot, which includes the page cards and card data.
 5. Core calls node action endpoints when operators press buttons or submit forms.
 6. Node enforces trust, permissions, validation, and domain behavior.
 
 ```text
 Core
   -> GET node /api/node/ui-manifest
-  -> render Core-owned page/card shells
-  -> GET card-specific data endpoints only when visible
+  -> render Core-owned page shell
+  -> GET active page snapshot endpoint
   -> POST/PUT/PATCH/DELETE action endpoints on operator command
 
 Node
   -> publishes UI manifest
-  -> exposes stable data endpoints
+  -> exposes stable page snapshot endpoints
   -> exposes explicit action endpoints
   -> returns structured status/errors
 ```
 
 ## UI Manifest
 
-Each node should expose a small manifest that describes pages, surfaces, data endpoints, action endpoints, and refresh policy. The manifest should not contain full page data.
+Each node should expose a small manifest that describes pages, page snapshot endpoints, action endpoints, and refresh policy. The manifest should not contain full page data directly; page data lives behind the page endpoint.
 
 Node endpoint:
 
@@ -85,58 +85,20 @@ Example:
     {
       "id": "overview",
       "title": "Overview",
-      "surfaces": [
-        {
-          "id": "node.health",
-          "kind": "health_strip",
-          "title": "Node Health",
-          "data_endpoint": "/api/node/ui/overview/health",
-          "refresh": {
-            "mode": "near_live",
-            "interval_ms": 15000
-          }
-        },
-        {
-          "id": "node.warnings",
-          "kind": "warning_banner",
-          "title": "Operational Warnings",
-          "data_endpoint": "/api/node/ui/overview/warnings",
-          "refresh": {
-            "mode": "manual"
-          }
-        }
-      ]
+      "page_endpoint": "/api/node/ui/pages/overview",
+      "refresh": {
+        "mode": "near_live",
+        "interval_ms": 15000
+      }
     },
     {
       "id": "voice.intents",
       "title": "Intents",
-      "surfaces": [
-        {
-          "id": "voice.intent_registry",
-          "kind": "record_list",
-          "title": "Registered Intents",
-          "data_endpoint": "/api/node/ui/voice/intents",
-          "detail_endpoint_template": "/api/voice/intents/{intent_id}",
-          "actions": [
-            {
-              "id": "test_intent",
-              "label": "Test Intent",
-              "method": "POST",
-              "endpoint": "/api/voice/intents/dispatch"
-            },
-            {
-              "id": "invoke_intent",
-              "label": "Invoke Intent",
-              "method": "POST",
-              "endpoint": "/api/voice/intents/invoke"
-            }
-          ],
-          "refresh": {
-            "mode": "manual",
-            "cache_ttl_ms": 10000
-          }
-        }
-      ]
+      "page_endpoint": "/api/node/ui/pages/voice/intents",
+      "refresh": {
+        "mode": "manual",
+        "cache_ttl_ms": 10000
+      }
     }
   ]
 }
@@ -144,16 +106,16 @@ Example:
 
 ## Data Loading
 
-Core should not request all node data up front. Each visible page/card should load its own data through a Core-managed data layer.
+Core should not request all node data up front. Each visible page should load a page snapshot through a Core-managed data layer. Legacy per-card endpoints remain supported during migration.
 
 Preferred behavior:
 
 - Fetch the manifest on node page entry.
-- Fetch page-level summary cards when the page becomes visible.
+- Fetch the active page snapshot when the page becomes visible.
 - Fetch detail records only when an operator opens a drawer, popout, or row detail.
-- Poll only cards that are visible and marked as live or near-live.
+- Poll only visible pages that are marked as live or near-live.
 - Cancel or pause polling when the operator leaves the page.
-- Cache short-lived responses by node id, surface id, and endpoint.
+- Cache short-lived responses by node id, page id, and endpoint.
 
 Core cards should not blindly call `fetch()` independently. A shared Core data layer should coordinate caching, deduplication, loading states, errors, and refresh actions.
 
@@ -167,7 +129,7 @@ Recommended refresh modes:
 
 ## Shared Core Card Vocabulary
 
-Core should render a constrained set of reusable card kinds. Nodes select card kinds and provide data endpoints; nodes do not ship React components or HTML for normal operational UI.
+Core should render a constrained set of reusable card kinds. Nodes select card kinds and provide page snapshot data; nodes do not ship React components or HTML for normal operational UI.
 
 Initial shared card kinds:
 

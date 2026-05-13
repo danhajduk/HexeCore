@@ -2,12 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import {
   nodeUiActionConfirmationMessage,
+  nodeUiRefreshPollInterval,
   nodeUiSurfacePollInterval,
+  resolveNodeUiManifestDataLabel,
+  resolveNodeUiPageCards,
   resolveNodeUiPageSurfaces,
   resolveNodeUiAction,
   resolveSelectedNodeUiPage,
 } from "./RenderedNodeUiPage";
-import type { NodeUiManifest, NodeUiSurface } from "../rendered-node-ui";
+import type { NodeUiManifest, NodeUiPageCard, NodeUiSurface } from "../rendered-node-ui";
 
 const manifest: NodeUiManifest = {
   schema_version: "1.0",
@@ -42,6 +45,7 @@ describe("RenderedNodeUiPage helpers", () => {
     expect(nodeUiSurfacePollInterval(surface("near_live", 15000))).toBe(15000);
     expect(nodeUiSurfacePollInterval(surface("manual"))).toBeNull();
     expect(nodeUiSurfacePollInterval(surface("live"))).toBeNull();
+    expect(nodeUiRefreshPollInterval({ mode: "near_live", interval_ms: 15000 })).toBe(15000);
   });
 
   it("omits node overview cards and places health strip surfaces first without mutating the manifest page", () => {
@@ -60,6 +64,51 @@ describe("RenderedNodeUiPage helpers", () => {
       "node.facts",
     ]);
     expect(overview.surfaces.map((item) => item.id)).toEqual(["node.overview", "node.health", "node.facts"]);
+  });
+
+  it("omits node overview cards and places health strip cards first for page snapshots", () => {
+    const cards: NodeUiPageCard[] = [
+      {
+        id: "node.overview",
+        kind: "node_overview",
+        data: { kind: "node_overview", updated_at: "2026-05-13T01:00:00Z" },
+      },
+      {
+        id: "node.facts",
+        kind: "facts_card",
+        data: { kind: "facts_card", updated_at: "2026-05-13T01:00:00Z" },
+      },
+      {
+        id: "node.health",
+        kind: "health_strip",
+        data: { kind: "health_strip", updated_at: "2026-05-13T01:00:00Z" },
+      },
+    ];
+
+    expect(resolveNodeUiPageCards(cards).map((item) => item.id)).toEqual(["node.health", "node.facts"]);
+    expect(cards.map((item) => item.id)).toEqual(["node.overview", "node.facts", "node.health"]);
+  });
+
+  it("summarizes page payloads and legacy surfaces in the manifest header", () => {
+    expect(
+      resolveNodeUiManifestDataLabel({
+        ...manifest,
+        pages: [
+          {
+            id: "overview",
+            title: "Overview",
+            page_endpoint: "/api/node/ui/pages/overview",
+            refresh: { mode: "near_live", interval_ms: 15000 },
+            surfaces: [],
+          },
+          {
+            id: "runtime",
+            title: "Runtime",
+            surfaces: [surface("manual")],
+          },
+        ],
+      }),
+    ).toBe("1 page payload · 1 surface");
   });
 
   it("resolves executable action metadata from surface manifests", () => {

@@ -125,6 +125,31 @@ class TestNodeUiManifest(unittest.TestCase):
         manifest = validate_node_ui_manifest(payload)
         self.assertEqual(manifest.pages[0].surfaces[0].kind, "future_card")
 
+    def test_allows_page_endpoint_with_page_refresh(self) -> None:
+        payload = self._payload()
+        payload["pages"][0].pop("surfaces")
+        payload["pages"][0]["page_endpoint"] = "/api/node/ui/pages/overview"
+        payload["pages"][0]["refresh"] = {"mode": "near_live", "interval_ms": 15000}
+
+        manifest = validate_node_ui_manifest(payload)
+
+        self.assertEqual(manifest.pages[0].page_endpoint, "/api/node/ui/pages/overview")
+        self.assertEqual(manifest.pages[0].refresh.interval_ms, 15000)
+        self.assertEqual(manifest.pages[0].surfaces, [])
+
+    def test_rejects_empty_page_without_page_endpoint(self) -> None:
+        payload = self._payload()
+        payload["pages"][0]["surfaces"] = []
+        with self.assertRaises(NodeUiManifestValidationError):
+            validate_node_ui_manifest(payload)
+
+    def test_requires_refresh_when_page_endpoint_is_used(self) -> None:
+        payload = self._payload()
+        payload["pages"][0].pop("surfaces")
+        payload["pages"][0]["page_endpoint"] = "/api/node/ui/pages/overview"
+        with self.assertRaises(NodeUiManifestValidationError):
+            validate_node_ui_manifest(payload)
+
 
 if __name__ == "__main__":
     unittest.main()

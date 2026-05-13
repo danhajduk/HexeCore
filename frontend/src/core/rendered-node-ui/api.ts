@@ -1,5 +1,5 @@
 import { API_BASE } from "../api/client";
-import type { NodeUiAction, NodeUiManifestFetchResponse } from "./types";
+import type { NodeUiAction, NodeUiManifestFetchResponse, NodeUiPageSnapshot } from "./types";
 
 export type NodeUiFetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
@@ -67,6 +67,10 @@ export function nodeUiSurfaceDataPath(nodeId: string, endpoint: string): string 
   return `/api/nodes/${encodeURIComponent(requireNodeId(nodeId))}/${corePath}`;
 }
 
+export function nodeUiPageDataPath(nodeId: string, endpoint: string): string {
+  return nodeUiSurfaceDataPath(nodeId, endpoint);
+}
+
 export function nodeUiActionPath(nodeId: string, endpoint: string): string {
   return nodeUiSurfaceDataPath(nodeId, endpoint);
 }
@@ -84,6 +88,14 @@ export async function fetchNodeSurfaceData<T>(
   options: FetchOptions = {},
 ): Promise<T> {
   return fetchJson<T>(nodeUiSurfaceDataPath(nodeId, endpoint), options);
+}
+
+export async function fetchNodePageData(
+  nodeId: string,
+  endpoint: string,
+  options: FetchOptions = {},
+): Promise<NodeUiPageSnapshot> {
+  return fetchJson<NodeUiPageSnapshot>(nodeUiPageDataPath(nodeId, endpoint), options);
 }
 
 export async function executeNodeUiAction<T = Record<string, unknown>>(

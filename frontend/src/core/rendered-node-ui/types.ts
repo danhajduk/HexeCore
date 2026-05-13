@@ -42,6 +42,8 @@ export type NodeUiPage = {
   id: string;
   title: string;
   description?: string | null;
+  page_endpoint?: string | null;
+  refresh?: NodeUiRefreshPolicy | null;
   surfaces: NodeUiSurface[];
 };
 
@@ -203,3 +205,21 @@ export type NodeUiCardResponse =
   | ActionPanelCardResponse
   | RuntimeServiceCardResponse
   | ProviderStatusCardResponse;
+
+export type NodeUiPageCard = {
+  id: string;
+  kind: string;
+  title?: string | null;
+  description?: string | null;
+  detail_endpoint_template?: string | null;
+  actions?: NodeUiAction[];
+  refresh?: NodeUiRefreshPolicy | null;
+  data: NodeUiCardResponse;
+};
+
+export type NodeUiPageSnapshot = {
+  page_id: string;
+  updated_at?: string | null;
+  refresh?: NodeUiRefreshPolicy | null;
+  cards: NodeUiPageCard[];
+};

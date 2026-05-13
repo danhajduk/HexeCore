@@ -5,6 +5,7 @@ import { Link, useParams } from "react-router-dom";
 import {
   executeNodeUiAction,
   NodeUiCard,
+  useNodePageData,
   useNodeSurfaceData,
   useNodeUiManifest,
   type NodeUiAction,
@@ -12,6 +13,8 @@ import {
   type NodeUiCardResponse,
   type NodeUiManifest,
   type NodeUiPage,
+  type NodeUiPageCard,
+  type NodeUiRefreshPolicy,
   type NodeUiSurface,
 } from "../rendered-node-ui";
 import "./rendered-node-ui-page.css";
@@ -22,9 +25,13 @@ export function resolveSelectedNodeUiPage(manifest: NodeUiManifest, selectedPage
 }
 
 export function nodeUiSurfacePollInterval(surface: NodeUiSurface): number | null {
-  const mode = surface.refresh?.mode;
+  return nodeUiRefreshPollInterval(surface.refresh);
+}
+
+export function nodeUiRefreshPollInterval(refresh?: NodeUiRefreshPolicy | null): number | null {
+  const mode = refresh?.mode;
   if (mode !== "live" && mode !== "near_live") return null;
-  const interval = Number(surface.refresh?.interval_ms || 0);
+  const interval = Number(refresh?.interval_ms || 0);
   return Number.isFinite(interval) && interval > 0 ? interval : null;
 }
 
@@ -45,6 +52,37 @@ export function resolveNodeUiPageSurfaces(page: NodeUiPage): NodeUiSurface[] {
     if (right.kind === "health_strip") return 1;
     return 0;
   });
+}
+
+export function resolveNodeUiPageCards(cards: NodeUiPageCard[]): NodeUiPageCard[] {
+  return cards.filter((card) => card.kind !== "node_overview").sort((left, right) => {
+    if (left.kind === right.kind) return 0;
+    if (left.kind === "health_strip") return -1;
+    if (right.kind === "health_strip") return 1;
+    return 0;
+  });
+}
+
+export function resolveNodeUiManifestDataLabel(manifest: NodeUiManifest): string {
+  const pagePayloadCount = manifest.pages.filter((page) => Boolean(page.page_endpoint)).length;
+  const surfaceCount = manifest.pages.reduce((total, page) => total + page.surfaces.length, 0);
+  const labels: string[] = [];
+  if (pagePayloadCount) labels.push(`${pagePayloadCount} page payload${pagePayloadCount === 1 ? "" : "s"}`);
+  if (surfaceCount) labels.push(`${surfaceCount} surface${surfaceCount === 1 ? "" : "s"}`);
+  return labels.join(" · ") || "No data surfaces";
+}
+
+function pageCardToSurface(card: NodeUiPageCard, pageRefresh?: NodeUiRefreshPolicy | null): NodeUiSurface {
+  return {
+    id: card.id,
+    kind: card.kind,
+    title: card.title || card.id,
+    data_endpoint: "",
+    description: card.description,
+    detail_endpoint_template: card.detail_endpoint_template,
+    actions: card.actions || [],
+    refresh: card.refresh || pageRefresh || { mode: "manual" },
+  };
 }
 
 function surfaceLayoutClass(surface: NodeUiSurface): string {
@@ -143,6 +181,106 @@ function SurfaceCard({ nodeId, surface }: { nodeId: string; surface: NodeUiSurfa
   );
 }
 
+function PageSnapshotCard({
+  nodeId,
+  card,
+  pageRefresh,
+  onReload,
+}: {
+  nodeId: string;
+  card: NodeUiPageCard;
+  pageRefresh?: NodeUiRefreshPolicy | null;
+  onReload: () => void;
+}) {
+  const surface = pageCardToSurface(card, pageRefresh);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  async function handleAction(actionState: NodeUiActionState) {
+    const action = resolveNodeUiAction(surface, actionState);
+    setActionMessage(null);
+    setActionError(null);
+    if (!action) {
+      setActionError("Action is not declared in the page payload.");
+      return;
+    }
+    const confirmation = nodeUiActionConfirmationMessage(action);
+    if (confirmation && !window.confirm(confirmation)) return;
+    try {
+      await executeNodeUiAction(nodeId, action);
+      setActionMessage(`${action.label} complete.`);
+      onReload();
+    } catch (error: unknown) {
+      setActionError(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  return (
+    <div className={`rendered-node-surface-wrap${surfaceLayoutClass(surface)}`}>
+      <NodeUiCard surface={surface} data={{ ...card.data, kind: card.data.kind || card.kind }} onAction={(action) => void handleAction(action)} />
+      {actionMessage ? <div className="rendered-node-action-status tone-success">{actionMessage}</div> : null}
+      {actionError ? <div className="rendered-node-action-status tone-error">{actionError}</div> : null}
+    </div>
+  );
+}
+
+function PageSnapshotSection({ nodeId, page }: { nodeId: string; page: NodeUiPage }) {
+  const pageData = useNodePageData(nodeId, page.page_endpoint, { enabled: Boolean(page.page_endpoint) });
+  const refresh = pageData.data?.refresh || page.refresh;
+  const pollInterval = nodeUiRefreshPollInterval(refresh);
+
+  useEffect(() => {
+    if (!pollInterval) return;
+    const timer = window.setInterval(() => pageData.reload(), pollInterval);
+    return () => window.clearInterval(timer);
+  }, [pageData.reload, pollInterval]);
+
+  if (pageData.status === "loading" && !pageData.data) {
+    return (
+      <section className="rendered-node-page-section">
+        <div className="rendered-node-surface-grid">
+          <article className="rendered-node-surface-state rendered-node-loading-shell is-health-strip">
+            <div className="rendered-node-loading-backdrop" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </div>
+            <RenderedNodeLoadingOverlay label={page.title} />
+          </article>
+        </div>
+      </section>
+    );
+  }
+
+  if (pageData.status === "error" || !pageData.data) {
+    return (
+      <section className="rendered-node-page-section">
+        <div className="rendered-node-shell-state rendered-node-shell-error">
+          <span>{pageData.error || "Page data unavailable."}</span>
+          <button type="button" className="rendered-node-refresh" onClick={pageData.reload} title="Refresh page">
+            <RefreshCw size={16} aria-hidden="true" />
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  const cards = resolveNodeUiPageCards(pageData.data.cards || []);
+
+  return (
+    <section className={`rendered-node-page-section rendered-node-content-wrap${loadingClass(pageData.status === "loading")}`}>
+      <div className="rendered-node-loading-content">
+        <div className="rendered-node-surface-grid">
+          {cards.map((card) => (
+            <PageSnapshotCard key={card.id} nodeId={nodeId} card={card} pageRefresh={refresh} onReload={pageData.reload} />
+          ))}
+        </div>
+      </div>
+      {pageData.status === "loading" ? <RenderedNodeLoadingOverlay label={`Refreshing ${page.title}`} /> : null}
+    </section>
+  );
+}
+
 function LegacyNodeUiFallback({ nodeId }: { nodeId: string }) {
   return (
     <Link to={`/nodes/${encodeURIComponent(nodeId)}/UI`} className="rendered-node-fallback-link">
@@ -165,7 +303,7 @@ export default function RenderedNodeUiPage() {
     () => (manifest ? resolveSelectedNodeUiPage(manifest, selectedPageId) : null),
     [manifest, selectedPageId],
   );
-  const surfaceCount = manifest?.pages.reduce((total, page) => total + page.surfaces.length, 0) || 0;
+  const manifestDataLabel = manifest ? resolveNodeUiManifestDataLabel(manifest) : "";
 
   return (
     <section className="rendered-node-page">
@@ -195,7 +333,7 @@ export default function RenderedNodeUiPage() {
           {manifest ? (
             <div className="rendered-node-header-meta" aria-label="Manifest summary">
               <span>{manifest.pages.length} pages</span>
-              <span>{surfaceCount} surfaces</span>
+              <span>{manifestDataLabel}</span>
               <span>
                 <Layers3 size={14} aria-hidden="true" />
                 Schema {manifest.schema_version}
@@ -253,13 +391,17 @@ export default function RenderedNodeUiPage() {
               ))}
             </nav>
 
-            <section className="rendered-node-page-section">
-              <div className="rendered-node-surface-grid">
-                {resolveNodeUiPageSurfaces(activePage).map((surface) => (
-                  <SurfaceCard key={surface.id} nodeId={nodeId} surface={surface} />
-                ))}
-              </div>
-            </section>
+            {activePage.page_endpoint ? (
+              <PageSnapshotSection nodeId={nodeId} page={activePage} />
+            ) : (
+              <section className="rendered-node-page-section">
+                <div className="rendered-node-surface-grid">
+                  {resolveNodeUiPageSurfaces(activePage).map((surface) => (
+                    <SurfaceCard key={surface.id} nodeId={nodeId} surface={surface} />
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
           {manifestState.status === "loading" ? <RenderedNodeLoadingOverlay label="Refreshing manifest" /> : null}
         </div>

@@ -4,7 +4,7 @@ Status: Implemented
 
 ## Purpose
 
-Core-rendered node UI starts with a node-provided declarative manifest. The manifest tells Core which pages and surfaces exist, where card data lives, and which explicit node actions are available. It does not contain React components, HTML, scripts, or full operational page data.
+Core-rendered node UI starts with a node-provided declarative manifest. The manifest tells Core which pages exist and how each page should be loaded. A page can either point to a page snapshot endpoint that returns all card data for the page, or use the older per-surface data endpoint model during migration. It does not contain React components, HTML, scripts, or browser-executable code.
 
 Nodes expose the manifest at:
 
@@ -85,7 +85,14 @@ Each page contains:
 - `id`
 - `title`
 - optional `description`
-- one or more `surfaces`
+- either `page_endpoint` plus `refresh`, or one or more legacy `surfaces`
+
+Preferred page snapshot fields:
+
+- `page_endpoint`: node-local API path returning the page cards and card data
+- `refresh`: page-level refresh policy
+
+Legacy surface fields remain supported during migration:
 
 Each surface contains:
 
@@ -100,6 +107,33 @@ Each surface contains:
 
 Card `kind` values are intentionally extensible. Core may render unknown safe kinds as unsupported-card states until a renderer exists.
 
+## Page Snapshot Shape
+
+When a page declares `page_endpoint`, Core fetches that endpoint through the Core node proxy and renders the returned `cards` directly. This lets a node return one consistent page snapshot instead of requiring one fetch per card.
+
+Required page snapshot fields:
+
+- `page_id`
+- `cards`
+
+Optional page snapshot fields:
+
+- `updated_at`
+- `refresh`
+
+Each card contains:
+
+- `id`
+- `kind`
+- `data`
+- optional `title`
+- optional `description`
+- optional `detail_endpoint_template`
+- zero or more `actions`
+- optional `refresh`
+
+Card `data` uses the existing Core card response contracts. Core filters redundant `node_overview` cards from live page rendering because the header and health strip already carry that information.
+
 ## Endpoint Rules
 
 Manifest endpoints must be node-local relative paths beginning with `/`.
@@ -108,6 +142,7 @@ Allowed examples:
 
 ```http
 /api/node/ui/overview/health
+/api/node/ui/pages/overview
 /api/node/ui/runtime/services
 /api/node/ui/voice/intents
 /api/voice/intents/{intent_id}
@@ -122,7 +157,7 @@ javascript:alert(1)
 
 ## Refresh Policy
 
-Each surface declares one refresh policy.
+Each page snapshot page declares one page-level refresh policy. Legacy surfaces each declare their own refresh policy.
 
 Supported modes:
 
@@ -166,6 +201,62 @@ Rejected content includes:
 - duplicate action ids within a surface
 
 ## Minimal Example
+
+Preferred page snapshot manifest:
+
+```json
+{
+  "schema_version": "1.0",
+  "manifest_revision": "rev-1",
+  "node_id": "voice-node-1",
+  "node_type": "voice",
+  "display_name": "Voice Node",
+  "pages": [
+    {
+      "id": "overview",
+      "title": "Overview",
+      "page_endpoint": "/api/node/ui/pages/overview",
+      "refresh": {
+        "mode": "near_live",
+        "interval_ms": 15000
+      }
+    }
+  ]
+}
+```
+
+Example page snapshot:
+
+```json
+{
+  "page_id": "overview",
+  "updated_at": "2026-05-13T09:46:27Z",
+  "refresh": {
+    "mode": "near_live",
+    "interval_ms": 15000
+  },
+  "cards": [
+    {
+      "id": "node.health",
+      "kind": "health_strip",
+      "data": {
+        "kind": "health_strip",
+        "updated_at": "2026-05-13T09:46:27Z",
+        "items": [
+          {
+            "id": "lifecycle",
+            "label": "Lifecycle",
+            "value": "Operational",
+            "tone": "success"
+          }
+        ]
+      }
+    }
+  ]
+}
+```
+
+Legacy per-surface manifest:
 
 ```json
 {

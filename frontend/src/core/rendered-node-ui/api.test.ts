@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   executeNodeUiAction,
+  fetchNodePageData,
   fetchNodeSurfaceData,
   fetchNodeUiManifest,
   nodeUiActionPath,
   nodeUiManifestPath,
+  nodeUiPageDataPath,
   nodeUiSurfaceDataPath,
   type NodeUiFetcher,
 } from "./api";
@@ -18,6 +20,9 @@ describe("rendered node UI data API", () => {
   it("maps node-local API data endpoints through the Core node proxy", () => {
     expect(nodeUiSurfaceDataPath("node-1", "/api/node/ui/overview/health")).toBe(
       "/api/nodes/node-1/node/ui/overview/health",
+    );
+    expect(nodeUiPageDataPath("node-1", "/api/node/ui/pages/overview")).toBe(
+      "/api/nodes/node-1/node/ui/pages/overview",
     );
   });
 
@@ -71,6 +76,19 @@ describe("rendered node UI data API", () => {
 
     expect(response.state).toBe("healthy");
     expect(response.path).toBe("/api/nodes/node-1/node/ui/overview/health");
+  });
+
+  it("loads page snapshot data through Core", async () => {
+    const fetcher: NodeUiFetcher = async (input) =>
+      new Response(JSON.stringify({ page_id: "overview", cards: [], path: String(input) }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+
+    const response = await fetchNodePageData("node-1", "/api/node/ui/pages/overview", { fetcher });
+
+    expect(response.page_id).toBe("overview");
+    expect((response as any).path).toBe("/api/nodes/node-1/node/ui/pages/overview");
   });
 
   it("executes node actions through Core", async () => {

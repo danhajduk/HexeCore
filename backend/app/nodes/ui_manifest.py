@@ -194,7 +194,9 @@ class NodeUiPage(BaseModel):
     id: str
     title: str
     description: str | None = None
-    surfaces: list[NodeUiSurface] = Field(default_factory=list, min_length=1)
+    page_endpoint: str | None = None
+    refresh: NodeUiRefreshPolicy | None = None
+    surfaces: list[NodeUiSurface] = Field(default_factory=list)
 
     @field_validator("id")
     @classmethod
@@ -205,6 +207,21 @@ class NodeUiPage(BaseModel):
     @classmethod
     def _validate_text(cls, value: str | None) -> str | None:
         return _clean_text(value)
+
+    @field_validator("page_endpoint")
+    @classmethod
+    def _validate_endpoint_field(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _validate_endpoint(value)
+
+    @model_validator(mode="after")
+    def _validate_page_data_source(self) -> "NodeUiPage":
+        if self.page_endpoint is None and len(self.surfaces) == 0:
+            raise ValueError("page_endpoint_or_surfaces_required")
+        if self.page_endpoint is not None and self.refresh is None:
+            raise ValueError("page_refresh_required_when_page_endpoint_is_used")
+        return self
 
 
 class NodeUiManifest(BaseModel):

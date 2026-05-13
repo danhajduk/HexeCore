@@ -3,16 +3,20 @@
     "NodeUiAction": {
       "additionalProperties": false,
       "properties": {
-        "confirmation": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/NodeUiActionConfirmation"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "method": {
+          "$ref": "#/$defs/NodeUiActionMethod"
+        },
+        "endpoint": {
+          "title": "Endpoint",
+          "type": "string"
         },
         "description": {
           "anyOf": [
@@ -26,35 +30,31 @@
           "default": null,
           "title": "Description"
         },
-        "destructive": {
-          "default": false,
-          "title": "Destructive",
-          "type": "boolean"
-        },
-        "endpoint": {
-          "title": "Endpoint",
-          "type": "string"
-        },
-        "id": {
-          "title": "Id",
-          "type": "string"
-        },
-        "label": {
-          "title": "Label",
-          "type": "string"
-        },
-        "method": {
-          "$ref": "#/$defs/NodeUiActionMethod"
-        },
         "request_schema": {
           "additionalProperties": true,
           "title": "Request Schema",
           "type": "object"
         },
+        "destructive": {
+          "default": false,
+          "title": "Destructive",
+          "type": "boolean"
+        },
         "sensitive": {
           "default": false,
           "title": "Sensitive",
           "type": "boolean"
+        },
+        "confirmation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NodeUiActionConfirmation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -69,18 +69,6 @@
     "NodeUiActionConfirmation": {
       "additionalProperties": false,
       "properties": {
-        "message": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Message"
-        },
         "required": {
           "default": false,
           "title": "Required",
@@ -97,6 +85,18 @@
           ],
           "default": null,
           "title": "Title"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
         },
         "tone": {
           "$ref": "#/$defs/NodeUiConfirmationTone",
@@ -128,6 +128,14 @@
     "NodeUiPage": {
       "additionalProperties": false,
       "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
         "description": {
           "anyOf": [
             {
@@ -140,21 +148,35 @@
           "default": null,
           "title": "Description"
         },
-        "id": {
-          "title": "Id",
-          "type": "string"
+        "page_endpoint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Endpoint"
+        },
+        "refresh": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NodeUiRefreshPolicy"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "surfaces": {
           "items": {
             "$ref": "#/$defs/NodeUiSurface"
           },
-          "minItems": 1,
           "title": "Surfaces",
           "type": "array"
-        },
-        "title": {
-          "title": "Title",
-          "type": "string"
         }
       },
       "required": [
@@ -178,19 +200,8 @@
     "NodeUiRefreshPolicy": {
       "additionalProperties": false,
       "properties": {
-        "cache_ttl_ms": {
-          "anyOf": [
-            {
-              "maximum": 3600000,
-              "minimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Cache Ttl Ms"
+        "mode": {
+          "$ref": "#/$defs/NodeUiRefreshMode"
         },
         "interval_ms": {
           "anyOf": [
@@ -206,8 +217,19 @@
           "default": null,
           "title": "Interval Ms"
         },
-        "mode": {
-          "$ref": "#/$defs/NodeUiRefreshMode"
+        "cache_ttl_ms": {
+          "anyOf": [
+            {
+              "maximum": 3600000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cache Ttl Ms"
         }
       },
       "required": [
@@ -219,12 +241,17 @@
     "NodeUiSurface": {
       "additionalProperties": false,
       "properties": {
-        "actions": {
-          "items": {
-            "$ref": "#/$defs/NodeUiAction"
-          },
-          "title": "Actions",
-          "type": "array"
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "title": "Kind",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
         },
         "data_endpoint": {
           "title": "Data Endpoint",
@@ -254,20 +281,15 @@
           "default": null,
           "title": "Detail Endpoint Template"
         },
-        "id": {
-          "title": "Id",
-          "type": "string"
-        },
-        "kind": {
-          "title": "Kind",
-          "type": "string"
+        "actions": {
+          "items": {
+            "$ref": "#/$defs/NodeUiAction"
+          },
+          "title": "Actions",
+          "type": "array"
         },
         "refresh": {
           "$ref": "#/$defs/NodeUiRefreshPolicy"
-        },
-        "title": {
-          "title": "Title",
-          "type": "string"
         }
       },
       "required": [
@@ -285,8 +307,9 @@
   "additionalProperties": false,
   "description": "Core-owned contract for declarative node UI manifests served by nodes at GET /api/node/ui-manifest.",
   "properties": {
-    "display_name": {
-      "title": "Display Name",
+    "schema_version": {
+      "const": "1.0",
+      "title": "Schema Version",
       "type": "string"
     },
     "manifest_revision": {
@@ -309,6 +332,10 @@
       "title": "Node Type",
       "type": "string"
     },
+    "display_name": {
+      "title": "Display Name",
+      "type": "string"
+    },
     "pages": {
       "items": {
         "$ref": "#/$defs/NodeUiPage"
@@ -316,11 +343,6 @@
       "minItems": 1,
       "title": "Pages",
       "type": "array"
-    },
-    "schema_version": {
-      "const": "1.0",
-      "title": "Schema Version",
-      "type": "string"
     }
   },
   "required": [
