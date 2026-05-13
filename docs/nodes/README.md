@@ -61,6 +61,7 @@ Compatibility note: Hexe Nodes is the current display label, and active MQTT nam
 
 ## Included Docs
 
+- [json/README.md](./json/README.md)
 - [capability-taxonomy.md](./capability-taxonomy.md)
 - [onboarding-trust-terminology.md](./onboarding-trust-terminology.md)
 - [registry-domain.md](./registry-domain.md)
