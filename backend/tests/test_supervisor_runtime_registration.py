@@ -14,6 +14,15 @@ from app.system.onboarding import NodeGovernanceStatusService, NodeGovernanceSta
 from app.system.runtime import StandaloneRuntimeService
 
 
+class _FakeRuntimeClient:
+    def __init__(self) -> None:
+        self.refresh_count = 0
+
+    def refresh_runtime_store(self, store: SupervisorRuntimeNodesStore) -> bool:
+        self.refresh_count += 1
+        return True
+
+
 class TestSupervisorRuntimeRegistration(unittest.TestCase):
     def _runtime_service(self, services_root: Path) -> StandaloneRuntimeService:
         return StandaloneRuntimeService(
@@ -102,6 +111,36 @@ class TestSupervisorRuntimeRegistration(unittest.TestCase):
             self.assertEqual(node_detail.status_code, 200, node_detail.text)
             self.assertEqual(node_detail.json()["node"]["runtime"]["runtime_state"], "running")
             self.assertEqual(node_detail.json()["node"]["runtime"]["host_id"], "host-a")
+
+    def test_node_runtime_refresh_is_throttled_for_repeated_reads(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            registrations = NodeRegistrationsStore(path=root / "node_registrations.json")
+            runtimes = SupervisorRuntimeNodesStore(path=root / "supervisor_runtime_nodes.json")
+            registrations.upsert(
+                NodeRegistrationRecord(
+                    node_id="node-1",
+                    node_type="voice",
+                    node_name="voice-node",
+                    node_software_version="1.0.0",
+                    requested_node_type="voice-node",
+                    capabilities_summary=[],
+                    trust_status="trusted",
+                    source_onboarding_session_id="sess-1",
+                    approved_by_user_id="admin",
+                    approved_at="2026-04-07T00:00:00+00:00",
+                    created_at="2026-04-07T00:00:00+00:00",
+                    updated_at="2026-04-07T00:00:00+00:00",
+                )
+            )
+            runtime_client = _FakeRuntimeClient()
+            nodes = NodesDomainService(registrations, runtime_store=runtimes, runtime_client=runtime_client)
+
+            nodes.get_node("node-1")
+            nodes.get_node("node-1")
+            nodes.list_nodes()
+
+            self.assertEqual(runtime_client.refresh_count, 1)
 
     def test_runtime_actions_update_desired_state(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

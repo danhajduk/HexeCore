@@ -77,5 +77,7 @@ Current implementation:
 - reuses `NodeRegistrationsStore` as the persisted source
 - reuses governance status service data when available
 - normalizes the result into `NodeRecord`
+- attaches Supervisor runtime summaries when available
+- throttles Supervisor runtime store refreshes in `NodesDomainService` so repeated node reads and proxied node UI/API requests use the recent runtime snapshot instead of blocking every request on Supervisor refresh work
 
 This keeps the current registration schema as the storage source while making the Nodes layer own the canonical API-facing registry model.
