@@ -326,6 +326,38 @@
   background: hsl(var(--sx-text) / 0.025);
 }
 
+.rendered-node-runtime-button {
+  width: 100%;
+  color: hsl(var(--sx-text));
+  cursor: pointer;
+  text-align: left;
+}
+
+.rendered-node-runtime-button:hover {
+  border-color: hsl(var(--sx-primary) / 0.36);
+  background: hsl(var(--sx-primary) / 0.06);
+}
+
+.rendered-node-runtime-button:focus-visible {
+  outline: 2px solid hsl(var(--sx-primary));
+  outline-offset: 2px;
+}
+
+.rendered-node-runtime-summary {
+  min-height: 18px;
+  overflow: hidden;
+  color: hsl(var(--sx-text-muted));
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rendered-node-runtime-details-link {
+  color: hsl(var(--sx-primary));
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .rendered-node-card.kind-runtime_service,
 .rendered-node-card.kind-provider_status {
   background:
@@ -366,6 +398,64 @@
 .rendered-node-card.kind-runtime_service .rendered-node-fact dd,
 .rendered-node-card.kind-provider_status .rendered-node-fact dd {
   font-size: 14px;
+}
+
+.rendered-node-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: hsl(220 35% 4% / 0.72);
+}
+
+.rendered-node-dialog {
+  display: grid;
+  gap: var(--sx-space-3);
+  width: min(680px, 100%);
+  max-height: min(760px, calc(100vh - 48px));
+  overflow: auto;
+  padding: var(--sx-space-3);
+  border: 1px solid hsl(var(--sx-border));
+  border-radius: var(--sx-radius-md);
+  background: hsl(var(--sx-panel));
+  box-shadow: 0 24px 70px hsl(220 45% 2% / 0.48);
+}
+
+.rendered-node-dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sx-space-3);
+}
+
+.rendered-node-dialog-head > div {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.rendered-node-dialog-head h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.rendered-node-icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid hsl(var(--sx-border));
+  border-radius: var(--sx-radius-sm);
+  background: hsl(var(--sx-text) / 0.04);
+  color: hsl(var(--sx-text));
+  cursor: pointer;
+}
+
+.rendered-node-icon-button:hover {
+  border-color: hsl(var(--sx-primary) / 0.42);
+  background: hsl(var(--sx-primary) / 0.08);
 }
 
 .rendered-node-card.kind-warning_banner .rendered-node-warning-list {

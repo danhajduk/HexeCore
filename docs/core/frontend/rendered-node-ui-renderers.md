@@ -27,6 +27,10 @@ Initial renderer kinds:
 
 Unknown card kinds render a safe unsupported state instead of executing node-provided UI code.
 
+## Runtime Service Cards
+
+`runtime_service` renders each service as a compact clickable tile with the service label, state, and short provider/model summary. Opening a tile shows the full Core-owned details dialog with facts, resource usage, errors, and service-level actions.
+
 ## Action Rendering
 
 Action-bearing cards render action controls from card data, but buttons remain disabled unless a Core action handler is passed in. Action execution is routed through the Core action layer, which resolves executable metadata from the manifest.

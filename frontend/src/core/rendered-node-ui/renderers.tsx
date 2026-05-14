@@ -1,5 +1,5 @@
-import type { ComponentType, ReactNode } from "react";
-import { Activity, AlertTriangle, CircleHelp, RotateCw } from "lucide-react";
+import { useState, type ComponentType, type ReactNode } from "react";
+import { Activity, AlertTriangle, CircleHelp, RotateCw, X } from "lucide-react";
 
 import type {
   ActionPanelCardResponse,
@@ -70,6 +70,7 @@ function formatUpdatedAt(value?: string | null): string {
 }
 
 type HealthStripItemPayload = NonNullable<HealthStripCardResponse["items"]>[number];
+type RuntimeServicePayload = NonNullable<RuntimeServiceCardResponse["services"]>[number];
 
 function healthStateName(item: HealthStripItemPayload): string {
   const legacy = item as typeof item & { label?: string | null };
@@ -101,6 +102,26 @@ function compactFacts(facts: Array<NodeUiFact | null | undefined>): NodeUiFact[]
 
 function summaryFacts(summary?: Record<string, NodeUiRecordValue>): NodeUiFact[] {
   return Object.entries(summary || {}).map(([id, value]) => ({ id, label: labelize(id), value: formatRecordValue(value) }));
+}
+
+function runtimeServiceFacts(service: RuntimeServicePayload): NodeUiFact[] {
+  const resourceUsage = service.resource_usage || {};
+  return compactFacts([
+    ...(service.facts || []),
+    service.provider ? { id: `${service.id}.provider`, label: "Provider", value: service.provider } : null,
+    service.model ? { id: `${service.id}.model`, label: "Model", value: service.model } : null,
+    {
+      id: `${service.id}.cpu`,
+      label: "CPU",
+      value: formatPercent(resourceUsage.process_cpu_percent ?? resourceUsage.cpu_percent),
+    },
+    {
+      id: `${service.id}.rss`,
+      label: "Memory",
+      value: formatBytes(resourceUsage.process_memory_rss_bytes) || readRecordValue(resourceUsage.memory_usage),
+    },
+    { id: `${service.id}.load`, label: "Load 1m", value: resourceUsage.system_load_1m as string | number | null },
+  ]);
 }
 
 function CardShell({
@@ -345,23 +366,26 @@ export function RecordListCard({ surface, data }: NodeUiCardRendererProps<Record
 }
 
 export function RuntimeServiceCard({ surface, data, onAction }: NodeUiCardRendererProps<RuntimeServiceCardResponse>) {
+  const [selectedService, setSelectedService] = useState<RuntimeServicePayload | null>(null);
+  const selectedState = selectedService?.state || selectedService?.runtime_state || "unknown";
+  const selectedTone =
+    selectedService?.tone || selectedService?.health_status || (selectedService?.healthy === false ? "danger" : "neutral");
+
   return (
     <CardShell surface={surface} data={data}>
       <div className="rendered-node-runtime-grid">
         {(data.services || []).map((service) => {
-          const resourceUsage = service.resource_usage || {};
-          const facts = compactFacts([
-            ...(service.facts || []),
-            service.provider ? { id: `${service.id}.provider`, label: "Provider", value: service.provider } : null,
-            service.model ? { id: `${service.id}.model`, label: "Model", value: service.model } : null,
-            { id: `${service.id}.cpu`, label: "CPU", value: formatPercent(resourceUsage.process_cpu_percent) },
-            { id: `${service.id}.rss`, label: "Memory", value: formatBytes(resourceUsage.process_memory_rss_bytes) },
-            { id: `${service.id}.load`, label: "Load 1m", value: resourceUsage.system_load_1m as string | number | null },
-          ]);
           const state = service.state || service.runtime_state || "unknown";
           const tone = service.tone || service.health_status || (service.healthy === false ? "danger" : "neutral");
+          const summary = service.provider || service.model || (service.last_error ? "Needs attention" : "Details available");
           return (
-            <section key={service.id} className="rendered-node-runtime-item">
+            <button
+              key={service.id}
+              type="button"
+              className="rendered-node-runtime-item rendered-node-runtime-button"
+              onClick={() => setSelectedService(service)}
+              aria-label={`Open ${service.label} details`}
+            >
               <div className="rendered-node-list-head">
                 <Activity size={18} aria-hidden="true" />
                 <div>
@@ -369,16 +393,39 @@ export function RuntimeServiceCard({ surface, data, onAction }: NodeUiCardRender
                   <span className={`rendered-node-pill ${toneClass(tone)}`}>{labelize(state)}</span>
                 </div>
               </div>
-              <FactGrid facts={facts} />
-              {service.last_error ? (
-                <ErrorList errors={[{ code: `${service.id}.last_error`, message: service.last_error, tone: "danger" }]} />
-              ) : null}
-              <ActionRow actions={service.actions} surface={surface} onAction={onAction} />
-            </section>
+              <span className="rendered-node-runtime-summary">{summary}</span>
+              <span className="rendered-node-runtime-details-link">Details</span>
+            </button>
           );
         })}
       </div>
       <ActionRow actions={data.actions} surface={surface} onAction={onAction} />
+      {selectedService ? (
+        <div className="rendered-node-dialog-backdrop" role="presentation" onClick={() => setSelectedService(null)}>
+          <section
+            className="rendered-node-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={`rendered-node-runtime-dialog-${selectedService.id}`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="rendered-node-dialog-head">
+              <div>
+                <h3 id={`rendered-node-runtime-dialog-${selectedService.id}`}>{selectedService.label}</h3>
+                <span className={`rendered-node-pill ${toneClass(selectedTone)}`}>{labelize(selectedState)}</span>
+              </div>
+              <button type="button" className="rendered-node-icon-button" onClick={() => setSelectedService(null)} title="Close">
+                <X size={16} aria-hidden="true" />
+              </button>
+            </header>
+            <FactGrid facts={runtimeServiceFacts(selectedService)} />
+            {selectedService.last_error ? (
+              <ErrorList errors={[{ code: `${selectedService.id}.last_error`, message: selectedService.last_error, tone: "danger" }]} />
+            ) : null}
+            <ActionRow actions={selectedService.actions} surface={surface} onAction={onAction} />
+          </section>
+        </div>
+      ) : null}
     </CardShell>
   );
 }

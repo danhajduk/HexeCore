@@ -131,8 +131,9 @@ describe("rendered node UI renderers", () => {
 
     expect(html).toContain("Backend");
     expect(html).toContain("Running");
-    expect(html).toContain("7.25%");
-    expect(html).toContain("87.0 MB");
+    expect(html).toContain("Details");
+    expect(html).not.toContain("7.25%");
+    expect(html).not.toContain("87.0 MB");
   });
 
   it("renders provider status payloads from the voice node", () => {
