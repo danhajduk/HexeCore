@@ -193,11 +193,24 @@ Each health strip item carries the display name of the state, the current state,
           "label": "Model",
           "value": "small.en"
         }
-      ]
+      ],
+      "setup": {
+        "facts": [
+          {
+            "id": "enabled",
+            "label": "Enabled",
+            "value": true
+          }
+        ],
+        "errors": [],
+        "actions": []
+      }
     }
   ]
 }
 ```
+
+Provider cards should keep the card body compact. Use `facts` and `quotas` for status details shown in the detail popup, and optional `setup.facts`, `setup.errors`, and `setup.actions` for provider configuration state or setup controls.
 
 ## Related Docs
 

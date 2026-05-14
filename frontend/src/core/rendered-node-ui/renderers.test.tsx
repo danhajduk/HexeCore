@@ -148,6 +148,9 @@ describe("rendered node UI renderers", () => {
           state: "ready",
           tone: "success",
           facts: [{ id: "model", label: "Model", value: "en_US-lessac" }],
+          setup: {
+            facts: [{ id: "enabled", label: "Enabled", value: true }],
+          },
         },
       ],
     };
@@ -158,7 +161,9 @@ describe("rendered node UI renderers", () => {
 
     expect(html).toContain("TTS Provider");
     expect(html).toContain("piper");
-    expect(html).toContain("en_US-lessac");
+    expect(html).toContain("Details");
+    expect(html).not.toContain("en_US-lessac");
+    expect(html).not.toContain("Enabled");
   });
 
   it("renders endpoint record list payloads from the voice node", () => {

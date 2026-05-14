@@ -171,11 +171,17 @@ class TestNodeUiCardContracts(unittest.TestCase):
                         "state": "ready",
                         "tone": "success",
                         "facts": [{"id": "model", "label": "Model", "value": "small.en"}],
+                        "setup": {
+                            "facts": [{"id": "enabled", "label": "Enabled", "value": True}],
+                            "errors": [],
+                            "actions": [],
+                        },
                     }
                 ],
             }
         )
         self.assertEqual(response.providers[0].provider, "faster_whisper")
+        self.assertEqual(response.providers[0].setup.facts[0].id, "enabled")
 
     def test_rejects_secret_keys_in_payload(self) -> None:
         with self.assertRaises(ValueError):

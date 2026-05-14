@@ -391,6 +391,14 @@ class RuntimeServiceCardResponse(NodeUiCardResponseBase):
     services: list[RuntimeServiceItem] = Field(default_factory=list)
 
 
+class ProviderStatusSetup(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    facts: list[NodeUiFact] = Field(default_factory=list)
+    errors: list[NodeUiCardError] = Field(default_factory=list)
+    actions: list[NodeUiActionState] = Field(default_factory=list)
+
+
 class ProviderStatusItem(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -402,6 +410,7 @@ class ProviderStatusItem(BaseModel):
     facts: list[NodeUiFact] = Field(default_factory=list)
     quotas: list[NodeUiFact] = Field(default_factory=list)
     errors: list[NodeUiCardError] = Field(default_factory=list)
+    setup: ProviderStatusSetup | None = None
 
     @field_validator("id", "provider")
     @classmethod

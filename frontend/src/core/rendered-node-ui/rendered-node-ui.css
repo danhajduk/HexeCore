@@ -326,19 +326,22 @@
   background: hsl(var(--sx-text) / 0.025);
 }
 
-.rendered-node-runtime-button {
+.rendered-node-runtime-button,
+.rendered-node-provider-button {
   width: 100%;
   color: hsl(var(--sx-text));
   cursor: pointer;
   text-align: left;
 }
 
-.rendered-node-runtime-button:hover {
+.rendered-node-runtime-button:hover,
+.rendered-node-provider-button:hover {
   border-color: hsl(var(--sx-primary) / 0.36);
   background: hsl(var(--sx-primary) / 0.06);
 }
 
-.rendered-node-runtime-button:focus-visible {
+.rendered-node-runtime-button:focus-visible,
+.rendered-node-provider-button:focus-visible {
   outline: 2px solid hsl(var(--sx-primary));
   outline-offset: 2px;
 }
@@ -439,6 +442,19 @@
 .rendered-node-dialog-head h3 {
   margin: 0;
   font-size: 18px;
+}
+
+.rendered-node-dialog-section {
+  display: grid;
+  gap: var(--sx-space-2);
+}
+
+.rendered-node-dialog-section h4 {
+  margin: 0;
+  color: hsl(var(--sx-text-muted));
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
 .rendered-node-icon-button {

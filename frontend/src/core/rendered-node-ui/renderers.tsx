@@ -71,6 +71,7 @@ function formatUpdatedAt(value?: string | null): string {
 
 type HealthStripItemPayload = NonNullable<HealthStripCardResponse["items"]>[number];
 type RuntimeServicePayload = NonNullable<RuntimeServiceCardResponse["services"]>[number];
+type ProviderStatusPayload = NonNullable<ProviderStatusCardResponse["providers"]>[number];
 
 function healthStateName(item: HealthStripItemPayload): string {
   const legacy = item as typeof item & { label?: string | null };
@@ -122,6 +123,24 @@ function runtimeServiceFacts(service: RuntimeServicePayload): NodeUiFact[] {
     },
     { id: `${service.id}.load`, label: "Load 1m", value: resourceUsage.system_load_1m as string | number | null },
   ]);
+}
+
+function providerStatusFacts(provider: ProviderStatusPayload): NodeUiFact[] {
+  return compactFacts([
+    provider.provider ? { id: `${provider.id}.provider`, label: "Provider", value: provider.provider } : null,
+    ...(provider.facts || []),
+    ...(provider.quotas || []),
+  ]);
+}
+
+function providerSummary(provider: ProviderStatusPayload): string {
+  if (provider.provider) return provider.provider;
+  const firstFact = [...(provider.facts || []), ...(provider.quotas || [])].find(
+    (fact) => fact.value !== null && fact.value !== undefined && fact.value !== "",
+  );
+  if (firstFact) return formatValue(firstFact.value, firstFact.unit);
+  if (provider.errors && provider.errors.length > 0) return "Needs attention";
+  return "Details available";
 }
 
 function CardShell({
@@ -438,30 +457,71 @@ export function RuntimeServiceCard({ surface, data, onAction }: NodeUiCardRender
   );
 }
 
-export function ProviderStatusCard({ surface, data }: NodeUiCardRendererProps<ProviderStatusCardResponse>) {
+export function ProviderStatusCard({ surface, data, onAction }: NodeUiCardRendererProps<ProviderStatusCardResponse>) {
+  const [selectedProvider, setSelectedProvider] = useState<ProviderStatusPayload | null>(null);
+  const selectedState = selectedProvider?.state || "unknown";
+  const selectedTone = selectedProvider?.tone || (selectedProvider?.errors?.length ? "danger" : "neutral");
+
   return (
     <CardShell surface={surface} data={data}>
       <div className="rendered-node-provider-grid">
-        {(data.providers || []).map((provider) => (
-          <section key={provider.id} className="rendered-node-provider-item">
-            <div className="rendered-node-list-head">
-              <Activity size={18} aria-hidden="true" />
-              <div>
-                <h4>{provider.label}</h4>
-                <span className={`rendered-node-pill ${toneClass(provider.tone)}`}>{labelize(provider.state)}</span>
+        {(data.providers || []).map((provider) => {
+          const state = provider.state || "unknown";
+          return (
+            <button
+              key={provider.id}
+              type="button"
+              className="rendered-node-provider-item rendered-node-provider-button"
+              onClick={() => setSelectedProvider(provider)}
+              aria-label={`Open ${provider.label} details`}
+            >
+              <div className="rendered-node-list-head">
+                <Activity size={18} aria-hidden="true" />
+                <div>
+                  <h4>{provider.label}</h4>
+                  <span className={`rendered-node-pill ${toneClass(provider.tone)}`}>{labelize(state)}</span>
+                </div>
               </div>
-            </div>
-            <FactGrid
-              facts={compactFacts([
-                provider.provider ? { id: `${provider.id}.provider`, label: "Provider", value: provider.provider } : null,
-                ...(provider.facts || []),
-                ...(provider.quotas || []),
-              ])}
-            />
-            {provider.errors && provider.errors.length > 0 ? <ErrorList errors={provider.errors} /> : null}
-          </section>
-        ))}
+              <span className="rendered-node-runtime-summary">{providerSummary(provider)}</span>
+              <span className="rendered-node-runtime-details-link">Details</span>
+            </button>
+          );
+        })}
       </div>
+      {selectedProvider ? (
+        <div className="rendered-node-dialog-backdrop" role="presentation" onClick={() => setSelectedProvider(null)}>
+          <section
+            className="rendered-node-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={`rendered-node-provider-dialog-${selectedProvider.id}`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="rendered-node-dialog-head">
+              <div>
+                <h3 id={`rendered-node-provider-dialog-${selectedProvider.id}`}>{selectedProvider.label}</h3>
+                <span className={`rendered-node-pill ${toneClass(selectedTone)}`}>{labelize(selectedState)}</span>
+              </div>
+              <button type="button" className="rendered-node-icon-button" onClick={() => setSelectedProvider(null)} title="Close">
+                <X size={16} aria-hidden="true" />
+              </button>
+            </header>
+            <section className="rendered-node-dialog-section">
+              <h4>Status</h4>
+              <FactGrid facts={providerStatusFacts(selectedProvider)} />
+              {selectedProvider.errors && selectedProvider.errors.length > 0 ? <ErrorList errors={selectedProvider.errors} /> : null}
+            </section>
+            <section className="rendered-node-dialog-section">
+              <h4>Setup</h4>
+              <FactGrid facts={selectedProvider.setup?.facts} />
+              {selectedProvider.setup?.errors && selectedProvider.setup.errors.length > 0 ? (
+                <ErrorList errors={selectedProvider.setup.errors} />
+              ) : null}
+              <ActionRow actions={selectedProvider.setup?.actions} surface={surface} onAction={onAction} />
+            </section>
+          </section>
+        </div>
+      ) : null}
     </CardShell>
   );
 }

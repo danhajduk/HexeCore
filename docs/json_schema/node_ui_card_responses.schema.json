@@ -1005,6 +1005,17 @@
               "title": "Quotas",
               "type": "array"
             },
+            "setup": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ProviderStatusSetup"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
             "state": {
               "$ref": "#/$defs/NodeUiProviderState",
               "default": "unknown"
@@ -1019,6 +1030,34 @@
             "label"
           ],
           "title": "ProviderStatusItem",
+          "type": "object"
+        },
+        "ProviderStatusSetup": {
+          "additionalProperties": false,
+          "properties": {
+            "actions": {
+              "items": {
+                "$ref": "#/$defs/NodeUiActionState"
+              },
+              "title": "Actions",
+              "type": "array"
+            },
+            "errors": {
+              "items": {
+                "$ref": "#/$defs/NodeUiCardError"
+              },
+              "title": "Errors",
+              "type": "array"
+            },
+            "facts": {
+              "items": {
+                "$ref": "#/$defs/NodeUiFact"
+              },
+              "title": "Facts",
+              "type": "array"
+            }
+          },
+          "title": "ProviderStatusSetup",
           "type": "object"
         }
       },

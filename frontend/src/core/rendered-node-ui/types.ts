@@ -226,6 +226,11 @@ export type ProviderStatusCardResponse = NodeUiCardResponseBase & {
     facts?: NodeUiFact[];
     quotas?: NodeUiFact[];
     errors?: NodeUiCardError[];
+    setup?: {
+      facts?: NodeUiFact[];
+      errors?: NodeUiCardError[];
+      actions?: NodeUiActionState[];
+    };
   }>;
 };
 
