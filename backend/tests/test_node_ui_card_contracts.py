@@ -174,7 +174,31 @@ class TestNodeUiCardContracts(unittest.TestCase):
                         "setup": {
                             "facts": [{"id": "enabled", "label": "Enabled", "value": True}],
                             "errors": [],
-                            "actions": [],
+                            "actions": [{"id": "save_provider_setup", "label": "Save Setup", "tone": "success"}],
+                            "form": {
+                                "title": "Provider Setup",
+                                "submit_action_id": "save_provider_setup",
+                                "fields": [
+                                    {
+                                        "id": "enabled_providers",
+                                        "label": "Enabled Providers",
+                                        "type": "multiselect",
+                                        "value": ["voice"],
+                                        "options": [
+                                            {"value": "voice", "label": "Voice"},
+                                            {"value": "piper", "label": "Piper"},
+                                        ],
+                                        "required": True,
+                                    },
+                                    {
+                                        "id": "default_provider",
+                                        "label": "Default Provider",
+                                        "type": "select",
+                                        "value": "voice",
+                                        "options": [{"value": "voice", "label": "Voice"}],
+                                    },
+                                ],
+                            },
                         },
                     }
                 ],
@@ -182,6 +206,8 @@ class TestNodeUiCardContracts(unittest.TestCase):
         )
         self.assertEqual(response.providers[0].provider, "faster_whisper")
         self.assertEqual(response.providers[0].setup.facts[0].id, "enabled")
+        self.assertEqual(response.providers[0].setup.form.submit_action_id, "save_provider_setup")
+        self.assertEqual(response.providers[0].setup.form.fields[0].type, "multiselect")
 
     def test_rejects_secret_keys_in_payload(self) -> None:
         with self.assertRaises(ValueError):

@@ -151,6 +151,38 @@ export type NodeUiActionState = {
   tone?: NodeUiTone;
 };
 
+export type NodeUiFormScalar = string | number | boolean;
+
+export type NodeUiFormValue = NodeUiFormScalar | NodeUiFormScalar[] | null;
+
+export type NodeUiFormOption = {
+  value: NodeUiFormScalar;
+  label: string;
+  disabled?: boolean;
+};
+
+export type NodeUiFormField = {
+  id: string;
+  label: string;
+  type: "text" | "number" | "select" | "multiselect" | "checkbox";
+  value?: NodeUiFormValue;
+  options?: NodeUiFormOption[];
+  required?: boolean;
+  disabled?: boolean;
+  help?: string | null;
+  min?: number | null;
+  max?: number | null;
+  step?: number | null;
+  placeholder?: string | null;
+};
+
+export type NodeUiSetupForm = {
+  title?: string | null;
+  description?: string | null;
+  submit_action_id: string;
+  fields?: NodeUiFormField[];
+};
+
 export type WarningBannerCardResponse = NodeUiCardResponseBase & {
   kind: "warning_banner";
   warnings?: Array<{
@@ -230,6 +262,7 @@ export type ProviderStatusCardResponse = NodeUiCardResponseBase & {
       facts?: NodeUiFact[];
       errors?: NodeUiCardError[];
       actions?: NodeUiActionState[];
+      form?: NodeUiSetupForm | null;
     };
   }>;
 };

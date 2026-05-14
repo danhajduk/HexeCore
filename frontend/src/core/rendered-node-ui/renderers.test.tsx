@@ -7,6 +7,8 @@ import {
   NodeUiCard,
   UnsupportedNodeUiCard,
   getNodeUiCardRenderer,
+  nodeUiProviderSetupFormInitialState,
+  nodeUiProviderSetupFormPayload,
 } from "./renderers";
 import type {
   ActionPanelCardResponse,
@@ -150,6 +152,23 @@ describe("rendered node UI renderers", () => {
           facts: [{ id: "model", label: "Model", value: "en_US-lessac" }],
           setup: {
             facts: [{ id: "enabled", label: "Enabled", value: true }],
+            actions: [{ id: "save_provider_setup", label: "Save Setup", enabled: true, tone: "success" }],
+            form: {
+              title: "Provider Setup",
+              submit_action_id: "save_provider_setup",
+              fields: [
+                {
+                  id: "enabled_providers",
+                  label: "Enabled Providers",
+                  type: "multiselect",
+                  value: ["voice"],
+                  options: [
+                    { value: "voice", label: "Voice" },
+                    { value: "piper", label: "Piper" },
+                  ],
+                },
+              ],
+            },
           },
         },
       ],
@@ -164,6 +183,43 @@ describe("rendered node UI renderers", () => {
     expect(html).toContain("Details");
     expect(html).not.toContain("en_US-lessac");
     expect(html).not.toContain("Enabled");
+    expect(html).not.toContain("Provider Setup");
+  });
+
+  it("builds reusable provider setup form payloads", () => {
+    const form = {
+      submit_action_id: "save_provider_setup",
+      fields: [
+        {
+          id: "enabled_providers",
+          label: "Enabled Providers",
+          type: "multiselect" as const,
+          value: ["voice"],
+          options: [
+            { value: "voice", label: "Voice" },
+            { value: "piper", label: "Piper" },
+          ],
+        },
+        {
+          id: "default_provider",
+          label: "Default Provider",
+          type: "select" as const,
+          value: "voice",
+          options: [
+            { value: "voice", label: "Voice" },
+            { value: "piper", label: "Piper" },
+          ],
+        },
+      ],
+    };
+
+    const state = nodeUiProviderSetupFormInitialState(form);
+
+    expect(state).toEqual({ enabled_providers: ["voice"], default_provider: "voice" });
+    expect(nodeUiProviderSetupFormPayload(form, { ...state, enabled_providers: ["voice", "piper"] })).toEqual({
+      enabled_providers: ["voice", "piper"],
+      default_provider: "voice",
+    });
   });
 
   it("renders endpoint record list payloads from the voice node", () => {

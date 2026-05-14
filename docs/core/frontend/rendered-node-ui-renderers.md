@@ -33,7 +33,9 @@ Unknown card kinds render a safe unsupported state instead of executing node-pro
 
 ## Provider Status Cards
 
-`provider_status` renders each provider as a compact clickable tile with the provider label, state, and short provider/status summary. Opening a tile shows a Core-owned details dialog split into `Status` and `Setup` sections. Nodes can use `facts`, `quotas`, and `errors` for status details, and optional `setup.facts`, `setup.errors`, and `setup.actions` for reusable provider setup state.
+`provider_status` renders each provider as a compact clickable tile with the provider label, state, and short provider/status summary. Opening a tile shows a Core-owned details dialog split into `Status` and `Setup` sections. Nodes can use `facts`, `quotas`, and `errors` for status details, and optional `setup.facts`, `setup.errors`, `setup.actions`, and `setup.form` for reusable provider setup state.
+
+Provider setup forms are declarative. Core renders `text`, `number`, `select`, `multiselect`, and `checkbox` fields and submits the resulting field-id keyed JSON body through the action whose state id matches `setup.form.submit_action_id`.
 
 ## Action Rendering
 

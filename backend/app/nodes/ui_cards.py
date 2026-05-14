@@ -50,6 +50,14 @@ class NodeUiProviderState(str, Enum):
     ERROR = "error"
 
 
+class NodeUiFormFieldType(str, Enum):
+    TEXT = "text"
+    NUMBER = "number"
+    SELECT = "select"
+    MULTISELECT = "multiselect"
+    CHECKBOX = "checkbox"
+
+
 def _parse_datetime(value: str) -> str:
     raw = str(value or "").strip()
     if not raw:
@@ -244,6 +252,82 @@ class NodeUiActionState(BaseModel):
         return _clean_text(value)
 
 
+class NodeUiFormOption(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    value: str | int | float | bool
+    label: str
+    disabled: bool = False
+
+    @field_validator("label")
+    @classmethod
+    def _validate_label(cls, value: str) -> str:
+        cleaned = _clean_text(value)
+        if cleaned is None:
+            raise ValueError("label_required")
+        return cleaned
+
+
+class NodeUiFormField(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    label: str
+    type: NodeUiFormFieldType
+    value: JsonScalar | list[JsonScalar] = None
+    options: list[NodeUiFormOption] = Field(default_factory=list)
+    required: bool = False
+    disabled: bool = False
+    help: str | None = None
+    min: float | None = None
+    max: float | None = None
+    step: float | None = None
+    placeholder: str | None = None
+
+    @field_validator("id")
+    @classmethod
+    def _validate_id_field(cls, value: str) -> str:
+        return _validate_id(value)
+
+    @field_validator("label")
+    @classmethod
+    def _validate_label(cls, value: str) -> str:
+        cleaned = _clean_text(value)
+        if cleaned is None:
+            raise ValueError("label_required")
+        return cleaned
+
+    @field_validator("help", "placeholder")
+    @classmethod
+    def _validate_text(cls, value: str | None) -> str | None:
+        return _clean_text(value)
+
+    @model_validator(mode="after")
+    def _validate_options_for_choice_fields(self) -> NodeUiFormField:
+        if self.type in {NodeUiFormFieldType.SELECT, NodeUiFormFieldType.MULTISELECT} and not self.options:
+            raise ValueError("options_required")
+        return self
+
+
+class NodeUiSetupForm(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str | None = None
+    description: str | None = None
+    submit_action_id: str
+    fields: list[NodeUiFormField] = Field(default_factory=list)
+
+    @field_validator("submit_action_id")
+    @classmethod
+    def _validate_submit_action_id(cls, value: str) -> str:
+        return _validate_id(value)
+
+    @field_validator("title", "description")
+    @classmethod
+    def _validate_text(cls, value: str | None) -> str | None:
+        return _clean_text(value)
+
+
 class WarningItem(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -397,6 +481,7 @@ class ProviderStatusSetup(BaseModel):
     facts: list[NodeUiFact] = Field(default_factory=list)
     errors: list[NodeUiCardError] = Field(default_factory=list)
     actions: list[NodeUiActionState] = Field(default_factory=list)
+    form: NodeUiSetupForm | None = None
 
 
 class ProviderStatusItem(BaseModel):

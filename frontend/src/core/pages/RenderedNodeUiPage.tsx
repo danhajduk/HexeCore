@@ -144,7 +144,7 @@ function SurfaceCard({ nodeId, surface }: { nodeId: string; surface: NodeUiSurfa
     return () => window.clearInterval(timer);
   }, [pollInterval, reload]);
 
-  async function handleAction(actionState: NodeUiActionState) {
+  async function handleAction(actionState: NodeUiActionState, body?: unknown) {
     const action = resolveNodeUiAction(surface, actionState);
     setActionMessage(null);
     setActionError(null);
@@ -155,7 +155,7 @@ function SurfaceCard({ nodeId, surface }: { nodeId: string; surface: NodeUiSurfa
     const confirmation = nodeUiActionConfirmationMessage(action);
     if (confirmation && !window.confirm(confirmation)) return;
     try {
-      await executeNodeUiAction(nodeId, action);
+      await executeNodeUiAction(nodeId, action, body);
       setActionMessage(`${action.label} complete.`);
       reload();
     } catch (error: unknown) {
@@ -193,7 +193,7 @@ function SurfaceCard({ nodeId, surface }: { nodeId: string; surface: NodeUiSurfa
   return (
     <div className={`rendered-node-surface-wrap${surfaceLayoutClass(surface)}`}>
       <div className="rendered-node-loading-content">
-        <NodeUiCard surface={surface} data={data.data} onAction={(action) => void handleAction(action)} />
+        <NodeUiCard surface={surface} data={data.data} onAction={(action, _surface, body) => void handleAction(action, body)} />
         {actionMessage ? <div className="rendered-node-action-status tone-success">{actionMessage}</div> : null}
         {actionError ? <div className="rendered-node-action-status tone-error">{actionError}</div> : null}
       </div>
@@ -225,7 +225,7 @@ function PageSnapshotCard({
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  async function handleAction(actionState: NodeUiActionState) {
+  async function handleAction(actionState: NodeUiActionState, body?: unknown) {
     const action = resolveNodeUiAction(surface, actionState);
     setActionMessage(null);
     setActionError(null);
@@ -236,7 +236,7 @@ function PageSnapshotCard({
     const confirmation = nodeUiActionConfirmationMessage(action);
     if (confirmation && !window.confirm(confirmation)) return;
     try {
-      await executeNodeUiAction(nodeId, action);
+      await executeNodeUiAction(nodeId, action, body);
       setActionMessage(`${action.label} complete.`);
       onReload();
     } catch (error: unknown) {
@@ -246,7 +246,11 @@ function PageSnapshotCard({
 
   return (
     <div className={`rendered-node-surface-wrap${surfaceLayoutClass(surface)}`}>
-      <NodeUiCard surface={surface} data={{ ...card.data, kind: card.data.kind || card.kind }} onAction={(action) => void handleAction(action)} />
+      <NodeUiCard
+        surface={surface}
+        data={{ ...card.data, kind: card.data.kind || card.kind }}
+        onAction={(action, _surface, body) => void handleAction(action, body)}
+      />
       {actionMessage ? <div className="rendered-node-action-status tone-success">{actionMessage}</div> : null}
       {actionError ? <div className="rendered-node-action-status tone-error">{actionError}</div> : null}
     </div>

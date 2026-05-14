@@ -203,14 +203,47 @@ Each health strip item carries the display name of the state, the current state,
           }
         ],
         "errors": [],
-        "actions": []
+        "actions": [
+          {
+            "id": "configure_provider_setup",
+            "label": "Save Setup",
+            "tone": "success"
+          }
+        ],
+        "form": {
+          "title": "Provider Setup",
+          "submit_action_id": "configure_provider_setup",
+          "fields": [
+            {
+              "id": "enabled_providers",
+              "label": "Enabled Providers",
+              "type": "multiselect",
+              "value": ["voice"],
+              "options": [
+                { "value": "voice", "label": "Voice" }
+              ],
+              "required": true
+            },
+            {
+              "id": "default_provider",
+              "label": "Default Provider",
+              "type": "select",
+              "value": "voice",
+              "options": [
+                { "value": "voice", "label": "Voice" }
+              ]
+            }
+          ]
+        }
       }
     }
   ]
 }
 ```
 
-Provider cards should keep the card body compact. Use `facts` and `quotas` for status details shown in the detail popup, and optional `setup.facts`, `setup.errors`, and `setup.actions` for provider configuration state or setup controls.
+Provider cards should keep the card body compact. Use `facts` and `quotas` for status details shown in the detail popup, and optional `setup.facts`, `setup.errors`, `setup.actions`, and `setup.form` for provider configuration state or setup controls.
+
+`setup.form` is a reusable declarative form contract. Core renders the fields and submits a JSON body keyed by field `id` to the executable action whose state id matches `submit_action_id`. Nodes must also declare the matching executable action in the manifest surface or page-card `actions` array. Supported field types are `text`, `number`, `select`, `multiselect`, and `checkbox`.
 
 ## Related Docs
 

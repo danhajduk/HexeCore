@@ -1,5 +1,5 @@
-import { useState, type ComponentType, type ReactNode } from "react";
-import { Activity, AlertTriangle, CircleHelp, Play, RotateCw, Square, X } from "lucide-react";
+import { useState, type ComponentType, type FormEvent, type ReactNode } from "react";
+import { Activity, AlertTriangle, CircleHelp, Play, RotateCw, Save, Square, X } from "lucide-react";
 
 import type {
   ActionPanelCardResponse,
@@ -11,6 +11,9 @@ import type {
   NodeUiCardResponse,
   NodeUiCardResponseBase,
   NodeUiFact,
+  NodeUiFormField,
+  NodeUiFormOption,
+  NodeUiSetupForm,
   NodeUiRecordValue,
   NodeUiSurface,
   NodeUiTone,
@@ -21,7 +24,7 @@ import type {
 } from "./types";
 import "./rendered-node-ui.css";
 
-type ActionHandler = (action: NodeUiActionState, surface: NodeUiSurface) => void;
+type ActionHandler = (action: NodeUiActionState, surface: NodeUiSurface, body?: unknown) => void;
 
 export type NodeUiCardRendererProps<T extends NodeUiCardResponse = NodeUiCardResponse> = {
   surface: NodeUiSurface;
@@ -141,6 +144,183 @@ function providerSummary(provider: ProviderStatusPayload): string {
   if (firstFact) return formatValue(firstFact.value, firstFact.unit);
   if (provider.errors && provider.errors.length > 0) return "Needs attention";
   return "Details available";
+}
+
+type ProviderSetupFormState = Record<string, string | string[] | boolean>;
+
+function formOptionKey(value: NodeUiFormOption["value"]): string {
+  return String(value);
+}
+
+function formFieldInitialValue(field: NodeUiFormField): string | string[] | boolean {
+  if (field.type === "checkbox") return Boolean(field.value);
+  if (field.type === "multiselect") {
+    return Array.isArray(field.value) ? field.value.map((value) => String(value)) : [];
+  }
+  if (field.value === null || field.value === undefined) return "";
+  return String(field.value);
+}
+
+export function nodeUiProviderSetupFormInitialState(form: NodeUiSetupForm): ProviderSetupFormState {
+  return (form.fields || []).reduce<ProviderSetupFormState>((state, field) => {
+    state[field.id] = formFieldInitialValue(field);
+    return state;
+  }, {});
+}
+
+function resolveOptionValue(field: NodeUiFormField, rawValue: string): string | number | boolean {
+  const option = (field.options || []).find((item) => formOptionKey(item.value) === rawValue);
+  return option ? option.value : rawValue;
+}
+
+export function nodeUiProviderSetupFormPayload(
+  form: NodeUiSetupForm,
+  state: ProviderSetupFormState,
+): Record<string, string | number | boolean | Array<string | number | boolean> | null> {
+  return (form.fields || []).reduce<Record<string, string | number | boolean | Array<string | number | boolean> | null>>((payload, field) => {
+    const value = state[field.id];
+    if (field.type === "checkbox") {
+      payload[field.id] = Boolean(value);
+    } else if (field.type === "multiselect") {
+      const values = Array.isArray(value) ? value : [];
+      payload[field.id] = values.map((item) => resolveOptionValue(field, item));
+    } else if (field.type === "number") {
+      const textValue = typeof value === "string" ? value.trim() : "";
+      payload[field.id] = textValue === "" ? null : Number(textValue);
+    } else if (field.type === "select") {
+      payload[field.id] = typeof value === "string" && value !== "" ? resolveOptionValue(field, value) : null;
+    } else {
+      payload[field.id] = typeof value === "string" ? value : "";
+    }
+    return payload;
+  }, {});
+}
+
+function ProviderSetupForm({
+  form,
+  actions,
+  surface,
+  onAction,
+}: {
+  form: NodeUiSetupForm;
+  actions?: NodeUiActionState[];
+  surface: NodeUiSurface;
+  onAction?: ActionHandler;
+}) {
+  const [state, setState] = useState<ProviderSetupFormState>(() => nodeUiProviderSetupFormInitialState(form));
+  const submitAction =
+    (actions || []).find((action) => action.id === form.submit_action_id) ||
+    ({
+      id: form.submit_action_id,
+      label: form.title ? `Save ${form.title}` : "Save Setup",
+      enabled: true,
+      tone: "success",
+    } satisfies NodeUiActionState);
+  const canSubmit =
+    submitAction.enabled !== false &&
+    Boolean(onAction) &&
+    (form.fields || []).every((field) => {
+      if (!field.required) return true;
+      const value = state[field.id];
+      return Array.isArray(value) ? value.length > 0 : Boolean(value);
+    });
+
+  function setFieldValue(fieldId: string, value: string | string[] | boolean) {
+    setState((current) => ({ ...current, [fieldId]: value }));
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canSubmit) return;
+    onAction?.(submitAction, surface, nodeUiProviderSetupFormPayload(form, state));
+  }
+
+  return (
+    <form className="rendered-node-setup-form" onSubmit={handleSubmit}>
+      {form.title || form.description ? (
+        <div className="rendered-node-setup-form-head">
+          {form.title ? <h5>{form.title}</h5> : null}
+          {form.description ? <p>{form.description}</p> : null}
+        </div>
+      ) : null}
+      <div className="rendered-node-setup-fields">
+        {(form.fields || []).map((field) => {
+          const value = state[field.id];
+          const disabled = field.disabled || submitAction.enabled === false;
+          if (field.type === "checkbox") {
+            return (
+              <label key={field.id} className="rendered-node-setup-field is-checkbox">
+                <input
+                  type="checkbox"
+                  checked={Boolean(value)}
+                  disabled={disabled}
+                  onChange={(event) => setFieldValue(field.id, event.target.checked)}
+                />
+                <span>{field.label}</span>
+                {field.help ? <small>{field.help}</small> : null}
+              </label>
+            );
+          }
+          if (field.type === "select" || field.type === "multiselect") {
+            const selectedValues = Array.isArray(value) ? value : typeof value === "string" ? [value] : [];
+            return (
+              <label key={field.id} className="rendered-node-setup-field">
+                <span>{field.label}</span>
+                <select
+                  multiple={field.type === "multiselect"}
+                  value={field.type === "multiselect" ? selectedValues : typeof value === "string" ? value : ""}
+                  required={field.required}
+                  disabled={disabled}
+                  onChange={(event) => {
+                    if (field.type === "multiselect") {
+                      setFieldValue(
+                        field.id,
+                        Array.from(event.target.selectedOptions).map((option) => option.value),
+                      );
+                    } else {
+                      setFieldValue(field.id, event.target.value);
+                    }
+                  }}
+                >
+                  {field.type === "select" && !field.required ? <option value="">Not set</option> : null}
+                  {(field.options || []).map((option) => (
+                    <option key={formOptionKey(option.value)} value={formOptionKey(option.value)} disabled={option.disabled}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                {field.help ? <small>{field.help}</small> : null}
+              </label>
+            );
+          }
+          return (
+            <label key={field.id} className="rendered-node-setup-field">
+              <span>{field.label}</span>
+              <input
+                type={field.type === "number" ? "number" : "text"}
+                value={typeof value === "string" ? value : ""}
+                required={field.required}
+                disabled={disabled}
+                min={field.min ?? undefined}
+                max={field.max ?? undefined}
+                step={field.step ?? undefined}
+                placeholder={field.placeholder ?? undefined}
+                onChange={(event) => setFieldValue(field.id, event.target.value)}
+              />
+              {field.help ? <small>{field.help}</small> : null}
+            </label>
+          );
+        })}
+      </div>
+      <button type="submit" className={`rendered-node-action rendered-node-setup-submit ${toneClass(submitAction.tone)}`} disabled={!canSubmit}>
+        <Save size={15} aria-hidden="true" />
+        <span>{submitAction.label || labelize(submitAction.id)}</span>
+      </button>
+      {submitAction.disabled_reason || submitAction.reason ? (
+        <p className="rendered-node-setup-disabled-reason">{submitAction.disabled_reason || submitAction.reason}</p>
+      ) : null}
+    </form>
+  );
 }
 
 function CardShell({
@@ -517,7 +697,22 @@ export function ProviderStatusCard({ surface, data, onAction }: NodeUiCardRender
               {selectedProvider.setup?.errors && selectedProvider.setup.errors.length > 0 ? (
                 <ErrorList errors={selectedProvider.setup.errors} />
               ) : null}
-              <ActionRow actions={selectedProvider.setup?.actions} surface={surface} onAction={onAction} />
+              {selectedProvider.setup?.form ? (
+                <ProviderSetupForm
+                  key={`${selectedProvider.id}.${selectedProvider.setup.form.submit_action_id}`}
+                  form={selectedProvider.setup.form}
+                  actions={selectedProvider.setup.actions}
+                  surface={surface}
+                  onAction={onAction}
+                />
+              ) : null}
+              <ActionRow
+                actions={(selectedProvider.setup?.actions || []).filter(
+                  (action) => action.id !== selectedProvider.setup?.form?.submit_action_id,
+                )}
+                surface={surface}
+                onAction={onAction}
+              />
             </section>
           </section>
         </div>
