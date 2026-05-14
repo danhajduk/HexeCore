@@ -15,6 +15,17 @@ function initialState<T>(): NodeUiLoadState<T> {
   };
 }
 
+export function nodeUiLoadingState<T>(current: NodeUiLoadState<T>): NodeUiLoadState<T> {
+  if (current.data) return { status: "ready", data: current.data, error: null };
+  return { status: "loading", data: null, error: null };
+}
+
+export function nodeUiErrorState<T>(current: NodeUiLoadState<T>, error: unknown): NodeUiLoadState<T> {
+  const message = error instanceof Error ? error.message : String(error);
+  if (current.data) return { status: "ready", data: current.data, error: message };
+  return { status: "error", data: null, error: message };
+}
+
 export function useNodeUiManifest(
   nodeId: string,
   options: { enabled?: boolean } = {},
@@ -36,7 +47,7 @@ export function useNodeUiManifest(
     }
 
     const controller = new AbortController();
-    setState((current) => ({ status: "loading", data: current.data, error: null }));
+    setState(nodeUiLoadingState);
 
     fetchNodeUiManifest(target, { signal: controller.signal })
       .then((data) => {
@@ -44,7 +55,7 @@ export function useNodeUiManifest(
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return;
-        setState({ status: "error", data: null, error: error instanceof Error ? error.message : String(error) });
+        setState((current) => nodeUiErrorState(current, error));
       });
 
     return () => {
@@ -82,7 +93,7 @@ export function useNodeSurfaceData<T>(
     }
 
     const controller = new AbortController();
-    setState((current) => ({ status: "loading", data: current.data, error: null }));
+    setState(nodeUiLoadingState);
 
     fetchNodeSurfaceData<T>(target, dataEndpoint, { signal: controller.signal })
       .then((data) => {
@@ -90,7 +101,7 @@ export function useNodeSurfaceData<T>(
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return;
-        setState({ status: "error", data: null, error: error instanceof Error ? error.message : String(error) });
+        setState((current) => nodeUiErrorState(current, error));
       });
 
     return () => {
@@ -128,7 +139,7 @@ export function useNodePageData(
     }
 
     const controller = new AbortController();
-    setState((current) => ({ status: "loading", data: current.data, error: null }));
+    setState(nodeUiLoadingState);
 
     fetchNodePageData(target, pageEndpoint, { signal: controller.signal })
       .then((data) => {
@@ -136,7 +147,7 @@ export function useNodePageData(
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return;
-        setState({ status: "error", data: null, error: error instanceof Error ? error.message : String(error) });
+        setState((current) => nodeUiErrorState(current, error));
       });
 
     return () => {
