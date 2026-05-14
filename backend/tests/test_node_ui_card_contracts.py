@@ -7,6 +7,7 @@ from app.nodes.ui_cards import (
     NodeOverviewCardResponse,
     NodeUiCardValidationError,
     ProviderStatusCardResponse,
+    RecordListCardResponse,
     RuntimeServiceCardResponse,
     WarningBannerCardResponse,
     validate_node_ui_card_response,
@@ -89,13 +90,42 @@ class TestNodeUiCardContracts(unittest.TestCase):
                         "label": "Runtime",
                         "actions": [
                             {"id": "restart_service", "label": "Restart service", "enabled": True, "tone": "warning"},
-                            {"id": "stop_session", "label": "Stop session", "enabled": False, "reason": "No active session"},
+                            {
+                                "id": "stop_session",
+                                "label": "Stop session",
+                                "enabled": False,
+                                "disabled_reason": "No active session",
+                            },
                         ],
                     }
                 ],
             }
         )
         self.assertFalse(response.groups[0].actions[1].enabled)
+        self.assertEqual(response.groups[0].actions[1].disabled_reason, "No active session")
+
+    def test_record_list_response_is_valid(self) -> None:
+        response = validate_node_ui_card_response(
+            "record_list",
+            {
+                "kind": "record_list",
+                "updated_at": UPDATED_AT,
+                "summary": {"record_count": 1},
+                "columns": [{"id": "name", "label": "Name"}, {"id": "status", "label": "Status"}],
+                "records": [
+                    {
+                        "id": "endpoint-1",
+                        "name": "Endpoint 1",
+                        "status": "online",
+                        "tone": "success",
+                        "endpoint_id": "endpoint-1",
+                        "detail_ref": {"endpoint": "/api/endpoint/status/endpoint-1"},
+                    }
+                ],
+            },
+        )
+        self.assertIsInstance(response, RecordListCardResponse)
+        self.assertEqual(response.records[0].model_extra["endpoint_id"], "endpoint-1")
 
     def test_runtime_service_response_is_valid(self) -> None:
         response = RuntimeServiceCardResponse.model_validate(
@@ -106,15 +136,27 @@ class TestNodeUiCardContracts(unittest.TestCase):
                     {
                         "id": "backend",
                         "label": "Backend",
+                        "state": "running",
+                        "tone": "success",
+                        "healthy": True,
+                        "provider": "systemd",
+                        "model": "backend",
+                        "resource_usage": {"process_cpu_percent": 1.5, "process_memory_rss_bytes": 1024},
+                        "restart_supported": True,
+                        "restart_target": "backend",
                         "runtime_state": "running",
                         "health_status": "success",
                         "facts": [{"id": "pid", "label": "PID", "value": 1234}],
                         "actions": [{"id": "restart_backend", "label": "Restart"}],
                     }
                 ],
+                "actions": [{"id": "refresh_runtime", "label": "Refresh Runtime"}],
+                "supervisor": {"configured": True},
             }
         )
         self.assertEqual(response.services[0].runtime_state, "running")
+        self.assertEqual(response.services[0].resource_usage["process_cpu_percent"], 1.5)
+        self.assertEqual(response.actions[0].id, "refresh_runtime")
 
     def test_provider_status_response_is_valid(self) -> None:
         response = ProviderStatusCardResponse.model_validate(

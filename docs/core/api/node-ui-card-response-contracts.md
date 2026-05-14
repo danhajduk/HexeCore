@@ -45,10 +45,11 @@ Implemented initial response contracts:
 - `facts_card`
 - `warning_banner`
 - `action_panel`
+- `record_list`
 - `runtime_service`
 - `provider_status`
 
-Later card kinds such as `record_list`, `detail_drawer`, `settings_form`, `resource_grid`, `artifact_browser`, and `event_timeline` remain `Not developed`.
+Later card kinds such as `detail_drawer`, `settings_form`, `resource_grid`, `artifact_browser`, and `event_timeline` remain `Not developed`.
 
 ## Tone Vocabulary
 
@@ -63,7 +64,7 @@ Common tone values:
 
 ## Action State
 
-Action-bearing cards refer to action ids from the manifest. A card data response may mark an action enabled or disabled and may include a short reason. Card data does not grant permission to execute an action; node action endpoints remain authoritative.
+Action-bearing cards refer to action ids from the manifest. A card data response may mark an action enabled or disabled and may include a short `reason` or `disabled_reason`. Card data does not grant permission to execute an action; node action endpoints remain authoritative.
 
 ## Examples
 
@@ -109,6 +110,63 @@ Each health strip item carries the display name of the state, the current state,
         }
       ]
     }
+  ]
+}
+```
+
+### `record_list`
+
+`record_list` is the reusable shape for endpoint lists, sessions, intents, artifacts, inventories, and other tabular node resources. `records` may include domain-specific scalar fields in addition to the shared `id`, `name`, `status`, `tone`, `active`, and `detail_ref` fields.
+
+```json
+{
+  "kind": "record_list",
+  "updated_at": "2026-05-13T01:00:00Z",
+  "summary": {
+    "record_count": 1
+  },
+  "columns": [
+    { "id": "name", "label": "Name" },
+    { "id": "status", "label": "Status" }
+  ],
+  "records": [
+    {
+      "id": "endpoint-1",
+      "name": "Endpoint 1",
+      "status": "online",
+      "tone": "success",
+      "detail_ref": { "endpoint": "/api/endpoint/status/endpoint-1" }
+    }
+  ]
+}
+```
+
+### `runtime_service`
+
+`runtime_service` is the reusable shape for runtime components such as backend processes, worker services, provider daemons, schedulers, wake-word services, and model runtimes. Nodes may provide canonical `runtime_state`/`health_status` fields, display-oriented `state`/`tone`, provider/model summaries, resource usage, restart metadata, facts, and action states.
+
+```json
+{
+  "kind": "runtime_service",
+  "updated_at": "2026-05-13T01:00:00Z",
+  "services": [
+    {
+      "id": "backend",
+      "label": "Backend",
+      "state": "running",
+      "tone": "success",
+      "healthy": true,
+      "provider": "systemd",
+      "resource_usage": {
+        "process_cpu_percent": 1.5,
+        "process_memory_rss_bytes": 104857600
+      },
+      "restart_supported": true,
+      "restart_target": "backend"
+    }
+  ],
+  "actions": [
+    { "id": "refresh_runtime", "label": "Refresh Runtime" }
   ]
 }
 ```

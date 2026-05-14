@@ -33,6 +33,18 @@
         "NodeUiActionState": {
           "additionalProperties": false,
           "properties": {
+            "disabled_reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Disabled Reason"
+            },
             "enabled": {
               "default": true,
               "title": "Enabled",
@@ -1064,11 +1076,236 @@
       "title": "ProviderStatusCardResponse",
       "type": "object"
     },
+    "RecordListCardResponse": {
+      "$defs": {
+        "NodeUiCardError": {
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "title": "Code",
+              "type": "string"
+            },
+            "message": {
+              "title": "Message",
+              "type": "string"
+            },
+            "retryable": {
+              "default": false,
+              "title": "Retryable",
+              "type": "boolean"
+            },
+            "tone": {
+              "$ref": "#/$defs/NodeUiTone",
+              "default": "error"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "title": "NodeUiCardError",
+          "type": "object"
+        },
+        "NodeUiRetryState": {
+          "additionalProperties": false,
+          "properties": {
+            "action_label": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Action Label"
+            },
+            "retry_after_ms": {
+              "anyOf": [
+                {
+                  "maximum": 3600000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Retry After Ms"
+            }
+          },
+          "title": "NodeUiRetryState",
+          "type": "object"
+        },
+        "NodeUiTone": {
+          "enum": [
+            "neutral",
+            "info",
+            "success",
+            "warning",
+            "error",
+            "danger"
+          ],
+          "title": "NodeUiTone",
+          "type": "string"
+        },
+        "RecordListColumn": {
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "label": {
+              "title": "Label",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "label"
+          ],
+          "title": "RecordListColumn",
+          "type": "object"
+        },
+        "RecordListItem": {
+          "additionalProperties": true,
+          "properties": {
+            "active": {
+              "default": false,
+              "title": "Active",
+              "type": "boolean"
+            },
+            "detail_ref": {
+              "additionalProperties": true,
+              "title": "Detail Ref",
+              "type": "object"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Name"
+            },
+            "status": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Status"
+            },
+            "tone": {
+              "$ref": "#/$defs/NodeUiTone",
+              "default": "neutral"
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "title": "RecordListItem",
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+        "columns": {
+          "items": {
+            "$ref": "#/$defs/RecordListColumn"
+          },
+          "title": "Columns",
+          "type": "array"
+        },
+        "empty": {
+          "default": false,
+          "title": "Empty",
+          "type": "boolean"
+        },
+        "errors": {
+          "items": {
+            "$ref": "#/$defs/NodeUiCardError"
+          },
+          "title": "Errors",
+          "type": "array"
+        },
+        "kind": {
+          "const": "record_list",
+          "default": "record_list",
+          "title": "Kind",
+          "type": "string"
+        },
+        "records": {
+          "items": {
+            "$ref": "#/$defs/RecordListItem"
+          },
+          "title": "Records",
+          "type": "array"
+        },
+        "retry": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NodeUiRetryState"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "stale": {
+          "default": false,
+          "title": "Stale",
+          "type": "boolean"
+        },
+        "summary": {
+          "additionalProperties": true,
+          "title": "Summary",
+          "type": "object"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "updated_at"
+      ],
+      "title": "RecordListCardResponse",
+      "type": "object"
+    },
     "RuntimeServiceCardResponse": {
       "$defs": {
         "NodeUiActionState": {
           "additionalProperties": false,
           "properties": {
+            "disabled_reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Disabled Reason"
+            },
             "enabled": {
               "default": true,
               "title": "Enabled",
@@ -1287,6 +1524,18 @@
               "$ref": "#/$defs/NodeUiTone",
               "default": "neutral"
             },
+            "healthy": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Healthy"
+            },
             "id": {
               "title": "Id",
               "type": "string"
@@ -1295,9 +1544,83 @@
               "title": "Label",
               "type": "string"
             },
+            "last_error": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Last Error"
+            },
+            "model": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Model"
+            },
+            "provider": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Provider"
+            },
+            "resource_usage": {
+              "additionalProperties": true,
+              "title": "Resource Usage",
+              "type": "object"
+            },
+            "restart_supported": {
+              "default": false,
+              "title": "Restart Supported",
+              "type": "boolean"
+            },
+            "restart_target": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Restart Target"
+            },
             "runtime_state": {
               "$ref": "#/$defs/NodeUiRuntimeState",
               "default": "unknown"
+            },
+            "state": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "State"
+            },
+            "tone": {
+              "$ref": "#/$defs/NodeUiTone",
+              "default": "neutral"
             }
           },
           "required": [
@@ -1310,6 +1633,13 @@
       },
       "additionalProperties": false,
       "properties": {
+        "actions": {
+          "items": {
+            "$ref": "#/$defs/NodeUiActionState"
+          },
+          "title": "Actions",
+          "type": "array"
+        },
         "empty": {
           "default": false,
           "title": "Empty",
@@ -1351,6 +1681,11 @@
           "title": "Stale",
           "type": "boolean"
         },
+        "supervisor": {
+          "additionalProperties": true,
+          "title": "Supervisor",
+          "type": "object"
+        },
         "updated_at": {
           "title": "Updated At",
           "type": "string"
@@ -1367,6 +1702,18 @@
         "NodeUiActionState": {
           "additionalProperties": false,
           "properties": {
+            "disabled_reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Disabled Reason"
+            },
             "enabled": {
               "default": true,
               "title": "Enabled",

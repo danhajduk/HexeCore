@@ -92,6 +92,17 @@ def _reject_secret_keys(value: Any, *, path: str = "") -> None:
             _reject_secret_keys(nested, path=f"{path}{index}.")
 
 
+def _reject_unsafe_text_values(value: Any) -> None:
+    if isinstance(value, dict):
+        for nested in value.values():
+            _reject_unsafe_text_values(nested)
+    elif isinstance(value, list):
+        for nested in value:
+            _reject_unsafe_text_values(nested)
+    elif isinstance(value, str):
+        _clean_text(value)
+
+
 class NodeUiCardError(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -142,7 +153,9 @@ class NodeUiCardResponseBase(BaseModel):
 
     @model_validator(mode="after")
     def _validate_payload_safety(self) -> "NodeUiCardResponseBase":
-        _reject_secret_keys(self.model_dump(mode="json", exclude_none=True))
+        payload = self.model_dump(mode="json", exclude_none=True)
+        _reject_secret_keys(payload)
+        _reject_unsafe_text_values(payload)
         return self
 
 
@@ -217,6 +230,7 @@ class NodeUiActionState(BaseModel):
     label: str | None = None
     enabled: bool = True
     reason: str | None = None
+    disabled_reason: str | None = None
     tone: NodeUiTone = NodeUiTone.NEUTRAL
 
     @field_validator("id")
@@ -224,7 +238,7 @@ class NodeUiActionState(BaseModel):
     def _validate_id_field(cls, value: str) -> str:
         return _validate_id(value)
 
-    @field_validator("label", "reason")
+    @field_validator("label", "reason", "disabled_reason")
     @classmethod
     def _validate_text(cls, value: str | None) -> str | None:
         return _clean_text(value)
@@ -284,11 +298,68 @@ class ActionPanelCardResponse(NodeUiCardResponseBase):
     groups: list[ActionGroup] = Field(default_factory=list)
 
 
+class RecordListColumn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    label: str
+
+    @field_validator("id")
+    @classmethod
+    def _validate_id_field(cls, value: str) -> str:
+        return _validate_id(value)
+
+    @field_validator("label")
+    @classmethod
+    def _validate_label(cls, value: str) -> str:
+        cleaned = _clean_text(value)
+        if cleaned is None:
+            raise ValueError("label_required")
+        return cleaned
+
+
+class RecordListItem(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    id: str
+    name: str | None = None
+    status: str | None = None
+    tone: NodeUiTone = NodeUiTone.NEUTRAL
+    active: bool = False
+    detail_ref: JsonObject = Field(default_factory=dict)
+
+    @field_validator("id")
+    @classmethod
+    def _validate_id_field(cls, value: str) -> str:
+        return _validate_id(value)
+
+    @field_validator("name", "status")
+    @classmethod
+    def _validate_text(cls, value: str | None) -> str | None:
+        return _clean_text(value)
+
+
+class RecordListCardResponse(NodeUiCardResponseBase):
+    kind: Literal["record_list"] = "record_list"
+    summary: JsonObject = Field(default_factory=dict)
+    columns: list[RecordListColumn] = Field(default_factory=list)
+    records: list[RecordListItem] = Field(default_factory=list)
+
+
 class RuntimeServiceItem(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: str
     label: str
+    state: str | None = None
+    tone: NodeUiTone = NodeUiTone.NEUTRAL
+    healthy: bool | None = None
+    provider: str | None = None
+    model: str | None = None
+    resource_usage: JsonObject = Field(default_factory=dict)
+    last_error: str | None = None
+    restart_supported: bool = False
+    restart_target: str | None = None
     runtime_state: NodeUiRuntimeState = NodeUiRuntimeState.UNKNOWN
     health_status: NodeUiTone = NodeUiTone.NEUTRAL
     facts: list[NodeUiFact] = Field(default_factory=list)
@@ -307,9 +378,16 @@ class RuntimeServiceItem(BaseModel):
             raise ValueError("label_required")
         return cleaned
 
+    @field_validator("state", "provider", "model", "last_error", "restart_target")
+    @classmethod
+    def _validate_text(cls, value: str | None) -> str | None:
+        return _clean_text(value)
+
 
 class RuntimeServiceCardResponse(NodeUiCardResponseBase):
     kind: Literal["runtime_service"] = "runtime_service"
+    actions: list[NodeUiActionState] = Field(default_factory=list)
+    supervisor: JsonObject = Field(default_factory=dict)
     services: list[RuntimeServiceItem] = Field(default_factory=list)
 
 
@@ -352,6 +430,7 @@ NodeUiCardResponse: TypeAlias = (
     | FactsCardResponse
     | WarningBannerCardResponse
     | ActionPanelCardResponse
+    | RecordListCardResponse
     | RuntimeServiceCardResponse
     | ProviderStatusCardResponse
 )
@@ -363,6 +442,7 @@ CARD_RESPONSE_MODELS = [
     FactsCardResponse,
     WarningBannerCardResponse,
     ActionPanelCardResponse,
+    RecordListCardResponse,
     RuntimeServiceCardResponse,
     ProviderStatusCardResponse,
 ]
