@@ -29,7 +29,7 @@ Unknown card kinds render a safe unsupported state instead of executing node-pro
 
 ## Runtime Service Cards
 
-`runtime_service` renders each service as a compact clickable tile with the service label, state, and short provider/model summary. Opening a tile shows the full Core-owned details dialog with facts, resource usage, errors, and service-level actions.
+`runtime_service` renders each service as a compact clickable tile with the service label, state, and short provider/model summary. Opening a tile shows the full Core-owned details dialog with facts, resource usage, errors, and service-level actions such as start, stop, and restart when the node advertises matching action metadata.
 
 ## Action Rendering
 

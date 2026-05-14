@@ -201,7 +201,17 @@ describe("rendered node UI renderers", () => {
     const data: ActionPanelCardResponse = {
       kind: "action_panel",
       updated_at: "2026-05-13T01:00:00Z",
-      groups: [{ id: "runtime", label: "Runtime", actions: [{ id: "restart", label: "Restart", enabled: true }] }],
+      groups: [
+        {
+          id: "runtime",
+          label: "Runtime",
+          actions: [
+            { id: "runtime_service.openwakeword.start", label: "Start", enabled: true, tone: "success" },
+            { id: "runtime_service.openwakeword.stop", label: "Stop", enabled: true, tone: "warning" },
+            { id: "runtime_service.openwakeword.restart", label: "Restart", enabled: true },
+          ],
+        },
+      ],
     };
 
     const disabledHtml = renderToStaticMarkup(<NodeUiCard surface={{ ...surface, kind: "action_panel" }} data={data} />);
@@ -211,5 +221,8 @@ describe("rendered node UI renderers", () => {
 
     expect(disabledHtml).toContain("disabled");
     expect(enabledHtml).not.toContain("disabled");
+    expect(enabledHtml).toContain("Start");
+    expect(enabledHtml).toContain("Stop");
+    expect(enabledHtml).toContain("Restart");
   });
 });

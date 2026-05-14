@@ -143,7 +143,7 @@ Each health strip item carries the display name of the state, the current state,
 
 ### `runtime_service`
 
-`runtime_service` is the reusable shape for runtime components such as backend processes, worker services, provider daemons, schedulers, wake-word services, and model runtimes. Nodes may provide canonical `runtime_state`/`health_status` fields, display-oriented `state`/`tone`, provider/model summaries, resource usage, restart metadata, facts, and action states.
+`runtime_service` is the reusable shape for runtime components such as backend processes, worker services, provider daemons, schedulers, wake-word services, and model runtimes. Nodes may provide canonical `runtime_state`/`health_status` fields, display-oriented `state`/`tone`, provider/model summaries, resource usage, restart metadata, facts, and action states. Service-level action states should reference manifest/page-card actions, commonly node-owned `POST` endpoints such as `/api/node/ui/runtime/services/{service_id}/{start|stop|restart}`.
 
 ```json
 {
@@ -162,7 +162,10 @@ Each health strip item carries the display name of the state, the current state,
         "process_memory_rss_bytes": 104857600
       },
       "restart_supported": true,
-      "restart_target": "backend"
+      "restart_target": "backend",
+      "actions": [
+        { "id": "runtime_service.backend.restart", "label": "Restart" }
+      ]
     }
   ],
   "actions": [

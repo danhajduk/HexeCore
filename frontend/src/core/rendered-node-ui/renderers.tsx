@@ -1,5 +1,5 @@
 import { useState, type ComponentType, type ReactNode } from "react";
-import { Activity, AlertTriangle, CircleHelp, RotateCw, X } from "lucide-react";
+import { Activity, AlertTriangle, CircleHelp, Play, RotateCw, Square, X } from "lucide-react";
 
 import type {
   ActionPanelCardResponse,
@@ -193,6 +193,14 @@ function ActionButton({
 }) {
   const enabled = action.enabled !== false && Boolean(onAction);
   const disabledReason = action.disabled_reason || action.reason;
+  const actionName = `${action.id} ${action.label || ""}`.toLowerCase();
+  const ActionIcon = actionName.includes("restart")
+    ? RotateCw
+    : actionName.includes("start")
+      ? Play
+      : actionName.includes("stop")
+        ? Square
+        : RotateCw;
   return (
     <button
       type="button"
@@ -203,7 +211,7 @@ function ActionButton({
         if (enabled) onAction?.(action, surface);
       }}
     >
-      <RotateCw size={15} aria-hidden="true" />
+      <ActionIcon size={15} aria-hidden="true" />
       <span>{action.label || labelize(action.id)}</span>
     </button>
   );
