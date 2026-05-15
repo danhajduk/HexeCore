@@ -8,6 +8,12 @@ INSTALL_DIR="${INSTALL_DIR:-}"
 START_SERVICES=true
 REFRESH_REPO=false
 SUPERVISOR_SOCKET="${HEXE_SUPERVISOR_SOCKET:-/run/hexe/supervisor.sock}"
+CORE_URL="${HEXE_SUPERVISOR_CORE_URL:-${SYNTHIA_CORE_URL:-}}"
+CORE_TOKEN="${HEXE_SUPERVISOR_CORE_TOKEN:-${SYNTHIA_ADMIN_TOKEN:-}}"
+SUPERVISOR_ID="${HEXE_SUPERVISOR_ID:-}"
+SUPERVISOR_NAME="${HEXE_SUPERVISOR_NAME:-}"
+SUPERVISOR_PUBLIC_URL="${HEXE_SUPERVISOR_PUBLIC_URL:-}"
+REPORT_INTERVAL_S="${HEXE_SUPERVISOR_REPORT_INTERVAL_S:-15}"
 
 script_repo_dir() {
   local source_path="${BASH_SOURCE[0]:-${0:-}}"
@@ -28,10 +34,13 @@ usage() {
   cat <<EOF
 Usage:
   supervisor_install.sh [--dir INSTALL_DIR] [--repo-url URL] [--branch NAME] [--refresh] [--no-start]
+                        [--core-url URL] [--admin-token TOKEN] [--supervisor-id ID]
+                        [--supervisor-name NAME] [--public-url URL]
 
 Curl install:
   curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/supervisor_install.sh | bash
   curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/supervisor_install.sh | bash -s -- --dir "\$HOME/Projects/Hexe"
+  curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/supervisor_install.sh | bash -s -- --core-url http://core-host:9001 --admin-token TOKEN --supervisor-id host-a
 
 Options:
   --dir INSTALL_DIR  Core checkout to use or create. Defaults to this repo when run locally, otherwise \$HOME/Projects/Hexe.
@@ -39,6 +48,15 @@ Options:
   --branch NAME      Branch to clone or refresh. Default: main
   --refresh          Fast-forward an existing checkout before installing.
   --no-start         Install units without starting them.
+  --core-url URL     Core API base URL for remote Supervisor reporting.
+  --admin-token TOKEN
+                    Core admin token used by the Supervisor reporter.
+  --supervisor-id ID Stable ID for this host Supervisor.
+  --supervisor-name NAME
+                    Display name for this host Supervisor.
+  --public-url URL   Optional Core-reachable Supervisor API URL.
+  --report-interval SECONDS
+                    Remote reporting interval. Default: 15.
 EOF
 }
 
@@ -63,6 +81,30 @@ while [[ $# -gt 0 ]]; do
     --no-start)
       START_SERVICES=false
       shift
+      ;;
+    --core-url)
+      CORE_URL="${2:-}"
+      shift 2
+      ;;
+    --admin-token)
+      CORE_TOKEN="${2:-}"
+      shift 2
+      ;;
+    --supervisor-id)
+      SUPERVISOR_ID="${2:-}"
+      shift 2
+      ;;
+    --supervisor-name)
+      SUPERVISOR_NAME="${2:-}"
+      shift 2
+      ;;
+    --public-url)
+      SUPERVISOR_PUBLIC_URL="${2:-}"
+      shift 2
+      ;;
+    --report-interval)
+      REPORT_INTERVAL_S="${2:-}"
+      shift 2
       ;;
     -h|--help)
       usage
@@ -188,6 +230,47 @@ install_tmpfiles_rule() {
   fi
 }
 
+env_value() {
+  local value="$1"
+  value="${value//\\/\\\\}"
+  value="${value//\"/\\\"}"
+  printf '"%s"' "$value"
+}
+
+write_env_if_set() {
+  local key="$1"
+  local value="$2"
+  if [[ -n "$value" ]]; then
+    printf "%s=%s\n" "$key" "$(env_value "$value")"
+  fi
+}
+
+write_supervisor_env() {
+  if [[ -z "$CORE_URL" && -z "$SUPERVISOR_ID" && -z "$SUPERVISOR_NAME" && -z "$SUPERVISOR_PUBLIC_URL" ]]; then
+    return 0
+  fi
+
+  echo "[supervisor-install] Writing Supervisor reporting config"
+  mkdir -p "$HOME/.config/hexe"
+  local env_file="$HOME/.config/hexe/supervisor.env"
+  {
+    write_env_if_set "HEXE_SUPERVISOR_CORE_URL" "$CORE_URL"
+    write_env_if_set "HEXE_SUPERVISOR_CORE_TOKEN" "$CORE_TOKEN"
+    write_env_if_set "HEXE_SUPERVISOR_ID" "$SUPERVISOR_ID"
+    write_env_if_set "HEXE_SUPERVISOR_NAME" "$SUPERVISOR_NAME"
+    write_env_if_set "HEXE_SUPERVISOR_PUBLIC_URL" "$SUPERVISOR_PUBLIC_URL"
+    write_env_if_set "HEXE_SUPERVISOR_REPORT_INTERVAL_S" "$REPORT_INTERVAL_S"
+    if [[ -n "$CORE_URL" ]]; then
+      printf "HEXE_SUPERVISOR_REPORT_ENABLED=true\n"
+    fi
+  } > "$env_file"
+  chmod 600 "$env_file"
+
+  if [[ -n "$CORE_URL" && -z "$CORE_TOKEN" ]]; then
+    echo "[supervisor-install] WARN: --core-url was provided without --admin-token; remote reporting will not authenticate."
+  fi
+}
+
 install_unit() {
   local template="$1"
   local out="$2"
@@ -244,6 +327,7 @@ clone_or_refresh_repo
 ensure_repo_layout
 install_backend_runtime
 install_tmpfiles_rule
+write_supervisor_env
 install_user_units
 
 if [[ "$START_SERVICES" == "true" ]]; then

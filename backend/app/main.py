@@ -107,6 +107,7 @@ from app.system.runtime import StandaloneRuntimeService
 from app.system.repo_status import router as repo_status_router
 from app.system.stack_health import build_stack_health_router, speed_sampler_loop
 from app.system.supervisor_status import build_supervisor_status_router
+from app.system.supervisors import SupervisorFleetStore, build_supervisors_router
 from app.system.internal_scheduler import InternalScheduler
 from app.system.internal_scheduler_state_store import InternalSchedulerStateStore
 from app.store import CatalogCacheClient, build_store_models_router, StoreAuditLogStore, StoreSourcesStore, build_store_router
@@ -1060,6 +1061,9 @@ def create_app() -> FastAPI:
     app.include_router(repo_status_router, prefix="/api/system", tags=["repo"])
     app.include_router(build_stack_health_router(), prefix="/api/system", tags=["stack-health"])
     app.include_router(build_supervisor_status_router(), prefix="/api/system", tags=["supervisor"])
+    supervisor_fleet_store = SupervisorFleetStore()
+    app.state.supervisor_fleet_store = supervisor_fleet_store
+    app.include_router(build_supervisors_router(supervisor_fleet_store), prefix="/api/system", tags=["supervisor-fleet"])
     app.include_router(build_internal_scheduler_router(), prefix="/api/system", tags=["scheduler"])
 
     event_service = PlatformEventService()

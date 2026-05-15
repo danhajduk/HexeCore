@@ -52,6 +52,25 @@ type SupervisorSummary = {
   core_runtimes?: Array<Record<string, unknown>>;
 };
 
+type SupervisorFleetRecord = {
+  supervisor_id: string;
+  supervisor_name?: string;
+  supervisor_version?: string | null;
+  host_id?: string | null;
+  hostname?: string | null;
+  api_base_url?: string | null;
+  transport?: string | null;
+  trust_status?: string;
+  health_status?: string;
+  lifecycle_state?: string;
+  freshness_state?: string;
+  resources?: SupervisorHostResources;
+  managed_node_count?: number | null;
+  registered_runtime_count?: number | null;
+  core_runtime_count?: number | null;
+  last_seen_at?: string | null;
+};
+
 type NodeServiceRow = {
   node_id: string;
   node_name: string;
@@ -160,6 +179,14 @@ function fmtUptime(sec: number): string {
   return `${d}d ${rem.toFixed(0)}h`;
 }
 
+function formatDateTime(value: unknown): string {
+  const raw = String(value || "").trim();
+  if (!raw) return "-";
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return raw;
+  return date.toLocaleString();
+}
+
 function pct(value: number): string {
   return `${Math.max(0, Math.min(100, value)).toFixed(1)}%`;
 }
@@ -242,6 +269,7 @@ function renderMetadata(meta?: Record<string, unknown>): JSX.Element | null {
 
 export default function SettingsSupervisor() {
   const [summary, setSummary] = useState<SupervisorSummary | null>(null);
+  const [supervisors, setSupervisors] = useState<SupervisorFleetRecord[]>([]);
   const [stats, setStats] = useState<SystemStats | null>(null);
   const [stack, setStack] = useState<StackSummary | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -253,18 +281,26 @@ export default function SettingsSupervisor() {
     setErr(null);
     setLoading(true);
     try {
-      const [supervisorRes, statsRes, stackRes] = await Promise.all([
+      const [supervisorRes, fleetRes, statsRes, stackRes] = await Promise.all([
         fetch("/api/system/supervisor/summary", { cache: "no-store" }),
+        fetch("/api/system/supervisors", { cache: "no-store" }),
         fetch("/api/system/stats/current", { cache: "no-store" }),
         fetch("/api/system/stack/summary", { cache: "no-store" }),
       ]);
       if (!supervisorRes.ok) throw new Error(`HTTP ${supervisorRes.status}`);
       setSummary((await supervisorRes.json()) as SupervisorSummary);
+      if (fleetRes.ok) {
+        const fleet = (await fleetRes.json()) as { items?: SupervisorFleetRecord[] };
+        setSupervisors(Array.isArray(fleet.items) ? fleet.items : []);
+      } else {
+        setSupervisors([]);
+      }
       if (statsRes.ok) setStats((await statsRes.json()) as SystemStats);
       if (stackRes.ok) setStack((await stackRes.json()) as StackSummary);
     } catch (e: any) {
       setErr(e?.message ?? String(e));
       setSummary(null);
+      setSupervisors([]);
       setStats(null);
       setStack(null);
     } finally {
@@ -418,6 +454,54 @@ export default function SettingsSupervisor() {
 
       {err && <div className="settings-error">Failed to load supervisor summary: {err}</div>}
       {summary?.error && <div className="settings-error">Supervisor error: {summary.error}</div>}
+
+      <section className="settings-section">
+        <div className="settings-section-head">
+          <h2>Supervisor Fleet</h2>
+        </div>
+        <div className="settings-card">
+          {supervisors.length === 0 ? (
+            <div className="settings-help">No remote Supervisors registered yet.</div>
+          ) : (
+            <table className="settings-table">
+              <thead>
+                <tr>
+                  <th />
+                  <th>Name</th>
+                  <th>ID</th>
+                  <th>Host</th>
+                  <th>Freshness</th>
+                  <th>Health</th>
+                  <th>Nodes</th>
+                  <th>Runtimes</th>
+                  <th>CPU</th>
+                  <th>Mem</th>
+                  <th>Last Seen</th>
+                </tr>
+              </thead>
+              <tbody>
+                {supervisors.map((supervisor) => (
+                  <tr key={supervisor.supervisor_id}>
+                    <td>
+                      <StatusLed tone={statusTone(supervisor.freshness_state || supervisor.health_status)} />
+                    </td>
+                    <td>{String(supervisor.supervisor_name || supervisor.supervisor_id)}</td>
+                    <td className="settings-mono">{supervisor.supervisor_id}</td>
+                    <td>{String(supervisor.hostname || supervisor.host_id || "-")}</td>
+                    <td>{displayState(supervisor.freshness_state)}</td>
+                    <td>{displayState(supervisor.health_status)}</td>
+                    <td>{formatNumber(supervisor.managed_node_count)}</td>
+                    <td>{formatNumber(supervisor.registered_runtime_count)}</td>
+                    <td>{formatPctValue(supervisor.resources?.cpu_percent_total)}</td>
+                    <td>{formatPctValue(supervisor.resources?.memory_percent)}</td>
+                    <td>{formatDateTime(supervisor.last_seen_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </section>
 
       <section className="settings-section">
         <div className="settings-section-head">

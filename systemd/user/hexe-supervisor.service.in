@@ -16,6 +16,7 @@ ExecStart=@INSTALL_DIR@/backend/.venv/bin/python -m synthia_supervisor.main
 Restart=always
 RestartSec=2
 EnvironmentFile=%h/.config/hexe/admin.env
+EnvironmentFile=-%h/.config/hexe/supervisor.env
 
 [Install]
 WantedBy=default.target

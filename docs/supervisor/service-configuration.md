@@ -15,6 +15,14 @@ Supervisor can listen on a Unix socket (default) or a TCP bind/port. These optio
 - `HEXE_SUPERVISOR_LOG_LEVEL`: Supervisor API server log level. Default: `INFO`.
 - `HEXE_SUPERVISOR_NODE_SERVICE_ACTION_TIMEOUT_S`: timeout for proxied Node service start/stop/restart calls. Default: `30`.
 - `HEXE_SUPERVISOR_BOOT_LOG`: Boot log file path (overwritten on Supervisor start). Default: `var/supervisor/boot.log`.
+- `HEXE_SUPERVISOR_ID`: stable ID for this host Supervisor when reporting to Core. Default: `<hostname>-supervisor`.
+- `HEXE_SUPERVISOR_NAME`: display name for this host Supervisor. Default: `HEXE_SUPERVISOR_ID`.
+- `HEXE_SUPERVISOR_PUBLIC_URL`: optional Core-reachable Supervisor API URL for remote detail/control flows.
+- `HEXE_SUPERVISOR_CORE_URL`: Core API base URL used by remote Supervisor reporting. Reporting is disabled when unset.
+- `HEXE_SUPERVISOR_CORE_TOKEN`: Core admin token used by remote Supervisor reporting. Reporting is disabled when unset.
+- `HEXE_SUPERVISOR_REPORT_ENABLED`: enables or disables remote reporting. Default: `true`.
+- `HEXE_SUPERVISOR_REPORT_INTERVAL_S`: remote reporting interval. Default: `15`.
+- `HEXE_SUPERVISOR_REPORT_TIMEOUT_S`: remote reporting request timeout. Default: `5`.
 
 ## Core Supervisor Client
 
@@ -31,6 +39,7 @@ Core talks to a remote Supervisor over the following environment-backed client s
 - The Unix socket path is consistent across hosts to keep local Supervisor access predictable.
 - When using `socket` transport, the Supervisor API server does not bind a TCP port.
 - When using `http` transport, the Supervisor API server does not open a Unix socket.
+- Remote Supervisor fleet visibility is push-based: each remote Supervisor posts registration and heartbeat payloads to Core at `/api/system/supervisors/register` and `/api/system/supervisors/heartbeat`.
 
 ## Health And Readiness Probes
 

@@ -70,7 +70,15 @@ To target a specific local checkout:
 curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/supervisor_install.sh | bash -s -- --dir "$HOME/Projects/Hexe"
 ```
 
+To install a remote host Supervisor that reports into Core:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/supervisor_install.sh | bash -s -- --core-url http://core-host:9001 --admin-token "$SYNTHIA_ADMIN_TOKEN" --supervisor-id host-a
+```
+
 The installer prepares the backend Python runtime, installs `hexe-supervisor.service` and `hexe-supervisor-api.service` as systemd user units, starts both services by default, and verifies the Supervisor API with `curl` over `/run/hexe/supervisor.sock`.
+
+Remote reporting writes `%h/.config/hexe/supervisor.env`, and Core stores reported Supervisors behind `/api/system/supervisors`.
 
 ## Explicit Non-Goals
 
