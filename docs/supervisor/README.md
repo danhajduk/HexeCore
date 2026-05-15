@@ -56,6 +56,22 @@ Core uses a Supervisor API client with its own environment-backed settings (see 
 - `HEXE_SUPERVISOR_SOCKET`: Unix socket path when `HEXE_SUPERVISOR_TRANSPORT=socket`. Default: `/run/hexe/supervisor.sock`.
 - `HEXE_SUPERVISOR_LOG_LEVEL`: Supervisor API server log level. Default: `INFO`.
 
+## Local Host Install
+
+Install or refresh the host-local Supervisor services with:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/supervisor_install.sh | bash
+```
+
+To target a specific local checkout:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/supervisor_install.sh | bash -s -- --dir "$HOME/Projects/Hexe"
+```
+
+The installer prepares the backend Python runtime, installs `hexe-supervisor.service` and `hexe-supervisor-api.service` as systemd user units, starts both services by default, and verifies the Supervisor API with `curl` over `/run/hexe/supervisor.sock`.
+
 ## Explicit Non-Goals
 
 Status: Implemented
