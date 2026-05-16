@@ -11,6 +11,7 @@ function AppLayout() {
   const chromeless =
     location.pathname === "/onboarding/registrations/approve" ||
     location.pathname === "/onboarding/nodes/approve" ||
+    location.pathname === "/reauth/nodes/approve" ||
     location.pathname === "/proxy-login";
   return (
     <Shell isAdmin={authenticated} chromeless={chromeless}>

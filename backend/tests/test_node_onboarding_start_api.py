@@ -18,7 +18,13 @@ except Exception:  # pragma: no cover - local env may not include FastAPI deps
     system_api = None
     FASTAPI_STACK_AVAILABLE = False
 
-from app.system.onboarding import NodeOnboardingSessionsStore, NodeRegistrationsStore, NodeTrustIssuanceService, NodeTrustStore
+from app.system.onboarding import (
+    NodeOnboardingSessionsStore,
+    NodeReauthSessionsStore,
+    NodeRegistrationsStore,
+    NodeTrustIssuanceService,
+    NodeTrustStore,
+)
 
 
 class _FakeRegistry:
@@ -45,6 +51,7 @@ class TestNodeOnboardingStartApi(unittest.TestCase):
         system_api._RATE_WINDOWS.clear()
         self.tmpdir = tempfile.TemporaryDirectory()
         self.store = NodeOnboardingSessionsStore(path=Path(self.tmpdir.name) / "node_onboarding_sessions.json")
+        self.reauth_store = NodeReauthSessionsStore(path=Path(self.tmpdir.name) / "node_reauth_sessions.json")
         self.registrations = NodeRegistrationsStore(path=Path(self.tmpdir.name) / "node_registrations.json")
         self.trust_store = NodeTrustStore(path=Path(self.tmpdir.name) / "node_trust_records.json")
         self.trust_issuance = NodeTrustIssuanceService(self.trust_store)
@@ -53,6 +60,7 @@ class TestNodeOnboardingStartApi(unittest.TestCase):
             build_system_router(
                 _FakeRegistry(),
                 onboarding_sessions_store=self.store,
+                node_reauth_sessions_store=self.reauth_store,
                 node_registrations_store=self.registrations,
                 node_trust_issuance=self.trust_issuance,
             ),
@@ -424,6 +432,74 @@ class TestNodeOnboardingStartApi(unittest.TestCase):
         )
         self.assertEqual(resp.status_code, 200, resp.text)
         self.assertEqual(resp.json()["onboarding_status"], "expired")
+
+    def test_node_reauth_rotates_existing_trust_material(self) -> None:
+        started = self.client.post("/api/system/nodes/onboarding/sessions", json=self._payload())
+        self.assertEqual(started.status_code, 200, started.text)
+        onboarding_session_id = started.json()["session"]["session_id"]
+        state = started.json()["session"]["approval_url"].split("state=", 1)[1]
+        approve = self.client.post(
+            f"/api/system/nodes/onboarding/sessions/{onboarding_session_id}/approve?state={state}",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(approve.status_code, 200, approve.text)
+        initial = self.client.get(
+            f"/api/system/nodes/onboarding/sessions/{onboarding_session_id}/finalize?node_nonce=nonce-abc"
+        )
+        self.assertEqual(initial.status_code, 200, initial.text)
+        node_id = initial.json()["activation"]["node_id"]
+        first_node_token = initial.json()["activation"]["node_trust_token"]
+        first_mqtt_token = initial.json()["activation"]["operational_mqtt_token"]
+
+        reauth = self.client.post(
+            "/api/system/nodes/reauth/sessions",
+            json={"node_id": node_id, "node_nonce": "reauth-nonce-abc", "reason": "migration"},
+        )
+        self.assertEqual(reauth.status_code, 200, reauth.text)
+        reauth_session = reauth.json()["session"]
+        self.assertEqual(reauth_session["reauth_status"], "pending_approval")
+        self.assertIn("/reauth/nodes/approve", reauth_session["approval_url"])
+        self.assertEqual(reauth_session["node_id"], node_id)
+        reauth_state = reauth_session["approval_url"].split("state=", 1)[1]
+
+        pending = self.client.get(
+            f"/api/system/nodes/reauth/sessions/{reauth_session['session_id']}/finalize?node_nonce=reauth-nonce-abc"
+        )
+        self.assertEqual(pending.status_code, 200, pending.text)
+        self.assertEqual(pending.json()["reauth_status"], "pending")
+
+        approved = self.client.post(
+            f"/api/system/nodes/reauth/sessions/{reauth_session['session_id']}/approve?state={reauth_state}",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(approved.status_code, 200, approved.text)
+        self.assertEqual(approved.json()["session"]["session_state"], "approved")
+
+        finalized = self.client.get(
+            f"/api/system/nodes/reauth/sessions/{reauth_session['session_id']}/finalize?node_nonce=reauth-nonce-abc"
+        )
+        self.assertEqual(finalized.status_code, 200, finalized.text)
+        self.assertEqual(finalized.json()["reauth_status"], "approved")
+        activation = finalized.json()["activation"]
+        self.assertEqual(activation["node_id"], node_id)
+        self.assertNotEqual(activation["node_trust_token"], first_node_token)
+        self.assertNotEqual(activation["operational_mqtt_token"], first_mqtt_token)
+        self.assertEqual(activation["source_session_id"], reauth_session["session_id"])
+        self.assertEqual(self.registrations.get(node_id).trust_status, "trusted")
+
+        replay = self.client.get(
+            f"/api/system/nodes/reauth/sessions/{reauth_session['session_id']}/finalize?node_nonce=reauth-nonce-abc"
+        )
+        self.assertEqual(replay.status_code, 200, replay.text)
+        self.assertEqual(replay.json()["reauth_status"], "consumed")
+
+    def test_node_reauth_requires_existing_registration(self) -> None:
+        resp = self.client.post(
+            "/api/system/nodes/reauth/sessions",
+            json={"node_id": "node-missing-1", "node_nonce": "reauth-nonce-1"},
+        )
+        self.assertEqual(resp.status_code, 404, resp.text)
+        self.assertEqual(resp.json()["detail"], "node_registration_not_found")
 
 
 if __name__ == "__main__":

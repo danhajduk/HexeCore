@@ -72,6 +72,7 @@ from app.system.onboarding import (
     NodeTelemetryService,
     NodeTelemetryStore,
     NodeOnboardingSessionsStore,
+    NodeReauthSessionsStore,
     ProviderModelApprovalPolicyService,
     ProviderModelPolicyStore,
     NodeRegistrationsStore,
@@ -1006,6 +1007,7 @@ def create_app() -> FastAPI:
     app.state.users_store = users_store
     install_sessions_store = InstallSessionsStore()
     node_onboarding_sessions_store = NodeOnboardingSessionsStore()
+    node_reauth_sessions_store = NodeReauthSessionsStore()
     node_registrations_store = NodeRegistrationsStore()
     node_trust_store = NodeTrustStore()
     node_trust_issuance = NodeTrustIssuanceService(node_trust_store)
@@ -1032,6 +1034,7 @@ def create_app() -> FastAPI:
     node_telemetry_service = NodeTelemetryService(node_telemetry_store)
     app.state.install_sessions_store = install_sessions_store
     app.state.node_onboarding_sessions_store = node_onboarding_sessions_store
+    app.state.node_reauth_sessions_store = node_reauth_sessions_store
     app.state.node_registrations_store = node_registrations_store
     app.state.node_trust_store = node_trust_store
     app.state.node_trust_issuance = node_trust_issuance
@@ -1225,6 +1228,7 @@ def create_app() -> FastAPI:
             mqtt_credential_store=mqtt_credential_store,
             mqtt_runtime_reconciler=mqtt_startup_reconciler,
             onboarding_sessions_store=node_onboarding_sessions_store,
+            node_reauth_sessions_store=node_reauth_sessions_store,
             node_registrations_store=node_registrations_store,
             node_trust_issuance=node_trust_issuance,
             node_capability_acceptance=node_capability_acceptance,

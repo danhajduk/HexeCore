@@ -146,6 +146,33 @@ class TestNodeTrustIssuanceService(unittest.TestCase):
         replay = upgraded_service.issue_for_approved_session(approved)["activation"]
         self.assertEqual(replay["operational_mqtt_host"], "10.0.0.123")
 
+    def test_reissue_for_node_rotates_tokens_and_rekeys_session_mapping(self) -> None:
+        session = self.sessions.start_session(
+            node_nonce="nonce-g",
+            requested_node_name="node-g",
+            requested_node_type="ai-node",
+            requested_node_software_version="0.1.0",
+        )
+        approved = self.sessions.approve_session(
+            session.session_id,
+            approved_by_user_id="admin_session",
+            linked_node_id="node-fixed-5",
+        )
+        first = self.service.issue_for_approved_session(approved)["activation"]
+
+        reissued = self.service.reissue_for_node(
+            node_id="node-fixed-5",
+            node_type="ai-node",
+            source_session_id="reauth-session-1",
+        )["activation"]
+
+        self.assertEqual(reissued["node_id"], "node-fixed-5")
+        self.assertEqual(reissued["source_session_id"], "reauth-session-1")
+        self.assertNotEqual(reissued["node_trust_token"], first["node_trust_token"])
+        self.assertNotEqual(reissued["operational_mqtt_token"], first["operational_mqtt_token"])
+        self.assertIsNone(self.trust_store.get_by_session(approved.session_id))
+        self.assertEqual(self.trust_store.get_by_session("reauth-session-1").node_id, "node-fixed-5")
+
 
 if __name__ == "__main__":
     unittest.main()

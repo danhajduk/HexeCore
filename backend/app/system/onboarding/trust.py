@@ -202,6 +202,11 @@ class NodeTrustStore:
 
     def upsert(self, record: NodeTrustRecord) -> NodeTrustRecord:
         self._records_by_node[record.node_id] = record
+        self._session_to_node = {
+            sid: linked_node_id
+            for sid, linked_node_id in self._session_to_node.items()
+            if linked_node_id != record.node_id or sid == record.source_session_id
+        }
         self._session_to_node[record.source_session_id] = record.node_id
         self._save()
         return record
@@ -307,6 +312,62 @@ class NodeTrustIssuanceService:
             operational_mqtt_port=self._mqtt_port,
             issued_at=_utcnow_iso(),
             source_session_id=session.session_id,
+            trust_status="trusted",
+        )
+        self._store.upsert(record)
+        return {"ok": True, "activation": record.to_dict()}
+
+    def reissue_for_node(
+        self,
+        *,
+        node_id: str,
+        node_type: str,
+        source_session_id: str,
+        activation_profile: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        node_key = str(node_id or "").strip()
+        session_key = str(source_session_id or "").strip()
+        if not node_key:
+            raise ValueError("node_id_required")
+        if not session_key:
+            raise ValueError("source_session_id_required")
+        requested_node_type = str(node_type or "").strip() or "unknown"
+        trusted_node_type = requested_node_type
+        if trusted_node_type != "unknown" and not trusted_node_type.endswith("-node"):
+            trusted_node_type = f"{trusted_node_type}-node"
+        existing = self._store.get_by_node(node_key)
+        baseline_policy = (
+            dict(existing.initial_baseline_policy)
+            if existing is not None and isinstance(existing.initial_baseline_policy, dict)
+            else {"version": "1", "rules": []}
+        )
+        baseline_policy_version = (
+            str(existing.baseline_policy_version or "").strip()
+            if existing is not None
+            else str(baseline_policy.get("version") or "1")
+        ) or "1"
+        profile = dict(activation_profile or {})
+        if not profile:
+            profile = (
+                dict(existing.activation_profile)
+                if existing is not None and isinstance(existing.activation_profile, dict)
+                else {"node_type": trusted_node_type, "extensions": {}}
+            )
+        profile["node_type"] = str(profile.get("node_type") or trusted_node_type)
+        record = NodeTrustRecord(
+            node_id=node_key,
+            node_type=trusted_node_type,
+            paired_core_id=self._core_id,
+            node_trust_token=secrets.token_urlsafe(32),
+            initial_baseline_policy=baseline_policy,
+            baseline_policy_version=baseline_policy_version,
+            activation_profile=profile,
+            operational_mqtt_identity=_default_node_mqtt_identity(node_key),
+            operational_mqtt_token=secrets.token_urlsafe(32),
+            operational_mqtt_host=self._mqtt_host,
+            operational_mqtt_port=self._mqtt_port,
+            issued_at=_utcnow_iso(),
+            source_session_id=session_key,
             trust_status="trusted",
         )
         self._store.upsert(record)

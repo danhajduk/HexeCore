@@ -16,6 +16,7 @@ import SettingsSupervisor from "../pages/SettingsSupervisor";
 import SettingsScheduler from "../pages/SettingsScheduler";
 import AddonStorePage from "../../pages/AddonStorePage";
 import OnboardingNodeApproval from "../pages/OnboardingNodeApproval";
+import NodeReauthApproval from "../pages/NodeReauthApproval";
 import { getAddonRoutes } from "./loadAddons";
 
 function ProtectedRedirect() {
@@ -46,6 +47,7 @@ export function buildRoutes(isAdmin: boolean, ready: boolean): RouteObject[] {
     { path: "/addons/:addonId", element: protectedRoute(<AddonFrame />) },
     { path: "/onboarding/registrations/approve", element: <OnboardingNodeApproval /> },
     { path: "/onboarding/nodes/approve", element: <OnboardingNodeApproval /> },
+    { path: "/reauth/nodes/approve", element: <NodeReauthApproval /> },
     { path: "/settings", element: protectedRoute(<Settings />) },
     { path: "/settings/edge", element: protectedRoute(<EdgeGateway />) },
     { path: "/settings/metrics", element: protectedRoute(<SettingsMetrics />) },

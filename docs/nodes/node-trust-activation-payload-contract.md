@@ -5,12 +5,13 @@ Last updated: 2026-03-19
 
 ## Purpose
 
-Defines the canonical trust activation payload returned when a node onboarding session is approved and finalized.
+Defines the canonical trust activation payload returned when a node onboarding or re-auth session is approved and finalized.
 
 Terminology note:
 
 - approval is the operator decision step
 - trust activation is the finalize payload returned after approved finalization
+- re-auth uses the same activation payload shape to rotate trust material for an existing registered node
 - capability activation is a later post-trust phase and is not part of the trust activation payload
 
 ## Activation Payload Fields
@@ -37,8 +38,23 @@ Returned under `activation`:
 - Issued only for `approved` sessions.
 - Session-bound and node-nonce validated.
 - One-time consumption enforced by finalize flow.
-- Replay attempts return `consumed`.
+- Onboarding replay attempts may return the current activation payload when Core still has a session-to-node trust mapping.
+- Re-auth replay attempts return `consumed`; nodes should start a new re-auth session if credential collection fails after consumption.
 - No partial trust material is returned for `pending`, `rejected`, `expired`, `cancelled`, or invalid finalize outcomes.
+
+## Re-auth Rotation
+
+Status: Implemented
+
+Approved re-auth finalization:
+
+- preserves `node_id`
+- generates a new `node_trust_token`
+- generates a new `operational_mqtt_token`
+- keeps `operational_mqtt_identity` derived from the existing node id
+- updates `source_session_id` to the re-auth session id
+- reprovisions the Core MQTT principal for the node
+- updates the existing registration trust status to `trusted`
 
 ## Extensibility
 

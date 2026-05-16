@@ -73,6 +73,53 @@ Deterministic behavior rules:
 - first successful approved finalization marks the session consumed
 - replayed approved finalization attempts return `consumed`
 
+## Re-auth For Existing Nodes
+
+Status: Implemented
+
+Re-auth is the migration/recovery flow for an existing registered node that must receive fresh trust material without creating a new node identity.
+
+Start session:
+
+- `POST /api/system/nodes/reauth/sessions`
+- Request fields:
+  - `node_id`
+  - `node_nonce`
+  - `reason` (optional)
+- Core requires `node_id` to match an existing registration.
+- Core rejects duplicate active re-auth sessions for the same `node_id`.
+- Response includes:
+  - `reauth_status: pending_approval`
+  - `approval_url`, generated as `<core_base>/reauth/nodes/approve?rid=<session_id>&state=<state_token>`
+  - `finalize.path`
+
+Approval and decision:
+
+- `GET /api/system/nodes/reauth/sessions/{session_id}?state=...` (admin auth)
+- `POST /api/system/nodes/reauth/sessions/{session_id}/approve?state=...` (admin auth)
+- `POST /api/system/nodes/reauth/sessions/{session_id}/reject?state=...` (admin auth)
+
+Finalization:
+
+- `GET /api/system/nodes/reauth/sessions/{session_id}/finalize?node_nonce=...`
+- Outcome set:
+  - `pending`
+  - `approved` (returns fresh trust activation payload)
+  - `rejected`
+  - `expired`
+  - `consumed`
+  - `invalid`
+
+Re-auth behavior rules:
+
+- preserves the existing `node_id` and registration metadata
+- rotates `node_trust_token`
+- rotates `operational_mqtt_token`
+- reprovisions the node MQTT principal using the existing node identity
+- promotes the existing registration back to `trusted` after successful finalization
+- marks the re-auth session consumed after the fresh activation payload is returned
+- consumed re-auth sessions do not replay activation material; nodes should start a new re-auth session if collection fails after consumption
+
 ## Registration Query
 
 - `GET /api/system/nodes/registrations` (admin auth)

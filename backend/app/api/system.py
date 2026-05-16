@@ -28,6 +28,7 @@ from ..system.onboarding import (
     NodeGovernanceStatusService,
     ModelRoutingRegistryService,
     NodeOnboardingSessionsStore,
+    NodeReauthSessionsStore,
     NodeRegistrationsStore,
     NodeBudgetService,
     NodeTelemetryService,
@@ -63,6 +64,12 @@ class NodeOnboardingStartRequest(BaseModel):
 
 class NodeOnboardingRejectRequest(BaseModel):
     rejection_reason: str | None = None
+
+
+class NodeReauthStartRequest(BaseModel):
+    node_id: str
+    node_nonce: str
+    reason: str | None = None
 
 
 class NodeRegistrationMetadataUpdateRequest(BaseModel):
@@ -313,6 +320,18 @@ def _build_approval_url(request: Request, session_id: str, state: str) -> str:
     return f"{base}?{urlencode({'sid': session_id, 'state': state})}"
 
 
+def _build_reauth_approval_url(request: Request, session_id: str, state: str) -> str:
+    configured = str(os.getenv("SYNTHIA_NODE_REAUTH_APPROVAL_URL_BASE", "")).strip()
+    if configured.startswith(("http://", "https://")):
+        base = configured.rstrip("/")
+    else:
+        path = configured or "/reauth/nodes/approve"
+        if not path.startswith("/"):
+            path = f"/{path}"
+        base = f"{str(request.base_url).rstrip('/')}{path}"
+    return f"{base}?{urlencode({'rid': session_id, 'state': state})}"
+
+
 def _admin_actor(x_admin_token: str | None) -> str:
     return "admin_token" if (x_admin_token or "").strip() else "admin_session"
 
@@ -434,6 +453,12 @@ def _expire_if_needed(store: NodeOnboardingSessionsStore | None) -> None:
     store.expire_stale_sessions()
 
 
+def _expire_reauth_if_needed(store: NodeReauthSessionsStore | None) -> None:
+    if store is None:
+        return
+    store.expire_stale_sessions()
+
+
 def _apply_legacy_deprecation_headers(response: Response) -> None:
     response.headers["Deprecation"] = "true"
     response.headers["Sunset"] = _LEGACY_DEPRECATION_DATE
@@ -470,6 +495,38 @@ def _session_payload(session) -> dict[str, object]:
     }
 
 
+def _reauth_session_payload(session, registration=None) -> dict[str, object]:
+    payload = {
+        "session_id": session.session_id,
+        "session_state": session.session_state,
+        "node_id": session.node_id,
+        "node_nonce": session.node_nonce,
+        "requested_from_ip": session.requested_from_ip,
+        "reason": session.reason,
+        "created_at": session.created_at,
+        "expires_at": session.expires_at,
+        "approved_at": session.approved_at,
+        "rejected_at": session.rejected_at,
+        "approved_by_user_id": session.approved_by_user_id,
+        "rejection_reason": session.rejection_reason,
+        "final_payload_consumed_at": session.final_payload_consumed_at,
+    }
+    if registration is not None:
+        payload.update(
+            {
+                "node_name": getattr(registration, "node_name", None),
+                "node_type": getattr(registration, "node_type", None),
+                "node_software_version": getattr(registration, "node_software_version", None),
+                "requested_node_type": getattr(registration, "requested_node_type", None),
+                "trust_status": getattr(registration, "trust_status", None),
+                "requested_hostname": getattr(registration, "requested_hostname", None),
+                "requested_ui_endpoint": getattr(registration, "requested_ui_endpoint", None),
+                "requested_api_base_url": getattr(registration, "requested_api_base_url", None),
+            }
+        )
+    return payload
+
+
 def build_system_router(
     registry: AddonRegistry,
     runtime_service: StandaloneRuntimeService | None = None,
@@ -481,6 +538,7 @@ def build_system_router(
     mqtt_credential_store=None,
     mqtt_runtime_reconciler=None,
     onboarding_sessions_store: NodeOnboardingSessionsStore | None = None,
+    node_reauth_sessions_store: NodeReauthSessionsStore | None = None,
     node_registrations_store: NodeRegistrationsStore | None = None,
     node_trust_issuance: NodeTrustIssuanceService | None = None,
     node_capability_acceptance: NodeCapabilityAcceptanceService | None = None,
@@ -901,6 +959,244 @@ def build_system_router(
                 },
             )
         return {"ok": True, "cancelled_count": len(cancelled_payloads), "items": cancelled_payloads}
+
+    @router.post("/system/nodes/reauth/sessions")
+    def start_node_reauth_session(body: NodeReauthStartRequest, request: Request):
+        _expire_reauth_if_needed(node_reauth_sessions_store)
+        if node_reauth_sessions_store is None:
+            raise HTTPException(status_code=503, detail="node_reauth_sessions_unavailable")
+        if node_registrations_store is None:
+            raise HTTPException(status_code=503, detail="node_registrations_unavailable")
+        source_ip = str(request.client.host if request.client else "unknown")
+        if not _rate_limit(f"node_reauth:create:{source_ip}", limit=20, window_seconds=60):
+            raise HTTPException(status_code=429, detail="rate_limited")
+        try:
+            node_id = _validate_node_id(body.node_id)
+            node_nonce = _validate_node_nonce(body.node_nonce)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        registration = node_registrations_store.get(node_id)
+        if registration is None:
+            raise HTTPException(status_code=404, detail="node_registration_not_found")
+        active = node_reauth_sessions_store.find_active_by_node_id(node_id)
+        if active is not None:
+            raise HTTPException(
+                status_code=409,
+                detail={"error": "duplicate_active_reauth_session", "message": "active reauth session already exists"},
+            )
+        approval_state = secrets.token_urlsafe(18)
+        session = node_reauth_sessions_store.start_session(
+            node_id=node_id,
+            node_nonce=node_nonce,
+            requested_from_ip=(source_ip if source_ip != "unknown" else None),
+            reason=body.reason,
+            request_metadata={"approval_state": approval_state},
+        )
+        _record_audit(
+            audit_store,
+            event_type="node_reauth_session_created",
+            actor_role="node",
+            actor_id=node_id,
+            details={"session_id": session.session_id, "node_id": node_id, "source_ip": source_ip},
+        )
+        return {
+            "ok": True,
+            "session": {
+                **_reauth_session_payload(session, registration),
+                "reauth_status": "pending_approval",
+                "approval_url": _build_reauth_approval_url(request, session.session_id, approval_state),
+                "finalize": {
+                    "method": "GET",
+                    "path": f"/api/system/nodes/reauth/sessions/{session.session_id}/finalize",
+                },
+            },
+        }
+
+    @router.get("/system/nodes/reauth/sessions/{session_id}")
+    def get_node_reauth_session(
+        session_id: str,
+        request: Request,
+        state: str = Query(...),
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        _expire_reauth_if_needed(node_reauth_sessions_store)
+        if node_reauth_sessions_store is None:
+            raise HTTPException(status_code=503, detail="node_reauth_sessions_unavailable")
+        try:
+            session = node_reauth_sessions_store.get(session_id)
+        except KeyError:
+            raise HTTPException(status_code=404, detail="session_not_found")
+        expected = str((session.request_metadata or {}).get("approval_state") or "").strip()
+        if not expected or state.strip() != expected:
+            raise HTTPException(status_code=400, detail="approval_state_mismatch")
+        registration = node_registrations_store.get(session.node_id) if node_registrations_store is not None else None
+        return {"ok": True, "session": _reauth_session_payload(session, registration)}
+
+    @router.post("/system/nodes/reauth/sessions/{session_id}/approve")
+    def approve_node_reauth_session(
+        session_id: str,
+        request: Request,
+        state: str = Query(...),
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        _enforce_csrf_for_cookie_session(request, x_admin_token)
+        _expire_reauth_if_needed(node_reauth_sessions_store)
+        if node_reauth_sessions_store is None:
+            raise HTTPException(status_code=503, detail="node_reauth_sessions_unavailable")
+        if node_registrations_store is None:
+            raise HTTPException(status_code=503, detail="node_registrations_unavailable")
+        try:
+            session = node_reauth_sessions_store.get(session_id)
+        except KeyError:
+            raise HTTPException(status_code=404, detail="session_not_found")
+        expected = str((session.request_metadata or {}).get("approval_state") or "").strip()
+        if not expected or state.strip() != expected:
+            raise HTTPException(status_code=400, detail="approval_state_mismatch")
+        if str(session.session_state) == "expired":
+            raise HTTPException(status_code=409, detail="session_expired")
+        registration = node_registrations_store.get(session.node_id)
+        if registration is None:
+            raise HTTPException(status_code=404, detail="node_registration_not_found")
+        try:
+            decided = node_reauth_sessions_store.approve_session(
+                session_id,
+                approved_by_user_id=_admin_actor(x_admin_token),
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
+        _record_audit(
+            audit_store,
+            event_type="node_reauth_session_approved",
+            actor_role="admin",
+            actor_id=_admin_actor(x_admin_token),
+            details={"session_id": decided.session_id, "node_id": decided.node_id},
+        )
+        return {"ok": True, "session": _reauth_session_payload(decided, registration)}
+
+    @router.post("/system/nodes/reauth/sessions/{session_id}/reject")
+    def reject_node_reauth_session(
+        session_id: str,
+        body: NodeOnboardingRejectRequest,
+        request: Request,
+        state: str = Query(...),
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        _enforce_csrf_for_cookie_session(request, x_admin_token)
+        _expire_reauth_if_needed(node_reauth_sessions_store)
+        if node_reauth_sessions_store is None:
+            raise HTTPException(status_code=503, detail="node_reauth_sessions_unavailable")
+        try:
+            session = node_reauth_sessions_store.get(session_id)
+        except KeyError:
+            raise HTTPException(status_code=404, detail="session_not_found")
+        expected = str((session.request_metadata or {}).get("approval_state") or "").strip()
+        if not expected or state.strip() != expected:
+            raise HTTPException(status_code=400, detail="approval_state_mismatch")
+        if str(session.session_state) == "expired":
+            raise HTTPException(status_code=409, detail="session_expired")
+        try:
+            decided = node_reauth_sessions_store.reject_session(
+                session_id,
+                rejected_by_user_id=_admin_actor(x_admin_token),
+                rejection_reason=body.rejection_reason,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
+        _record_audit(
+            audit_store,
+            event_type="node_reauth_session_rejected",
+            actor_role="admin",
+            actor_id=_admin_actor(x_admin_token),
+            details={"session_id": decided.session_id, "node_id": decided.node_id},
+        )
+        registration = node_registrations_store.get(decided.node_id) if node_registrations_store is not None else None
+        return {"ok": True, "session": _reauth_session_payload(decided, registration)}
+
+    @router.get("/system/nodes/reauth/sessions/{session_id}/finalize")
+    async def finalize_node_reauth_session(
+        session_id: str,
+        node_nonce: str = Query(...),
+    ):
+        _expire_reauth_if_needed(node_reauth_sessions_store)
+        if node_reauth_sessions_store is None:
+            raise HTTPException(status_code=503, detail="node_reauth_sessions_unavailable")
+        if node_registrations_store is None:
+            raise HTTPException(status_code=503, detail="node_registrations_unavailable")
+        try:
+            nonce = _validate_node_nonce(node_nonce)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        if not _rate_limit(f"node_reauth:finalize:{session_id}:{nonce}", limit=60, window_seconds=60):
+            raise HTTPException(status_code=429, detail="rate_limited")
+        try:
+            session = node_reauth_sessions_store.get(session_id)
+        except KeyError:
+            _record_audit(
+                audit_store,
+                event_type="node_reauth_finalize_invalid",
+                actor_role="node",
+                actor_id="unknown",
+                details={"session_id": session_id, "reason": "session_not_found"},
+            )
+            return {"ok": True, "reauth_status": "invalid"}
+        if str(session.node_nonce).strip() != nonce:
+            _record_audit(
+                audit_store,
+                event_type="node_reauth_finalize_invalid",
+                actor_role="node",
+                actor_id=session.node_id,
+                details={"session_id": session_id, "reason": "node_nonce_mismatch"},
+            )
+            return {"ok": True, "reauth_status": "invalid"}
+        state = str(session.session_state or "invalid").strip().lower()
+        if state == "pending":
+            return {"ok": True, "reauth_status": "pending"}
+        if state == "rejected":
+            return {"ok": True, "reauth_status": "rejected", "rejection_reason": session.rejection_reason}
+        if state == "expired":
+            return {"ok": True, "reauth_status": "expired"}
+        if state == "cancelled":
+            return {"ok": True, "reauth_status": "invalid"}
+        if state == "consumed":
+            return {"ok": True, "reauth_status": "consumed", "error": "already_consumed"}
+        if state == "approved":
+            if node_trust_issuance is None:
+                raise HTTPException(status_code=503, detail="trust_issuance_unavailable")
+            registration = node_registrations_store.get(session.node_id)
+            if registration is None:
+                return {"ok": True, "reauth_status": "invalid"}
+            issued = node_trust_issuance.reissue_for_node(
+                node_id=session.node_id,
+                node_type=str(registration.requested_node_type or registration.node_type or ""),
+                source_session_id=session.session_id,
+            )
+            await _provision_node_mqtt_principal(issued.get("activation"))
+            try:
+                node_registrations_store.set_trust_status(
+                    session.node_id,
+                    trust_status="trusted",
+                    approved_by_user_id=session.approved_by_user_id,
+                    approved_at=session.approved_at,
+                )
+            except Exception:
+                pass
+            node_reauth_sessions_store.consume_final_payload(session_id, actor_id="node_reauth_finalize")
+            _record_audit(
+                audit_store,
+                event_type="node_reauth_trust_reissued",
+                actor_role="system",
+                actor_id="core",
+                details={"session_id": session_id, "node_id": session.node_id},
+            )
+            return {
+                "ok": True,
+                "reauth_status": "approved",
+                "activation": issued.get("activation"),
+            }
+        return {"ok": True, "reauth_status": "invalid"}
 
     @router.get("/system/nodes/registrations")
     def list_node_registrations(
