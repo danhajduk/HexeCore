@@ -7,9 +7,12 @@ BRANCH="${BRANCH:-main}"
 INSTALL_DIR="${INSTALL_DIR:-}"
 START_SERVICES=true
 REFRESH_REPO=false
+INSTALL_MODE="${HEXE_SUPERVISOR_INSTALL_MODE:-}"
 SUPERVISOR_SOCKET="${HEXE_SUPERVISOR_SOCKET:-/run/hexe/supervisor.sock}"
 CORE_URL="${HEXE_SUPERVISOR_CORE_URL:-${SYNTHIA_CORE_URL:-}}"
 CORE_TOKEN="${HEXE_SUPERVISOR_CORE_TOKEN:-${SYNTHIA_ADMIN_TOKEN:-}}"
+CORE_URL_ARG=false
+CORE_TOKEN_ARG=false
 SUPERVISOR_ID="${HEXE_SUPERVISOR_ID:-}"
 SUPERVISOR_NAME="${HEXE_SUPERVISOR_NAME:-}"
 SUPERVISOR_PUBLIC_URL="${HEXE_SUPERVISOR_PUBLIC_URL:-}"
@@ -34,13 +37,14 @@ usage() {
   cat <<EOF
 Usage:
   supervisor_install.sh [--dir INSTALL_DIR] [--repo-url URL] [--branch NAME] [--refresh] [--no-start]
+                        [--standalone | --join-core | --bundled-core]
                         [--core-url URL] [--admin-token TOKEN] [--supervisor-id ID]
                         [--supervisor-name NAME] [--public-url URL]
 
 Curl install:
-  curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/supervisor_install.sh | bash
-  curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/supervisor_install.sh | bash -s -- --dir "\$HOME/Projects/Hexe"
-  curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/supervisor_install.sh | bash -s -- --core-url http://core-host:9001 --admin-token TOKEN --supervisor-id host-a
+  curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/install-supervisor.sh | bash -s -- --standalone
+  curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/install-supervisor.sh | bash -s -- --join-core --core-url http://core-host:9001 --admin-token TOKEN --supervisor-id host-a
+  curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/install-supervisor.sh | bash -s -- --bundled-core --dir "\$HOME/Projects/Hexe"
 
 Options:
   --dir INSTALL_DIR  Core checkout to use or create. Defaults to this repo when run locally, otherwise \$HOME/Projects/Hexe.
@@ -48,6 +52,9 @@ Options:
   --branch NAME      Branch to clone or refresh. Default: main
   --refresh          Fast-forward an existing checkout before installing.
   --no-start         Install units without starting them.
+  --standalone       Install Supervisor as an independent local app. It does not report to Core.
+  --join-core        Install Supervisor as a remote host joined to Core. Requires --core-url and --supervisor-id.
+  --bundled-core     Install Supervisor beside a local Core checkout. This is the Core-bundled mode.
   --core-url URL     Core API base URL for remote Supervisor reporting.
   --admin-token TOKEN
                     Core admin token used by the Supervisor reporter.
@@ -62,6 +69,18 @@ EOF
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --standalone)
+      INSTALL_MODE="standalone"
+      shift
+      ;;
+    --join-core)
+      INSTALL_MODE="join-core"
+      shift
+      ;;
+    --bundled-core)
+      INSTALL_MODE="bundled-core"
+      shift
+      ;;
     --dir)
       INSTALL_DIR="${2:-}"
       shift 2
@@ -84,10 +103,12 @@ while [[ $# -gt 0 ]]; do
       ;;
     --core-url)
       CORE_URL="${2:-}"
+      CORE_URL_ARG=true
       shift 2
       ;;
     --admin-token)
       CORE_TOKEN="${2:-}"
+      CORE_TOKEN_ARG=true
       shift 2
       ;;
     --supervisor-id)
@@ -117,6 +138,53 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+infer_install_mode() {
+  if [[ -n "$INSTALL_MODE" ]]; then
+    case "$INSTALL_MODE" in
+      standalone|join-core|bundled-core)
+        return 0
+        ;;
+      *)
+        echo "[supervisor-install] Invalid install mode: $INSTALL_MODE" >&2
+        usage
+        exit 1
+        ;;
+    esac
+  fi
+
+  if [[ -n "$CORE_URL" ]]; then
+    INSTALL_MODE="join-core"
+  else
+    INSTALL_MODE="standalone"
+  fi
+}
+
+validate_install_mode() {
+  infer_install_mode
+
+  if [[ "$INSTALL_MODE" == "standalone" ]]; then
+    if [[ "$CORE_URL_ARG" == "true" || "$CORE_TOKEN_ARG" == "true" ]]; then
+      echo "[supervisor-install] --standalone cannot be combined with --core-url or --admin-token." >&2
+      exit 1
+    fi
+    CORE_URL=""
+    CORE_TOKEN=""
+  fi
+
+  if [[ "$INSTALL_MODE" == "join-core" ]]; then
+    if [[ -z "$CORE_URL" ]]; then
+      echo "[supervisor-install] --join-core requires --core-url." >&2
+      exit 1
+    fi
+    if [[ -z "$SUPERVISOR_ID" ]]; then
+      echo "[supervisor-install] --join-core requires --supervisor-id." >&2
+      exit 1
+    fi
+  fi
+}
+
+validate_install_mode
 
 if [[ -z "$INSTALL_DIR" ]]; then
   if INSTALL_DIR="$(script_repo_dir)"; then
@@ -246,14 +314,15 @@ write_env_if_set() {
 }
 
 write_supervisor_env() {
-  if [[ -z "$CORE_URL" && -z "$SUPERVISOR_ID" && -z "$SUPERVISOR_NAME" && -z "$SUPERVISOR_PUBLIC_URL" ]]; then
+  if [[ -z "$INSTALL_MODE" && -z "$CORE_URL" && -z "$SUPERVISOR_ID" && -z "$SUPERVISOR_NAME" && -z "$SUPERVISOR_PUBLIC_URL" ]]; then
     return 0
   fi
 
-  echo "[supervisor-install] Writing Supervisor reporting config"
+  echo "[supervisor-install] Writing Supervisor config"
   mkdir -p "$HOME/.config/hexe"
   local env_file="$HOME/.config/hexe/supervisor.env"
   {
+    write_env_if_set "HEXE_SUPERVISOR_INSTALL_MODE" "$INSTALL_MODE"
     write_env_if_set "HEXE_SUPERVISOR_CORE_URL" "$CORE_URL"
     write_env_if_set "HEXE_SUPERVISOR_CORE_TOKEN" "$CORE_TOKEN"
     write_env_if_set "HEXE_SUPERVISOR_ID" "$SUPERVISOR_ID"
@@ -262,6 +331,8 @@ write_supervisor_env() {
     write_env_if_set "HEXE_SUPERVISOR_REPORT_INTERVAL_S" "$REPORT_INTERVAL_S"
     if [[ -n "$CORE_URL" ]]; then
       printf "HEXE_SUPERVISOR_REPORT_ENABLED=true\n"
+    else
+      printf "HEXE_SUPERVISOR_REPORT_ENABLED=false\n"
     fi
   } > "$env_file"
   chmod 600 "$env_file"
@@ -319,6 +390,7 @@ wait_for_supervisor_api() {
   return 1
 }
 
+echo "[supervisor-install] install_mode=$INSTALL_MODE"
 echo "[supervisor-install] install_dir=$INSTALL_DIR"
 echo "[supervisor-install] repo_url=$REPO_URL branch=$BRANCH"
 

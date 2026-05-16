@@ -56,29 +56,45 @@ Core uses a Supervisor API client with its own environment-backed settings (see 
 - `HEXE_SUPERVISOR_SOCKET`: Unix socket path when `HEXE_SUPERVISOR_TRANSPORT=socket`. Default: `/run/hexe/supervisor.sock`.
 - `HEXE_SUPERVISOR_LOG_LEVEL`: Supervisor API server log level. Default: `INFO`.
 
-## Local Host Install
+## Install Modes
 
-Install or refresh the host-local Supervisor services with:
+Supervisor can be installed as a first-party app independently from the Core runtime, or bundled beside Core.
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/supervisor_install.sh | bash
-```
+### Standalone Supervisor
 
-To target a specific local checkout:
+Standalone mode installs only the Supervisor daemon and Supervisor API services. It does not report to Core.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/supervisor_install.sh | bash -s -- --dir "$HOME/Projects/Hexe"
+curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/install-supervisor.sh | bash -s -- --standalone
 ```
 
-To install a remote host Supervisor that reports into Core:
+### Remote Supervisor Joined To Core
+
+Join-Core mode installs Supervisor on a host and configures remote reporting into Core.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/supervisor_install.sh | bash -s -- --core-url http://core-host:9001 --admin-token "$SYNTHIA_ADMIN_TOKEN" --supervisor-id host-a
+curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/install-supervisor.sh | bash -s -- \
+  --join-core \
+  --core-url http://core-host:9001 \
+  --admin-token "$SYNTHIA_ADMIN_TOKEN" \
+  --supervisor-id host-a
 ```
 
-The installer prepares the backend Python runtime, installs `hexe-supervisor.service` and `hexe-supervisor-api.service` as systemd user units, starts both services by default, and verifies the Supervisor API with `curl` over `/run/hexe/supervisor.sock`.
+`--join-core` requires `--core-url` and `--supervisor-id`. `--admin-token` is the current implemented authentication input for remote reporting.
 
-Remote reporting writes `%h/.config/hexe/supervisor.env`, and Core stores reported Supervisors behind `/api/system/supervisors`.
+### Bundled With Core
+
+Bundled-Core mode installs Supervisor beside a local Core checkout. This is the mode used by Core-host installs.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/install-supervisor.sh | bash -s -- \
+  --bundled-core \
+  --dir "$HOME/Projects/Hexe"
+```
+
+All modes prepare the backend Python runtime, install `hexe-supervisor.service` and `hexe-supervisor-api.service` as systemd user units, start both services by default, and verify the Supervisor API with `curl` over `/run/hexe/supervisor.sock`.
+
+The installer writes `%h/.config/hexe/supervisor.env` with `HEXE_SUPERVISOR_INSTALL_MODE`. In join-Core mode it also writes the Core URL, token, Supervisor ID/name/public URL values, and enables remote reporting. Core stores reported Supervisors behind `/api/system/supervisors`.
 
 ## Explicit Non-Goals
 

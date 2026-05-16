@@ -15,6 +15,7 @@ Supervisor can listen on a Unix socket (default) or a TCP bind/port. These optio
 - `HEXE_SUPERVISOR_LOG_LEVEL`: Supervisor API server log level. Default: `INFO`.
 - `HEXE_SUPERVISOR_NODE_SERVICE_ACTION_TIMEOUT_S`: timeout for proxied Node service start/stop/restart calls. Default: `30`.
 - `HEXE_SUPERVISOR_BOOT_LOG`: Boot log file path (overwritten on Supervisor start). Default: `var/supervisor/boot.log`.
+- `HEXE_SUPERVISOR_INSTALL_MODE`: install mode marker written by `scripts/install-supervisor.sh`. Supported installer values: `standalone`, `join-core`, and `bundled-core`.
 - `HEXE_SUPERVISOR_ID`: stable ID for this host Supervisor when reporting to Core. Default: `<hostname>-supervisor`.
 - `HEXE_SUPERVISOR_NAME`: display name for this host Supervisor. Default: `HEXE_SUPERVISOR_ID`.
 - `HEXE_SUPERVISOR_PUBLIC_URL`: optional Core-reachable Supervisor API URL for remote detail/control flows.
