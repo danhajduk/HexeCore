@@ -239,8 +239,10 @@ development helper environment variables from:
 The repository provides a bootstrap installer:
 
 ``` bash
-./scripts/bootstrap.sh --dir <install_dir> --install
+./scripts/bootstrap.sh --install
 ```
+
+The default Core install location is `~/hexe/hexe`. Use `--dir <install_dir>` to override it.
 
 The bootstrap script performs:
 

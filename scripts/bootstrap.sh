@@ -14,18 +14,20 @@ REPO_URL_DEFAULT="https://github.com/danhajduk/HexeCore.git"
 REPO_URL="${REPO_URL:-$REPO_URL_DEFAULT}"
 PLATFORM_NAME="${PLATFORM_NAME:-Hexe AI}"
 CORE_NAME="${PLATFORM_CORE_NAME:-${PLATFORM_SHORT:-Hexe} Core}"
+DEFAULT_INSTALL_DIR="$HOME/hexe/hexe"
 
-INSTALL_DIR=""
+INSTALL_DIR="${INSTALL_DIR:-}"
 MODE=""
 
 usage() {
   cat <<EOF
 Usage:
-  bootstrap.sh --dir <install_dir> --install
-  bootstrap.sh --dir <install_dir> --update
+  bootstrap.sh [--dir <install_dir>] --install
+  bootstrap.sh [--dir <install_dir>] --update
 
 Optional env:
   REPO_URL=...   (defaults to $REPO_URL_DEFAULT)
+  INSTALL_DIR=... (defaults to $DEFAULT_INSTALL_DIR)
 EOF
 }
 
@@ -39,7 +41,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ -n "$INSTALL_DIR" ]] || { echo "Missing --dir"; usage; exit 1; }
+if [[ -z "$INSTALL_DIR" ]]; then
+  INSTALL_DIR="$DEFAULT_INSTALL_DIR"
+fi
 [[ -n "$MODE" ]] || { echo "Missing --install or --update"; usage; exit 1; }
 
 need_cmd() { command -v "$1" >/dev/null 2>&1; }

@@ -5,6 +5,8 @@ REPO_URL_DEFAULT="https://github.com/danhajduk/HexeCore.git"
 REPO_URL="${REPO_URL:-$REPO_URL_DEFAULT}"
 BRANCH="${BRANCH:-main}"
 INSTALL_DIR="${INSTALL_DIR:-}"
+DEFAULT_CORE_INSTALL_DIR="$HOME/hexe/hexe"
+DEFAULT_SUPERVISOR_INSTALL_DIR="$HOME/hexe/supervisor"
 START_SERVICES=true
 REFRESH_REPO=false
 INSTALL_MODE="${HEXE_SUPERVISOR_INSTALL_MODE:-}"
@@ -44,10 +46,10 @@ Usage:
 Curl install:
   curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/install-supervisor.sh | bash -s -- --standalone
   curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/install-supervisor.sh | bash -s -- --join-core --core-url http://core-host:9001 --admin-token TOKEN --supervisor-id host-a
-  curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/install-supervisor.sh | bash -s -- --bundled-core --dir "\$HOME/Projects/Hexe"
+  curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/install-supervisor.sh | bash -s -- --bundled-core
 
 Options:
-  --dir INSTALL_DIR  Core checkout to use or create. Defaults to this repo when run locally, otherwise \$HOME/Projects/Hexe.
+  --dir INSTALL_DIR  Checkout to use or create. Defaults to $DEFAULT_SUPERVISOR_INSTALL_DIR for standalone/join-core and $DEFAULT_CORE_INSTALL_DIR for bundled-core.
   --repo-url URL     Git repository to clone when INSTALL_DIR does not exist. Default: $REPO_URL_DEFAULT
   --branch NAME      Branch to clone or refresh. Default: main
   --refresh          Fast-forward an existing checkout before installing.
@@ -187,10 +189,10 @@ validate_install_mode() {
 validate_install_mode
 
 if [[ -z "$INSTALL_DIR" ]]; then
-  if INSTALL_DIR="$(script_repo_dir)"; then
-    :
+  if [[ "$INSTALL_MODE" == "bundled-core" ]]; then
+    INSTALL_DIR="$DEFAULT_CORE_INSTALL_DIR"
   else
-    INSTALL_DIR="$HOME/Projects/Hexe"
+    INSTALL_DIR="$DEFAULT_SUPERVISOR_INSTALL_DIR"
   fi
 fi
 

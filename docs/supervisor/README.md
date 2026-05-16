@@ -68,6 +68,8 @@ Standalone mode installs only the Supervisor daemon and Supervisor API services.
 curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/install-supervisor.sh | bash -s -- --standalone
 ```
 
+The default standalone Supervisor checkout location is `~/hexe/supervisor`.
+
 ### Remote Supervisor Joined To Core
 
 Join-Core mode installs Supervisor on a host and configures remote reporting into Core.
@@ -81,6 +83,7 @@ curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/ins
 ```
 
 `--join-core` requires `--core-url` and `--supervisor-id`. `--admin-token` is the current implemented authentication input for remote reporting.
+The default joined Supervisor checkout location is also `~/hexe/supervisor`.
 
 ### Bundled With Core
 
@@ -88,9 +91,10 @@ Bundled-Core mode installs Supervisor beside a local Core checkout. This is the 
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/install-supervisor.sh | bash -s -- \
-  --bundled-core \
-  --dir "$HOME/Projects/Hexe"
+  --bundled-core
 ```
+
+The default bundled Core checkout location is `~/hexe/hexe`.
 
 All modes prepare the backend Python runtime, install `hexe-supervisor.service` and `hexe-supervisor-api.service` as systemd user units, start both services by default, and verify the Supervisor API with `curl` over `/run/hexe/supervisor.sock`.
 
