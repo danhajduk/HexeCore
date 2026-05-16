@@ -242,7 +242,7 @@ The repository provides a bootstrap installer:
 ./scripts/bootstrap.sh --install
 ```
 
-The default Core install location is `~/hexe/hexe`. Use `--dir <install_dir>` to override it.
+The default Core install location is `~/hexe/hexe/core`. Use `--dir <install_dir>` to override it.
 
 The bootstrap script performs:
 
