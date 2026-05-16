@@ -11,7 +11,7 @@ Environment=PYTHONUNBUFFERED=1
 ExecStart=@INSTALL_DIR@/backend/.venv/bin/python -m app.supervisor.server
 Restart=always
 RestartSec=2
-EnvironmentFile=%h/.config/hexe/admin.env
+EnvironmentFile=-%h/.config/hexe/admin.env
 EnvironmentFile=-%h/.config/hexe/supervisor.env
 
 [Install]
