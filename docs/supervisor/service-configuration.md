@@ -20,7 +20,8 @@ Supervisor can listen on a Unix socket (default) or a TCP bind/port. These optio
 - `HEXE_SUPERVISOR_NAME`: display name for this host Supervisor. Default: `HEXE_SUPERVISOR_ID`.
 - `HEXE_SUPERVISOR_PUBLIC_URL`: optional Core-reachable Supervisor API URL for remote detail/control flows.
 - `HEXE_SUPERVISOR_CORE_URL`: Core API base URL used by remote Supervisor reporting. Reporting is disabled when unset.
-- `HEXE_SUPERVISOR_CORE_TOKEN`: Core admin token used by remote Supervisor reporting. Reporting is disabled when unset.
+- `HEXE_SUPERVISOR_CORE_TOKEN`: Supervisor reporting token used by remote Supervisor reporting. Compatibility installs may use a Core admin token when `HEXE_SUPERVISOR_CORE_TOKEN_KIND=admin`. Reporting is disabled when unset.
+- `HEXE_SUPERVISOR_CORE_TOKEN_KIND`: token header selector for remote reporting. Supported values: `supervisor` for `X-Supervisor-Token` and `admin` for `X-Admin-Token`. The installer writes `supervisor` after exchanging a one-time enrollment token.
 - `HEXE_SUPERVISOR_REPORT_ENABLED`: enables or disables remote reporting. Default: `true`.
 - `HEXE_SUPERVISOR_REPORT_INTERVAL_S`: remote reporting interval. Default: `15`.
 - `HEXE_SUPERVISOR_REPORT_TIMEOUT_S`: remote reporting request timeout. Default: `5`.
@@ -41,6 +42,8 @@ Core talks to a remote Supervisor over the following environment-backed client s
 - When using `socket` transport, the Supervisor API server does not bind a TCP port.
 - When using `http` transport, the Supervisor API server does not open a Unix socket.
 - Remote Supervisor fleet visibility is push-based: each remote Supervisor posts registration and heartbeat payloads to Core at `/api/system/supervisors/register` and `/api/system/supervisors/heartbeat`.
+- Preferred remote enrollment is one-time-token based. Core admins create a token at `POST /api/system/supervisors/enrollment-tokens`; the installing host exchanges it at `POST /api/system/supervisors/enroll`; the installer stores only the returned reporting token.
+- `HEXE_SUPERVISOR_ENROLLMENT_TOKEN` is an installer input equivalent to `--enrollment-token` or `--one-time-token`. It is consumed during install and is not written to `supervisor.env`.
 
 ## Health And Readiness Probes
 

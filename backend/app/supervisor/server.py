@@ -73,6 +73,15 @@ def _supervisor_core_token() -> str:
     return _env_text("HEXE_SUPERVISOR_CORE_TOKEN") or _env_text("SYNTHIA_ADMIN_TOKEN")
 
 
+def _supervisor_core_token_kind() -> str:
+    value = _env_text("HEXE_SUPERVISOR_CORE_TOKEN_KIND").lower()
+    if value in {"supervisor", "admin"}:
+        return value
+    if _env_text("HEXE_SUPERVISOR_CORE_TOKEN").startswith("hexe_sup_report_"):
+        return "supervisor"
+    return "admin"
+
+
 def _build_core_registration_payload() -> dict[str, object]:
     payload: dict[str, object] = {key: value for key, value in _supervisor_identity().items() if value}
     payload["capabilities"] = [
@@ -125,11 +134,12 @@ async def _post_supervisor_payload(
     path: str,
     payload: dict[str, object],
 ) -> bool:
+    header_name = "X-Supervisor-Token" if _supervisor_core_token_kind() == "supervisor" else "X-Admin-Token"
     try:
         response = await client.post(
             f"{core_url}{path}",
             json=payload,
-            headers={"X-Admin-Token": token},
+            headers={header_name: token},
         )
         if response.status_code < 400:
             return True

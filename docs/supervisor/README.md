@@ -74,15 +74,28 @@ The default standalone Supervisor checkout location is `~/hexe/hexe/supervisor`.
 
 Join-Core mode installs Supervisor on a host and configures remote reporting into Core.
 
+First create a one-time enrollment token from Core with an admin session or admin token:
+
+```bash
+curl -fsS -X POST http://core-host:9001/api/system/supervisors/enrollment-tokens \
+  -H "Content-Type: application/json" \
+  -H "X-Admin-Token: $SYNTHIA_ADMIN_TOKEN" \
+  -d '{"supervisor_id":"host-a","supervisor_name":"Host A Supervisor","ttl_seconds":900}'
+```
+
+Core returns `enrollment_token` and `one_time_token` with the same value. Pass that token to the remote host install command:
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/install-supervisor.sh | bash -s -- \
   --join-core \
   --core-url http://core-host:9001 \
-  --admin-token "$SYNTHIA_ADMIN_TOKEN" \
+  --enrollment-token "$HEXE_SUPERVISOR_ENROLLMENT_TOKEN" \
   --supervisor-id host-a
 ```
 
-`--join-core` requires `--core-url` and `--supervisor-id`. `--admin-token` is the current implemented authentication input for remote reporting.
+`--join-core` requires `--core-url`, `--supervisor-id`, and either `--enrollment-token` or `--admin-token`. The preferred path is `--enrollment-token` (`--one-time-token` is accepted as an alias): the installer exchanges the one-time token with Core, stores only the returned Supervisor reporting token in `%h/.config/hexe/supervisor.env`, and sends future reports with `X-Supervisor-Token`.
+
+`--admin-token` remains available for trusted local or compatibility installs, but it stores the Core admin token as the reporting credential.
 The default joined Supervisor checkout location is also `~/hexe/hexe/supervisor`.
 
 ### Bundled With Core
@@ -98,7 +111,19 @@ The default bundled Core checkout location is `~/hexe/hexe/core`.
 
 All modes prepare the backend Python runtime, install `hexe-supervisor.service` and `hexe-supervisor-api.service` as systemd user units, start both services by default, and verify the Supervisor API with `curl` over `/run/hexe/supervisor.sock`.
 
-The installer writes `%h/.config/hexe/supervisor.env` with `HEXE_SUPERVISOR_INSTALL_MODE`. In join-Core mode it also writes the Core URL, token, Supervisor ID/name/public URL values, and enables remote reporting. Core stores reported Supervisors behind `/api/system/supervisors`.
+The installer writes `%h/.config/hexe/supervisor.env` with `HEXE_SUPERVISOR_INSTALL_MODE`. In join-Core mode it also writes the Core URL, reporting token, token kind, Supervisor ID/name/public URL values, and enables remote reporting. Core stores reported Supervisors behind `/api/system/supervisors`.
+
+## Supervisor Enrollment Tokens
+
+Status: Implemented
+
+Core exposes a one-time enrollment flow for remote Supervisor installs:
+
+- `POST /api/system/supervisors/enrollment-tokens`: admin-only endpoint that creates a short-lived one-time token. Tokens are stored hashed and may optionally be bound to a `supervisor_id`.
+- `POST /api/system/supervisors/enroll`: unauthenticated exchange endpoint used by the installing host. It consumes the one-time token, registers the Supervisor, and returns a `reporting_token`.
+- `POST /api/system/supervisors/register` and `POST /api/system/supervisors/heartbeat`: accept either the Core admin token in `X-Admin-Token` or the issued Supervisor reporting token in `X-Supervisor-Token`.
+
+A migrated Node that installs the local Supervisor should receive or request the one-time enrollment token as part of the migration/onboarding handoff, pass it to `scripts/install-supervisor.sh` with `--enrollment-token`, and never persist the one-time token. The installer handles the exchange and writes the returned reporting token to the Supervisor environment file.
 
 ## Explicit Non-Goals
 

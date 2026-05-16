@@ -13,8 +13,11 @@ INSTALL_MODE="${HEXE_SUPERVISOR_INSTALL_MODE:-}"
 SUPERVISOR_SOCKET="${HEXE_SUPERVISOR_SOCKET:-/run/hexe/supervisor.sock}"
 CORE_URL="${HEXE_SUPERVISOR_CORE_URL:-${SYNTHIA_CORE_URL:-}}"
 CORE_TOKEN="${HEXE_SUPERVISOR_CORE_TOKEN:-${SYNTHIA_ADMIN_TOKEN:-}}"
+CORE_TOKEN_KIND="${HEXE_SUPERVISOR_CORE_TOKEN_KIND:-}"
+ENROLLMENT_TOKEN="${HEXE_SUPERVISOR_ENROLLMENT_TOKEN:-}"
 CORE_URL_ARG=false
 CORE_TOKEN_ARG=false
+ENROLLMENT_TOKEN_ARG=false
 SUPERVISOR_ID="${HEXE_SUPERVISOR_ID:-}"
 SUPERVISOR_NAME="${HEXE_SUPERVISOR_NAME:-}"
 SUPERVISOR_PUBLIC_URL="${HEXE_SUPERVISOR_PUBLIC_URL:-}"
@@ -40,12 +43,12 @@ usage() {
 Usage:
   supervisor_install.sh [--dir INSTALL_DIR] [--repo-url URL] [--branch NAME] [--refresh] [--no-start]
                         [--standalone | --join-core | --bundled-core]
-                        [--core-url URL] [--admin-token TOKEN] [--supervisor-id ID]
+                        [--core-url URL] [--enrollment-token TOKEN | --admin-token TOKEN] [--supervisor-id ID]
                         [--supervisor-name NAME] [--public-url URL]
 
 Curl install:
   curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/install-supervisor.sh | bash -s -- --standalone
-  curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/install-supervisor.sh | bash -s -- --join-core --core-url http://core-host:9001 --admin-token TOKEN --supervisor-id host-a
+  curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/install-supervisor.sh | bash -s -- --join-core --core-url http://core-host:9001 --enrollment-token TOKEN --supervisor-id host-a
   curl -fsSL https://raw.githubusercontent.com/danhajduk/HexeCore/main/scripts/install-supervisor.sh | bash -s -- --bundled-core
 
 Options:
@@ -58,8 +61,12 @@ Options:
   --join-core        Install Supervisor as a remote host joined to Core. Requires --core-url and --supervisor-id.
   --bundled-core     Install Supervisor beside a local Core checkout. This is the Core-bundled mode.
   --core-url URL     Core API base URL for remote Supervisor reporting.
+  --enrollment-token TOKEN
+                    One-time Core-issued Supervisor enrollment token. The installer exchanges this for a reporting token and does not persist the one-time token.
+  --one-time-token TOKEN
+                    Alias for --enrollment-token.
   --admin-token TOKEN
-                    Core admin token used by the Supervisor reporter.
+                    Core admin token used directly by the Supervisor reporter. Prefer --enrollment-token for remote hosts.
   --supervisor-id ID Stable ID for this host Supervisor.
   --supervisor-name NAME
                     Display name for this host Supervisor.
@@ -110,7 +117,13 @@ while [[ $# -gt 0 ]]; do
       ;;
     --admin-token)
       CORE_TOKEN="${2:-}"
+      CORE_TOKEN_KIND="admin"
       CORE_TOKEN_ARG=true
+      shift 2
+      ;;
+    --enrollment-token|--one-time-token)
+      ENROLLMENT_TOKEN="${2:-}"
+      ENROLLMENT_TOKEN_ARG=true
       shift 2
       ;;
     --supervisor-id)
@@ -166,12 +179,14 @@ validate_install_mode() {
   infer_install_mode
 
   if [[ "$INSTALL_MODE" == "standalone" ]]; then
-    if [[ "$CORE_URL_ARG" == "true" || "$CORE_TOKEN_ARG" == "true" ]]; then
-      echo "[supervisor-install] --standalone cannot be combined with --core-url or --admin-token." >&2
+    if [[ "$CORE_URL_ARG" == "true" || "$CORE_TOKEN_ARG" == "true" || "$ENROLLMENT_TOKEN_ARG" == "true" ]]; then
+      echo "[supervisor-install] --standalone cannot be combined with --core-url, --admin-token, or --enrollment-token." >&2
       exit 1
     fi
     CORE_URL=""
     CORE_TOKEN=""
+    CORE_TOKEN_KIND=""
+    ENROLLMENT_TOKEN=""
   fi
 
   if [[ "$INSTALL_MODE" == "join-core" ]]; then
@@ -182,6 +197,21 @@ validate_install_mode() {
     if [[ -z "$SUPERVISOR_ID" ]]; then
       echo "[supervisor-install] --join-core requires --supervisor-id." >&2
       exit 1
+    fi
+    if [[ -n "$ENROLLMENT_TOKEN" && "$CORE_TOKEN_ARG" != "true" ]]; then
+      CORE_TOKEN=""
+      CORE_TOKEN_KIND=""
+    fi
+    if [[ -n "$CORE_TOKEN" && -n "$ENROLLMENT_TOKEN" ]]; then
+      echo "[supervisor-install] --join-core accepts either --enrollment-token or --admin-token, not both." >&2
+      exit 1
+    fi
+    if [[ -z "$CORE_TOKEN" && -z "$ENROLLMENT_TOKEN" ]]; then
+      echo "[supervisor-install] --join-core requires --enrollment-token or --admin-token." >&2
+      exit 1
+    fi
+    if [[ -n "$CORE_TOKEN" && -z "$CORE_TOKEN_KIND" ]]; then
+      CORE_TOKEN_KIND="admin"
     fi
   fi
 }
@@ -300,6 +330,71 @@ install_tmpfiles_rule() {
   fi
 }
 
+exchange_enrollment_token() {
+  if [[ "$INSTALL_MODE" != "join-core" || -z "$ENROLLMENT_TOKEN" ]]; then
+    return 0
+  fi
+
+  echo "[supervisor-install] Exchanging one-time enrollment token with Core"
+  CORE_TOKEN="$(
+    CORE_URL="$CORE_URL" \
+    ENROLLMENT_TOKEN="$ENROLLMENT_TOKEN" \
+    SUPERVISOR_ID="$SUPERVISOR_ID" \
+    SUPERVISOR_NAME="$SUPERVISOR_NAME" \
+    SUPERVISOR_PUBLIC_URL="$SUPERVISOR_PUBLIC_URL" \
+    python3 - <<'PY'
+import json
+import os
+import socket
+import sys
+import urllib.error
+import urllib.request
+
+core_url = os.environ["CORE_URL"].rstrip("/")
+payload = {
+    "enrollment_token": os.environ["ENROLLMENT_TOKEN"],
+    "supervisor_id": os.environ["SUPERVISOR_ID"],
+    "supervisor_name": os.environ.get("SUPERVISOR_NAME") or os.environ["SUPERVISOR_ID"],
+    "hostname": socket.gethostname(),
+    "host_id": socket.gethostname(),
+    "api_base_url": os.environ.get("SUPERVISOR_PUBLIC_URL") or None,
+    "transport": "socket",
+    "capabilities": [
+        "host_resources",
+        "runtime_inventory",
+        "node_runtime_registry",
+        "core_runtime_registry",
+    ],
+    "metadata": {"installer": "scripts/supervisor_install.sh"},
+}
+request = urllib.request.Request(
+    f"{core_url}/api/system/supervisors/enroll",
+    data=json.dumps(payload).encode("utf-8"),
+    headers={"Content-Type": "application/json"},
+    method="POST",
+)
+try:
+    with urllib.request.urlopen(request, timeout=15) as response:
+        data = json.loads(response.read().decode("utf-8"))
+except urllib.error.HTTPError as exc:
+    detail = exc.read().decode("utf-8", errors="replace")
+    print(f"[supervisor-install] enrollment failed: HTTP {exc.code} {detail}", file=sys.stderr)
+    sys.exit(1)
+except Exception as exc:
+    print(f"[supervisor-install] enrollment failed: {exc}", file=sys.stderr)
+    sys.exit(1)
+
+reporting_token = str(data.get("reporting_token") or "").strip()
+if not reporting_token:
+    print("[supervisor-install] enrollment response did not include reporting_token", file=sys.stderr)
+    sys.exit(1)
+print(reporting_token)
+PY
+  )"
+  CORE_TOKEN_KIND="supervisor"
+  ENROLLMENT_TOKEN=""
+}
+
 env_value() {
   local value="$1"
   value="${value//\\/\\\\}"
@@ -327,6 +422,7 @@ write_supervisor_env() {
     write_env_if_set "HEXE_SUPERVISOR_INSTALL_MODE" "$INSTALL_MODE"
     write_env_if_set "HEXE_SUPERVISOR_CORE_URL" "$CORE_URL"
     write_env_if_set "HEXE_SUPERVISOR_CORE_TOKEN" "$CORE_TOKEN"
+    write_env_if_set "HEXE_SUPERVISOR_CORE_TOKEN_KIND" "$CORE_TOKEN_KIND"
     write_env_if_set "HEXE_SUPERVISOR_ID" "$SUPERVISOR_ID"
     write_env_if_set "HEXE_SUPERVISOR_NAME" "$SUPERVISOR_NAME"
     write_env_if_set "HEXE_SUPERVISOR_PUBLIC_URL" "$SUPERVISOR_PUBLIC_URL"
@@ -340,7 +436,7 @@ write_supervisor_env() {
   chmod 600 "$env_file"
 
   if [[ -n "$CORE_URL" && -z "$CORE_TOKEN" ]]; then
-    echo "[supervisor-install] WARN: --core-url was provided without --admin-token; remote reporting will not authenticate."
+    echo "[supervisor-install] WARN: --core-url was provided without a reporting token; remote reporting will not authenticate."
   fi
 }
 
@@ -401,6 +497,7 @@ clone_or_refresh_repo
 ensure_repo_layout
 install_backend_runtime
 install_tmpfiles_rule
+exchange_enrollment_token
 write_supervisor_env
 install_user_units
 

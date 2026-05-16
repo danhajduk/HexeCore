@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import os
+import secrets
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +16,7 @@ from pydantic import BaseModel, Field
 from app.api.admin import require_admin_token
 
 SUPERVISOR_REGISTRY_SCHEMA_VERSION = "1"
+SUPERVISOR_ENROLLMENT_SCHEMA_VERSION = "1"
 
 
 def _utcnow_iso() -> str:
@@ -59,6 +63,27 @@ def _freshness_state(last_seen_at: str | None) -> str:
     return "online"
 
 
+def _parse_iso(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except Exception:
+        return None
+
+
+def _sha256_text(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _default_enrollment_ttl_s() -> int:
+    raw = str(os.getenv("HEXE_SUPERVISOR_ENROLLMENT_TTL_S", "900")).strip()
+    try:
+        return min(max(int(raw), 60), 24 * 60 * 60)
+    except Exception:
+        return 900
+
+
 class SupervisorRegistrationRequest(BaseModel):
     supervisor_id: str = Field(..., min_length=1)
     supervisor_name: str | None = None
@@ -90,6 +115,17 @@ class SupervisorHeartbeatRequest(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class SupervisorEnrollmentTokenCreateRequest(BaseModel):
+    supervisor_id: str | None = None
+    supervisor_name: str | None = None
+    ttl_seconds: int | None = Field(default=None, ge=60, le=24 * 60 * 60)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class SupervisorEnrollmentRequest(SupervisorRegistrationRequest):
+    enrollment_token: str = Field(..., min_length=16)
+
+
 @dataclass
 class SupervisorFleetRecord:
     supervisor_id: str
@@ -112,6 +148,7 @@ class SupervisorFleetRecord:
     first_seen_at: str
     last_seen_at: str | None
     updated_at: str
+    reporting_token_hash: str | None = None
     schema_version: str = SUPERVISOR_REGISTRY_SCHEMA_VERSION
 
     def to_dict(self) -> dict[str, Any]:
@@ -137,11 +174,46 @@ class SupervisorFleetRecord:
             "first_seen_at": self.first_seen_at,
             "last_seen_at": self.last_seen_at,
             "updated_at": self.updated_at,
+            "reporting_token_hash": self.reporting_token_hash,
         }
 
     def to_api_dict(self) -> dict[str, Any]:
         payload = self.to_dict()
+        payload.pop("reporting_token_hash", None)
         payload["freshness_state"] = _freshness_state(self.last_seen_at)
+        return payload
+
+
+@dataclass
+class SupervisorEnrollmentTokenRecord:
+    token_id: str
+    token_hash: str
+    supervisor_id: str | None
+    supervisor_name: str | None
+    created_at: str
+    expires_at: str
+    consumed_at: str | None = None
+    consumed_by: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    schema_version: str = SUPERVISOR_ENROLLMENT_SCHEMA_VERSION
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": self.schema_version,
+            "token_id": self.token_id,
+            "token_hash": self.token_hash,
+            "supervisor_id": self.supervisor_id,
+            "supervisor_name": self.supervisor_name,
+            "created_at": self.created_at,
+            "expires_at": self.expires_at,
+            "consumed_at": self.consumed_at,
+            "consumed_by": self.consumed_by,
+            "metadata": dict(self.metadata or {}),
+        }
+
+    def to_api_dict(self) -> dict[str, Any]:
+        payload = self.to_dict()
+        payload.pop("token_hash", None)
         return payload
 
 
@@ -192,6 +264,7 @@ class SupervisorFleetStore:
                 first_seen_at=first_seen_at,
                 last_seen_at=_clean_text(item.get("last_seen_at")) or None,
                 updated_at=updated_at,
+                reporting_token_hash=_clean_text(item.get("reporting_token_hash")) or None,
                 schema_version=_clean_text(item.get("schema_version"), SUPERVISOR_REGISTRY_SCHEMA_VERSION),
             )
             self._records[supervisor_id] = record
@@ -244,6 +317,7 @@ class SupervisorFleetStore:
             first_seen_at=existing.first_seen_at if existing else now,
             last_seen_at=existing.last_seen_at if existing else None,
             updated_at=now,
+            reporting_token_hash=existing.reporting_token_hash if existing else None,
         )
         self._records[record.supervisor_id] = record
         self._save()
@@ -286,20 +360,179 @@ class SupervisorFleetStore:
             first_seen_at=base.first_seen_at,
             last_seen_at=now,
             updated_at=now,
+            reporting_token_hash=base.reporting_token_hash,
         )
         self._records[record.supervisor_id] = record
         self._save()
         return record
 
+    def set_reporting_token(self, supervisor_id: str, token: str) -> SupervisorFleetRecord:
+        record = self.get(supervisor_id)
+        if record is None:
+            raise HTTPException(status_code=404, detail="supervisor_not_found")
+        record.reporting_token_hash = _sha256_text(token)
+        record.updated_at = _utcnow_iso()
+        self._records[record.supervisor_id] = record
+        self._save()
+        return record
 
-def build_supervisors_router(store: SupervisorFleetStore | None = None) -> APIRouter:
+    def verify_reporting_token(self, supervisor_id: str, token: str | None) -> bool:
+        if not token:
+            return False
+        record = self.get(supervisor_id)
+        expected = record.reporting_token_hash if record else None
+        if not expected:
+            return False
+        return hmac.compare_digest(expected, _sha256_text(token))
+
+
+class SupervisorEnrollmentTokenStore:
+    def __init__(self, path: Path | None = None) -> None:
+        self._path = path or (_repo_root() / "data" / "supervisor_enrollment_tokens.json")
+        self._records: dict[str, SupervisorEnrollmentTokenRecord] = {}
+        self._load()
+
+    def _load(self) -> None:
+        if not self._path.exists():
+            return
+        try:
+            raw = json.loads(self._path.read_text(encoding="utf-8"))
+        except Exception:
+            return
+        items = raw.get("items") if isinstance(raw, dict) and isinstance(raw.get("items"), list) else []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            token_id = _clean_text(item.get("token_id"))
+            token_hash = _clean_text(item.get("token_hash"))
+            if not token_id or not token_hash:
+                continue
+            self._records[token_id] = SupervisorEnrollmentTokenRecord(
+                token_id=token_id,
+                token_hash=token_hash,
+                supervisor_id=_clean_text(item.get("supervisor_id")) or None,
+                supervisor_name=_clean_text(item.get("supervisor_name")) or None,
+                created_at=_clean_text(item.get("created_at"), _utcnow_iso()),
+                expires_at=_clean_text(item.get("expires_at"), _utcnow_iso()),
+                consumed_at=_clean_text(item.get("consumed_at")) or None,
+                consumed_by=_clean_text(item.get("consumed_by")) or None,
+                metadata=dict(item.get("metadata") or {}) if isinstance(item.get("metadata"), dict) else {},
+                schema_version=_clean_text(item.get("schema_version"), SUPERVISOR_ENROLLMENT_SCHEMA_VERSION),
+            )
+
+    def _save(self) -> None:
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "schema_version": SUPERVISOR_ENROLLMENT_SCHEMA_VERSION,
+            "items": [record.to_dict() for record in sorted(self._records.values(), key=lambda item: item.token_id)],
+        }
+        self._path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    def create(self, body: SupervisorEnrollmentTokenCreateRequest) -> tuple[SupervisorEnrollmentTokenRecord, str]:
+        now = datetime.now(timezone.utc)
+        ttl_s = body.ttl_seconds or _default_enrollment_ttl_s()
+        raw_token = f"hexe_sup_enroll_{secrets.token_urlsafe(32)}"
+        record = SupervisorEnrollmentTokenRecord(
+            token_id=secrets.token_urlsafe(12),
+            token_hash=_sha256_text(raw_token),
+            supervisor_id=_clean_text(body.supervisor_id) or None,
+            supervisor_name=_clean_text(body.supervisor_name) or None,
+            created_at=now.isoformat(),
+            expires_at=(now + timedelta(seconds=ttl_s)).isoformat(),
+            metadata=dict(body.metadata or {}),
+        )
+        self._records[record.token_id] = record
+        self._save()
+        return record, raw_token
+
+    def consume(self, token: str, *, supervisor_id: str) -> SupervisorEnrollmentTokenRecord:
+        token_hash = _sha256_text(_clean_text(token))
+        matched: SupervisorEnrollmentTokenRecord | None = None
+        for record in self._records.values():
+            if hmac.compare_digest(record.token_hash, token_hash):
+                matched = record
+                break
+        if matched is None:
+            raise HTTPException(status_code=401, detail="invalid_enrollment_token")
+        if matched.consumed_at:
+            raise HTTPException(status_code=409, detail="enrollment_token_already_used")
+        expires_at = _parse_iso(matched.expires_at)
+        if expires_at is not None and expires_at <= datetime.now(timezone.utc):
+            raise HTTPException(status_code=410, detail="enrollment_token_expired")
+        expected_supervisor_id = _clean_text(matched.supervisor_id)
+        actual_supervisor_id = _clean_text(supervisor_id)
+        if expected_supervisor_id and expected_supervisor_id != actual_supervisor_id:
+            raise HTTPException(status_code=403, detail="enrollment_token_supervisor_mismatch")
+        matched.consumed_at = _utcnow_iso()
+        matched.consumed_by = actual_supervisor_id
+        self._records[matched.token_id] = matched
+        self._save()
+        return matched
+
+
+def build_supervisors_router(
+    store: SupervisorFleetStore | None = None,
+    enrollment_store: SupervisorEnrollmentTokenStore | None = None,
+) -> APIRouter:
     router = APIRouter()
     registry = store or SupervisorFleetStore()
+    enrollment_registry = enrollment_store or SupervisorEnrollmentTokenStore()
+
+    def authorize_report(
+        *,
+        supervisor_id: str,
+        request: Request,
+        x_admin_token: str | None,
+        x_supervisor_token: str | None,
+    ) -> None:
+        if x_admin_token:
+            require_admin_token(x_admin_token, request)
+            return
+        if x_supervisor_token:
+            if registry.verify_reporting_token(supervisor_id, x_supervisor_token):
+                return
+            raise HTTPException(status_code=401, detail="invalid_supervisor_token")
+        require_admin_token(x_admin_token, request)
 
     @router.get("/supervisors")
     def list_supervisors(request: Request, x_admin_token: str | None = Header(default=None)) -> dict[str, Any]:
         require_admin_token(x_admin_token, request)
         return {"items": [record.to_api_dict() for record in registry.list()]}
+
+    @router.post("/supervisors/enrollment-tokens")
+    def create_supervisor_enrollment_token(
+        body: SupervisorEnrollmentTokenCreateRequest,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        require_admin_token(x_admin_token, request)
+        record, token = enrollment_registry.create(body)
+        return {"ok": True, "enrollment_token": token, "one_time_token": token, "token": record.to_api_dict()}
+
+    @router.post("/supervisors/enroll")
+    def enroll_supervisor(body: SupervisorEnrollmentRequest) -> dict[str, Any]:
+        enrollment_registry.consume(body.enrollment_token, supervisor_id=body.supervisor_id)
+        reporting_token = f"hexe_sup_report_{secrets.token_urlsafe(32)}"
+        record = registry.register(
+            SupervisorRegistrationRequest(
+                supervisor_id=body.supervisor_id,
+                supervisor_name=body.supervisor_name,
+                supervisor_version=body.supervisor_version,
+                host_id=body.host_id,
+                hostname=body.hostname,
+                api_base_url=body.api_base_url,
+                transport=body.transport,
+                capabilities=body.capabilities,
+                metadata=body.metadata,
+            )
+        )
+        record = registry.set_reporting_token(record.supervisor_id, reporting_token)
+        return {
+            "ok": True,
+            "supervisor": record.to_api_dict(),
+            "reporting_token": reporting_token,
+            "token_type": "supervisor-reporting",
+        }
 
     @router.get("/supervisors/{supervisor_id}")
     def get_supervisor(
@@ -318,8 +551,14 @@ def build_supervisors_router(store: SupervisorFleetStore | None = None) -> APIRo
         body: SupervisorRegistrationRequest,
         request: Request,
         x_admin_token: str | None = Header(default=None),
+        x_supervisor_token: str | None = Header(default=None),
     ) -> dict[str, Any]:
-        require_admin_token(x_admin_token, request)
+        authorize_report(
+            supervisor_id=body.supervisor_id,
+            request=request,
+            x_admin_token=x_admin_token,
+            x_supervisor_token=x_supervisor_token,
+        )
         record = registry.register(body)
         return {"ok": True, "supervisor": record.to_api_dict()}
 
@@ -328,8 +567,14 @@ def build_supervisors_router(store: SupervisorFleetStore | None = None) -> APIRo
         body: SupervisorHeartbeatRequest,
         request: Request,
         x_admin_token: str | None = Header(default=None),
+        x_supervisor_token: str | None = Header(default=None),
     ) -> dict[str, Any]:
-        require_admin_token(x_admin_token, request)
+        authorize_report(
+            supervisor_id=body.supervisor_id,
+            request=request,
+            x_admin_token=x_admin_token,
+            x_supervisor_token=x_supervisor_token,
+        )
         record = registry.heartbeat(body)
         return {"ok": True, "supervisor": record.to_api_dict()}
 

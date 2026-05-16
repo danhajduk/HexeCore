@@ -96,6 +96,14 @@ Status: Implemented
   - `GET /api/nodes`
   - `GET /api/nodes/{node_id}`
   - `GET /api/nodes/{node_id}/ui-manifest` (admin session/token required; Core fetches `GET /api/node/ui-manifest` from trusted nodes, validates it, and returns an operator-readable fetch state)
+- Supervisor fleet:
+  - `GET /api/system/supervisors` (admin session/token required)
+  - `GET /api/system/supervisors/{supervisor_id}` (admin session/token required)
+  - `POST /api/system/supervisors/enrollment-tokens` (admin session/token required; creates a short-lived one-time Supervisor enrollment token)
+  - `POST /api/system/supervisors/enroll` (one-time enrollment token required in the JSON body; consumes the token and returns a Supervisor reporting token)
+  - `POST /api/system/supervisors/register` (`X-Admin-Token` or issued `X-Supervisor-Token` required)
+  - `POST /api/system/supervisors/heartbeat` (`X-Admin-Token` or issued `X-Supervisor-Token` required)
+  - `DELETE /api/system/supervisors/{supervisor_id}` (admin session/token required)
 
 Platform metadata currently includes:
 
