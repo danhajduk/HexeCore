@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Schema for data/node_capability_profiles.json.",
+  "properties": {
+    "items": {
+      "items": {
+        "additionalProperties": true,
+        "properties": {
+          "acceptance_timestamp": {
+            "type": "string"
+          },
+          "capability_taxonomy": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "declaration_digest": {
+            "type": "string"
+          },
+          "declaration_raw": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "declared_task_families": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "enabled_providers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "feature_flags": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object"
+          },
+          "manifest_version": {
+            "type": "string"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "profile_id": {
+            "type": "string"
+          },
+          "provider_intelligence": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "schema_version": {
+            "type": "string"
+          },
+          "unified_model_descriptors": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "schema_version",
+          "profile_id",
+          "node_id",
+          "declared_task_families",
+          "enabled_providers",
+          "feature_flags",
+          "acceptance_timestamp",
+          "manifest_version",
+          "declaration_digest",
+          "declaration_raw",
+          "capability_taxonomy"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "items"
+  ],
+  "title": "Hexe Node Capability Profiles Store",
+  "type": "object"
+}

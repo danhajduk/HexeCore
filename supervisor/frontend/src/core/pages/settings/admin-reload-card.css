@@ -1,0 +1,117 @@
+.admin-card {
+  margin-top: var(--sx-space-4);
+  padding: calc(var(--sx-space-3) + 2px);
+  border-radius: calc(var(--sx-radius-lg) + 2px);
+  border: 1px solid hsl(var(--sx-text) / 0.12);
+  background: hsl(var(--sx-text) / 0.04);
+}
+
+.admin-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sx-space-3);
+}
+
+.admin-title {
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.admin-subtitle {
+  opacity: 0.75;
+  font-size: 12px;
+}
+
+.admin-warning {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.admin-form {
+  display: grid;
+  gap: calc(var(--sx-space-2) + 2px);
+  margin-top: var(--sx-space-3);
+}
+
+.admin-label {
+  display: grid;
+  gap: calc(var(--sx-space-1) + 2px);
+}
+
+.admin-label-text {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.admin-help {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.admin-input {
+  padding: calc(var(--sx-space-2) + 2px) var(--sx-space-3);
+  border-radius: calc(var(--sx-radius-md) + 2px);
+  border: 1px solid hsl(var(--sx-text) / 0.15);
+  background: hsl(0 0% 0% / 0.25);
+  color: white;
+}
+
+.admin-input-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+}
+
+.admin-actions {
+  display: flex;
+  gap: calc(var(--sx-space-2) + 2px);
+  flex-wrap: wrap;
+}
+
+.admin-btn {
+  padding: calc(var(--sx-space-2) + 2px) var(--sx-space-3);
+  border-radius: calc(var(--sx-radius-md) + 2px);
+  border: 1px solid hsl(var(--sx-text) / 0.15);
+  background: hsl(var(--sx-text) / 0.06);
+  color: white;
+  cursor: pointer;
+}
+
+.admin-btn-primary {
+  background: hsl(var(--sx-text) / 0.1);
+}
+
+.admin-btn[disabled] {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.admin-btn-muted {
+  background: hsl(var(--sx-text) / 0.03);
+  opacity: 0.9;
+}
+
+.admin-error {
+  margin: 0;
+  white-space: pre-wrap;
+  color: hsl(var(--sx-danger) / 0.4);
+  font-size: 12px;
+}
+
+.admin-log-label {
+  font-size: 12px;
+  opacity: 0.8;
+  margin-bottom: calc(var(--sx-space-1) + 2px);
+}
+
+.admin-log {
+  margin: 0;
+  padding: var(--sx-space-3);
+  border-radius: calc(var(--sx-radius-md) + 2px);
+  border: 1px solid hsl(var(--sx-text) / 0.12);
+  background: hsl(0 0% 0% / 0.25);
+  max-height: 260px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: 12px;
+}

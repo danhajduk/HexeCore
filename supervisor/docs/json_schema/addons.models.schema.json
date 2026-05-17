@@ -1,0 +1,257 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Catalog of Core-owned schemas generated from app.addons.models.",
+  "schemas": {
+    "AddonMeta": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "auth_modes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Auth Modes",
+          "type": "array"
+        },
+        "capabilities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Capabilities",
+          "type": "array"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "id": {
+          "description": "Addon identifier. Must match addon folder name.",
+          "title": "Id",
+          "type": "string"
+        },
+        "limits": {
+          "additionalProperties": true,
+          "title": "Limits",
+          "type": "object"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "platform_managed": {
+          "default": false,
+          "title": "Platform Managed",
+          "type": "boolean"
+        },
+        "show_sidebar": {
+          "default": true,
+          "title": "Show Sidebar",
+          "type": "boolean"
+        },
+        "ui": {
+          "additionalProperties": true,
+          "title": "Ui",
+          "type": "object"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "version"
+      ],
+      "title": "AddonMeta",
+      "type": "object"
+    },
+    "RegisteredAddon": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "auth_header_env": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Auth Header Env"
+        },
+        "auth_header_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Auth Header Name"
+        },
+        "auth_mode": {
+          "default": "none",
+          "title": "Auth Mode",
+          "type": "string"
+        },
+        "base_url": {
+          "title": "Base Url",
+          "type": "string"
+        },
+        "capabilities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Capabilities",
+          "type": "array"
+        },
+        "contract_errors": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Contract Errors",
+          "type": "array"
+        },
+        "contract_ok": {
+          "default": false,
+          "title": "Contract Ok",
+          "type": "boolean"
+        },
+        "discovered_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Discovered At"
+        },
+        "health_status": {
+          "default": "unknown",
+          "title": "Health Status",
+          "type": "string"
+        },
+        "id": {
+          "description": "Registered addon identifier.",
+          "title": "Id",
+          "type": "string"
+        },
+        "last_health": {
+          "additionalProperties": true,
+          "title": "Last Health",
+          "type": "object"
+        },
+        "last_seen": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Seen"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "proxy_circuit_fail_threshold": {
+          "default": 3,
+          "title": "Proxy Circuit Fail Threshold",
+          "type": "integer"
+        },
+        "proxy_circuit_open_seconds": {
+          "default": 30,
+          "title": "Proxy Circuit Open Seconds",
+          "type": "integer"
+        },
+        "proxy_retries": {
+          "default": 1,
+          "title": "Proxy Retries",
+          "type": "integer"
+        },
+        "proxy_timeout_s": {
+          "default": 10.0,
+          "title": "Proxy Timeout S",
+          "type": "number"
+        },
+        "tls_warning": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tls Warning"
+        },
+        "ui_base_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ui Base Url"
+        },
+        "ui_enabled": {
+          "default": false,
+          "title": "Ui Enabled",
+          "type": "boolean"
+        },
+        "ui_mode": {
+          "default": "server",
+          "enum": [
+            "spa",
+            "server"
+          ],
+          "title": "Ui Mode",
+          "type": "string"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Updated At"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "version",
+        "base_url"
+      ],
+      "title": "RegisteredAddon",
+      "type": "object"
+    }
+  },
+  "skipped_models": {
+    "BackendAddon": "PydanticInvalidForJsonSchema: Cannot generate a JsonSchema for core_schema.IsInstanceSchema (<class 'fastapi.routing.APIRouter'>)\n\nFor further information visit https://errors.pydantic.dev/2.12/u/invalid-for-json-schema"
+  },
+  "title": "Hexe Addon Registry Models",
+  "type": "object"
+}

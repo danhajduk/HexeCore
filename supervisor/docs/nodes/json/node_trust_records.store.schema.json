@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Schema for data/node_trust_records.json.",
+  "properties": {
+    "nodes": {
+      "items": {
+        "additionalProperties": true,
+        "properties": {
+          "activation_profile": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "baseline_policy_version": {
+            "type": "string"
+          },
+          "initial_baseline_policy": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "issued_at": {
+            "type": "string"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "node_trust_token": {
+            "type": "string"
+          },
+          "node_type": {
+            "type": "string"
+          },
+          "operational_mqtt_host": {
+            "type": "string"
+          },
+          "operational_mqtt_identity": {
+            "type": "string"
+          },
+          "operational_mqtt_port": {
+            "type": "integer"
+          },
+          "operational_mqtt_token": {
+            "type": "string"
+          },
+          "paired_core_id": {
+            "type": "string"
+          },
+          "revocation_action": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revocation_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revoked_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_session_id": {
+            "type": "string"
+          },
+          "trust_status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "node_id",
+          "node_type",
+          "paired_core_id",
+          "node_trust_token",
+          "initial_baseline_policy",
+          "baseline_policy_version",
+          "activation_profile",
+          "operational_mqtt_identity",
+          "operational_mqtt_token",
+          "operational_mqtt_host",
+          "operational_mqtt_port",
+          "issued_at",
+          "source_session_id"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "session_to_node": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object"
+    }
+  },
+  "required": [
+    "nodes",
+    "session_to_node"
+  ],
+  "title": "Hexe Node Trust Records Store",
+  "type": "object"
+}

@@ -1,0 +1,243 @@
+# Hexe Core API Reference
+
+All routes are mounted by `backend/app/main.py`.
+
+## Conventions
+
+- Admin-protected endpoints require admin authentication/session.
+- Some route families include compatibility aliases for legacy clients.
+- MQTT routes are mounted under `/api/system`.
+
+## Core System APIs
+
+Status: Implemented
+
+- Health and stats:
+  - `GET /api/health`
+  - `GET /api/system/stats/current`
+  - `GET /api/system-stats/current`
+  - `GET /api/system/stack/summary`
+- Settings and repo/system status:
+  - `GET /api/system/platform`
+  - `GET /api/system/settings`
+  - `PUT /api/system/settings/{key}`
+  - `GET /api/system/repo/status`
+- Edge gateway:
+  - `GET /api/edge/status`
+  - `GET /api/edge/publications`
+  - `POST /api/edge/publications` (admin session/token required)
+  - `PATCH /api/edge/publications/{publication_id}` (admin session/token required)
+  - `DELETE /api/edge/publications/{publication_id}` (admin session/token required)
+  - `GET /api/edge/public-identity`
+  - `GET /api/edge/cloudflare/settings`
+  - `PUT /api/edge/cloudflare/settings` (admin session/token required)
+  - `POST /api/edge/reconcile` (admin session/token required)
+  - `POST /api/edge/cloudflare/test` (admin session/token required)
+- Events/services:
+  - `GET /api/system/events`
+  - `POST /api/system/nodes/onboarding/sessions` (request may include optional `hostname`, optional absolute `ui_endpoint`, and optional absolute `api_base_url` for node-hosted UI/API discovery)
+  - `GET /api/system/nodes/onboarding/sessions` (admin session/token required)
+  - `GET /api/system/nodes/onboarding/sessions/{session_id}` (admin session/token required)
+  - `POST /api/system/nodes/onboarding/sessions/{session_id}/approve` (admin session/token required)
+  - `POST /api/system/nodes/onboarding/sessions/{session_id}/reject` (admin session/token required)
+  - `POST /api/system/nodes/onboarding/sessions/cancel-active` (admin session/token required; cancels all active `pending` and `approved` onboarding sessions)
+  - `GET /api/system/nodes/onboarding/sessions/{session_id}/finalize?node_nonce=...`
+  - `POST /api/system/nodes/reauth/sessions` (existing node starts a re-auth session for migration/recovery and receives an approval URL)
+  - `GET /api/system/nodes/reauth/sessions/{session_id}` (admin session/token required; approval URL state required)
+  - `POST /api/system/nodes/reauth/sessions/{session_id}/approve` (admin session/token required; approval URL state required)
+  - `POST /api/system/nodes/reauth/sessions/{session_id}/reject` (admin session/token required; approval URL state required)
+  - `GET /api/system/nodes/reauth/sessions/{session_id}/finalize?node_nonce=...` (returns fresh trust activation material after approval)
+  - `PUT /api/system/nodes/registrations/{node_id}/metadata` (admin session/token required; refreshes full node-owned endpoint/UI metadata without changing trust or identity)
+  - `GET /api/system/nodes/registrations` (admin session/token required)
+  - `GET /api/system/nodes/registrations/{node_id}` (admin session/token required)
+  - `DELETE /api/system/nodes/registrations/{node_id}` (admin session/token required)
+  - `POST /api/system/nodes/registrations/{node_id}/revoke` (admin session/token required; `/untrust` alias preserved for compatibility)
+  - `GET /api/system/nodes/trust-status/{node_id}` (node trust token or admin session/token; explicit trust/revocation/removal status)
+  - `GET /api/system/nodes/registry` (admin session/token required; includes capability/governance/readiness status fields)
+  - `POST /api/system/nodes/budgets/declaration` (trusted node token required via `X-Node-Trust-Token`; node-declared budget capability contract)
+  - `GET /api/system/nodes/budgets` (admin session/token required; budget declaration + setup overview)
+  - `GET /api/system/nodes/budgets/{node_id}` (trusted node token or admin session/token; node budget bundle)
+  - `PUT /api/system/nodes/budgets/{node_id}` (admin session/token required; operator budget setup)
+  - `DELETE /api/system/nodes/budgets/{node_id}` (admin session/token required; remove configured budget while preserving node declaration)
+  - `GET /api/system/nodes/budgets/{node_id}/customers` (admin session/token required)
+  - `PUT /api/system/nodes/budgets/{node_id}/customers/{customer_id}` (admin session/token required)
+  - `DELETE /api/system/nodes/budgets/{node_id}/customers/{customer_id}` (admin session/token required)
+  - `GET /api/system/nodes/budgets/{node_id}/providers` (admin session/token required)
+  - `PUT /api/system/nodes/budgets/{node_id}/providers/{provider_id}` (admin session/token required)
+  - `DELETE /api/system/nodes/budgets/{node_id}/providers/{provider_id}` (admin session/token required)
+  - `GET /api/system/nodes/budgets/{node_id}/usage` (admin session/token required; reservations, usage summary, remaining budget, next reset)
+  - `GET /api/system/nodes/budgets/{node_id}/usage-reports` (admin session/token required; periodic grant usage summaries)
+  - `GET /api/system/nodes/budgets/export` (admin session/token required; budget usage export in JSON or CSV)
+  - `GET /api/system/nodes/budgets/policy/current?node_id=...` (trusted node token required via `X-Node-Trust-Token`; current effective budget policy and grants; returns `409 node_governance_outdated` when governance freshness is outdated)
+  - `POST /api/system/nodes/budgets/policy/refresh` (trusted node token required via `X-Node-Trust-Token`; version-aware budget policy refresh; blocked while governance freshness is outdated)
+  - `POST /api/system/nodes/budgets/{node_id}/top-up` (admin session/token required)
+  - `POST /api/system/nodes/budgets/{node_id}/reset` (admin session/token required)
+  - `POST /api/system/nodes/budgets/{node_id}/override` (admin session/token required)
+  - `POST /api/system/nodes/budgets/{node_id}/force-release` (admin session/token required)
+  - `POST /api/system/nodes/budgets/usage-summary` (trusted node token required via `X-Node-Trust-Token`; periodic usage summary by grant/period with optional provider/model/task-family metadata)
+  - `POST /api/system/nodes/budgets/usage-report` (trusted node token required via `X-Node-Trust-Token`; actual budget usage finalization/release report)
+  - `POST /api/system/nodes/services/resolve` (trusted node token required via `X-Node-Trust-Token`; node-aware task-family to service/provider resolution using governance and budget policy; blocked while governance freshness is outdated)
+  - `POST /api/system/nodes/services/authorize` (trusted node token required via `X-Node-Trust-Token`; short-lived service token issuance gated by resolution and effective budget; blocked while governance freshness is outdated)
+  - `POST /api/system/nodes/capabilities/declaration` (trusted node token required via `X-Node-Trust-Token`)
+  - `POST /api/system/nodes/providers/capabilities/report` (trusted node token required via `X-Node-Trust-Token`; provider/model capability plus service/provider/model capacity ingestion)
+  - `GET /api/system/nodes/providers/routing-metadata` (admin session/token required; model cost/latency + declared capacity + node availability view)
+  - `GET /api/system/nodes/providers/model-policy` (admin session/token required)
+  - `PUT /api/system/nodes/providers/model-policy/{provider}` (admin session/token required)
+  - `DELETE /api/system/nodes/providers/model-policy/{provider}` (admin session/token required)
+  - `GET /api/system/nodes/governance/current?node_id=...` (trusted node token required via `X-Node-Trust-Token`; governance bundle now includes routing-policy constraints and budget policy when available; also acts as a governance freshness recovery path)
+  - `POST /api/system/nodes/governance/refresh` (trusted node token required; version-aware governance refresh across capability, routing-policy, and budget-policy changes; also clears `outdated` state when successful)
+  - `GET /api/system/nodes/operational-status/{node_id}` (node trust token or admin session/token; lightweight lifecycle/capability/governance status, including governance freshness and outdated flags)
+  - `POST /api/system/nodes/telemetry` (trusted node token required; runtime lifecycle/governance signal ingestion)
+  - `GET /api/system/nodes/capabilities/profiles` (admin session/token required)
+  - `GET /api/system/nodes/capabilities/profiles/{profile_id}` (admin session/token required)
+  - `POST /api/services/register`
+  - `GET /api/services/resolve`
+- Node registry and Core-rendered node UI:
+  - `GET /api/nodes`
+  - `GET /api/nodes/{node_id}`
+  - `GET /api/nodes/{node_id}/ui-manifest` (admin session/token required; Core fetches `GET /api/node/ui-manifest` from trusted nodes, validates it, and returns an operator-readable fetch state)
+- Supervisor fleet:
+  - `GET /api/system/supervisors` (admin session/token required)
+  - `GET /api/system/supervisors/{supervisor_id}` (admin session/token required)
+  - `POST /api/system/supervisors/enrollment-tokens` (admin session/token required; creates a short-lived one-time Supervisor enrollment token)
+  - `POST /api/system/supervisors/enroll` (one-time enrollment token required in the JSON body; consumes the token and returns a Supervisor reporting token)
+  - `POST /api/system/supervisors/register` (`X-Admin-Token` or issued `X-Supervisor-Token` required)
+  - `POST /api/system/supervisors/heartbeat` (`X-Admin-Token` or issued `X-Supervisor-Token` required)
+  - `DELETE /api/system/supervisors/{supervisor_id}` (admin session/token required)
+
+Platform metadata currently includes:
+
+- `core_id`
+- `platform_name`
+- `platform_short`
+- `platform_domain`
+- `core_name`
+- `supervisor_name`
+- `nodes_name`
+- `addons_name`
+- `docs_name`
+- `legacy_internal_namespace`
+- `legacy_compatibility_note`
+- `public_hostname`
+- `public_ui_hostname`
+- `public_api_hostname`
+
+## Addon APIs
+
+Status: Implemented
+
+- Addon inventory/runtime:
+  - `GET /api/addons`
+  - `GET /api/addons/errors`
+  - `GET /api/system/addons/runtime`
+- Registry/admin:
+  - `GET /api/addons/registry`
+  - `POST /api/addons/registry/{addon_id}/register`
+  - `GET /api/admin/addons/registry`
+
+Registry payloads include canonical UI proxy metadata for Core-managed embedding:
+- addons: `ui_enabled`, `ui_base_url`, `ui_mode`
+- nodes: `ui_enabled`, `ui_base_url`, `ui_mode`, `ui_health_endpoint`, `api_base_url`
+- the broader proxied-UI metadata contract, fail-safe defaults, and reserved extension fields are documented in [Proxied UI Metadata](./proxied-ui-metadata.md)
+- Install sessions:
+  - `POST /api/addons/install/start`
+  - `GET /api/addons/install/{session_id}`
+  - `POST /api/addons/install/{session_id}/permissions/approve`
+  - `POST /api/addons/install/{session_id}/deployment/select`
+  - `POST /api/addons/install/{session_id}/configure`
+  - `POST /api/addons/install/{session_id}/verify`
+
+## MQTT APIs
+
+Status: Partially implemented
+
+Representative routes under `/api/system`:
+- setup/control: `/mqtt/status`, `/mqtt/setup-summary`, `/mqtt/setup/apply`, `/mqtt/setup/test-connection`, `/mqtt/setup-state`
+- runtime: `/mqtt/runtime/health`, `/mqtt/runtime/start`, `/mqtt/runtime/stop`, `/mqtt/runtime/init`, `/mqtt/runtime/rebuild`, `/mqtt/runtime/config`
+- approvals/principals/users: `/mqtt/registrations/*`, `/mqtt/principals*`, `/mqtt/users*`, `/mqtt/generic-users*`
+- observability/audit: `/mqtt/noisy-clients*`, `/mqtt/observability`, `/mqtt/audit`
+- debug: `/mqtt/debug/*`
+- notification dev hook: `POST /mqtt/debug/notifications/test-flow` (admin token required; only active when `NOTIFICATION_DEBUG_ENABLED=true`)
+
+Deprecated/legacy compatibility endpoints:
+- `/api/system/runtime/*` aliases mirror `/api/system/mqtt/runtime/*` for compatibility.
+- mixed snake/camel compatibility aliases are preserved in selected principal endpoints.
+- `/api/system/ai-nodes/onboarding/sessions*` aliases mirror global node onboarding routes and emit `Deprecation` + `Sunset` headers.
+
+## Auth and User APIs
+
+Status: Implemented
+
+- Admin session:
+  - `POST /api/admin/session/login`
+  - `POST /api/admin/session/login-user`
+  - `GET /api/admin/session/status`
+  - `POST /api/admin/session/logout`
+  - `POST /api/admin/reload`
+  - `GET /api/admin/reload/status`
+- Admin users:
+  - `GET /api/admin/users`
+  - `POST /api/admin/users`
+  - `DELETE /api/admin/users/{username}`
+- Service token:
+  - `POST /api/auth/service-token`
+  - `POST /api/auth/service-token/rotate`
+
+Service token issuance modes:
+- admin token or admin session may issue service tokens
+- service principals may also issue constrained service tokens using `X-Service-Principal-Id` and `X-Service-Principal-Secret`
+
+## Runtime, Scheduler, Health APIs
+
+Status: Implemented
+
+- Scheduler queue/lease/history routes under `/api/system/scheduler/*`.
+- Queue job submissions may include `payload.budget_scope` to create persisted node/customer/provider budget reservations when node budgeting is configured.
+- Budget-aware queue submission now supports Core-side money/compute estimation from payload fields and stored routing-metadata pricing when explicit reservation values are omitted.
+- Stack/system health and metrics endpoints under `/api/system/*` and `/api/system-stats/*`.
+- Store lifecycle and status routes under `/api/store/*`.
+
+## Telemetry APIs
+
+Status: Implemented
+
+- Usage telemetry:
+  - `POST /api/telemetry/usage` (service token with `telemetry.write` scope required)
+  - `GET /api/telemetry/usage`
+  - `GET /api/telemetry/usage/stats`
+
+Request model for `POST /api/telemetry/usage`:
+- `service`
+- `consumer_addon_id`
+- `grant_id` (optional)
+- `usage_units`
+- `request_count`
+- `period_start` (optional)
+- `period_end` (optional)
+- `metadata`
+
+## Planned
+
+Status: Not developed
+
+- Formal OpenAPI-focused endpoint stability tiers.
+- Explicit deprecation lifecycle metadata per endpoint group.
+
+## See Also
+
+- [Core Platform](./core-platform.md)
+- [Edge Gateway](./edge-gateway.md)
+- [Phase 5 Cloudflare Auto-Provisioning](../../migration/phase-5-cloudflare-auto-provisioning.md)
+- [Node Provider Intelligence Contract](./node-provider-intelligence-contract.md)
+- [Node Service Resolution And Budgeting](../node-service-resolution-and-budgeting.md)
+- [Telemetry And Usage](./telemetry-and-usage.md)
+- [MQTT Platform](../mqtt/mqtt-platform.md)
+- [Notifications Bus](../mqtt/notifications.md)
+- [Auth and Identity](./auth-and-identity.md)
+- [Runtime and Supervision](../supervisor/runtime-and-supervision.md)
+- [Node Onboarding API Contract](../nodes/node-onboarding-api-contract.md)
+- [Node Trust Activation Payload Contract](../nodes/node-trust-activation-payload-contract.md)
+- [Node Trust Status Contract](../nodes/node-trust-status-contract.md)
+- [Node Budget Management Contract](../nodes/node-budget-management-contract.md)
+- [Node Phase 2 Lifecycle Contract](../nodes/node-phase2-lifecycle-contract.md)
+- [Node Onboarding Migration Guide](../nodes/node-onboarding-migration-guide.md)

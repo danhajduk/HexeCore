@@ -1,0 +1,13 @@
+[Unit]
+Description=Hexe Updater (git pull + deps + restart)
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=@INSTALL_DIR@
+EnvironmentFile=-@INSTALL_DIR@/.config/hexe/admin.env
+ExecStart=@INSTALL_DIR@/scripts/update.sh
+Environment=LOG_FILE=/tmp/hexe_update.log
+
+[Install]
+WantedBy=default.target

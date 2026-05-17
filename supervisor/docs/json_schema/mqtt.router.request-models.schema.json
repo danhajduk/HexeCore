@@ -1,0 +1,674 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Catalog of Core-owned schemas generated from app.system.mqtt.router.",
+  "schemas": {
+    "MqttDebugPublishRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "payload": {
+          "title": "Payload"
+        },
+        "qos": {
+          "default": 0,
+          "maximum": 2,
+          "minimum": 0,
+          "title": "Qos",
+          "type": "integer"
+        },
+        "retain": {
+          "default": false,
+          "title": "Retain",
+          "type": "boolean"
+        },
+        "topic": {
+          "minLength": 1,
+          "title": "Topic",
+          "type": "string"
+        }
+      },
+      "required": [
+        "topic"
+      ],
+      "title": "MqttDebugPublishRequest",
+      "type": "object"
+    },
+    "MqttDebugSubscribeRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "qos": {
+          "default": 0,
+          "maximum": 2,
+          "minimum": 0,
+          "title": "Qos",
+          "type": "integer"
+        },
+        "timeout_s": {
+          "default": 300,
+          "maximum": 300,
+          "minimum": 30,
+          "title": "Timeout S",
+          "type": "integer"
+        },
+        "topic_filter": {
+          "minLength": 1,
+          "title": "Topic Filter",
+          "type": "string"
+        }
+      },
+      "required": [
+        "topic_filter"
+      ],
+      "title": "MqttDebugSubscribeRequest",
+      "type": "object"
+    },
+    "MqttDebugUnsubscribeRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "subscription_id": {
+          "minLength": 1,
+          "title": "Subscription Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "subscription_id"
+      ],
+      "title": "MqttDebugUnsubscribeRequest",
+      "type": "object"
+    },
+    "MqttGenericUserGrantUpdateRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        },
+        "publish_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Publish Topics",
+          "type": "array"
+        },
+        "subscribe_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Subscribe Topics",
+          "type": "array"
+        }
+      },
+      "title": "MqttGenericUserGrantUpdateRequest",
+      "type": "object"
+    },
+    "MqttGenericUserUpsertRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "logical_identity": {
+          "minLength": 1,
+          "title": "Logical Identity",
+          "type": "string"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        },
+        "principal_id": {
+          "minLength": 1,
+          "title": "Principal Id",
+          "type": "string"
+        },
+        "publish_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Publish Topics",
+          "type": "array"
+        },
+        "subscribe_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Subscribe Topics",
+          "type": "array"
+        },
+        "username": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Username"
+        }
+      },
+      "required": [
+        "principal_id",
+        "logical_identity"
+      ],
+      "title": "MqttGenericUserUpsertRequest",
+      "type": "object"
+    },
+    "MqttNoisyActionRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "title": "MqttNoisyActionRequest",
+      "type": "object"
+    },
+    "MqttPrincipalActionRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "title": "MqttPrincipalActionRequest",
+      "type": "object"
+    },
+    "MqttRuntimeMitigationRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "principal_id": {
+          "minLength": 1,
+          "title": "Principal Id",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "principal_id"
+      ],
+      "title": "MqttRuntimeMitigationRequest",
+      "type": "object"
+    },
+    "MqttRuntimeRebuildRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "force": {
+          "default": false,
+          "title": "Force",
+          "type": "boolean"
+        }
+      },
+      "title": "MqttRuntimeRebuildRequest",
+      "type": "object"
+    },
+    "MqttSetupApplyRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "client_id": {
+          "default": "synthia-core",
+          "title": "Client Id",
+          "type": "string"
+        },
+        "host": {
+          "minLength": 1,
+          "title": "Host",
+          "type": "string"
+        },
+        "initialize": {
+          "default": true,
+          "title": "Initialize",
+          "type": "boolean"
+        },
+        "keepalive_s": {
+          "default": 30,
+          "minimum": 1,
+          "title": "Keepalive S",
+          "type": "integer"
+        },
+        "mode": {
+          "default": "local",
+          "title": "Mode",
+          "type": "string"
+        },
+        "password": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Password"
+        },
+        "port": {
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Port",
+          "type": "integer"
+        },
+        "tls_enabled": {
+          "default": false,
+          "title": "Tls Enabled",
+          "type": "boolean"
+        },
+        "username": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Username"
+        }
+      },
+      "required": [
+        "host",
+        "port"
+      ],
+      "title": "MqttSetupApplyRequest",
+      "type": "object"
+    },
+    "MqttSetupConnectionTestRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "host": {
+          "minLength": 1,
+          "title": "Host",
+          "type": "string"
+        },
+        "port": {
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Port",
+          "type": "integer"
+        },
+        "timeout_s": {
+          "default": 2.0,
+          "exclusiveMinimum": 0.0,
+          "maximum": 10.0,
+          "title": "Timeout S",
+          "type": "number"
+        }
+      },
+      "required": [
+        "host",
+        "port"
+      ],
+      "title": "MqttSetupConnectionTestRequest",
+      "type": "object"
+    },
+    "MqttTestRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "payload": {
+          "additionalProperties": true,
+          "title": "Payload",
+          "type": "object"
+        },
+        "topic": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Topic"
+        }
+      },
+      "title": "MqttTestRequest",
+      "type": "object"
+    },
+    "MqttTopicValidationRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "addon_id": {
+          "minLength": 1,
+          "title": "Addon Id",
+          "type": "string"
+        },
+        "approved_reserved_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Approved Reserved Topics",
+          "type": "array"
+        },
+        "publish_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Publish Topics",
+          "type": "array"
+        },
+        "subscribe_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Subscribe Topics",
+          "type": "array"
+        }
+      },
+      "required": [
+        "addon_id"
+      ],
+      "title": "MqttTopicValidationRequest",
+      "type": "object"
+    },
+    "MqttUserCreateRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "access_mode": {
+          "default": "private",
+          "title": "Access Mode",
+          "type": "string"
+        },
+        "allowed_publish_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Publish Topics",
+          "type": "array"
+        },
+        "allowed_subscribe_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Subscribe Topics",
+          "type": "array"
+        },
+        "allowed_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Topics",
+          "type": "array"
+        },
+        "password": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": "generated",
+          "title": "Password"
+        },
+        "topic_prefix": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Topic Prefix"
+        },
+        "username": {
+          "minLength": 1,
+          "title": "Username",
+          "type": "string"
+        }
+      },
+      "required": [
+        "username"
+      ],
+      "title": "MqttUserCreateRequest",
+      "type": "object"
+    },
+    "MqttUserUpdateRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "access_mode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Access Mode"
+        },
+        "allowed_publish_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Publish Topics",
+          "type": "array"
+        },
+        "allowed_subscribe_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Subscribe Topics",
+          "type": "array"
+        },
+        "allowed_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Topics",
+          "type": "array"
+        },
+        "topic_prefix": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Topic Prefix"
+        }
+      },
+      "title": "MqttUserUpdateRequest",
+      "type": "object"
+    },
+    "MqttUsersImportItem": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "access_mode": {
+          "default": "private",
+          "title": "Access Mode",
+          "type": "string"
+        },
+        "allowed_publish_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Publish Topics",
+          "type": "array"
+        },
+        "allowed_subscribe_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Subscribe Topics",
+          "type": "array"
+        },
+        "allowed_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Topics",
+          "type": "array"
+        },
+        "password": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": "generated",
+          "title": "Password"
+        },
+        "topic_prefix": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Topic Prefix"
+        },
+        "username": {
+          "minLength": 1,
+          "title": "Username",
+          "type": "string"
+        }
+      },
+      "required": [
+        "username"
+      ],
+      "title": "MqttUsersImportItem",
+      "type": "object"
+    },
+    "MqttUsersImportRequest": {
+      "$defs": {
+        "MqttUsersImportItem": {
+          "properties": {
+            "access_mode": {
+              "default": "private",
+              "title": "Access Mode",
+              "type": "string"
+            },
+            "allowed_publish_topics": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Allowed Publish Topics",
+              "type": "array"
+            },
+            "allowed_subscribe_topics": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Allowed Subscribe Topics",
+              "type": "array"
+            },
+            "allowed_topics": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Allowed Topics",
+              "type": "array"
+            },
+            "password": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": "generated",
+              "title": "Password"
+            },
+            "topic_prefix": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Topic Prefix"
+            },
+            "username": {
+              "minLength": 1,
+              "title": "Username",
+              "type": "string"
+            }
+          },
+          "required": [
+            "username"
+          ],
+          "title": "MqttUsersImportItem",
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/MqttUsersImportItem"
+          },
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "title": "MqttUsersImportRequest",
+      "type": "object"
+    }
+  },
+  "title": "Hexe MQTT Router Request Models",
+  "type": "object"
+}

@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Schema for data/node_registrations.json.",
+  "properties": {
+    "items": {
+      "items": {
+        "additionalProperties": true,
+        "properties": {
+          "api_base_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "approved_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "approved_by_user_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "capabilities_summary": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "capability_declaration_timestamp": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "capability_declaration_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "capability_profile_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "declared_capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "enabled_providers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "node_name": {
+            "type": "string"
+          },
+          "node_software_version": {
+            "type": "string"
+          },
+          "node_type": {
+            "type": "string"
+          },
+          "provider_intelligence": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "requested_api_base_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requested_hostname": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requested_node_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requested_ui_endpoint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "schema_version": {
+            "type": "string"
+          },
+          "source_onboarding_session_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "trust_status": {
+            "type": "string"
+          },
+          "ui_base_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ui_enabled": {
+            "type": "boolean"
+          },
+          "ui_health_endpoint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ui_mode": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "node_id",
+          "node_type",
+          "node_name",
+          "node_software_version",
+          "capabilities_summary",
+          "trust_status",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "type": "string"
+    },
+    "session_to_node": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "items",
+    "session_to_node"
+  ],
+  "title": "Hexe Node Registrations Store",
+  "type": "object"
+}

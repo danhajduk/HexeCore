@@ -1,0 +1,159 @@
+import { useCallback, useEffect, useState } from "react";
+
+import { fetchNodePageData, fetchNodeSurfaceData, fetchNodeUiManifest } from "./api";
+import type { NodeUiLoadState, NodeUiManifestFetchResponse, NodeUiPageSnapshot } from "./types";
+
+type ReloadableNodeUiLoadState<T> = NodeUiLoadState<T> & {
+  reload: () => void;
+};
+
+function initialState<T>(): NodeUiLoadState<T> {
+  return {
+    status: "idle",
+    data: null,
+    error: null,
+  };
+}
+
+export function nodeUiLoadingState<T>(current: NodeUiLoadState<T>): NodeUiLoadState<T> {
+  if (current.data) return { status: "ready", data: current.data, error: null };
+  return { status: "loading", data: null, error: null };
+}
+
+export function nodeUiErrorState<T>(current: NodeUiLoadState<T>, error: unknown): NodeUiLoadState<T> {
+  const message = error instanceof Error ? error.message : String(error);
+  if (current.data) return { status: "ready", data: current.data, error: message };
+  return { status: "error", data: null, error: message };
+}
+
+export function useNodeUiManifest(
+  nodeId: string,
+  options: { enabled?: boolean } = {},
+): ReloadableNodeUiLoadState<NodeUiManifestFetchResponse> {
+  const [state, setState] = useState<NodeUiLoadState<NodeUiManifestFetchResponse>>(initialState);
+  const [reloadKey, setReloadKey] = useState(0);
+  const reload = useCallback(() => setReloadKey((value) => value + 1), []);
+  const enabled = options.enabled ?? true;
+
+  useEffect(() => {
+    if (!enabled) {
+      setState(initialState<NodeUiManifestFetchResponse>());
+      return;
+    }
+    const target = String(nodeId || "").trim();
+    if (!target) {
+      setState({ status: "error", data: null, error: "node_id_required" });
+      return;
+    }
+
+    const controller = new AbortController();
+    setState(nodeUiLoadingState);
+
+    fetchNodeUiManifest(target, { signal: controller.signal })
+      .then((data) => {
+        setState({ status: "ready", data, error: data.ok ? null : data.detail || data.error_code || data.status });
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        setState((current) => nodeUiErrorState(current, error));
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [nodeId, enabled, reloadKey]);
+
+  return { ...state, reload };
+}
+
+export function useNodeSurfaceData<T>(
+  nodeId: string,
+  endpoint: string | null | undefined,
+  options: { enabled?: boolean } = {},
+): ReloadableNodeUiLoadState<T> {
+  const [state, setState] = useState<NodeUiLoadState<T>>(initialState);
+  const [reloadKey, setReloadKey] = useState(0);
+  const reload = useCallback(() => setReloadKey((value) => value + 1), []);
+  const enabled = options.enabled ?? true;
+
+  useEffect(() => {
+    const target = String(nodeId || "").trim();
+    const dataEndpoint = String(endpoint || "").trim();
+    if (!enabled) {
+      setState(initialState<T>());
+      return;
+    }
+    if (!target) {
+      setState({ status: "error", data: null, error: "node_id_required" });
+      return;
+    }
+    if (!dataEndpoint) {
+      setState({ status: "error", data: null, error: "node_ui_endpoint_required" });
+      return;
+    }
+
+    const controller = new AbortController();
+    setState(nodeUiLoadingState);
+
+    fetchNodeSurfaceData<T>(target, dataEndpoint, { signal: controller.signal })
+      .then((data) => {
+        setState({ status: "ready", data, error: null });
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        setState((current) => nodeUiErrorState(current, error));
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [nodeId, endpoint, enabled, reloadKey]);
+
+  return { ...state, reload };
+}
+
+export function useNodePageData(
+  nodeId: string,
+  endpoint: string | null | undefined,
+  options: { enabled?: boolean } = {},
+): ReloadableNodeUiLoadState<NodeUiPageSnapshot> {
+  const [state, setState] = useState<NodeUiLoadState<NodeUiPageSnapshot>>(initialState);
+  const [reloadKey, setReloadKey] = useState(0);
+  const reload = useCallback(() => setReloadKey((value) => value + 1), []);
+  const enabled = options.enabled ?? true;
+
+  useEffect(() => {
+    const target = String(nodeId || "").trim();
+    const pageEndpoint = String(endpoint || "").trim();
+    if (!enabled) {
+      setState(initialState<NodeUiPageSnapshot>());
+      return;
+    }
+    if (!target) {
+      setState({ status: "error", data: null, error: "node_id_required" });
+      return;
+    }
+    if (!pageEndpoint) {
+      setState({ status: "error", data: null, error: "node_ui_page_endpoint_required" });
+      return;
+    }
+
+    const controller = new AbortController();
+    setState(nodeUiLoadingState);
+
+    fetchNodePageData(target, pageEndpoint, { signal: controller.signal })
+      .then((data) => {
+        setState({ status: "ready", data, error: null });
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        setState((current) => nodeUiErrorState(current, error));
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [nodeId, endpoint, enabled, reloadKey]);
+
+  return { ...state, reload };
+}
