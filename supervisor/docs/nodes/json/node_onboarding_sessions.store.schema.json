@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Schema for data/node_onboarding_sessions.json.",
+  "items": {
+    "additionalProperties": true,
+    "properties": {
+      "approved_at": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "approved_by_user_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "created_at": {
+        "type": "string"
+      },
+      "expires_at": {
+        "type": "string"
+      },
+      "final_payload_consumed_at": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "linked_node_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "node_nonce": {
+        "type": "string"
+      },
+      "rejected_at": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "rejection_reason": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "request_metadata": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "requested_api_base_url": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "requested_from_ip": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "requested_hostname": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "requested_node_name": {
+        "type": "string"
+      },
+      "requested_node_software_version": {
+        "type": "string"
+      },
+      "requested_node_type": {
+        "type": "string"
+      },
+      "requested_ui_endpoint": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "session_id": {
+        "type": "string"
+      },
+      "session_state": {
+        "enum": [
+          "pending",
+          "approved",
+          "rejected",
+          "expired",
+          "consumed",
+          "cancelled"
+        ]
+      },
+      "state_history": {
+        "items": {
+          "additionalProperties": true,
+          "properties": {
+            "actor_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "at": {
+              "type": "string"
+            },
+            "from_state": {
+              "type": "string"
+            },
+            "reason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "to_state": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "type": "array"
+      }
+    },
+    "required": [
+      "session_id",
+      "session_state",
+      "node_nonce",
+      "requested_node_name",
+      "requested_node_type",
+      "requested_node_software_version",
+      "request_metadata",
+      "created_at",
+      "expires_at"
+    ],
+    "type": "object"
+  },
+  "title": "Hexe Node Onboarding Sessions Store",
+  "type": "array"
+}

@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.env
+
+# Node
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# Frontend addon sync target (symlinks/copies)
+frontend/src/addons/*
+!frontend/src/addons/.gitkeep
+
+# OS
+.DS_Store
+
+.env.development
+.env.local
+logs/
+*.sql
+*.shm
+*.db
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite3-wal
+*.sqlite3-shm
+
+# Runtime state
+data/addons_state.json
+data/addons_registry.json
+var/store_install_state.json
+backend/var/store_sources.json
+runtime/store/cache/
+SynthiaAddons/
+completed_task.txt
+docs/New_tasks.txt
+docs/completed.txt
+ver/
+data/
+backend/var/
+
+# Local/private operator config and key material
+.config/
+scripts/synthia.env
+scripts/*.local.env
+*.key
+*.p12
+*.pfx
+completed_task.txt
+backend/var/store_install_state.json
+completed_task.txt
+docs/Reasoning.txt
+docs/archive/
+docs/reports/
+data/addons_state.json
+AGENTS.md
+docs/synthia_mqtt_addon_blueprint.md

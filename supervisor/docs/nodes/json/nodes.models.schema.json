@@ -1,0 +1,1305 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Catalog of Core-owned schemas generated from app.nodes.models.",
+  "schemas": {
+    "NodeCapabilityActivationSummary": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "declaration_received": {
+          "default": false,
+          "title": "Declaration Received",
+          "type": "boolean"
+        },
+        "governance_issued": {
+          "default": false,
+          "title": "Governance Issued",
+          "type": "boolean"
+        },
+        "operational": {
+          "default": false,
+          "title": "Operational",
+          "type": "boolean"
+        },
+        "profile_accepted": {
+          "default": false,
+          "title": "Profile Accepted",
+          "type": "boolean"
+        },
+        "stage": {
+          "default": "not_declared",
+          "title": "Stage",
+          "type": "string"
+        }
+      },
+      "title": "NodeCapabilityActivationSummary",
+      "type": "object"
+    },
+    "NodeCapabilityCategorySummary": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "category_id": {
+          "title": "Category Id",
+          "type": "string"
+        },
+        "item_count": {
+          "default": 0,
+          "title": "Item Count",
+          "type": "integer"
+        },
+        "items": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "category_id",
+        "label"
+      ],
+      "title": "NodeCapabilityCategorySummary",
+      "type": "object"
+    },
+    "NodeCapabilitySummary": {
+      "$defs": {
+        "NodeCapabilityActivationSummary": {
+          "properties": {
+            "declaration_received": {
+              "default": false,
+              "title": "Declaration Received",
+              "type": "boolean"
+            },
+            "governance_issued": {
+              "default": false,
+              "title": "Governance Issued",
+              "type": "boolean"
+            },
+            "operational": {
+              "default": false,
+              "title": "Operational",
+              "type": "boolean"
+            },
+            "profile_accepted": {
+              "default": false,
+              "title": "Profile Accepted",
+              "type": "boolean"
+            },
+            "stage": {
+              "default": "not_declared",
+              "title": "Stage",
+              "type": "string"
+            }
+          },
+          "title": "NodeCapabilityActivationSummary",
+          "type": "object"
+        },
+        "NodeCapabilityCategorySummary": {
+          "properties": {
+            "category_id": {
+              "title": "Category Id",
+              "type": "string"
+            },
+            "item_count": {
+              "default": 0,
+              "title": "Item Count",
+              "type": "integer"
+            },
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Items",
+              "type": "array"
+            },
+            "label": {
+              "title": "Label",
+              "type": "string"
+            }
+          },
+          "required": [
+            "category_id",
+            "label"
+          ],
+          "title": "NodeCapabilityCategorySummary",
+          "type": "object"
+        },
+        "NodeCapabilityTaxonomySummary": {
+          "properties": {
+            "activation": {
+              "$ref": "#/$defs/NodeCapabilityActivationSummary"
+            },
+            "categories": {
+              "items": {
+                "$ref": "#/$defs/NodeCapabilityCategorySummary"
+              },
+              "title": "Categories",
+              "type": "array"
+            },
+            "version": {
+              "default": "1",
+              "title": "Version",
+              "type": "string"
+            }
+          },
+          "title": "NodeCapabilityTaxonomySummary",
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "capability_declaration_timestamp": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Capability Declaration Timestamp"
+        },
+        "capability_declaration_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Capability Declaration Version"
+        },
+        "capability_profile_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Capability Profile Id"
+        },
+        "capability_status": {
+          "default": "missing",
+          "title": "Capability Status",
+          "type": "string"
+        },
+        "declared_capabilities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Declared Capabilities",
+          "type": "array"
+        },
+        "enabled_providers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Enabled Providers",
+          "type": "array"
+        },
+        "taxonomy": {
+          "$ref": "#/$defs/NodeCapabilityTaxonomySummary"
+        }
+      },
+      "title": "NodeCapabilitySummary",
+      "type": "object"
+    },
+    "NodeCapabilityTaxonomySummary": {
+      "$defs": {
+        "NodeCapabilityActivationSummary": {
+          "properties": {
+            "declaration_received": {
+              "default": false,
+              "title": "Declaration Received",
+              "type": "boolean"
+            },
+            "governance_issued": {
+              "default": false,
+              "title": "Governance Issued",
+              "type": "boolean"
+            },
+            "operational": {
+              "default": false,
+              "title": "Operational",
+              "type": "boolean"
+            },
+            "profile_accepted": {
+              "default": false,
+              "title": "Profile Accepted",
+              "type": "boolean"
+            },
+            "stage": {
+              "default": "not_declared",
+              "title": "Stage",
+              "type": "string"
+            }
+          },
+          "title": "NodeCapabilityActivationSummary",
+          "type": "object"
+        },
+        "NodeCapabilityCategorySummary": {
+          "properties": {
+            "category_id": {
+              "title": "Category Id",
+              "type": "string"
+            },
+            "item_count": {
+              "default": 0,
+              "title": "Item Count",
+              "type": "integer"
+            },
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Items",
+              "type": "array"
+            },
+            "label": {
+              "title": "Label",
+              "type": "string"
+            }
+          },
+          "required": [
+            "category_id",
+            "label"
+          ],
+          "title": "NodeCapabilityCategorySummary",
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "activation": {
+          "$ref": "#/$defs/NodeCapabilityActivationSummary"
+        },
+        "categories": {
+          "items": {
+            "$ref": "#/$defs/NodeCapabilityCategorySummary"
+          },
+          "title": "Categories",
+          "type": "array"
+        },
+        "version": {
+          "default": "1",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "title": "NodeCapabilityTaxonomySummary",
+      "type": "object"
+    },
+    "NodeRecord": {
+      "$defs": {
+        "NodeCapabilityActivationSummary": {
+          "properties": {
+            "declaration_received": {
+              "default": false,
+              "title": "Declaration Received",
+              "type": "boolean"
+            },
+            "governance_issued": {
+              "default": false,
+              "title": "Governance Issued",
+              "type": "boolean"
+            },
+            "operational": {
+              "default": false,
+              "title": "Operational",
+              "type": "boolean"
+            },
+            "profile_accepted": {
+              "default": false,
+              "title": "Profile Accepted",
+              "type": "boolean"
+            },
+            "stage": {
+              "default": "not_declared",
+              "title": "Stage",
+              "type": "string"
+            }
+          },
+          "title": "NodeCapabilityActivationSummary",
+          "type": "object"
+        },
+        "NodeCapabilityCategorySummary": {
+          "properties": {
+            "category_id": {
+              "title": "Category Id",
+              "type": "string"
+            },
+            "item_count": {
+              "default": 0,
+              "title": "Item Count",
+              "type": "integer"
+            },
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Items",
+              "type": "array"
+            },
+            "label": {
+              "title": "Label",
+              "type": "string"
+            }
+          },
+          "required": [
+            "category_id",
+            "label"
+          ],
+          "title": "NodeCapabilityCategorySummary",
+          "type": "object"
+        },
+        "NodeCapabilitySummary": {
+          "properties": {
+            "capability_declaration_timestamp": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Capability Declaration Timestamp"
+            },
+            "capability_declaration_version": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Capability Declaration Version"
+            },
+            "capability_profile_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Capability Profile Id"
+            },
+            "capability_status": {
+              "default": "missing",
+              "title": "Capability Status",
+              "type": "string"
+            },
+            "declared_capabilities": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Declared Capabilities",
+              "type": "array"
+            },
+            "enabled_providers": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Enabled Providers",
+              "type": "array"
+            },
+            "taxonomy": {
+              "$ref": "#/$defs/NodeCapabilityTaxonomySummary"
+            }
+          },
+          "title": "NodeCapabilitySummary",
+          "type": "object"
+        },
+        "NodeCapabilityTaxonomySummary": {
+          "properties": {
+            "activation": {
+              "$ref": "#/$defs/NodeCapabilityActivationSummary"
+            },
+            "categories": {
+              "items": {
+                "$ref": "#/$defs/NodeCapabilityCategorySummary"
+              },
+              "title": "Categories",
+              "type": "array"
+            },
+            "version": {
+              "default": "1",
+              "title": "Version",
+              "type": "string"
+            }
+          },
+          "title": "NodeCapabilityTaxonomySummary",
+          "type": "object"
+        },
+        "NodeStatusSummary": {
+          "properties": {
+            "active_governance_version": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Active Governance Version"
+            },
+            "governance_freshness_changed_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Governance Freshness Changed At"
+            },
+            "governance_freshness_state": {
+              "default": "pending",
+              "title": "Governance Freshness State",
+              "type": "string"
+            },
+            "governance_last_issued_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Governance Last Issued At"
+            },
+            "governance_last_refresh_request_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Governance Last Refresh Request At"
+            },
+            "governance_outdated": {
+              "default": false,
+              "title": "Governance Outdated",
+              "type": "boolean"
+            },
+            "governance_stale_for_s": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Governance Stale For S"
+            },
+            "governance_sync_status": {
+              "default": "pending",
+              "title": "Governance Sync Status",
+              "type": "string"
+            },
+            "operational_ready": {
+              "default": false,
+              "title": "Operational Ready",
+              "type": "boolean"
+            },
+            "registry_state": {
+              "default": "pending",
+              "title": "Registry State",
+              "type": "string"
+            },
+            "trust_status": {
+              "default": "pending",
+              "title": "Trust Status",
+              "type": "string"
+            }
+          },
+          "title": "NodeStatusSummary",
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "api_base_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Api Base Url"
+        },
+        "approved_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved At"
+        },
+        "approved_by_user_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved By User Id"
+        },
+        "capabilities": {
+          "$ref": "#/$defs/NodeCapabilitySummary"
+        },
+        "created_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Created At"
+        },
+        "node_id": {
+          "title": "Node Id",
+          "type": "string"
+        },
+        "node_name": {
+          "title": "Node Name",
+          "type": "string"
+        },
+        "node_software_version": {
+          "title": "Node Software Version",
+          "type": "string"
+        },
+        "node_type": {
+          "title": "Node Type",
+          "type": "string"
+        },
+        "provider_intelligence": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Provider Intelligence",
+          "type": "array"
+        },
+        "requested_api_base_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Requested Api Base Url"
+        },
+        "requested_hostname": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Requested Hostname"
+        },
+        "requested_node_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Requested Node Type"
+        },
+        "requested_ui_endpoint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Requested Ui Endpoint"
+        },
+        "source_onboarding_session_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Onboarding Session Id"
+        },
+        "status": {
+          "$ref": "#/$defs/NodeStatusSummary"
+        },
+        "ui_base_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ui Base Url"
+        },
+        "ui_enabled": {
+          "default": false,
+          "title": "Ui Enabled",
+          "type": "boolean"
+        },
+        "ui_health_endpoint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ui Health Endpoint"
+        },
+        "ui_mode": {
+          "default": "spa",
+          "enum": [
+            "spa",
+            "server"
+          ],
+          "title": "Ui Mode",
+          "type": "string"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Updated At"
+        }
+      },
+      "required": [
+        "node_id",
+        "node_name",
+        "node_type",
+        "node_software_version"
+      ],
+      "title": "NodeRecord",
+      "type": "object"
+    },
+    "NodeRegistryListResponse": {
+      "$defs": {
+        "NodeCapabilityActivationSummary": {
+          "properties": {
+            "declaration_received": {
+              "default": false,
+              "title": "Declaration Received",
+              "type": "boolean"
+            },
+            "governance_issued": {
+              "default": false,
+              "title": "Governance Issued",
+              "type": "boolean"
+            },
+            "operational": {
+              "default": false,
+              "title": "Operational",
+              "type": "boolean"
+            },
+            "profile_accepted": {
+              "default": false,
+              "title": "Profile Accepted",
+              "type": "boolean"
+            },
+            "stage": {
+              "default": "not_declared",
+              "title": "Stage",
+              "type": "string"
+            }
+          },
+          "title": "NodeCapabilityActivationSummary",
+          "type": "object"
+        },
+        "NodeCapabilityCategorySummary": {
+          "properties": {
+            "category_id": {
+              "title": "Category Id",
+              "type": "string"
+            },
+            "item_count": {
+              "default": 0,
+              "title": "Item Count",
+              "type": "integer"
+            },
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Items",
+              "type": "array"
+            },
+            "label": {
+              "title": "Label",
+              "type": "string"
+            }
+          },
+          "required": [
+            "category_id",
+            "label"
+          ],
+          "title": "NodeCapabilityCategorySummary",
+          "type": "object"
+        },
+        "NodeCapabilitySummary": {
+          "properties": {
+            "capability_declaration_timestamp": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Capability Declaration Timestamp"
+            },
+            "capability_declaration_version": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Capability Declaration Version"
+            },
+            "capability_profile_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Capability Profile Id"
+            },
+            "capability_status": {
+              "default": "missing",
+              "title": "Capability Status",
+              "type": "string"
+            },
+            "declared_capabilities": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Declared Capabilities",
+              "type": "array"
+            },
+            "enabled_providers": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Enabled Providers",
+              "type": "array"
+            },
+            "taxonomy": {
+              "$ref": "#/$defs/NodeCapabilityTaxonomySummary"
+            }
+          },
+          "title": "NodeCapabilitySummary",
+          "type": "object"
+        },
+        "NodeCapabilityTaxonomySummary": {
+          "properties": {
+            "activation": {
+              "$ref": "#/$defs/NodeCapabilityActivationSummary"
+            },
+            "categories": {
+              "items": {
+                "$ref": "#/$defs/NodeCapabilityCategorySummary"
+              },
+              "title": "Categories",
+              "type": "array"
+            },
+            "version": {
+              "default": "1",
+              "title": "Version",
+              "type": "string"
+            }
+          },
+          "title": "NodeCapabilityTaxonomySummary",
+          "type": "object"
+        },
+        "NodeRecord": {
+          "properties": {
+            "api_base_url": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Api Base Url"
+            },
+            "approved_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Approved At"
+            },
+            "approved_by_user_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Approved By User Id"
+            },
+            "capabilities": {
+              "$ref": "#/$defs/NodeCapabilitySummary"
+            },
+            "created_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Created At"
+            },
+            "node_id": {
+              "title": "Node Id",
+              "type": "string"
+            },
+            "node_name": {
+              "title": "Node Name",
+              "type": "string"
+            },
+            "node_software_version": {
+              "title": "Node Software Version",
+              "type": "string"
+            },
+            "node_type": {
+              "title": "Node Type",
+              "type": "string"
+            },
+            "provider_intelligence": {
+              "items": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "title": "Provider Intelligence",
+              "type": "array"
+            },
+            "requested_api_base_url": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Requested Api Base Url"
+            },
+            "requested_hostname": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Requested Hostname"
+            },
+            "requested_node_type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Requested Node Type"
+            },
+            "requested_ui_endpoint": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Requested Ui Endpoint"
+            },
+            "source_onboarding_session_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Source Onboarding Session Id"
+            },
+            "status": {
+              "$ref": "#/$defs/NodeStatusSummary"
+            },
+            "ui_base_url": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Ui Base Url"
+            },
+            "ui_enabled": {
+              "default": false,
+              "title": "Ui Enabled",
+              "type": "boolean"
+            },
+            "ui_health_endpoint": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Ui Health Endpoint"
+            },
+            "ui_mode": {
+              "default": "spa",
+              "enum": [
+                "spa",
+                "server"
+              ],
+              "title": "Ui Mode",
+              "type": "string"
+            },
+            "updated_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Updated At"
+            }
+          },
+          "required": [
+            "node_id",
+            "node_name",
+            "node_type",
+            "node_software_version"
+          ],
+          "title": "NodeRecord",
+          "type": "object"
+        },
+        "NodeStatusSummary": {
+          "properties": {
+            "active_governance_version": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Active Governance Version"
+            },
+            "governance_freshness_changed_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Governance Freshness Changed At"
+            },
+            "governance_freshness_state": {
+              "default": "pending",
+              "title": "Governance Freshness State",
+              "type": "string"
+            },
+            "governance_last_issued_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Governance Last Issued At"
+            },
+            "governance_last_refresh_request_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Governance Last Refresh Request At"
+            },
+            "governance_outdated": {
+              "default": false,
+              "title": "Governance Outdated",
+              "type": "boolean"
+            },
+            "governance_stale_for_s": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Governance Stale For S"
+            },
+            "governance_sync_status": {
+              "default": "pending",
+              "title": "Governance Sync Status",
+              "type": "string"
+            },
+            "operational_ready": {
+              "default": false,
+              "title": "Operational Ready",
+              "type": "boolean"
+            },
+            "registry_state": {
+              "default": "pending",
+              "title": "Registry State",
+              "type": "string"
+            },
+            "trust_status": {
+              "default": "pending",
+              "title": "Trust Status",
+              "type": "string"
+            }
+          },
+          "title": "NodeStatusSummary",
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/NodeRecord"
+          },
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "title": "NodeRegistryListResponse",
+      "type": "object"
+    },
+    "NodeStatusSummary": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "active_governance_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Active Governance Version"
+        },
+        "governance_freshness_changed_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Governance Freshness Changed At"
+        },
+        "governance_freshness_state": {
+          "default": "pending",
+          "title": "Governance Freshness State",
+          "type": "string"
+        },
+        "governance_last_issued_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Governance Last Issued At"
+        },
+        "governance_last_refresh_request_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Governance Last Refresh Request At"
+        },
+        "governance_outdated": {
+          "default": false,
+          "title": "Governance Outdated",
+          "type": "boolean"
+        },
+        "governance_stale_for_s": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Governance Stale For S"
+        },
+        "governance_sync_status": {
+          "default": "pending",
+          "title": "Governance Sync Status",
+          "type": "string"
+        },
+        "operational_ready": {
+          "default": false,
+          "title": "Operational Ready",
+          "type": "boolean"
+        },
+        "registry_state": {
+          "default": "pending",
+          "title": "Registry State",
+          "type": "string"
+        },
+        "trust_status": {
+          "default": "pending",
+          "title": "Trust Status",
+          "type": "string"
+        }
+      },
+      "title": "NodeStatusSummary",
+      "type": "object"
+    }
+  },
+  "title": "Hexe Node Registry Models",
+  "type": "object"
+}

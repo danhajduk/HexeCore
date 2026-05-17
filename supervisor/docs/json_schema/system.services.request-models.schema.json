@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Catalog of Core-owned schemas generated from app.system.services.router.",
+  "schemas": {
+    "ServiceRegisterRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "addon_id": {
+          "minLength": 1,
+          "title": "Addon Id",
+          "type": "string"
+        },
+        "auth_modes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Auth Modes",
+          "type": "array"
+        },
+        "capabilities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Capabilities",
+          "type": "array"
+        },
+        "declared_capacity": {
+          "additionalProperties": true,
+          "title": "Declared Capacity",
+          "type": "object"
+        },
+        "endpoint": {
+          "minLength": 1,
+          "title": "Endpoint",
+          "type": "string"
+        },
+        "health": {
+          "default": "unknown",
+          "minLength": 1,
+          "title": "Health",
+          "type": "string"
+        },
+        "models": {
+          "items": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "title": "Models",
+          "type": "array"
+        },
+        "provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider"
+        },
+        "required_scopes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Scopes",
+          "type": "array"
+        },
+        "service_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Service Id"
+        },
+        "service_type": {
+          "minLength": 1,
+          "title": "Service Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "service_type",
+        "addon_id",
+        "endpoint"
+      ],
+      "title": "ServiceRegisterRequest",
+      "type": "object"
+    }
+  },
+  "title": "Hexe System Services Request Models",
+  "type": "object"
+}

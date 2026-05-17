@@ -1,0 +1,1184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Catalog of Core-owned schemas generated from app.system.scheduler.models.",
+  "schemas": {
+    "AckJobIntentRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "lease_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lease Id"
+        }
+      },
+      "title": "AckJobIntentRequest",
+      "type": "object"
+    },
+    "AckJobIntentResponse": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "ok": {
+          "title": "Ok",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "title": "AckJobIntentResponse",
+      "type": "object"
+    },
+    "CancelJobIntentResponse": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "ok": {
+          "title": "Ok",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "title": "CancelJobIntentResponse",
+      "type": "object"
+    },
+    "CompleteJobIntentRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "actual_compute_spend": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Actual Compute Spend"
+        },
+        "actual_money_spend": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Actual Money Spend"
+        },
+        "status": {
+          "pattern": "^(DONE|FAILED)$",
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "CompleteJobIntentRequest",
+      "type": "object"
+    },
+    "CompleteJobIntentResponse": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "ok": {
+          "title": "Ok",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "title": "CompleteJobIntentResponse",
+      "type": "object"
+    },
+    "CompleteLeaseRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error"
+        },
+        "result": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Result"
+        },
+        "status": {
+          "pattern": "^(completed|failed)$",
+          "title": "Status",
+          "type": "string"
+        },
+        "worker_id": {
+          "title": "Worker Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "worker_id",
+        "status"
+      ],
+      "title": "CompleteLeaseRequest",
+      "type": "object"
+    },
+    "CompleteLeaseResponse": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "ok": {
+          "title": "Ok",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "title": "CompleteLeaseResponse",
+      "type": "object"
+    },
+    "HeartbeatRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "worker_id": {
+          "title": "Worker Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "worker_id"
+      ],
+      "title": "HeartbeatRequest",
+      "type": "object"
+    },
+    "HeartbeatResponse": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "ok": {
+          "title": "Ok",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ok",
+        "expires_at"
+      ],
+      "title": "HeartbeatResponse",
+      "type": "object"
+    },
+    "Job": {
+      "$defs": {
+        "JobPriority": {
+          "enum": [
+            "high",
+            "normal",
+            "low",
+            "background"
+          ],
+          "title": "JobPriority",
+          "type": "string"
+        },
+        "JobState": {
+          "enum": [
+            "queued",
+            "leased",
+            "running",
+            "completed",
+            "failed",
+            "expired"
+          ],
+          "title": "JobState",
+          "type": "string"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "idempotency_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Idempotency Key"
+        },
+        "job_id": {
+          "title": "Job Id",
+          "type": "string"
+        },
+        "lease_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lease Id"
+        },
+        "max_runtime_s": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Runtime S"
+        },
+        "payload": {
+          "additionalProperties": true,
+          "title": "Payload",
+          "type": "object"
+        },
+        "priority": {
+          "$ref": "#/$defs/JobPriority",
+          "default": "normal"
+        },
+        "requested_units": {
+          "default": 1,
+          "title": "Requested Units",
+          "type": "integer"
+        },
+        "state": {
+          "$ref": "#/$defs/JobState",
+          "default": "queued"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "type": {
+          "default": "generic",
+          "title": "Type",
+          "type": "string"
+        },
+        "unique": {
+          "default": false,
+          "title": "Unique",
+          "type": "boolean"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "job_id",
+        "created_at",
+        "updated_at"
+      ],
+      "title": "Job",
+      "type": "object"
+    },
+    "JobIntent": {
+      "$defs": {
+        "JobPriority": {
+          "enum": [
+            "high",
+            "normal",
+            "low",
+            "background"
+          ],
+          "title": "JobPriority",
+          "type": "string"
+        },
+        "QueueJobState": {
+          "enum": [
+            "QUEUED",
+            "DISPATCHING",
+            "RUNNING",
+            "DONE",
+            "FAILED",
+            "CANCELED"
+          ],
+          "title": "QueueJobState",
+          "type": "string"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "addon_id": {
+          "title": "Addon Id",
+          "type": "string"
+        },
+        "attempts": {
+          "default": 0,
+          "title": "Attempts",
+          "type": "integer"
+        },
+        "constraints": {
+          "additionalProperties": true,
+          "title": "Constraints",
+          "type": "object"
+        },
+        "cost_units": {
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Cost Units",
+          "type": "integer"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "deadline_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Deadline At"
+        },
+        "earliest_start_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Earliest Start At"
+        },
+        "expected_duration_sec": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected Duration Sec"
+        },
+        "job_id": {
+          "title": "Job Id",
+          "type": "string"
+        },
+        "job_type": {
+          "title": "Job Type",
+          "type": "string"
+        },
+        "lease_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lease Id"
+        },
+        "max_runtime_sec": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Runtime Sec"
+        },
+        "next_earliest_start_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Earliest Start At"
+        },
+        "payload": {
+          "additionalProperties": true,
+          "title": "Payload",
+          "type": "object"
+        },
+        "priority": {
+          "$ref": "#/$defs/JobPriority",
+          "default": "normal"
+        },
+        "state": {
+          "$ref": "#/$defs/QueueJobState",
+          "default": "QUEUED"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "time_sensitive": {
+          "default": false,
+          "title": "Time Sensitive",
+          "type": "boolean"
+        },
+        "updated_at": {
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "job_id",
+        "addon_id",
+        "job_type",
+        "cost_units",
+        "created_at",
+        "updated_at"
+      ],
+      "title": "JobIntent",
+      "type": "object"
+    },
+    "Lease": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "capacity_units": {
+          "title": "Capacity Units",
+          "type": "integer"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "issued_at": {
+          "format": "date-time",
+          "title": "Issued At",
+          "type": "string"
+        },
+        "job_id": {
+          "title": "Job Id",
+          "type": "string"
+        },
+        "last_heartbeat": {
+          "format": "date-time",
+          "title": "Last Heartbeat",
+          "type": "string"
+        },
+        "lease_id": {
+          "title": "Lease Id",
+          "type": "string"
+        },
+        "worker_id": {
+          "title": "Worker Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "lease_id",
+        "job_id",
+        "worker_id",
+        "capacity_units",
+        "issued_at",
+        "expires_at",
+        "last_heartbeat"
+      ],
+      "title": "Lease",
+      "type": "object"
+    },
+    "ReportLeaseRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "metrics": {
+          "additionalProperties": true,
+          "title": "Metrics",
+          "type": "object"
+        },
+        "progress": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Progress"
+        },
+        "worker_id": {
+          "title": "Worker Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "worker_id"
+      ],
+      "title": "ReportLeaseRequest",
+      "type": "object"
+    },
+    "ReportLeaseResponse": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "ok": {
+          "title": "Ok",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "title": "ReportLeaseResponse",
+      "type": "object"
+    },
+    "RequestLeaseDenied": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "denied": {
+          "default": true,
+          "title": "Denied",
+          "type": "boolean"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "retry_after_ms": {
+          "default": 1500,
+          "title": "Retry After Ms",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "title": "RequestLeaseDenied",
+      "type": "object"
+    },
+    "RequestLeaseGranted": {
+      "$defs": {
+        "Job": {
+          "properties": {
+            "created_at": {
+              "format": "date-time",
+              "title": "Created At",
+              "type": "string"
+            },
+            "idempotency_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Idempotency Key"
+            },
+            "job_id": {
+              "title": "Job Id",
+              "type": "string"
+            },
+            "lease_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Lease Id"
+            },
+            "max_runtime_s": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Max Runtime S"
+            },
+            "payload": {
+              "additionalProperties": true,
+              "title": "Payload",
+              "type": "object"
+            },
+            "priority": {
+              "$ref": "#/$defs/JobPriority",
+              "default": "normal"
+            },
+            "requested_units": {
+              "default": 1,
+              "title": "Requested Units",
+              "type": "integer"
+            },
+            "state": {
+              "$ref": "#/$defs/JobState",
+              "default": "queued"
+            },
+            "tags": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Tags",
+              "type": "array"
+            },
+            "type": {
+              "default": "generic",
+              "title": "Type",
+              "type": "string"
+            },
+            "unique": {
+              "default": false,
+              "title": "Unique",
+              "type": "boolean"
+            },
+            "updated_at": {
+              "format": "date-time",
+              "title": "Updated At",
+              "type": "string"
+            }
+          },
+          "required": [
+            "job_id",
+            "created_at",
+            "updated_at"
+          ],
+          "title": "Job",
+          "type": "object"
+        },
+        "JobPriority": {
+          "enum": [
+            "high",
+            "normal",
+            "low",
+            "background"
+          ],
+          "title": "JobPriority",
+          "type": "string"
+        },
+        "JobState": {
+          "enum": [
+            "queued",
+            "leased",
+            "running",
+            "completed",
+            "failed",
+            "expired"
+          ],
+          "title": "JobState",
+          "type": "string"
+        },
+        "Lease": {
+          "properties": {
+            "capacity_units": {
+              "title": "Capacity Units",
+              "type": "integer"
+            },
+            "expires_at": {
+              "format": "date-time",
+              "title": "Expires At",
+              "type": "string"
+            },
+            "issued_at": {
+              "format": "date-time",
+              "title": "Issued At",
+              "type": "string"
+            },
+            "job_id": {
+              "title": "Job Id",
+              "type": "string"
+            },
+            "last_heartbeat": {
+              "format": "date-time",
+              "title": "Last Heartbeat",
+              "type": "string"
+            },
+            "lease_id": {
+              "title": "Lease Id",
+              "type": "string"
+            },
+            "worker_id": {
+              "title": "Worker Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "lease_id",
+            "job_id",
+            "worker_id",
+            "capacity_units",
+            "issued_at",
+            "expires_at",
+            "last_heartbeat"
+          ],
+          "title": "Lease",
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "denied": {
+          "default": false,
+          "title": "Denied",
+          "type": "boolean"
+        },
+        "job": {
+          "$ref": "#/$defs/Job"
+        },
+        "lease": {
+          "$ref": "#/$defs/Lease"
+        }
+      },
+      "required": [
+        "lease",
+        "job"
+      ],
+      "title": "RequestLeaseGranted",
+      "type": "object"
+    },
+    "RequestLeaseRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "capabilities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Capabilities",
+          "type": "array"
+        },
+        "max_units": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Units"
+        },
+        "worker_id": {
+          "title": "Worker Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "worker_id"
+      ],
+      "title": "RequestLeaseRequest",
+      "type": "object"
+    },
+    "RevokeLeaseRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "title": "RevokeLeaseRequest",
+      "type": "object"
+    },
+    "RevokeLeaseResponse": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "ok": {
+          "title": "Ok",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "title": "RevokeLeaseResponse",
+      "type": "object"
+    },
+    "SchedulerSnapshot": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "active_leases": {
+          "title": "Active Leases",
+          "type": "integer"
+        },
+        "available_capacity_units": {
+          "title": "Available Capacity Units",
+          "type": "integer"
+        },
+        "busy_rating": {
+          "title": "Busy Rating",
+          "type": "integer"
+        },
+        "leased_capacity_units": {
+          "title": "Leased Capacity Units",
+          "type": "integer"
+        },
+        "queue_depths": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Queue Depths",
+          "type": "object"
+        },
+        "total_capacity_units": {
+          "title": "Total Capacity Units",
+          "type": "integer"
+        },
+        "usable_capacity_units": {
+          "title": "Usable Capacity Units",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "busy_rating",
+        "total_capacity_units",
+        "usable_capacity_units",
+        "leased_capacity_units",
+        "available_capacity_units",
+        "queue_depths",
+        "active_leases"
+      ],
+      "title": "SchedulerSnapshot",
+      "type": "object"
+    },
+    "SubmitJobIntentRequest": {
+      "$defs": {
+        "JobPriority": {
+          "enum": [
+            "high",
+            "normal",
+            "low",
+            "background"
+          ],
+          "title": "JobPriority",
+          "type": "string"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "addon_id": {
+          "title": "Addon Id",
+          "type": "string"
+        },
+        "constraints": {
+          "additionalProperties": true,
+          "title": "Constraints",
+          "type": "object"
+        },
+        "cost_units": {
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Cost Units",
+          "type": "integer"
+        },
+        "deadline_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Deadline At"
+        },
+        "earliest_start_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Earliest Start At"
+        },
+        "expected_duration_sec": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected Duration Sec"
+        },
+        "job_type": {
+          "title": "Job Type",
+          "type": "string"
+        },
+        "max_runtime_sec": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Runtime Sec"
+        },
+        "payload": {
+          "additionalProperties": true,
+          "title": "Payload",
+          "type": "object"
+        },
+        "priority": {
+          "$ref": "#/$defs/JobPriority",
+          "default": "normal"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "time_sensitive": {
+          "default": false,
+          "title": "Time Sensitive",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "addon_id",
+        "job_type",
+        "cost_units"
+      ],
+      "title": "SubmitJobIntentRequest",
+      "type": "object"
+    },
+    "SubmitJobIntentResponse": {
+      "$defs": {
+        "QueueJobState": {
+          "enum": [
+            "QUEUED",
+            "DISPATCHING",
+            "RUNNING",
+            "DONE",
+            "FAILED",
+            "CANCELED"
+          ],
+          "title": "QueueJobState",
+          "type": "string"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "job_id": {
+          "title": "Job Id",
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/QueueJobState"
+        }
+      },
+      "required": [
+        "job_id",
+        "state"
+      ],
+      "title": "SubmitJobIntentResponse",
+      "type": "object"
+    },
+    "SubmitJobRequest": {
+      "$defs": {
+        "JobPriority": {
+          "enum": [
+            "high",
+            "normal",
+            "low",
+            "background"
+          ],
+          "title": "JobPriority",
+          "type": "string"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "idempotency_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Idempotency Key"
+        },
+        "max_runtime_s": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Runtime S"
+        },
+        "payload": {
+          "additionalProperties": true,
+          "title": "Payload",
+          "type": "object"
+        },
+        "priority": {
+          "$ref": "#/$defs/JobPriority",
+          "default": "normal"
+        },
+        "requested_units": {
+          "default": 1,
+          "title": "Requested Units",
+          "type": "integer"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "type": {
+          "default": "generic",
+          "title": "Type",
+          "type": "string"
+        },
+        "unique": {
+          "default": false,
+          "title": "Unique",
+          "type": "boolean"
+        }
+      },
+      "title": "SubmitJobRequest",
+      "type": "object"
+    },
+    "SubmitJobResponse": {
+      "$defs": {
+        "JobState": {
+          "enum": [
+            "queued",
+            "leased",
+            "running",
+            "completed",
+            "failed",
+            "expired"
+          ],
+          "title": "JobState",
+          "type": "string"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "job_id": {
+          "title": "Job Id",
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/JobState"
+        }
+      },
+      "required": [
+        "job_id",
+        "state"
+      ],
+      "title": "SubmitJobResponse",
+      "type": "object"
+    }
+  },
+  "title": "Hexe Scheduler Models",
+  "type": "object"
+}

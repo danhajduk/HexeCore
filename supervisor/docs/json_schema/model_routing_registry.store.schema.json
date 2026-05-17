@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Schema for data/model_routing_registry.json.",
+  "properties": {
+    "items": {
+      "items": {
+        "additionalProperties": true,
+        "properties": {
+          "latency_metrics": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object"
+          },
+          "model_capacity": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "model_id": {
+            "type": "string"
+          },
+          "node_available": {
+            "type": "boolean"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "normalized_model_id": {
+            "type": "string"
+          },
+          "pricing": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "provider_capacity": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "schema_version": {
+            "type": "string"
+          },
+          "service_capacity": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "source": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "node_id",
+          "provider",
+          "model_id",
+          "normalized_model_id",
+          "node_available",
+          "source",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "items"
+  ],
+  "title": "Hexe Model Routing Registry Store",
+  "type": "object"
+}

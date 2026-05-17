@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hexe.local/schemas/node/full-onboarding-metadata.schema.json",
+  "title": "Node Full Onboarding Metadata",
+  "description": "Admin-submitted node-owned endpoint and UI metadata for initial onboarding or later registration metadata refresh. Core-owned identity, trust, governance, MQTT, and budget fields are intentionally excluded.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "hostname",
+    "ui_endpoint",
+    "api_base_url",
+    "ui_enabled",
+    "ui_base_url",
+    "ui_mode",
+    "ui_health_endpoint"
+  ],
+  "properties": {
+    "metadata_schema_version": {
+      "type": "string",
+      "const": "1.0",
+      "default": "1.0",
+      "description": "Schema version for this metadata payload."
+    },
+    "hostname": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "description": "Operator-visible node host hint. This may be a hostname, host:port, or null when unknown."
+    },
+    "ui_endpoint": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uri",
+      "pattern": "^https?://",
+      "description": "Absolute node-owned UI endpoint requested by the node. This is retained as request metadata and may be null when the node should not expose independent UI."
+    },
+    "api_base_url": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uri",
+      "pattern": "^https?://",
+      "description": "Absolute node API origin or API base. Core normalizes a URL without a path to /api."
+    },
+    "ui_enabled": {
+      "type": "boolean",
+      "description": "Whether Core may expose the node-owned UI through the legacy node UI proxy. Core-rendered UI does not require this to be true."
+    },
+    "ui_base_url": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uri",
+      "pattern": "^https?://",
+      "description": "Canonical node-owned UI base URL when legacy proxied UI should be enabled, or null when no independent UI is served."
+    },
+    "ui_mode": {
+      "type": "string",
+      "enum": [
+        "spa",
+        "server"
+      ],
+      "description": "Rendering mode for the node-owned UI."
+    },
+    "ui_health_endpoint": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uri",
+      "pattern": "^https?://",
+      "description": "Optional absolute health endpoint for the node-owned UI proxy health check."
+    }
+  },
+  "examples": [
+    {
+      "metadata_schema_version": "1.0",
+      "hostname": "10.0.0.100",
+      "api_base_url": "http://10.0.0.100:9004",
+      "ui_endpoint": "http://10.0.0.100:8082",
+      "ui_enabled": false,
+      "ui_base_url": null,
+      "ui_mode": "spa",
+      "ui_health_endpoint": null
+    }
+  ]
+}

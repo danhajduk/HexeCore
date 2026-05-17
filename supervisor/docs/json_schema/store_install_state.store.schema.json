@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": {
+    "additionalProperties": true,
+    "properties": {
+      "installed_at": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "installed_version": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "last_install_error": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "last_install_finished_at": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "last_install_started_at": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "last_release_version": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "last_source_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    "type": "object"
+  },
+  "description": "Schema for var/store_install_state.json.",
+  "title": "Hexe Store Install State Store",
+  "type": "object"
+}

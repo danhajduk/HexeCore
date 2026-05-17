@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hexe.local/schemas/node_originated_domain_event.schema.json",
+  "title": "Node Originated Domain Event",
+  "description": "Minimal Core-accepted MQTT payload shape for trusted-node domain events published to hexe/nodes/<node_id>/events/# before Core promotion.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "event_id",
+    "event_type",
+    "source",
+    "data"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 1
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "event_type": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+(\\.[a-z0-9_]+)+$",
+      "description": "Dotted lower-case event type matching the topic path after hexe/nodes/<node_id>/events/."
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "node_id"
+      ],
+      "properties": {
+        "node_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "component": {
+          "type": "string",
+          "minLength": 1,
+          "default": "node"
+        },
+        "node_type": {
+          "type": "string"
+        }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "family": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message_id": {
+          "type": "string"
+        },
+        "record_id": {
+          "type": "string"
+        },
+        "transaction_id": {
+          "type": "string"
+        }
+      }
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Small structured domain metadata. Core rejects or redacts unsafe shared-bus fields."
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "severity": {
+      "type": "string"
+    },
+    "priority": {
+      "type": "string"
+    },
+    "safety_critical": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

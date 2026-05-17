@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hexe.local/schemas/proxied_ui_metadata.schema.json",
+  "title": "Proxied UI Metadata",
+  "description": "Canonical JSON Schema for proxied UI metadata used by Hexe Core for node and addon UI compatibility and routing decisions.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "ui_enabled": {
+      "type": "boolean",
+      "default": false
+    },
+    "ui_mode": {
+      "type": "string",
+      "enum": [
+        "spa",
+        "server"
+      ]
+    },
+    "ui_base_url": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uri",
+      "pattern": "^https?://",
+      "description": "Internal Core-reachable UI origin. Must never be treated as a browser-public URL."
+    },
+    "ui_health_endpoint": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uri",
+      "pattern": "^https?://",
+      "description": "Optional internal health endpoint for UI availability probing."
+    },
+    "ui_supports_prefix": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the UI is known to work under a Core-owned public path prefix."
+    },
+    "ui_entry_path": {
+      "type": "string",
+      "default": "/",
+      "pattern": "^/.*",
+      "description": "Prefix-local UI entry path relative to ui_base_url."
+    },
+    "ui_websocket_enabled": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

@@ -1,0 +1,40 @@
+from __future__ import annotations
+
+from fastapi import APIRouter, Header, HTTPException, Request
+
+from ..addons.models import RegisteredAddon
+from ..addons.registry import AddonRegistry
+from .admin import require_admin_token
+
+
+def build_admin_registry_router(registry: AddonRegistry, mqtt_approval_service=None) -> APIRouter:
+    router = APIRouter()
+
+    @router.get("/admin/addons/registry")
+    def get_registered_addons(request: Request, x_admin_token: str | None = Header(default=None)):
+        require_admin_token(x_admin_token, request)
+        return [item.model_dump(mode="json") for item in registry.list_registered()]
+
+    @router.post("/admin/addons/registry")
+    def upsert_registered_addon(
+        body: RegisteredAddon,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        saved = registry.upsert_registered(body)
+        return {"ok": True, "addon": saved.model_dump(mode="json")}
+
+    @router.delete("/admin/addons/registry/{addon_id}")
+    async def delete_registered_addon(addon_id: str, request: Request, x_admin_token: str | None = Header(default=None)):
+        require_admin_token(x_admin_token, request)
+        if registry.is_platform_managed(addon_id):
+            raise HTTPException(status_code=403, detail="platform_managed_addon_cannot_be_unregistered")
+        deleted = registry.delete_registered(addon_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="addon_not_found")
+        if mqtt_approval_service is not None:
+            await mqtt_approval_service.revoke_or_mark(addon_id, reason="addon_untrusted_or_removed")
+        return {"ok": True, "id": addon_id}
+
+    return router

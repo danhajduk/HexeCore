@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": {
+    "type": "boolean"
+  },
+  "description": "Schema for data/addons_state.json.",
+  "title": "Hexe Addons Enabled State Store",
+  "type": "object"
+}

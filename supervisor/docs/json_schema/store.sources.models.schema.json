@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Catalog of Core-owned schemas generated from app.store.sources.",
+  "schemas": {
+    "StoreSource": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "base_url": {
+          "minLength": 1,
+          "title": "Base Url",
+          "type": "string"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "last_refresh_requested_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Refresh Requested At"
+        },
+        "refresh_seconds": {
+          "default": 300,
+          "maximum": 86400,
+          "minimum": 10,
+          "title": "Refresh Seconds",
+          "type": "integer"
+        },
+        "type": {
+          "const": "github_raw",
+          "default": "github_raw",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "base_url"
+      ],
+      "title": "StoreSource",
+      "type": "object"
+    }
+  },
+  "title": "Hexe Store Source Models",
+  "type": "object"
+}

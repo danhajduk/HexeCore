@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Schema for data/node_governance_bundles.json.",
+  "properties": {
+    "items": {
+      "items": {
+        "additionalProperties": true,
+        "properties": {
+          "budget_policy": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "capability_profile_id": {
+            "type": "string"
+          },
+          "capability_usage_constraints": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "feature_gating_defaults": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object"
+          },
+          "governance_version": {
+            "type": "string"
+          },
+          "issued_timestamp": {
+            "type": "string"
+          },
+          "node_class_rules": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "node_id": {
+            "type": "string"
+          },
+          "routing_policy_constraints": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "schema_version": {
+            "type": "string"
+          },
+          "telemetry_requirements": {
+            "additionalProperties": true,
+            "type": "object"
+          }
+        },
+        "required": [
+          "schema_version",
+          "node_id",
+          "capability_profile_id",
+          "governance_version",
+          "issued_timestamp"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "items"
+  ],
+  "title": "Hexe Node Governance Bundles Store",
+  "type": "object"
+}

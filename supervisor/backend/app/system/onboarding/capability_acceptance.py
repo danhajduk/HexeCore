@@ -1,0 +1,145 @@
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass
+from typing import Any
+
+from .capability_manifest import SUPPORTED_CAPABILITY_DECLARATION_VERSIONS
+from .capability_profiles import NodeCapabilityProfileRecord, NodeCapabilityProfilesStore
+from .provider_capability_normalization import normalize_provider_capability_report
+from .provider_model_policy import ProviderModelApprovalPolicyService
+
+
+def _normalized_set(raw: str) -> set[str]:
+    return {str(item or "").strip().lower() for item in str(raw or "").split(",") if str(item or "").strip()}
+
+
+def _allowed_task_families() -> set[str]:
+    return _normalized_set(os.getenv("SYNTHIA_NODE_ALLOWED_TASK_FAMILIES", ""))
+
+
+def _allowed_providers() -> set[str]:
+    return _normalized_set(os.getenv("SYNTHIA_NODE_ALLOWED_PROVIDERS", ""))
+
+
+@dataclass
+class CapabilityAcceptanceResult:
+    accepted: bool
+    error_code: str | None = None
+    message: str | None = None
+    profile: NodeCapabilityProfileRecord | None = None
+
+
+class NodeCapabilityAcceptanceService:
+    def __init__(
+        self,
+        profile_store: NodeCapabilityProfilesStore,
+        provider_model_policy: ProviderModelApprovalPolicyService | None = None,
+    ) -> None:
+        self._profiles = profile_store
+        self._provider_model_policy = provider_model_policy
+
+    def evaluate(self, *, node_id: str, manifest: dict[str, Any]) -> CapabilityAcceptanceResult:
+        version = str(manifest.get("manifest_version") or "").strip()
+        if version not in SUPPORTED_CAPABILITY_DECLARATION_VERSIONS:
+            return CapabilityAcceptanceResult(
+                accepted=False,
+                error_code="unsupported_capability_version",
+                message=f"manifest_version={version or 'missing'}",
+            )
+
+        families = [str(v).strip().lower() for v in list(manifest.get("declared_task_families") or []) if str(v).strip()]
+        providers_supported = [
+            str(v).strip().lower() for v in list(manifest.get("supported_providers") or []) if str(v).strip()
+        ]
+        providers_enabled = [str(v).strip().lower() for v in list(manifest.get("enabled_providers") or []) if str(v).strip()]
+        provider_intelligence = [
+            dict(item) for item in list(manifest.get("provider_intelligence") or []) if isinstance(item, dict)
+        ]
+        try:
+            provider_intelligence, unified_model_descriptors = normalize_provider_capability_report(provider_intelligence)
+        except ValueError as exc:
+            return CapabilityAcceptanceResult(
+                accepted=False,
+                error_code=str(exc) or "provider_capability_report_invalid",
+                message="provider capability metadata invalid",
+            )
+
+        allowed_families = _allowed_task_families()
+        if allowed_families:
+            unsupported = sorted(set(families) - allowed_families)
+            if unsupported:
+                return CapabilityAcceptanceResult(
+                    accepted=False,
+                    error_code="unsupported_task_family",
+                    message=",".join(unsupported),
+                )
+
+        allowed_providers = _allowed_providers()
+        if allowed_providers:
+            unsupported_providers = sorted((set(providers_supported) | set(providers_enabled)) - allowed_providers)
+            if unsupported_providers:
+                return CapabilityAcceptanceResult(
+                    accepted=False,
+                    error_code="unsupported_provider_identifier",
+                    message=",".join(unsupported_providers),
+                )
+
+        if any(provider not in providers_supported for provider in providers_enabled):
+            return CapabilityAcceptanceResult(
+                accepted=False,
+                error_code="enabled_provider_not_supported",
+                message="enabled providers must be subset of supported providers",
+            )
+
+        if self._provider_model_policy is not None:
+            for provider_info in provider_intelligence:
+                provider_id = str(provider_info.get("provider") or "").strip().lower()
+                models = provider_info.get("available_models")
+                if not provider_id or not isinstance(models, list):
+                    continue
+                if not self._provider_model_policy.has_explicit_policy(provider_id):
+                    continue
+                unapproved_models = sorted(
+                    {
+                        str(item.get("model_id") or "").strip()
+                        for item in models
+                        if isinstance(item, dict)
+                        and str(item.get("model_id") or "").strip()
+                        and not self._provider_model_policy.is_model_allowed(
+                            provider=provider_id,
+                            model_id=str(item.get("model_id") or "").strip(),
+                        )
+                    }
+                )
+                if unapproved_models:
+                    return CapabilityAcceptanceResult(
+                        accepted=False,
+                        error_code="provider_model_not_approved",
+                        message=f"{provider_id}:{','.join(unapproved_models)}",
+                    )
+
+        feature_raw = manifest.get("node_features")
+        feature_flags = feature_raw if isinstance(feature_raw, dict) else {}
+        normalized_features = {str(k): bool(v) for k, v in feature_flags.items()}
+
+        profile = self._profiles.create_or_get(
+            node_id=node_id,
+            manifest=manifest,
+            declared_task_families=families,
+            enabled_providers=providers_enabled,
+            provider_intelligence=provider_intelligence,
+            unified_model_descriptors=unified_model_descriptors,
+            feature_flags=normalized_features,
+            manifest_version=version,
+        )
+        return CapabilityAcceptanceResult(accepted=True, profile=profile)
+
+    def list_profiles(self, *, node_id: str | None = None) -> list[NodeCapabilityProfileRecord]:
+        return self._profiles.list(node_id=node_id)
+
+    def get_profile(self, profile_id: str) -> NodeCapabilityProfileRecord | None:
+        return self._profiles.get(profile_id)
+
+    def latest_profile_for_node(self, node_id: str) -> NodeCapabilityProfileRecord | None:
+        return self._profiles.latest_for_node(node_id)

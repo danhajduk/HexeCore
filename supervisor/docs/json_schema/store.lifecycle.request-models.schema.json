@@ -1,0 +1,960 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Catalog of Core-owned schemas generated from app.store.lifecycle.",
+  "schemas": {
+    "StoreInstallRequest": {
+      "$defs": {
+        "CompatibilitySpec": {
+          "properties": {
+            "conflicts": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Conflicts",
+              "type": "array"
+            },
+            "core_max_version": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Core Max Version"
+            },
+            "core_min_version": {
+              "minLength": 1,
+              "title": "Core Min Version",
+              "type": "string"
+            },
+            "dependencies": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Dependencies",
+              "type": "array"
+            }
+          },
+          "required": [
+            "core_min_version",
+            "dependencies",
+            "conflicts"
+          ],
+          "title": "CompatibilitySpec",
+          "type": "object"
+        },
+        "DockerGroupDeclaration": {
+          "properties": {
+            "compose_override_file": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Compose Override File"
+            },
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Description"
+            },
+            "display_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Display Name"
+            },
+            "name": {
+              "minLength": 1,
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "title": "DockerGroupDeclaration",
+          "type": "object"
+        },
+        "ReleaseManifest": {
+          "properties": {
+            "checksum": {
+              "minLength": 1,
+              "title": "Checksum",
+              "type": "string"
+            },
+            "compatibility": {
+              "$ref": "#/$defs/CompatibilitySpec"
+            },
+            "conflicts": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Conflicts",
+              "type": "array"
+            },
+            "core_max_version": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Core Max Version"
+            },
+            "core_min_version": {
+              "minLength": 1,
+              "title": "Core Min Version",
+              "type": "string"
+            },
+            "dependencies": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Dependencies",
+              "type": "array"
+            },
+            "docker_groups": {
+              "items": {
+                "$ref": "#/$defs/DockerGroupDeclaration"
+              },
+              "title": "Docker Groups",
+              "type": "array"
+            },
+            "id": {
+              "minLength": 1,
+              "title": "Id",
+              "type": "string"
+            },
+            "name": {
+              "minLength": 1,
+              "title": "Name",
+              "type": "string"
+            },
+            "package_profile": {
+              "default": "embedded_addon",
+              "enum": [
+                "embedded_addon",
+                "standalone_service"
+              ],
+              "title": "Package Profile",
+              "type": "string"
+            },
+            "permissions": {
+              "items": {
+                "enum": [
+                  "filesystem.read",
+                  "filesystem.write",
+                  "network.egress",
+                  "network.ingress",
+                  "process.spawn",
+                  "system.metrics.read",
+                  "mqtt.publish",
+                  "mqtt.subscribe"
+                ],
+                "type": "string"
+              },
+              "title": "Permissions",
+              "type": "array"
+            },
+            "publisher_id": {
+              "minLength": 1,
+              "title": "Publisher Id",
+              "type": "string"
+            },
+            "runtime_defaults": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/RuntimeDefaults"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "signature": {
+              "$ref": "#/$defs/SignatureBlock"
+            },
+            "version": {
+              "minLength": 1,
+              "title": "Version",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "version",
+            "core_min_version",
+            "dependencies",
+            "conflicts",
+            "checksum",
+            "publisher_id",
+            "permissions",
+            "compatibility"
+          ],
+          "title": "ReleaseManifest",
+          "type": "object"
+        },
+        "RuntimeDefaults": {
+          "properties": {
+            "bind_localhost": {
+              "default": true,
+              "title": "Bind Localhost",
+              "type": "boolean"
+            },
+            "ports": {
+              "items": {
+                "$ref": "#/$defs/RuntimePortDefault"
+              },
+              "title": "Ports",
+              "type": "array"
+            }
+          },
+          "title": "RuntimeDefaults",
+          "type": "object"
+        },
+        "RuntimePortDefault": {
+          "properties": {
+            "container": {
+              "maximum": 65535,
+              "minimum": 1,
+              "title": "Container",
+              "type": "integer"
+            },
+            "host": {
+              "maximum": 65535,
+              "minimum": 1,
+              "title": "Host",
+              "type": "integer"
+            },
+            "proto": {
+              "default": "tcp",
+              "enum": [
+                "tcp",
+                "udp"
+              ],
+              "title": "Proto",
+              "type": "string"
+            },
+            "purpose": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Purpose"
+            }
+          },
+          "required": [
+            "host",
+            "container"
+          ],
+          "title": "RuntimePortDefault",
+          "type": "object"
+        },
+        "SignatureBlock": {
+          "properties": {
+            "publisher_id": {
+              "default": "",
+              "title": "Publisher Id",
+              "type": "string"
+            },
+            "signature": {
+              "default": "",
+              "title": "Signature",
+              "type": "string"
+            }
+          },
+          "title": "SignatureBlock",
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "actor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Actor"
+        },
+        "addon_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Addon Id"
+        },
+        "channel": {
+          "default": "stable",
+          "title": "Channel",
+          "type": "string"
+        },
+        "config_env_overrides": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Config Env Overrides"
+        },
+        "desired_state": {
+          "default": "running",
+          "title": "Desired State",
+          "type": "string"
+        },
+        "enable": {
+          "default": true,
+          "title": "Enable",
+          "type": "boolean"
+        },
+        "enabled_docker_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enabled Docker Groups"
+        },
+        "force_rebuild": {
+          "default": false,
+          "title": "Force Rebuild",
+          "type": "boolean"
+        },
+        "install_mode": {
+          "default": "embedded_addon",
+          "title": "Install Mode",
+          "type": "string"
+        },
+        "manifest": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReleaseManifest"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "package_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Package Path"
+        },
+        "pinned_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pinned Version"
+        },
+        "public_key_pem": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Public Key Pem"
+        },
+        "runtime_overrides": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Runtime Overrides"
+        },
+        "source_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Id"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version"
+        }
+      },
+      "title": "StoreInstallRequest",
+      "type": "object"
+    },
+    "StoreStandaloneUpdateRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "actor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Actor"
+        },
+        "addon_id": {
+          "minLength": 1,
+          "title": "Addon Id",
+          "type": "string"
+        },
+        "channel": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Channel"
+        },
+        "config_env_overrides": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Config Env Overrides"
+        },
+        "desired_state": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Desired State"
+        },
+        "enabled_docker_groups": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enabled Docker Groups"
+        },
+        "force_rebuild": {
+          "default": false,
+          "title": "Force Rebuild",
+          "type": "boolean"
+        },
+        "pinned_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pinned Version"
+        },
+        "runtime_overrides": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Runtime Overrides"
+        },
+        "source_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Id"
+        }
+      },
+      "required": [
+        "addon_id"
+      ],
+      "title": "StoreStandaloneUpdateRequest",
+      "type": "object"
+    },
+    "StoreUninstallRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "actor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Actor"
+        },
+        "addon_id": {
+          "minLength": 1,
+          "title": "Addon Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "addon_id"
+      ],
+      "title": "StoreUninstallRequest",
+      "type": "object"
+    },
+    "StoreUpdateRequest": {
+      "$defs": {
+        "CompatibilitySpec": {
+          "properties": {
+            "conflicts": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Conflicts",
+              "type": "array"
+            },
+            "core_max_version": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Core Max Version"
+            },
+            "core_min_version": {
+              "minLength": 1,
+              "title": "Core Min Version",
+              "type": "string"
+            },
+            "dependencies": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Dependencies",
+              "type": "array"
+            }
+          },
+          "required": [
+            "core_min_version",
+            "dependencies",
+            "conflicts"
+          ],
+          "title": "CompatibilitySpec",
+          "type": "object"
+        },
+        "DockerGroupDeclaration": {
+          "properties": {
+            "compose_override_file": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Compose Override File"
+            },
+            "description": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Description"
+            },
+            "display_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Display Name"
+            },
+            "name": {
+              "minLength": 1,
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "title": "DockerGroupDeclaration",
+          "type": "object"
+        },
+        "ReleaseManifest": {
+          "properties": {
+            "checksum": {
+              "minLength": 1,
+              "title": "Checksum",
+              "type": "string"
+            },
+            "compatibility": {
+              "$ref": "#/$defs/CompatibilitySpec"
+            },
+            "conflicts": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Conflicts",
+              "type": "array"
+            },
+            "core_max_version": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Core Max Version"
+            },
+            "core_min_version": {
+              "minLength": 1,
+              "title": "Core Min Version",
+              "type": "string"
+            },
+            "dependencies": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Dependencies",
+              "type": "array"
+            },
+            "docker_groups": {
+              "items": {
+                "$ref": "#/$defs/DockerGroupDeclaration"
+              },
+              "title": "Docker Groups",
+              "type": "array"
+            },
+            "id": {
+              "minLength": 1,
+              "title": "Id",
+              "type": "string"
+            },
+            "name": {
+              "minLength": 1,
+              "title": "Name",
+              "type": "string"
+            },
+            "package_profile": {
+              "default": "embedded_addon",
+              "enum": [
+                "embedded_addon",
+                "standalone_service"
+              ],
+              "title": "Package Profile",
+              "type": "string"
+            },
+            "permissions": {
+              "items": {
+                "enum": [
+                  "filesystem.read",
+                  "filesystem.write",
+                  "network.egress",
+                  "network.ingress",
+                  "process.spawn",
+                  "system.metrics.read",
+                  "mqtt.publish",
+                  "mqtt.subscribe"
+                ],
+                "type": "string"
+              },
+              "title": "Permissions",
+              "type": "array"
+            },
+            "publisher_id": {
+              "minLength": 1,
+              "title": "Publisher Id",
+              "type": "string"
+            },
+            "runtime_defaults": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/RuntimeDefaults"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "signature": {
+              "$ref": "#/$defs/SignatureBlock"
+            },
+            "version": {
+              "minLength": 1,
+              "title": "Version",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "version",
+            "core_min_version",
+            "dependencies",
+            "conflicts",
+            "checksum",
+            "publisher_id",
+            "permissions",
+            "compatibility"
+          ],
+          "title": "ReleaseManifest",
+          "type": "object"
+        },
+        "RuntimeDefaults": {
+          "properties": {
+            "bind_localhost": {
+              "default": true,
+              "title": "Bind Localhost",
+              "type": "boolean"
+            },
+            "ports": {
+              "items": {
+                "$ref": "#/$defs/RuntimePortDefault"
+              },
+              "title": "Ports",
+              "type": "array"
+            }
+          },
+          "title": "RuntimeDefaults",
+          "type": "object"
+        },
+        "RuntimePortDefault": {
+          "properties": {
+            "container": {
+              "maximum": 65535,
+              "minimum": 1,
+              "title": "Container",
+              "type": "integer"
+            },
+            "host": {
+              "maximum": 65535,
+              "minimum": 1,
+              "title": "Host",
+              "type": "integer"
+            },
+            "proto": {
+              "default": "tcp",
+              "enum": [
+                "tcp",
+                "udp"
+              ],
+              "title": "Proto",
+              "type": "string"
+            },
+            "purpose": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Purpose"
+            }
+          },
+          "required": [
+            "host",
+            "container"
+          ],
+          "title": "RuntimePortDefault",
+          "type": "object"
+        },
+        "SignatureBlock": {
+          "properties": {
+            "publisher_id": {
+              "default": "",
+              "title": "Publisher Id",
+              "type": "string"
+            },
+            "signature": {
+              "default": "",
+              "title": "Signature",
+              "type": "string"
+            }
+          },
+          "title": "SignatureBlock",
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "actor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Actor"
+        },
+        "enable": {
+          "default": true,
+          "title": "Enable",
+          "type": "boolean"
+        },
+        "manifest": {
+          "$ref": "#/$defs/ReleaseManifest"
+        },
+        "package_path": {
+          "minLength": 1,
+          "title": "Package Path",
+          "type": "string"
+        },
+        "public_key_pem": {
+          "minLength": 1,
+          "title": "Public Key Pem",
+          "type": "string"
+        }
+      },
+      "required": [
+        "package_path",
+        "manifest",
+        "public_key_pem"
+      ],
+      "title": "StoreUpdateRequest",
+      "type": "object"
+    }
+  },
+  "title": "Hexe Store Lifecycle Request Models",
+  "type": "object"
+}

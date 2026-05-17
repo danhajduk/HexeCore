@@ -1,0 +1,657 @@
+# backend/app/system/scheduler/router.py
+from __future__ import annotations
+
+import asyncio
+import os
+import uuid
+from datetime import datetime, timezone, timedelta
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import JSONResponse
+
+from app.system.audit import AuditLogStore
+from app.system.events import PlatformEventService
+from app.system.onboarding import NodeBudgetService
+from app.supervisor.client import SupervisorApiClient
+
+from .engine import SchedulerEngine
+from .queue_store import QueueStore
+from .queue_persist import QueuePersistStore
+from .models import (
+    SubmitJobRequest, SubmitJobResponse, Job,
+    RequestLeaseRequest, RequestLeaseDenied, RequestLeaseGranted,
+    HeartbeatRequest, HeartbeatResponse,
+    CompleteLeaseRequest, CompleteLeaseResponse,
+    JobIntent, QueueJobState, JobPriority,
+    SubmitJobIntentRequest, SubmitJobIntentResponse,
+    CancelJobIntentResponse,
+    AckJobIntentRequest, AckJobIntentResponse,
+    CompleteJobIntentRequest, CompleteJobIntentResponse,
+    ReportLeaseRequest, ReportLeaseResponse,
+    RevokeLeaseRequest, RevokeLeaseResponse,
+    JobState,
+)
+
+def build_scheduler_router(
+    engine: SchedulerEngine,
+    debug_enabled: bool = False,
+    events: PlatformEventService | None = None,
+    supervisor_client: SupervisorApiClient | None = None,
+    node_budget_service: NodeBudgetService | None = None,
+    audit_store: AuditLogStore | None = None,
+) -> APIRouter:
+    router = APIRouter()
+    expire_task: asyncio.Task | None = None
+    dispatch_task: asyncio.Task | None = None
+    rehydrate_task: asyncio.Task | None = None
+    queue_store = QueueStore()
+    queue_db = os.getenv(
+        "SCHEDULER_QUEUE_DB",
+        os.path.join(os.getcwd(), "var", "scheduler_queue.db"),
+    )
+    queue_persist = QueuePersistStore(queue_db)
+
+    def _utcnow() -> datetime:
+        return datetime.now(timezone.utc)
+
+    async def _persist_job(job: JobIntent) -> None:
+        await queue_persist.upsert_job(job)
+
+    async def _persist_event(
+        job_id: str,
+        from_state: QueueJobState | None,
+        to_state: QueueJobState | None,
+        reason: str | None,
+    ) -> None:
+        await queue_persist.record_event(job_id, from_state, to_state, reason)
+
+    async def _record_audit(
+        *,
+        event_type: str,
+        actor_role: str,
+        actor_id: str,
+        details: dict[str, object],
+    ) -> None:
+        if audit_store is None:
+            return
+        try:
+            await audit_store.record(event_type=event_type, actor_role=actor_role, actor_id=actor_id, details=details)
+        except Exception:
+            return
+
+    def _supervisor_admission():
+        if supervisor_client is None:
+            return None
+        return supervisor_client.admission_summary(
+            total_capacity_units=engine.total_capacity_units,
+            reserve_units=engine.reserve_units,
+            headroom_pct=engine.headroom_pct,
+        )
+
+    def _requires_supervisor_runtime(job: JobIntent) -> bool:
+        constraints = job.constraints if isinstance(job.constraints, dict) else {}
+        target_runtime = str(constraints.get("target_runtime") or "").strip().lower()
+        execution_target = str(constraints.get("execution_target") or "").strip().lower()
+        return target_runtime == "supervisor" or execution_target in {"host_local", "supervisor"}
+
+    @router.on_event("startup")
+    async def _startup() -> None:
+        nonlocal expire_task
+        nonlocal dispatch_task
+        nonlocal rehydrate_task
+
+        async def loop() -> None:
+            while True:
+                try:
+                    await engine.expire_tick()
+                except Exception:
+                    pass
+                await asyncio.sleep(2.0)
+
+        expire_task = asyncio.create_task(loop())
+
+        async def load_queue() -> None:
+            # Load persisted jobs and requeue safe states
+            jobs = await queue_persist.load_jobs()
+            now = _utcnow()
+            async with queue_store.lock:
+                for job in jobs:
+                    if job.state in (QueueJobState.DISPATCHING, QueueJobState.RUNNING):
+                        prev = job.state
+                        job.state = QueueJobState.QUEUED
+                        job.lease_id = None
+                        job.next_earliest_start_at = None
+                        job.updated_at = now
+                        queue_store.record_event(job.job_id, prev, job.state, "rehydrate_reset")
+                        await queue_persist.record_event(job.job_id, prev, job.state, "rehydrate_reset")
+                    queue_store.jobs[job.job_id] = job
+                    if job.state == QueueJobState.QUEUED:
+                        queue_store.enqueue(job)
+                    await queue_persist.upsert_job(job)
+
+        async def load_queue_with_logging() -> None:
+            try:
+                await load_queue()
+            except Exception:
+                pass
+
+        rehydrate_task = asyncio.create_task(load_queue_with_logging())
+
+        async def dispatch_loop() -> None:
+            while True:
+                try:
+                    await _dispatch_tick()
+                except Exception:
+                    pass
+                await asyncio.sleep(2.0)
+
+        dispatch_task = asyncio.create_task(dispatch_loop())
+
+    @router.on_event("shutdown")
+    async def _shutdown() -> None:
+        nonlocal expire_task
+        nonlocal dispatch_task
+        nonlocal rehydrate_task
+        if expire_task:
+            expire_task.cancel()
+            expire_task = None
+        if dispatch_task:
+            dispatch_task.cancel()
+            dispatch_task = None
+        if rehydrate_task:
+            rehydrate_task.cancel()
+            rehydrate_task = None
+
+    @router.post("/jobs", response_model=SubmitJobResponse)
+    async def submit_job(req: SubmitJobRequest) -> SubmitJobResponse:
+        now = engine.utcnow()
+        job = Job(
+            job_id=engine.new_id(),
+            type=req.type,
+            priority=req.priority,
+            requested_units=req.requested_units,
+            unique=req.unique,
+            payload=req.payload,
+            idempotency_key=req.idempotency_key,
+            tags=req.tags,
+            max_runtime_s=req.max_runtime_s,
+            state=JobState.queued,
+            created_at=now,
+            updated_at=now,
+        )
+        job = await engine.submit_job(job)
+        return SubmitJobResponse(job_id=job.job_id, state=job.state)
+
+    @router.post("/leases/request", response_model=RequestLeaseGranted | RequestLeaseDenied)
+    async def request_lease(req: RequestLeaseRequest):
+        out = await engine.request_lease(worker_id=req.worker_id, max_units=req.max_units)
+        if isinstance(out, RequestLeaseDenied):
+            return out
+        lease, job = out
+        return RequestLeaseGranted(lease=lease, job=job)
+
+    @router.post("/leases/{lease_id}/heartbeat", response_model=HeartbeatResponse)
+    async def heartbeat(lease_id: str, req: HeartbeatRequest) -> HeartbeatResponse:
+        try:
+            lease = await engine.heartbeat(lease_id=lease_id, worker_id=req.worker_id)
+            return HeartbeatResponse(ok=True, expires_at=lease.expires_at)
+        except KeyError:
+            raise HTTPException(status_code=404, detail="lease_not_found")
+        except PermissionError:
+            raise HTTPException(status_code=403, detail="worker_mismatch")
+
+    @router.post("/leases/{lease_id}/complete", response_model=CompleteLeaseResponse)
+    async def complete(lease_id: str, req: CompleteLeaseRequest) -> CompleteLeaseResponse:
+        try:
+            await engine.complete(lease_id=lease_id, worker_id=req.worker_id, status=req.status)
+            if events is not None:
+                await events.emit(
+                    event_type="job_completed",
+                    source="scheduler.leases",
+                    payload={
+                        "lease_id": lease_id,
+                        "worker_id": req.worker_id,
+                        "status": req.status,
+                    },
+                )
+            return CompleteLeaseResponse(ok=True)
+        except PermissionError:
+            raise HTTPException(status_code=403, detail="worker_mismatch")
+
+    @router.post("/leases/{lease_id}/report", response_model=ReportLeaseResponse)
+    async def report(lease_id: str, req: ReportLeaseRequest) -> ReportLeaseResponse:
+        try:
+            await engine.report(
+                lease_id=lease_id,
+                worker_id=req.worker_id,
+                progress=req.progress,
+                metrics=req.metrics,
+                message=req.message,
+            )
+            return ReportLeaseResponse(ok=True)
+        except KeyError:
+            raise HTTPException(status_code=404, detail="lease_not_found")
+        except PermissionError:
+            raise HTTPException(status_code=403, detail="worker_mismatch")
+
+    @router.post("/leases/{lease_id}/revoke", response_model=RevokeLeaseResponse)
+    async def revoke(lease_id: str, req: RevokeLeaseRequest) -> RevokeLeaseResponse:
+        ok = await engine.revoke(lease_id=lease_id, reason=req.reason)
+        if not ok:
+            raise HTTPException(status_code=404, detail="lease_not_found")
+        return RevokeLeaseResponse(ok=True)
+
+    @router.get("/status")
+    async def status():
+        snap = await engine.snapshot()
+        data = snap.model_dump()
+        admission = _supervisor_admission()
+        if admission is not None:
+            data["supervisor_admission"] = admission.model_dump()
+        if debug_enabled:
+            data["debug_store_id"] = hex(id(engine.store))
+            data["debug_jobs_len"] = len(engine.store.jobs)
+            data["debug_leases_len"] = len(engine.store.leases)
+        return JSONResponse(data)
+
+    @router.get("/jobs")
+    async def jobs(limit: int = 200, state: JobState | None = None):
+        limit = max(1, min(1000, int(limit)))
+        now = engine.utcnow()
+
+        async with engine.store.lock:
+            jobs_list = list(engine.store.jobs.values())
+            if state is not None:
+                jobs_list = [job for job in jobs_list if job.state == state]
+
+            jobs_list.sort(key=lambda job: job.updated_at, reverse=True)
+
+            lease_by_job = {lease.job_id: lease for lease in engine.store.leases.values()}
+            jobs_payload = []
+            for job in jobs_list[:limit]:
+                lease = lease_by_job.get(job.job_id)
+                jobs_payload.append({
+                    "job": job.model_dump(mode="json"),
+                    "lease": lease.model_dump(mode="json") if lease else None,
+                    "in_queue": job.job_id in engine.store.queued_ids,
+                    "age_s": (now - job.created_at).total_seconds(),
+                    "since_update_s": (now - job.updated_at).total_seconds(),
+                })
+
+            store_id = hex(id(engine.store))
+            jobs_len = len(engine.store.jobs)
+            leases_len = len(engine.store.leases)
+            queue_depths = engine.store.queue_depths()
+
+        snap = await engine.snapshot()
+
+        return {
+            "now": now.isoformat(),
+            "store_id": store_id,
+            "jobs_len": jobs_len,
+            "leases_len": leases_len,
+            "queue_depths": queue_depths,
+            "snapshot": snap.model_dump(mode="json"),
+            "jobs": jobs_payload,
+        }
+
+    if debug_enabled:
+        @router.get("/debug/queue")
+        async def debug_queue(n: int = 20):
+            n = max(1, min(200, int(n)))
+            q = list(engine.store.queues.normal)[:n]
+            sample = []
+            for jid in q:
+                job = engine.store.jobs.get(jid)
+                sample.append({
+                    "job_id": jid,
+                    "in_jobs": job is not None,
+                    "state": job.state if job else None,
+                    "type": job.type if job else None,
+                })
+            return {
+                "store_id": hex(id(engine.store)),
+                "jobs_len": len(engine.store.jobs),
+                "queued_ids_len": getattr(engine.store, "queued_ids", None) and len(engine.store.queued_ids),
+                "queue_depths": engine.store.queue_depths(),
+                "sample": sample,
+            }
+
+    @router.get("/history/stats")
+    async def history_stats(days: int = 30):
+        history = engine.history_store
+        if not history:
+            return {"ok": False, "error": "history_disabled"}
+        stats = await history.stats(days=days)
+        return {
+            "ok": True,
+            "range": {
+                "from": stats.range_start.isoformat(),
+                "to": stats.range_end.isoformat(),
+                "days": int(days),
+            },
+            "total": stats.total,
+            "totals_by_state": stats.totals_by_state,
+            "success_rate": stats.success_rate,
+            "avg_queue_wait_s": stats.avg_queue_wait_s,
+            "addons": stats.addons,
+        }
+
+    @router.post("/history/cleanup")
+    async def history_cleanup(days: int = 30):
+        history = engine.history_store
+        if not history:
+            return {"ok": False, "error": "history_disabled"}
+        deleted = await history.cleanup(days=days)
+        return {"ok": True, "deleted": deleted, "days": int(days)}
+
+    @router.get("/history/decisions")
+    async def history_decisions(days: int = 30):
+        history = engine.history_store
+        if not history:
+            return {"ok": False, "error": "history_disabled"}
+        summary = await history.decision_summary(days=days)
+        return {"ok": True, **summary}
+
+    # --------------------
+    # Queueing (Job Intents)
+    # --------------------
+
+    async def _dispatch_tick() -> None:
+        async with queue_store.lock:
+            now = _utcnow()
+
+            # Requeue stuck dispatching jobs
+            for job in queue_store.jobs.values():
+                if job.state == QueueJobState.DISPATCHING:
+                    if (now - job.updated_at) > timedelta(seconds=30):
+                        queue_store.reserved_units = max(0, queue_store.reserved_units - job.cost_units)
+                        prev = job.state
+                        job.state = QueueJobState.QUEUED
+                        job.updated_at = now
+                        queue_store.enqueue(job)
+                        queue_store.record_event(job.job_id, prev, QueueJobState.QUEUED, "dispatch_timeout")
+                        await _persist_job(job)
+                        await _persist_event(job.job_id, prev, QueueJobState.QUEUED, "dispatch_timeout")
+
+            busy = engine.compute_busy_rating()
+            usable = engine.usable_capacity_units(busy)
+            leased = engine.leased_capacity_units()
+            available = max(0, usable - leased - queue_store.reserved_units)
+            admission = _supervisor_admission()
+            if admission is not None:
+                available = min(available, admission.available_capacity_units)
+
+            scanned = 0
+            max_scan = sum(queue_store.queue_depths().values())
+            while scanned < max_scan:
+                jid = queue_store.dequeue_next()
+                if not jid:
+                    break
+                job = queue_store.jobs.get(jid)
+                scanned += 1
+                if not job or job.state != QueueJobState.QUEUED:
+                    continue
+
+                if job.earliest_start_at and now < job.earliest_start_at:
+                    queue_store.enqueue(job)
+                    continue
+                if job.next_earliest_start_at and now < job.next_earliest_start_at:
+                    queue_store.enqueue(job)
+                    continue
+
+                # Core owns admission/orchestration here; actual execution happens after leasing.
+                # This queue path should stay focused on deciding when work may proceed.
+                if admission is not None and not admission.execution_host_ready:
+                    job.attempts += 1
+                    job.next_earliest_start_at = now + timedelta(seconds=5)
+                    queue_store.enqueue(job)
+                    await _persist_job(job)
+                    continue
+
+                if (
+                    admission is not None
+                    and _requires_supervisor_runtime(job)
+                    and admission.managed_node_count > 0
+                    and admission.healthy_managed_node_count <= 0
+                ):
+                    job.attempts += 1
+                    job.next_earliest_start_at = now + timedelta(seconds=5)
+                    queue_store.enqueue(job)
+                    await _persist_job(job)
+                    continue
+
+                if busy >= 8 and job.priority != JobPriority.high:
+                    job.attempts += 1
+                    job.next_earliest_start_at = now + timedelta(seconds=5)
+                    queue_store.enqueue(job)
+                    await _persist_job(job)
+                    continue
+
+                if job.cost_units > available:
+                    job.attempts += 1
+                    job.next_earliest_start_at = now + timedelta(seconds=5)
+                    queue_store.enqueue(job)
+                    await _persist_job(job)
+                    break
+
+                queue_store.reserved_units += job.cost_units
+                prev = job.state
+                job.state = QueueJobState.DISPATCHING
+                job.updated_at = now
+                queue_store.record_event(job.job_id, prev, QueueJobState.DISPATCHING, "admitted")
+                await _persist_job(job)
+                await _persist_event(job.job_id, prev, QueueJobState.DISPATCHING, "admitted")
+                available = max(0, available - job.cost_units)
+
+    @router.post("/queue/jobs/submit", response_model=SubmitJobIntentResponse)
+    async def submit_job_intent(req: SubmitJobIntentRequest) -> SubmitJobIntentResponse:
+        now = _utcnow()
+        job = JobIntent(
+            job_id=str(uuid.uuid4()),
+            addon_id=req.addon_id,
+            job_type=req.job_type,
+            cost_units=req.cost_units,
+            priority=req.priority,
+            constraints=req.constraints,
+            expected_duration_sec=req.expected_duration_sec,
+            payload=req.payload,
+            time_sensitive=req.time_sensitive,
+            earliest_start_at=req.earliest_start_at,
+            deadline_at=req.deadline_at,
+            max_runtime_sec=req.max_runtime_sec,
+            tags=req.tags,
+            state=QueueJobState.QUEUED,
+            attempts=0,
+            next_earliest_start_at=None,
+            lease_id=None,
+            created_at=now,
+            updated_at=now,
+        )
+
+        if node_budget_service is not None:
+            try:
+                reservation = node_budget_service.reserve_scheduler_budget(
+                    job_id=job.job_id,
+                    addon_id=job.addon_id,
+                    cost_units=job.cost_units,
+                    payload=job.payload,
+                    constraints=job.constraints,
+                )
+                if reservation is not None:
+                    await _record_audit(
+                        event_type="node_budget_reservation_created",
+                        actor_role="system",
+                        actor_id="scheduler_queue",
+                        details={
+                            "job_id": job.job_id,
+                            "node_id": str(reservation.get("node_id") or ""),
+                            "customer_id": str(reservation.get("customer_id") or ""),
+                            "provider_id": str(reservation.get("provider_id") or ""),
+                            "money_reserved": reservation.get("money_reserved"),
+                            "compute_reserved": reservation.get("compute_reserved"),
+                        },
+                    )
+            except ValueError as exc:
+                error = str(exc)
+                await _record_audit(
+                    event_type="node_budget_reservation_denied",
+                    actor_role="system",
+                    actor_id="scheduler_queue",
+                    details={"job_id": job.job_id, "error": error, "addon_id": job.addon_id},
+                )
+                status_code = 409 if error.endswith("_budget_exceeded") else 400
+                raise HTTPException(status_code=status_code, detail={"error": error, "message": error})
+
+        async with queue_store.lock:
+            queue_store.jobs[job.job_id] = job
+            queue_store.enqueue(job)
+            queue_store.record_event(job.job_id, QueueJobState.QUEUED, QueueJobState.QUEUED, "submitted")
+            await _persist_job(job)
+            await _persist_event(job.job_id, QueueJobState.QUEUED, QueueJobState.QUEUED, "submitted")
+
+        return SubmitJobIntentResponse(job_id=job.job_id, state=job.state)
+
+    @router.get("/queue/jobs/{job_id}")
+    async def get_job_intent(job_id: str):
+        async with queue_store.lock:
+            job = queue_store.jobs.get(job_id)
+            if not job:
+                raise HTTPException(status_code=404, detail="job_not_found")
+            return job.model_dump(mode="json")
+
+    @router.get("/queue/jobs")
+    async def list_job_intents(state: QueueJobState | None = None, limit: int = 200):
+        limit = max(1, min(1000, int(limit)))
+        async with queue_store.lock:
+            jobs_list = list(queue_store.jobs.values())
+            if state is not None:
+                jobs_list = [j for j in jobs_list if j.state == state]
+            jobs_list.sort(key=lambda j: j.updated_at, reverse=True)
+            return {
+                "jobs_len": len(queue_store.jobs),
+                "queue_depths": queue_store.queue_depths(),
+                "reserved_units": queue_store.reserved_units,
+                "jobs": [j.model_dump(mode="json") for j in jobs_list[:limit]],
+            }
+
+    @router.get("/queue/dispatchable")
+    async def list_dispatchable(limit: int = 200):
+        limit = max(1, min(1000, int(limit)))
+        async with queue_store.lock:
+            jobs_list = [j for j in queue_store.jobs.values() if j.state == QueueJobState.DISPATCHING]
+            jobs_list.sort(key=lambda j: j.updated_at, reverse=False)
+            return {"jobs": [j.model_dump(mode="json") for j in jobs_list[:limit]]}
+
+    @router.post("/queue/jobs/{job_id}/cancel", response_model=CancelJobIntentResponse)
+    async def cancel_job_intent(job_id: str) -> CancelJobIntentResponse:
+        async with queue_store.lock:
+            job = queue_store.jobs.get(job_id)
+            if not job:
+                raise HTTPException(status_code=404, detail="job_not_found")
+            if job.state in (QueueJobState.DONE, QueueJobState.FAILED, QueueJobState.CANCELED):
+                return CancelJobIntentResponse(ok=True)
+
+            prev = job.state
+            if job.state == QueueJobState.DISPATCHING:
+                queue_store.reserved_units = max(0, queue_store.reserved_units - job.cost_units)
+            job.state = QueueJobState.CANCELED
+            job.updated_at = _utcnow()
+            queue_store.record_event(job.job_id, prev, QueueJobState.CANCELED, "canceled")
+            await _persist_job(job)
+            await _persist_event(job.job_id, prev, QueueJobState.CANCELED, "canceled")
+            if node_budget_service is not None:
+                reservation = node_budget_service.release_scheduler_budget(job_id=job.job_id, reason="canceled")
+                if reservation is not None:
+                    await _record_audit(
+                        event_type="node_budget_reservation_released",
+                        actor_role="system",
+                        actor_id="scheduler_queue",
+                        details={"job_id": job.job_id, "node_id": str(reservation.get("node_id") or ""), "reason": "canceled"},
+                    )
+            return CancelJobIntentResponse(ok=True)
+
+    @router.post("/queue/jobs/{job_id}/ack", response_model=AckJobIntentResponse)
+    async def ack_job_intent(job_id: str, req: AckJobIntentRequest) -> AckJobIntentResponse:
+        async with queue_store.lock:
+            job = queue_store.jobs.get(job_id)
+            if not job:
+                raise HTTPException(status_code=404, detail="job_not_found")
+            if job.state != QueueJobState.DISPATCHING:
+                raise HTTPException(status_code=409, detail="job_not_dispatching")
+            queue_store.reserved_units = max(0, queue_store.reserved_units - job.cost_units)
+            prev = job.state
+            job.state = QueueJobState.RUNNING
+            job.lease_id = req.lease_id
+            job.updated_at = _utcnow()
+            queue_store.record_event(job.job_id, prev, QueueJobState.RUNNING, "ack")
+            await _persist_job(job)
+            await _persist_event(job.job_id, prev, QueueJobState.RUNNING, "ack")
+            if node_budget_service is not None:
+                reservation = node_budget_service.attach_scheduler_lease(job_id=job.job_id, lease_id=req.lease_id)
+                if reservation is not None:
+                    await _record_audit(
+                        event_type="node_budget_reservation_leased",
+                        actor_role="system",
+                        actor_id="scheduler_queue",
+                        details={"job_id": job.job_id, "lease_id": str(req.lease_id or ""), "node_id": str(reservation.get("node_id") or "")},
+                    )
+            return AckJobIntentResponse(ok=True)
+
+    @router.post("/queue/jobs/{job_id}/complete", response_model=CompleteJobIntentResponse)
+    async def complete_job_intent(job_id: str, req: CompleteJobIntentRequest) -> CompleteJobIntentResponse:
+        async with queue_store.lock:
+            job = queue_store.jobs.get(job_id)
+            if not job:
+                raise HTTPException(status_code=404, detail="job_not_found")
+            prev = job.state
+            if req.status == "DONE":
+                job.state = QueueJobState.DONE
+            else:
+                job.state = QueueJobState.FAILED
+            job.updated_at = _utcnow()
+            queue_store.record_event(job.job_id, prev, job.state, "complete")
+            await _persist_job(job)
+            await _persist_event(job.job_id, prev, job.state, "complete")
+            if node_budget_service is not None:
+                if req.status == "DONE":
+                    reservation = node_budget_service.finalize_scheduler_budget(
+                        job_id=job.job_id,
+                        actual_money_spend=req.actual_money_spend,
+                        actual_compute_spend=req.actual_compute_spend,
+                    )
+                    if reservation is not None:
+                        await _record_audit(
+                            event_type="node_budget_reservation_finalized",
+                            actor_role="system",
+                            actor_id="scheduler_queue",
+                            details={
+                                "job_id": job.job_id,
+                                "node_id": str(reservation.get("node_id") or ""),
+                                "actual_money_spend": reservation.get("money_actual"),
+                                "actual_compute_spend": reservation.get("compute_actual"),
+                            },
+                        )
+                else:
+                    reservation = node_budget_service.release_scheduler_budget(job_id=job.job_id, reason="job_failed")
+                    if reservation is not None:
+                        await _record_audit(
+                            event_type="node_budget_reservation_released",
+                            actor_role="system",
+                            actor_id="scheduler_queue",
+                            details={"job_id": job.job_id, "node_id": str(reservation.get("node_id") or ""), "reason": "job_failed"},
+                        )
+            if events is not None:
+                await events.emit(
+                    event_type="job_completed",
+                    source="scheduler.queue",
+                    payload={
+                        "job_id": job.job_id,
+                        "addon_id": job.addon_id,
+                        "job_type": job.job_type,
+                        "status": req.status,
+                        "final_state": job.state,
+                    },
+                )
+            return CompleteJobIntentResponse(ok=True)
+
+    return router

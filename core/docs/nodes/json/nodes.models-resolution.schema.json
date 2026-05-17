@@ -1,0 +1,991 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Catalog of Core-owned schemas generated from app.nodes.models_resolution.",
+  "schemas": {
+    "NodeEffectiveBudgetView": {
+      "properties": {
+        "admissible": {
+          "default": false,
+          "title": "Admissible",
+          "type": "boolean"
+        },
+        "budget_node_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Budget Node Id"
+        },
+        "consumed": {
+          "additionalProperties": true,
+          "title": "Consumed",
+          "type": "object"
+        },
+        "enforcement_mode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enforcement Mode"
+        },
+        "grant_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grant Id"
+        },
+        "grant_scope_kind": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grant Scope Kind"
+        },
+        "limits": {
+          "additionalProperties": true,
+          "title": "Limits",
+          "type": "object"
+        },
+        "model_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Id"
+        },
+        "period_end": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Period End"
+        },
+        "period_start": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Period Start"
+        },
+        "provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "remaining": {
+          "additionalProperties": true,
+          "title": "Remaining",
+          "type": "object"
+        },
+        "service": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Service"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "task_family": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Family"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "NodeEffectiveBudgetView",
+      "type": "object"
+    },
+    "NodeServiceAuthorizeRequest": {
+      "properties": {
+        "model_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Id"
+        },
+        "node_id": {
+          "minLength": 1,
+          "title": "Node Id",
+          "type": "string"
+        },
+        "preferred_model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Preferred Model"
+        },
+        "preferred_provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Preferred Provider"
+        },
+        "provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider"
+        },
+        "service_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Service Id"
+        },
+        "task_context": {
+          "additionalProperties": true,
+          "title": "Task Context",
+          "type": "object"
+        },
+        "task_family": {
+          "minLength": 1,
+          "title": "Task Family",
+          "type": "string"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Type"
+        }
+      },
+      "required": [
+        "node_id",
+        "task_family"
+      ],
+      "title": "NodeServiceAuthorizeRequest",
+      "type": "object"
+    },
+    "TaskExecutionResolutionCandidate": {
+      "$defs": {
+        "NodeEffectiveBudgetView": {
+          "properties": {
+            "admissible": {
+              "default": false,
+              "title": "Admissible",
+              "type": "boolean"
+            },
+            "budget_node_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Budget Node Id"
+            },
+            "consumed": {
+              "additionalProperties": true,
+              "title": "Consumed",
+              "type": "object"
+            },
+            "enforcement_mode": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Enforcement Mode"
+            },
+            "grant_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Grant Id"
+            },
+            "grant_scope_kind": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Grant Scope Kind"
+            },
+            "limits": {
+              "additionalProperties": true,
+              "title": "Limits",
+              "type": "object"
+            },
+            "model_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Model Id"
+            },
+            "period_end": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Period End"
+            },
+            "period_start": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Period Start"
+            },
+            "provider": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Provider"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Reason"
+            },
+            "remaining": {
+              "additionalProperties": true,
+              "title": "Remaining",
+              "type": "object"
+            },
+            "service": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Service"
+            },
+            "status": {
+              "title": "Status",
+              "type": "string"
+            },
+            "task_family": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Task Family"
+            }
+          },
+          "required": [
+            "status"
+          ],
+          "title": "NodeEffectiveBudgetView",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "auth_mode": {
+          "default": "service_token",
+          "title": "Auth Mode",
+          "type": "string"
+        },
+        "budget_view": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NodeEffectiveBudgetView"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "capability_endpoint": {
+          "additionalProperties": true,
+          "title": "Capability Endpoint",
+          "type": "object"
+        },
+        "declared_capacity": {
+          "additionalProperties": true,
+          "title": "Declared Capacity",
+          "type": "object"
+        },
+        "execution_endpoint_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Execution Endpoint Url"
+        },
+        "grant_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grant Id"
+        },
+        "health_status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Health Status"
+        },
+        "models_allowed": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Models Allowed",
+          "type": "array"
+        },
+        "provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider"
+        },
+        "provider_api_base_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Api Base Url"
+        },
+        "provider_node_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Node Id"
+        },
+        "required_scopes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Scopes",
+          "type": "array"
+        },
+        "resolution_mode": {
+          "default": "catalog_governance_budget",
+          "title": "Resolution Mode",
+          "type": "string"
+        },
+        "service_id": {
+          "title": "Service Id",
+          "type": "string"
+        },
+        "service_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Service Type"
+        }
+      },
+      "required": [
+        "service_id"
+      ],
+      "title": "TaskExecutionResolutionCandidate",
+      "type": "object"
+    },
+    "TaskExecutionResolutionRequest": {
+      "properties": {
+        "node_id": {
+          "minLength": 1,
+          "title": "Node Id",
+          "type": "string"
+        },
+        "preferred_model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Preferred Model"
+        },
+        "preferred_provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Preferred Provider"
+        },
+        "task_context": {
+          "additionalProperties": true,
+          "title": "Task Context",
+          "type": "object"
+        },
+        "task_family": {
+          "minLength": 1,
+          "title": "Task Family",
+          "type": "string"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Type"
+        }
+      },
+      "required": [
+        "node_id",
+        "task_family"
+      ],
+      "title": "TaskExecutionResolutionRequest",
+      "type": "object"
+    },
+    "TaskExecutionResolutionResponse": {
+      "$defs": {
+        "NodeEffectiveBudgetView": {
+          "properties": {
+            "admissible": {
+              "default": false,
+              "title": "Admissible",
+              "type": "boolean"
+            },
+            "budget_node_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Budget Node Id"
+            },
+            "consumed": {
+              "additionalProperties": true,
+              "title": "Consumed",
+              "type": "object"
+            },
+            "enforcement_mode": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Enforcement Mode"
+            },
+            "grant_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Grant Id"
+            },
+            "grant_scope_kind": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Grant Scope Kind"
+            },
+            "limits": {
+              "additionalProperties": true,
+              "title": "Limits",
+              "type": "object"
+            },
+            "model_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Model Id"
+            },
+            "period_end": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Period End"
+            },
+            "period_start": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Period Start"
+            },
+            "provider": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Provider"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Reason"
+            },
+            "remaining": {
+              "additionalProperties": true,
+              "title": "Remaining",
+              "type": "object"
+            },
+            "service": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Service"
+            },
+            "status": {
+              "title": "Status",
+              "type": "string"
+            },
+            "task_family": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Task Family"
+            }
+          },
+          "required": [
+            "status"
+          ],
+          "title": "NodeEffectiveBudgetView",
+          "type": "object"
+        },
+        "TaskExecutionResolutionCandidate": {
+          "properties": {
+            "auth_mode": {
+              "default": "service_token",
+              "title": "Auth Mode",
+              "type": "string"
+            },
+            "budget_view": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/NodeEffectiveBudgetView"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "capability_endpoint": {
+              "additionalProperties": true,
+              "title": "Capability Endpoint",
+              "type": "object"
+            },
+            "declared_capacity": {
+              "additionalProperties": true,
+              "title": "Declared Capacity",
+              "type": "object"
+            },
+            "execution_endpoint_url": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Execution Endpoint Url"
+            },
+            "grant_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Grant Id"
+            },
+            "health_status": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Health Status"
+            },
+            "models_allowed": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Models Allowed",
+              "type": "array"
+            },
+            "provider": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Provider"
+            },
+            "provider_api_base_url": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Provider Api Base Url"
+            },
+            "provider_node_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Provider Node Id"
+            },
+            "required_scopes": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Required Scopes",
+              "type": "array"
+            },
+            "resolution_mode": {
+              "default": "catalog_governance_budget",
+              "title": "Resolution Mode",
+              "type": "string"
+            },
+            "service_id": {
+              "title": "Service Id",
+              "type": "string"
+            },
+            "service_type": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Service Type"
+            }
+          },
+          "required": [
+            "service_id"
+          ],
+          "title": "TaskExecutionResolutionCandidate",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "candidates": {
+          "items": {
+            "$ref": "#/$defs/TaskExecutionResolutionCandidate"
+          },
+          "title": "Candidates",
+          "type": "array"
+        },
+        "node_id": {
+          "title": "Node Id",
+          "type": "string"
+        },
+        "selected_service_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Selected Service Id"
+        },
+        "task_context": {
+          "additionalProperties": true,
+          "title": "Task Context",
+          "type": "object"
+        },
+        "task_family": {
+          "title": "Task Family",
+          "type": "string"
+        }
+      },
+      "required": [
+        "node_id",
+        "task_family"
+      ],
+      "title": "TaskExecutionResolutionResponse",
+      "type": "object"
+    }
+  },
+  "title": "Hexe Node Resolution Models",
+  "type": "object"
+}

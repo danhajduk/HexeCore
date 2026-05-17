@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Catalog of Core-owned schemas generated from app.system.telemetry.router.",
+  "schemas": {
+    "UsageIngestRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "consumer_addon_id": {
+          "minLength": 1,
+          "title": "Consumer Addon Id",
+          "type": "string"
+        },
+        "grant_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grant Id"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        },
+        "period_end": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Period End"
+        },
+        "period_start": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Period Start"
+        },
+        "request_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Request Count",
+          "type": "integer"
+        },
+        "service": {
+          "minLength": 1,
+          "title": "Service",
+          "type": "string"
+        },
+        "usage_units": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "title": "Usage Units",
+          "type": "number"
+        }
+      },
+      "required": [
+        "service",
+        "consumer_addon_id"
+      ],
+      "title": "UsageIngestRequest",
+      "type": "object"
+    }
+  },
+  "title": "Hexe System Telemetry Request Models",
+  "type": "object"
+}

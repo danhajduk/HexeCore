@@ -1,0 +1,469 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Catalog of Core-owned schemas generated from app.system.runtime.models.",
+  "schemas": {
+    "StandaloneAddonRuntime": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "active_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Active Version"
+        },
+        "addon_id": {
+          "title": "Addon Id",
+          "type": "string"
+        },
+        "container_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Container Name"
+        },
+        "container_status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Container Status"
+        },
+        "desired_state": {
+          "default": "unknown",
+          "title": "Desired State",
+          "type": "string"
+        },
+        "health_detail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Health Detail"
+        },
+        "health_status": {
+          "default": "unknown",
+          "title": "Health Status",
+          "type": "string"
+        },
+        "last_action": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Action"
+        },
+        "last_action_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Action At"
+        },
+        "last_error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Error"
+        },
+        "lifecycle_state": {
+          "default": "unknown",
+          "title": "Lifecycle State",
+          "type": "string"
+        },
+        "network": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Network"
+        },
+        "published_ports": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Published Ports",
+          "type": "array"
+        },
+        "restart_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Restart Count"
+        },
+        "running": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Running"
+        },
+        "runtime_state": {
+          "default": "unknown",
+          "title": "Runtime State",
+          "type": "string"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Started At"
+        },
+        "target_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Version"
+        }
+      },
+      "required": [
+        "addon_id"
+      ],
+      "title": "StandaloneAddonRuntime",
+      "type": "object"
+    },
+    "StandaloneAddonRuntimeSnapshot": {
+      "$defs": {
+        "StandaloneAddonRuntime": {
+          "properties": {
+            "active_version": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Active Version"
+            },
+            "addon_id": {
+              "title": "Addon Id",
+              "type": "string"
+            },
+            "container_name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Container Name"
+            },
+            "container_status": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Container Status"
+            },
+            "desired_state": {
+              "default": "unknown",
+              "title": "Desired State",
+              "type": "string"
+            },
+            "health_detail": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Health Detail"
+            },
+            "health_status": {
+              "default": "unknown",
+              "title": "Health Status",
+              "type": "string"
+            },
+            "last_action": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Last Action"
+            },
+            "last_action_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Last Action At"
+            },
+            "last_error": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Last Error"
+            },
+            "lifecycle_state": {
+              "default": "unknown",
+              "title": "Lifecycle State",
+              "type": "string"
+            },
+            "network": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Network"
+            },
+            "published_ports": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Published Ports",
+              "type": "array"
+            },
+            "restart_count": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Restart Count"
+            },
+            "running": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Running"
+            },
+            "runtime_state": {
+              "default": "unknown",
+              "title": "Runtime State",
+              "type": "string"
+            },
+            "started_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Started At"
+            },
+            "target_version": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Target Version"
+            }
+          },
+          "required": [
+            "addon_id"
+          ],
+          "title": "StandaloneAddonRuntime",
+          "type": "object"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "addon_id": {
+          "title": "Addon Id",
+          "type": "string"
+        },
+        "desired_error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Desired Error"
+        },
+        "desired_path": {
+          "title": "Desired Path",
+          "type": "string"
+        },
+        "docker_error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Docker Error"
+        },
+        "raw_desired": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Raw Desired"
+        },
+        "raw_runtime": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Raw Runtime"
+        },
+        "runtime": {
+          "$ref": "#/$defs/StandaloneAddonRuntime"
+        },
+        "runtime_error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Runtime Error"
+        },
+        "runtime_path": {
+          "title": "Runtime Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "addon_id",
+        "runtime",
+        "desired_path",
+        "runtime_path"
+      ],
+      "title": "StandaloneAddonRuntimeSnapshot",
+      "type": "object"
+    }
+  },
+  "title": "Hexe Runtime Models",
+  "type": "object"
+}
