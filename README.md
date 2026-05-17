@@ -6,13 +6,13 @@ Compatibility note: Phase 0 is a cosmetic rebrand only. Internal identifiers suc
 
 ## Start Here
 
-- [docs/index.md](docs/index.md)
-- [docs/overview.md](docs/overview.md)
-- [docs/architecture.md](docs/architecture.md)
-- [docs/core/README.md](docs/core/README.md)
-- [docs/supervisor/README.md](docs/supervisor/README.md)
-- [docs/nodes/README.md](docs/nodes/README.md)
-- [docs/mqtt/README.md](docs/mqtt/README.md)
+- [core/docs/index.md](core/docs/index.md)
+- [core/docs/overview.md](core/docs/overview.md)
+- [core/docs/architecture.md](core/docs/architecture.md)
+- [core/docs/core/README.md](core/docs/core/README.md)
+- [core/docs/supervisor/README.md](core/docs/supervisor/README.md)
+- [core/docs/nodes/README.md](core/docs/nodes/README.md)
+- [core/docs/mqtt/README.md](core/docs/mqtt/README.md)
 
 ## Domain Summary
 
@@ -22,11 +22,11 @@ Status: Implemented
 
 Core currently spans:
 
-- `backend/app/main.py`
-- `backend/app/core/`
-- `backend/app/api/`
-- `backend/app/system/`
-- `frontend/`
+- `core/backend/app/main.py`
+- `core/backend/app/core/`
+- `core/backend/app/api/`
+- `core/backend/app/system/`
+- `core/frontend/`
 
 Hexe Core owns API hosting, UI hosting, embedded addon lifecycle authority, scheduler orchestration and workload admission, MQTT authority, and trusted-node governance flows.
 
@@ -36,9 +36,9 @@ Status: Implemented
 
 Supervisor currently spans:
 
-- `backend/synthia_supervisor/`
-- `backend/app/system/runtime/`
-- `backend/app/supervisor/`
+- `core/backend/synthia_supervisor/`
+- `core/backend/app/system/runtime/`
+- `core/backend/app/supervisor/`
 
 Current responsibilities:
 
@@ -66,8 +66,8 @@ Status: Implemented
 
 Node services currently span:
 
-- `backend/app/system/onboarding/`
-- `backend/app/nodes/`
+- `core/backend/app/system/onboarding/`
+- `core/backend/app/nodes/`
 
 The migration foundation exposes:
 
@@ -92,28 +92,30 @@ These routes reuse the existing canonical node registration payload shape.
 
 ## Repository Layout
 
-- `backend/app/`: FastAPI app, Core control-plane services, and migration domain routers
-- `backend/synthia_supervisor/`: standalone runtime supervision and desired/runtime reconciliation
-- `frontend/`: React operator UI
-- `docs/`: canonical repository documentation
-- `docs/standards/Node/tomplate/`: starter modular template for creating a new Hexe node
-- `scripts/`: development and bootstrap helpers
-- `systemd/`: service templates and runtime integration
+- `core/`: Core control-plane application, operator UI, documentation, scripts, and service templates
+- `supervisor/`: Supervisor checkout content preserved as a first-class top-level directory
+- `core/backend/app/`: FastAPI app, Core control-plane services, and migration domain routers
+- `core/backend/synthia_supervisor/`: standalone runtime supervision and desired/runtime reconciliation
+- `core/frontend/`: React operator UI
+- `core/docs/`: canonical repository documentation
+- `core/docs/standards/Node/tomplate/`: starter modular template for creating a new Hexe node
+- `core/scripts/`: development and bootstrap helpers
+- `core/systemd/`: service templates and runtime integration
 
 ## Local Development
 
 Backend dependencies:
 
-- `backend/requirements.txt`
+- `core/backend/requirements.txt`
 
 Frontend dependencies:
 
-- `frontend/package.json`
+- `core/frontend/package.json`
 
 Typical development flow:
 
 ```bash
-cd backend
+cd core/backend
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 .venv/bin/python -m uvicorn app.main:app --reload --port 9001
@@ -122,7 +124,7 @@ python3 -m venv .venv
 In a second terminal:
 
 ```bash
-cd frontend
+cd core/frontend
 npm install
 npm run dev -- --port 5173
 ```
