@@ -565,6 +565,7 @@ function mergeNodeRuntimes(
   supervisors: SupervisorFleetRecord[],
 ): Array<Record<string, unknown>> {
   const byNode = new Map<string, Record<string, unknown>>();
+  const localSupervisor = supervisors.find(isLocalSupervisor);
   const addRuntime = (runtime: Record<string, unknown>, supervisor?: SupervisorFleetRecord) => {
     const nodeId = String(runtime.node_id || "").trim();
     const fallbackName = String(runtime.node_name || "").trim();
@@ -585,7 +586,7 @@ function mergeNodeRuntimes(
   };
 
   for (const runtime of summaryRuntimes || []) {
-    if (runtime && typeof runtime === "object") addRuntime(runtime);
+    if (runtime && typeof runtime === "object") addRuntime(runtime, localSupervisor);
   }
   for (const supervisor of supervisors) {
     for (const runtime of supervisor.registered_runtimes || []) {
@@ -595,6 +596,13 @@ function mergeNodeRuntimes(
   return Array.from(byNode.values()).sort((a, b) =>
     String(a.node_name || a.node_id || "").localeCompare(String(b.node_name || b.node_id || "")),
   );
+}
+
+function runtimeSupervisorLabel(runtime: Record<string, unknown>): string {
+  const transport = String(runtime.__supervisor_transport || "local").toLowerCase();
+  const scope = transport === "local" ? "Local" : "Remote";
+  const name = String(runtime.__supervisor_name || runtime.__supervisor_id || "").trim();
+  return name ? `${scope} · ${name}` : scope;
 }
 
 function supervisorNodeCount(supervisor: SupervisorFleetRecord): number | null {
@@ -998,6 +1006,10 @@ export default function SettingsSupervisor() {
                     <div>
                       <div className="settings-node-label">Runtime</div>
                       <strong>{String((runtime as { runtime_kind?: string }).runtime_kind || runtime.node_type || "-")}</strong>
+                    </div>
+                    <div>
+                      <div className="settings-node-label">Supervisor</div>
+                      <strong>{runtimeSupervisorLabel(runtime)}</strong>
                     </div>
                     <div>
                       <div className="settings-node-label">Desired State</div>
