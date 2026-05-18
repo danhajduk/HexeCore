@@ -155,6 +155,15 @@ def _build_core_registration_payload() -> dict[str, object]:
     return payload
 
 
+def _active_registered_node_count(items: object) -> int:
+    count = 0
+    for item in items or []:
+        freshness = str(getattr(item, "freshness_state", "") or "").strip().lower()
+        if freshness not in {"offline", "error"}:
+            count += 1
+    return count
+
+
 def _systemd_runtime_payload(
     *,
     runtime_id: str,
@@ -260,6 +269,7 @@ def _build_core_heartbeat_payload(supervisor: SupervisorDomainService) -> dict[s
     runtime = supervisor.runtime_summary()
     registered_runtimes = supervisor.list_registered_runtimes()
     core_runtimes = supervisor.list_core_runtimes()
+    node_count = _active_registered_node_count(registered_runtimes) if registered_runtimes else len(runtime.managed_nodes)
     payload: dict[str, object] = {key: value for key, value in identity.items() if value}
     payload.update(
         {
@@ -267,7 +277,7 @@ def _build_core_heartbeat_payload(supervisor: SupervisorDomainService) -> dict[s
             "lifecycle_state": "running",
             "resources": resources.model_dump(mode="json"),
             "runtime": runtime.model_dump(mode="json"),
-            "managed_node_count": len(runtime.managed_nodes),
+            "managed_node_count": node_count,
             "registered_runtime_count": len(registered_runtimes),
             "core_runtime_count": len(core_runtimes),
             "registered_runtimes": [item.model_dump(mode="json") for item in registered_runtimes],

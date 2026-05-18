@@ -68,6 +68,8 @@ type SupervisorFleetRecord = {
   managed_node_count?: number | null;
   registered_runtime_count?: number | null;
   core_runtime_count?: number | null;
+  registered_runtimes?: Array<Record<string, unknown>>;
+  core_runtimes?: Array<Record<string, unknown>>;
   last_seen_at?: string | null;
 };
 
@@ -267,6 +269,82 @@ function renderMetadata(meta?: Record<string, unknown>): JSX.Element | null {
   return <pre className="settings-pre">{JSON.stringify(meta, null, 2)}</pre>;
 }
 
+function timestampValue(value: unknown): number {
+  const raw = String(value || "").trim();
+  if (!raw) return 0;
+  const parsed = new Date(raw).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function freshnessRank(value: unknown): number {
+  const normalized = String(value || "").toLowerCase();
+  if (normalized === "online") return 4;
+  if (normalized === "healthy" || normalized === "running") return 3;
+  if (normalized === "stale" || normalized === "degraded") return 2;
+  if (normalized === "offline" || normalized === "unhealthy" || normalized === "error") return 0;
+  return 1;
+}
+
+function shouldPreferRuntime(candidate: Record<string, unknown>, current: Record<string, unknown>): boolean {
+  const candidateFreshness = freshnessRank(candidate.freshness_state || candidate.health_status || candidate.runtime_state);
+  const currentFreshness = freshnessRank(current.freshness_state || current.health_status || current.runtime_state);
+  if (candidateFreshness !== currentFreshness) return candidateFreshness > currentFreshness;
+
+  const candidateSeen = timestampValue(candidate.last_seen_at || candidate.updated_at || candidate.registered_at);
+  const currentSeen = timestampValue(current.last_seen_at || current.updated_at || current.registered_at);
+  if (candidateSeen !== currentSeen) return candidateSeen > currentSeen;
+
+  const candidateServices = (candidate.runtime_metadata as { services?: unknown } | undefined)?.services;
+  const currentServices = (current.runtime_metadata as { services?: unknown } | undefined)?.services;
+  return Boolean(candidateServices) && !currentServices;
+}
+
+function mergeNodeRuntimes(
+  summaryRuntimes: Array<Record<string, unknown>> | undefined,
+  supervisors: SupervisorFleetRecord[],
+): Array<Record<string, unknown>> {
+  const byNode = new Map<string, Record<string, unknown>>();
+  const addRuntime = (runtime: Record<string, unknown>, supervisor?: SupervisorFleetRecord) => {
+    const nodeId = String(runtime.node_id || "").trim();
+    const fallbackName = String(runtime.node_name || "").trim();
+    const key = nodeId || `name:${fallbackName}`;
+    if (!key || key === "name:") return;
+    const enriched = supervisor
+      ? {
+          ...runtime,
+          __supervisor_id: supervisor.supervisor_id,
+          __supervisor_name: supervisor.supervisor_name || supervisor.supervisor_id,
+          __supervisor_transport: supervisor.transport || "remote",
+        }
+      : runtime;
+    const current = byNode.get(key);
+    if (!current || shouldPreferRuntime(enriched, current)) {
+      byNode.set(key, enriched);
+    }
+  };
+
+  for (const runtime of summaryRuntimes || []) {
+    if (runtime && typeof runtime === "object") addRuntime(runtime);
+  }
+  for (const supervisor of supervisors) {
+    for (const runtime of supervisor.registered_runtimes || []) {
+      if (runtime && typeof runtime === "object") addRuntime(runtime, supervisor);
+    }
+  }
+  return Array.from(byNode.values()).sort((a, b) =>
+    String(a.node_name || a.node_id || "").localeCompare(String(b.node_name || b.node_id || "")),
+  );
+}
+
+function supervisorNodeCount(supervisor: SupervisorFleetRecord): number | null {
+  if (Array.isArray(supervisor.registered_runtimes)) {
+    return supervisor.registered_runtimes.filter(
+      (runtime) => !["offline", "error"].includes(String(runtime.freshness_state || "").toLowerCase()),
+    ).length;
+  }
+  return supervisor.managed_node_count ?? supervisor.registered_runtime_count ?? null;
+}
+
 export default function SettingsSupervisor() {
   const [summary, setSummary] = useState<SupervisorSummary | null>(null);
   const [supervisors, setSupervisors] = useState<SupervisorFleetRecord[]>([]);
@@ -324,7 +402,8 @@ export default function SettingsSupervisor() {
       ? ((coreRuntimesRaw as { items?: unknown }).items as Array<Record<string, unknown>>)
       : [];
   const coreRuntimes = Array.isArray(coreRuntimesRaw) ? coreRuntimesRaw : coreRuntimesFromItems;
-  const nodeRuntimes = Array.isArray(summary?.runtimes) ? summary?.runtimes : [];
+  const summaryNodeRuntimes = Array.isArray(summary?.runtimes) ? summary?.runtimes : [];
+  const nodeRuntimes = mergeNodeRuntimes(summaryNodeRuntimes, supervisors);
   const coreServices = coreRuntimes.filter(
     (item) => String(item.runtime_kind || "").toLowerCase() !== "addon",
   );
@@ -490,7 +569,7 @@ export default function SettingsSupervisor() {
                     <td>{String(supervisor.hostname || supervisor.host_id || "-")}</td>
                     <td>{displayState(supervisor.freshness_state)}</td>
                     <td>{displayState(supervisor.health_status)}</td>
-                    <td>{formatNumber(supervisor.managed_node_count)}</td>
+                    <td>{formatNumber(supervisorNodeCount(supervisor))}</td>
                     <td>{formatNumber(supervisor.registered_runtime_count)}</td>
                     <td>{formatPctValue(supervisor.resources?.cpu_percent_total)}</td>
                     <td>{formatPctValue(supervisor.resources?.memory_percent)}</td>
@@ -614,6 +693,10 @@ export default function SettingsSupervisor() {
               const runtimeUsage = runtime as { resource_usage?: { cpu_percent?: number; mem_percent?: number } };
               const nodeCpu = services.length > 0 ? servicesCpu : runtimeUsage.resource_usage?.cpu_percent;
               const nodeMem = services.length > 0 ? servicesMem : runtimeUsage.resource_usage?.mem_percent;
+              const supervisorTransport = String(
+                (runtime as { __supervisor_transport?: string }).__supervisor_transport || "local",
+              ).toLowerCase();
+              const canRunActions = supervisorTransport === "local";
               return (
                 <div key={`runtime:${nodeId || runtime.node_name}`} className="settings-card settings-node-card">
                   <div className="settings-node-header">
@@ -625,30 +708,34 @@ export default function SettingsSupervisor() {
                       </div>
                     </div>
                     <div className="settings-node-actions">
-                      <button
-                        className="settings-btn"
-                        type="button"
-                        onClick={() => void runNodeRuntimeAction(nodeId, "start")}
-                        disabled={actionBusy[nodeId] !== null && actionBusy[nodeId] !== undefined}
-                      >
-                        Start
-                      </button>
-                      <button
-                        className="settings-btn"
-                        type="button"
-                        onClick={() => void runNodeRuntimeAction(nodeId, "stop")}
-                        disabled={actionBusy[nodeId] !== null && actionBusy[nodeId] !== undefined}
-                      >
-                        Stop
-                      </button>
-                      <button
-                        className="settings-btn"
-                        type="button"
-                        onClick={() => void runNodeRuntimeAction(nodeId, "restart")}
-                        disabled={actionBusy[nodeId] !== null && actionBusy[nodeId] !== undefined}
-                      >
-                        Restart
-                      </button>
+                      {canRunActions && (
+                        <>
+                          <button
+                            className="settings-btn"
+                            type="button"
+                            onClick={() => void runNodeRuntimeAction(nodeId, "start")}
+                            disabled={actionBusy[nodeId] !== null && actionBusy[nodeId] !== undefined}
+                          >
+                            Start
+                          </button>
+                          <button
+                            className="settings-btn"
+                            type="button"
+                            onClick={() => void runNodeRuntimeAction(nodeId, "stop")}
+                            disabled={actionBusy[nodeId] !== null && actionBusy[nodeId] !== undefined}
+                          >
+                            Stop
+                          </button>
+                          <button
+                            className="settings-btn"
+                            type="button"
+                            onClick={() => void runNodeRuntimeAction(nodeId, "restart")}
+                            disabled={actionBusy[nodeId] !== null && actionBusy[nodeId] !== undefined}
+                          >
+                            Restart
+                          </button>
+                        </>
+                      )}
                       <button className="settings-btn" type="button" onClick={() => toggleNodeDetails(nodeId)}>
                         {expandedNodes[nodeId] ? "Hide Services" : "Show Services"}
                       </button>

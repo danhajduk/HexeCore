@@ -130,6 +130,10 @@ def _list_payload(value: object) -> list[dict[str, Any]]:
     return [dict(item) for item in value if isinstance(item, dict)] if isinstance(value, list) else []
 
 
+def _active_node_runtime_count(items: list[dict[str, Any]]) -> int:
+    return sum(1 for item in items if _clean_text(item.get("freshness_state")).lower() not in {"offline", "error"})
+
+
 def _default_enrollment_ttl_s() -> int:
     raw = str(os.getenv("HEXE_SUPERVISOR_ENROLLMENT_TTL_S", "900")).strip()
     try:
@@ -647,7 +651,9 @@ def build_supervisors_router(
             if isinstance(core_runtimes, dict)
             else list(existing.core_runtimes if existing else [])
         )
-        managed_node_count = len(managed_nodes) if managed_nodes else existing.managed_node_count if existing else 0
+        managed_node_count = _active_node_runtime_count(node_runtimes) if node_runtimes else (
+            len(managed_nodes) if managed_nodes else existing.managed_node_count if existing else 0
+        )
         registry.heartbeat(
             SupervisorHeartbeatRequest(
                 supervisor_id=supervisor_id,
