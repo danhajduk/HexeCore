@@ -306,6 +306,8 @@ function mergeNodeRuntimes(
   const byNode = new Map<string, Record<string, unknown>>();
   const localSupervisor = supervisors.find((supervisor) => String(supervisor.transport || "").toLowerCase() === "local");
   const addRuntime = (runtime: Record<string, unknown>, supervisor?: SupervisorFleetRecord) => {
+    const freshness = String(runtime.freshness_state || "").toLowerCase();
+    if (["offline", "error"].includes(freshness)) return;
     const nodeId = String(runtime.node_id || "").trim();
     const fallbackName = String(runtime.node_name || "").trim();
     const key = nodeId || `name:${fallbackName}`;
