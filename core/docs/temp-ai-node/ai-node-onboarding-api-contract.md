@@ -132,7 +132,7 @@ Status: Implemented
   "onboarding_status": "approved",
   "activation": {
     "node_id": "node-abc123",
-    "paired_core_id": "synthia-core",
+    "paired_core_id": "hexe-core",
     "node_trust_token": "<opaque_token>",
     "initial_baseline_policy": {
       "version": "1",

@@ -1,18 +1,18 @@
-# Synthia Distributed AI Platform Roadmap
+# Hexe Distributed AI Platform Roadmap
 
-Status: Draft  
-Last Updated: 2026-03-11  
-Owner: Synthia Core / AI Node Architecture  
+Status: Draft
+Last Updated: 2026-03-11
+Owner: Hexe Core / AI Node Architecture
 
 ---
 
 # Overview
 
-Synthia is evolving into a **distributed AI execution platform** composed of:
+Hexe is evolving into a **distributed AI execution platform** composed of:
 
-- **Synthia Core** — governance, orchestration, policy authority
+- **Hexe Core** — governance, orchestration, policy authority
 - **AI Nodes** — trusted execution environments for AI workloads
-- **Addons / Services** — functional components integrated through the Synthia ecosystem
+- **Addons / Services** — functional components integrated through the Hexe ecosystem
 - **MQTT control plane** — discovery and event routing
 
 The platform is built incrementally through structured phases.
@@ -23,13 +23,13 @@ Each phase introduces **one architectural capability layer**.
 
 # Phase 1 — Node Discovery and Trust Establishment
 
-Status: completed  
-Last Updated: 2026-03-11 
+Status: completed
+Last Updated: 2026-03-11
 
 ---
 ## Objective
 
-Allow AI Nodes to securely discover Synthia Core and establish a trusted relationship.
+Allow AI Nodes to securely discover Hexe Core and establish a trusted relationship.
 
 ## Key Capabilities
 
@@ -72,9 +72,9 @@ trusted
 
 # Phase 2 — Capability Declaration and Governance
 
-Status: in-development  
-Last Updated: 2026-03-11 
- 
+Status: in-development
+Last Updated: 2026-03-11
+
 ---
 
 ## Objective
@@ -281,7 +281,7 @@ execution concurrency limits
 
 ## Objective
 
-Enable **autonomous AI services** operating across the Synthia platform.
+Enable **autonomous AI services** operating across the Hexe platform.
 
 This phase introduces high-level AI behaviors.
 
@@ -350,7 +350,7 @@ Autonomous AI Services
 
 ## Core as Authority
 
-Synthia Core remains the **source of truth** for:
+Hexe Core remains the **source of truth** for:
 
 - trust
 - governance
@@ -400,7 +400,7 @@ This prevents uncontrolled AI behavior.
 
 # Long-Term Vision
 
-Synthia becomes a **distributed personal AI infrastructure** where:
+Hexe becomes a **distributed personal AI infrastructure** where:
 
 - Core governs policy
 - Nodes provide compute

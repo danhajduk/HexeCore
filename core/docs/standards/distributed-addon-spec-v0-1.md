@@ -1,14 +1,14 @@
-# Synthia Distributed Addon Spec v0.1 (General)
+# Hexe Distributed Addon Spec v0.1 (General)
 
 Last Updated: 2026-03-07 14:51 US/Pacific
-Version: 0.1  
+Version: 0.1
 Date: 2026-02-28
 
 Status: Archived compatibility-era reference
 
 This document remains as a historical specification for the earlier distributed addon model. Active platform architecture is now documented under `Core -> Supervisor -> Nodes`, with Nodes as the canonical external execution/functionality model and Supervisor as the host-local runtime authority.
 
-This document defines a **general, reusable** structure for running Synthia addons as **independent services** that can live on the same host as Core or on different machines, while Core remains a **control plane** (registry/auth/policy/UI/proxy), not a data-path broker.
+This document defines a **general, reusable** structure for running Hexe addons as **independent services** that can live on the same host as Core or on different machines, while Core remains a **control plane** (registry/auth/policy/UI/proxy), not a data-path broker.
 
 > Design goals
 - **Non-interference**: addons keep running if Core is down; Core must not be required for realtime ingestion/processing.
@@ -20,7 +20,7 @@ This document defines a **general, reusable** structure for running Synthia addo
 
 ## 1) Actors and Planes
 
-### Control plane (Synthia Core)
+### Control plane (Hexe Core)
 Core provides:
 - Addon registry (what exists, where, capabilities)
 - Authentication and authorization authority
@@ -49,7 +49,7 @@ Each compatibility-era standalone addon is an independent service that may:
 Note: for current platform work, use Nodes for new external capability surfaces. The addon types below are preserved to document the older packaging/runtime model.
 
 ### A) Standalone feature addon
-Provides UI + API for a feature domain (e.g., Vision).  
+Provides UI + API for a feature domain (e.g., Vision).
 May ingest its own signals and publish results.
 
 ### B) Service addon
@@ -59,7 +59,7 @@ Provides a shared capability to other addons (e.g., AI, Gmail, Storage).
 - Must report usage back to Core
 
 ### C) Bridge addon (optional)
-Connects external systems to Synthia’s internal standards (e.g., webhook ingress, protocol gateways).
+Connects external systems to Hexe’s internal standards (e.g., webhook ingress, protocol gateways).
 Should remain thin.
 
 ---
@@ -169,7 +169,7 @@ Optionally provide “Try common defaults” + “Test connection”.
 Discovery can be MQTT-first once a broker exists.
 
 ### 7.1 Addon announce (retained)
-Topic: `synthia/addons/<id>/announce` (retained)  
+Topic: `hexe/addons/<id>/announce` (retained)
 Payload includes:
 - id, version, base_url
 - capabilities
@@ -177,14 +177,14 @@ Payload includes:
 - optional: runtime host hints (hostname, ip)
 
 ### 7.2 Health (retained + periodic update)
-Topic: `synthia/addons/<id>/health` (retained)  
+Topic: `hexe/addons/<id>/health` (retained)
 Payload:
 - status: `healthy|degraded|offline`
 - last_seen
 - brief reason codes (no secrets)
 
 ### 7.3 Service catalog (service addons)
-Topic: `synthia/services/<service_id>/catalog` (retained)  
+Topic: `hexe/services/<service_id>/catalog` (retained)
 Payload:
 - provided capabilities
 - declared max daily capacity (tokens/cents/requests)
@@ -229,7 +229,7 @@ Core issues short-lived JWTs containing:
 Tokens are used for addon→addon calls (direct), without Core in the request path.
 
 ### 9.2 Quota grants (policy vs enforcement)
-Core is **policy authority** (assigns grants).  
+Core is **policy authority** (assigns grants).
 Service addon is **enforcement point** (enforces per request).
 
 A grant is keyed by: `(consumer_addon, service, period)` and includes:

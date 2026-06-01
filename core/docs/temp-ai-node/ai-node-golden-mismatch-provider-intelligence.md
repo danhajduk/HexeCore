@@ -1,7 +1,7 @@
 # AI Node Golden Mismatch: Provider Intelligence (Tasks 091-095)
 
 Date: 2026-03-11
-Scope: Synthia AI Node provider discovery, latency metrics, capability report, Core submission, and periodic refresh.
+Scope: Hexe AI Node provider discovery, latency metrics, capability report, Core submission, and periodic refresh.
 
 ## Summary
 

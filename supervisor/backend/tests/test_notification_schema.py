@@ -43,7 +43,7 @@ class TestNotificationSchema(unittest.TestCase):
                 "ttl_seconds": 60,
                 "dedupe_key": "startup-complete",
             },
-            "content": NotificationContent(title="Synthia", message="Startup complete"),
+            "content": NotificationContent(title="Hexe", message="Startup complete"),
             "event": NotificationEvent(event_type="startup_complete"),
             "data": {"phase": "ready"},
         }

@@ -1,4 +1,4 @@
-# Synthia Core / Supervisor / Nodes Architecture --- Core Structure
+# Hexe Core / Supervisor / Nodes Architecture --- Core Structure
 
 Last Updated: 2026-03-07 14:51 US/Pacific
 
@@ -7,7 +7,7 @@ Date: 2026-02-28
 
 ## 1. Core Role: Control Plane
 
-Synthia Core is **not** in the data path of addons.\
+Hexe Core is **not** in the data path of addons.\
 It acts as:
 
 -   Addon registry

@@ -73,7 +73,7 @@ def setup_logging() -> None:
                 "level": _level_from_env("HEXE_LOG_ADDONS_LEVEL", "INFO"),
                 "propagate": False,
             },
-            "synthia.api": {
+            "hexe.api": {
                 "handlers": ["api_file"],
                 "level": _level_from_env("HEXE_LOG_API_LEVEL", "INFO"),
                 "propagate": False,

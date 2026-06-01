@@ -1,4 +1,4 @@
-# Synthia Addon API & MQTT Communication Standard
+# Hexe Addon API & MQTT Communication Standard
 
 Last Updated: 2026-03-07 14:51 US/Pacific
 
@@ -30,19 +30,19 @@ storage.object.write
 
 ### Discovery
 
-Topic: synthia/addons/{id}/announce (retained)
+Topic: hexe/addons/{id}/announce (retained)
 
 Payload: - id - base_url - version - capabilities
 
 ### Health
 
-synthia/addons/{id}/health (retained)
+hexe/addons/{id}/health (retained)
 
 Payload: - status: healthy\|degraded\|offline - last_seen
 
 ### Policy Distribution
 
-synthia/policy/grants/{service} synthia/policy/revocations/{addon_id}
+hexe/policy/grants/{service} hexe/policy/revocations/{addon_id}
 
 Retained messages required.
 

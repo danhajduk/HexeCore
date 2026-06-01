@@ -1,34 +1,34 @@
-# Synthia Addon Standard (SAS) — Catalog / Manifest / Core Contract (v1.1)
+# Hexe Addon Standard (SAS) — Catalog / Manifest / Core Contract (v1.1)
 
 Last Updated: 2026-03-07 14:51 US/Pacific
 
-**Status:** Draft (intended to become the *single source of truth* for Synthia addon packaging + store distribution)  
-**Applies to repos:** `SynthiaCore`, `Synthia-Addon-Catalog`, any addon repo (e.g. `Synthia-MQTT`)  
+**Status:** Draft (intended to become the *single source of truth* for Hexe addon packaging + store distribution)
+**Applies to repos:** `HexeCore`, `Synthia-Addon-Catalog`, any addon repo (e.g. `Synthia-MQTT`)
 **Signature model:** **Option A** — signature over the artifact SHA-256 (see §6)
 
-> If you are reading this as “Codex instructions”: treat this document as authoritative.  
+> If you are reading this as “Codex instructions”: treat this document as authoritative.
 > Do not invent fields. Do not rename fields. Do not omit required validation steps.
 
 ---
 
 ## 0) Executive summary
 
-There are **three** distinct but related documents in the Synthia addon ecosystem:
+There are **three** distinct but related documents in the Hexe addon ecosystem:
 
-1) **Addon Package Manifest** (`manifest.json`)  
-   - Lives **inside the addon repo** and inside the **released artifact** (`addon.tgz`).  
+1) **Addon Package Manifest** (`manifest.json`)
+   - Lives **inside the addon repo** and inside the **released artifact** (`addon.tgz`).
    - Describes the addon **identity**, **compatibility**, **permissions**, and **entrypoints**.
 
-2) **Addon Store Catalog Index** (`catalog/v1/index.json`)  
-   - Lives in **Synthia-Addon-Catalog**.  
-   - Lists **addons** and their **releases**.  
+2) **Addon Store Catalog Index** (`catalog/v1/index.json`)
+   - Lives in **Synthia-Addon-Catalog**.
+   - Lists **addons** and their **releases**.
    - Each release points to an artifact URL + integrity hash + signature metadata.
 
-3) **Publishers Registry** (`catalog/v1/publishers.json`)  
-   - Lives in **Synthia-Addon-Catalog**.  
+3) **Publishers Registry** (`catalog/v1/publishers.json`)
+   - Lives in **Synthia-Addon-Catalog**.
    - Defines **publishers** and their **public signing keys** (key rotation, revocation).
 
-**Core (SynthiaCore) is the enforcement point**: it validates the catalog, downloads artifacts, verifies integrity + signatures, reads `manifest.json`, validates permissions/compatibility, then installs.
+**Core (HexeCore) is the enforcement point**: it validates the catalog, downloads artifacts, verifies integrity + signatures, reads `manifest.json`, validates permissions/compatibility, then installs.
 
 ---
 
@@ -81,7 +81,7 @@ Synthia-Addon-Catalog/
 - The catalog index is the list of releases Core is allowed to install.
 - The publishers registry is the list of public keys Core trusts.
 
-**Core (SynthiaCore) installs:**
+**Core (HexeCore) installs:**
 1. Fetch `catalog/v1/index.json`.
 2. Fetch `catalog/v1/publishers.json`.
 3. Select a release compatible with the running Core version.
@@ -124,7 +124,7 @@ Synthia-Addon-Catalog/
   // identity
   "id": "mqtt",
   "name": "Hexe MQTT",
-  "description": "MQTT integration layer for Synthia Core",
+  "description": "MQTT integration layer for Hexe Core",
   "version": "0.1.0",
 
   // how Core should run/mount it
@@ -182,7 +182,7 @@ Synthia-Addon-Catalog/
   - `frontend_only` — addon provides UI only.
   - `backend_only` — addon provides backend only.
 
-> **Note:** `embedded_addon` aligns with Synthia “addons folder contains backend+frontend” architecture.  
+> **Note:** `embedded_addon` aligns with Hexe “addons folder contains backend+frontend” architecture.
 > `standalone_service` aligns with “service addon” model (MQTT, Vision, etc.).
 
 **Compatibility**
@@ -196,18 +196,18 @@ Synthia-Addon-Catalog/
 - Allowed permission vocabulary is defined in Core. Catalog/manifests must not invent permissions.
 
 **Paths**
-- `paths` *(array of strings, optional)*: packaging hint only.  
+- `paths` *(array of strings, optional)*: packaging hint only.
   Core MAY ignore this field. Do not use for security decisions.
 
 **Entrypoints**
-- `entrypoints` *(object, optional depending on profile)*:  
+- `entrypoints` *(object, optional depending on profile)*:
   - For `embedded_addon`: may include `backend` module path and `ui` folder.
   - For `standalone_service`: should include `service` (main executable / module path).
   - For `frontend_only`: should include `ui`.
   - For `backend_only`: should include `backend`.
 
 **Publisher**
-- `publisher.id` *(string, optional)*: informative only.  
+- `publisher.id` *(string, optional)*: informative only.
   **Catalog release entry is authoritative** for publisher via `publisher_key_id`.
 
 ### 3.5 Backward compatibility (aliases)
@@ -239,7 +239,7 @@ The catalog index lists addons and their releases. Each release is a concrete in
     {
       "addon_id": "mqtt",
       "name": "Hexe MQTT",
-      "description": "MQTT integration layer for Synthia Core",
+      "description": "MQTT integration layer for Hexe Core",
       "repo": "https://github.com/danhajduk/Synthia-MQTT",
       "publisher_id": "publisher.danhajduk",
 
@@ -352,8 +352,8 @@ Each catalog release entry includes:
 - `sha256`: hex-encoded SHA-256 digest of the **artifact bytes**.
 - `signature`: signature over the SHA-256 digest **bytes** (not the hex string) using the key referenced by `publisher_key_id`.
 
-**Canonical:**  
-`sig = Sign(private_key, digest_bytes)`  
+**Canonical:**
+`sig = Sign(private_key, digest_bytes)`
 where `digest_bytes = SHA256(artifact_bytes)`.
 
 ### 6.2 Verification steps (normative, Core)
@@ -375,31 +375,31 @@ Core MUST verify in this order:
 
 Core MUST enforce these invariants:
 
-1. `catalog.addons[].addon_id` MUST equal `manifest.id` inside artifact.  
+1. `catalog.addons[].addon_id` MUST equal `manifest.id` inside artifact.
    - If mismatch, installation fails (prevents “bait-and-switch” artifact).
 
-2. `catalog release.version` MUST equal `manifest.version` inside artifact.  
+2. `catalog release.version` MUST equal `manifest.version` inside artifact.
    - If mismatch, installation fails.
 
-3. `catalog.addons[].publisher_id` MUST equal `manifest.publisher.id` if manifest publisher is present.  
+3. `catalog.addons[].publisher_id` MUST equal `manifest.publisher.id` if manifest publisher is present.
    - If manifest omits publisher, this check is skipped.
 
-4. Core MUST enforce permissions from **manifest.permissions** (canonical).  
+4. Core MUST enforce permissions from **manifest.permissions** (canonical).
    - Catalog does not grant permissions; it only distributes.
 
 5. Core MUST apply compatibility rules using both:
    - Catalog `core_compat` (fast filter) AND
    - Manifest `compatibility` (deep validation).
 
-6. Unknown fields:  
-   - Catalog files: unknown fields should be rejected (to keep the contract strict).  
+6. Unknown fields:
+   - Catalog files: unknown fields should be rejected (to keep the contract strict).
    - Manifest: unknown fields MAY be ignored, but only if `schema_version` supports extension. Prefer strict validation if possible.
 
 ---
 
 ## 8) JSON Schemas (copy these into catalog/v1/schemas/)
 
-> These schemas are intentionally strict to avoid drift.  
+> These schemas are intentionally strict to avoid drift.
 > Update schema_version when making incompatible changes.
 
 ### 8.1 `addon-manifest.schema.json` (v1.1)
@@ -407,8 +407,8 @@ Core MUST enforce these invariants:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://synthia.local/schemas/addon-manifest.schema.json",
-  "title": "Synthia Addon Manifest",
+  "$id": "https://hexe.local/schemas/addon-manifest.schema.json",
+  "title": "Hexe Addon Manifest",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "id", "name", "version", "package_profile", "compatibility", "permissions"],
@@ -498,8 +498,8 @@ Core MUST enforce these invariants:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://synthia.local/schemas/publishers.schema.json",
-  "title": "Synthia Publishers Registry",
+  "$id": "https://hexe.local/schemas/publishers.schema.json",
+  "title": "Hexe Publishers Registry",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "updated_at", "publishers"],
@@ -560,8 +560,8 @@ Core MUST enforce these invariants:
 ```json
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://synthia.local/schemas/catalog-index.schema.json",
-  "title": "Synthia Addon Catalog Index",
+  "$id": "https://hexe.local/schemas/catalog-index.schema.json",
+  "title": "Hexe Addon Catalog Index",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "updated_at", "addons"],
@@ -668,7 +668,7 @@ Core MUST enforce these invariants:
 
 ## 9) Implementation checklist (Core + tooling)
 
-### 9.1 Core (SynthiaCore) MUST implement
+### 9.1 Core (HexeCore) MUST implement
 - Fetch + schema-validate `index.json` and `publishers.json`.
 - Release selection logic per §4.5.
 - Artifact download + SHA-256 validation.

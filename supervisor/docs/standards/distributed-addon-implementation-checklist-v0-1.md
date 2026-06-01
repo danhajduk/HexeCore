@@ -1,4 +1,4 @@
-# Synthia Distributed Addons — Implementation Checklist v0.1
+# Hexe Distributed Addons — Implementation Checklist v0.1
 
 Last Updated: 2026-03-07 14:51 US/Pacific
 Date: 2026-02-28  
@@ -45,12 +45,12 @@ Deliverable:
   - [ ] `POST /api/system/mqtt/restart` (admin)
 
 ### MQTT minimal topics (Core-owned)
-- [ ] Reserve root prefix: `synthia/`
+- [ ] Reserve root prefix: `hexe/`
 - [ ] Define retained broker info topic (optional but helpful):
-  - [ ] `synthia/core/mqtt/info` (retained): host, port, tls, last_seen (no secrets)
+  - [ ] `hexe/core/mqtt/info` (retained): host, port, tls, last_seen (no secrets)
 
 Acceptance tests
-- [ ] With local broker enabled: Core boots and publishes `synthia/core/mqtt/info`.
+- [ ] With local broker enabled: Core boots and publishes `hexe/core/mqtt/info`.
 - [ ] With external broker: test endpoint validates connect + CONNACK.
 
 ---
@@ -112,23 +112,23 @@ Acceptance tests
 ## Phase 4 — MQTT Discovery + Telemetry (Default Bus)
 ### Addon announce + health topics (addon side)
 - [ ] Publish retained announce:
-  - [ ] `synthia/addons/{id}/announce`
+  - [ ] `hexe/addons/{id}/announce`
 - [ ] Publish retained health:
-  - [ ] `synthia/addons/{id}/health`
+  - [ ] `hexe/addons/{id}/health`
 - [ ] Include fields:
   - id, version, base_url, capabilities, last_seen, status
 
 ### Core subscriptions
 - [ ] Core subscribes:
-  - [ ] `synthia/addons/+/announce`
-  - [ ] `synthia/addons/+/health`
+  - [ ] `hexe/addons/+/announce`
+  - [ ] `hexe/addons/+/health`
 - [ ] Core updates registry `last_seen` and `health_status` from MQTT.
 
 ### Service catalogs (service addons)
 - [ ] Service addon publishes retained:
-  - [ ] `synthia/services/{service_id}/catalog`
+  - [ ] `hexe/services/{service_id}/catalog`
 - [ ] Core subscribes:
-  - [ ] `synthia/services/+/catalog`
+  - [ ] `hexe/services/+/catalog`
 - [ ] Core offers service resolution endpoint:
   - [ ] `GET /api/services/resolve?capability={cap}`
 
@@ -180,13 +180,13 @@ Acceptance tests
 
 ### Distribution
 - [ ] Core publishes retained grants:
-  - [ ] `synthia/policy/grants/{service}`
+  - [ ] `hexe/policy/grants/{service}`
 - [ ] Service addon subscribes and caches locally.
 
 ### Revocation
 - [ ] Core publishes retained revocations:
-  - [ ] `synthia/policy/revocations/{consumer_addon_id}`
-  - [ ] `synthia/policy/revocations/{grant_id}`
+  - [ ] `hexe/policy/revocations/{consumer_addon_id}`
+  - [ ] `hexe/policy/revocations/{grant_id}`
 - [ ] Service addon polls Core revocations as fallback (30–60s).
 
 ### Reporting

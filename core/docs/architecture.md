@@ -32,7 +32,7 @@ Status: Implemented
 
 Supervisor is the host-local runtime realization boundary and currently spans:
 
-- `backend/synthia_supervisor/`
+- `backend/hexe_supervisor/`
 - `backend/app/system/runtime/`
 - `backend/app/supervisor/`
 

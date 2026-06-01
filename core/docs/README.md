@@ -114,7 +114,7 @@ Responsibilities:
 
 Standalone runtime management code:
 
-    backend/synthia_supervisor/
+    backend/hexe_supervisor/
 
 Responsibilities:
 
@@ -181,7 +181,7 @@ High-level layout of this repository:
 
     backend/                 FastAPI backend and platform services
     frontend/                React admin UI
-    backend/synthia_supervisor/  Standalone runtime supervision components
+    backend/hexe_supervisor/  Standalone runtime supervision components
     backend/app/system/      Scheduler, workers, MQTT services
     scripts/                 Bootstrap and development helpers
     systemd/user/            User service templates

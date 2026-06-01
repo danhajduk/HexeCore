@@ -1,4 +1,4 @@
-# Synthia Tokens, Permissions & Quota Model
+# Hexe Tokens, Permissions & Quota Model
 
 Last Updated: 2026-03-07 14:51 US/Pacific
 

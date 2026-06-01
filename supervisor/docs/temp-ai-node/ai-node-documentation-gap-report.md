@@ -8,7 +8,7 @@ Source comparison:
 
 ## Purpose
 
-This report defines the remaining documentation gaps required to align the AI Node documentation set with golden documentation standards used in main Synthia docs.
+This report defines the remaining documentation gaps required to align the AI Node documentation set with golden documentation standards used in main Hexe docs.
 
 ## Baseline Observations
 

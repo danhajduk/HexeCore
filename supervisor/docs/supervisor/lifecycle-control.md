@@ -8,8 +8,8 @@ This document defines the current Supervisor-managed lifecycle semantics for hos
 
 - `backend/app/supervisor/service.py`
 - `backend/app/supervisor/models.py`
-- `backend/synthia_supervisor/models.py`
-- `backend/synthia_supervisor/main.py`
+- `backend/hexe_supervisor/models.py`
+- `backend/hexe_supervisor/main.py`
 
 ## Lifecycle States
 

@@ -1080,7 +1080,7 @@ def addon_ui_root() -> str:
     }
 
     async function runDebugSubscribe() {
-      const topicFilter = String(window.prompt("Topic filter", "synthia/#") || "").trim();
+      const topicFilter = String(window.prompt("Topic filter", "hexe/#") || "").trim();
       if (!topicFilter) return;
       const qosRaw = String(window.prompt("QoS (0/1/2)", "0") || "0").trim();
       const qos = Number.parseInt(qosRaw, 10);
@@ -1471,7 +1471,7 @@ def addon_ui_root() -> str:
         `<label>Access Mode<select id='create-user-access-mode'><option value='private'>private</option><option value='custom'>custom</option><option value='non_reserved'>non_reserved</option><option value='admin'>admin</option></select></label>` +
         `<label>Allowed Topics (comma separated)<input id='create-user-allowed-topics' placeholder='external/homeassistant/sensors/#' /></label>` +
         `<label>Allowed Publish Topics (comma separated)<input id='create-user-allowed-publish-topics' placeholder='external/homeassistant/events/#' /></label>` +
-        `<label>Allowed Subscribe Topics (comma separated)<input id='create-user-allowed-subscribe-topics' placeholder='synthia/runtime/#' /></label>` +
+        `<label>Allowed Subscribe Topics (comma separated)<input id='create-user-allowed-subscribe-topics' placeholder='hexe/runtime/#' /></label>` +
         `</div>` +
         `<div class='modal-actions'>` +
         `<button class='primary' data-ui-action='submit-add-user'>Create</button>` +

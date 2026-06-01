@@ -2,7 +2,7 @@
 
 Hexe Core is the control-plane service for the Hexe AI platform. This repository now documents the migration foundation for the `Core -> Supervisor -> Nodes` structure while preserving the current runtime and API surface.
 
-Compatibility note: Phase 0 is a cosmetic rebrand only. Internal identifiers such as `synthia/...` MQTT topics, `/api/...` paths, Python module names, and systemd unit filenames remain unchanged during this phase.
+Compatibility note: Hexe is now the canonical product and operator-facing name. Legacy Synthia identifiers only remain where compatibility requires them.
 
 ## Start Here
 
@@ -36,7 +36,7 @@ Status: Implemented
 
 Supervisor currently spans:
 
-- `backend/synthia_supervisor/`
+- `backend/hexe_supervisor/`
 - `backend/app/system/runtime/`
 - `backend/app/supervisor/`
 
@@ -93,7 +93,7 @@ These routes reuse the existing canonical node registration payload shape.
 ## Repository Layout
 
 - `backend/app/`: FastAPI app, Core control-plane services, and migration domain routers
-- `backend/synthia_supervisor/`: standalone runtime supervision and desired/runtime reconciliation
+- `backend/hexe_supervisor/`: standalone runtime supervision and desired/runtime reconciliation
 - `frontend/`: React operator UI
 - `docs/`: canonical repository documentation
 - `docs/standards/Node/tomplate/`: starter modular template for creating a new Hexe node

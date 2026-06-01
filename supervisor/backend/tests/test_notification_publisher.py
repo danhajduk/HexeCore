@@ -25,7 +25,7 @@ class TestNotificationPublisher(unittest.IsolatedAsyncioTestCase):
             "source": {"kind": "core", "id": "core", "component": "startup"},
             "targets": {"broadcast": True},
             "delivery": {"severity": "info", "priority": "normal", "urgency": "notification"},
-            "content": {"title": "Synthia", "message": "Ready"},
+            "content": {"title": "Hexe", "message": "Ready"},
             "event": {"event_type": "startup_complete"},
         }
 

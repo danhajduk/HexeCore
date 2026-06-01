@@ -65,7 +65,7 @@ if [[ -z "$ADDON_ID" ]]; then
 fi
 
 ADMIN_TOKEN="${ADMIN_TOKEN_OVERRIDE:-${HEXE_ADMIN_TOKEN:-}}"
-COOKIE_JAR="/tmp/synthia_uninstall_cookie_$$.txt"
+COOKIE_JAR="/tmp/hexe_uninstall_cookie_$$.txt"
 trap 'rm -f "$COOKIE_JAR"' EXIT
 
 http_code_and_body() {

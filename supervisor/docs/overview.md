@@ -25,7 +25,7 @@ Status: Implemented
 
 Supervisor is the host-local runtime authority. In current code this spans:
 
-- `backend/synthia_supervisor/`
+- `backend/hexe_supervisor/`
 - `backend/app/system/runtime/`
 - `backend/app/supervisor/`
 - `backend/app/supervisor/server.py`

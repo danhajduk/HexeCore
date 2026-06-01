@@ -1,4 +1,4 @@
-# Synthia Distributed Addons — Sequence Diagrams (General)
+# Hexe Distributed Addons — Sequence Diagrams (General)
 
 Last Updated: 2026-03-07 14:51 US/Pacific
 Version: 0.1  
@@ -44,10 +44,10 @@ sequenceDiagram
   participant M as MQTT Broker
   participant C as Core
 
-  A->>M: PUBLISH retained synthia/addons/<id>/announce
-  A->>M: PUBLISH retained synthia/addons/<id>/health
-  C->>M: SUBSCRIBE synthia/addons/+/announce
-  C->>M: SUBSCRIBE synthia/addons/+/health
+  A->>M: PUBLISH retained hexe/addons/<id>/announce
+  A->>M: PUBLISH retained hexe/addons/<id>/health
+  C->>M: SUBSCRIBE hexe/addons/+/announce
+  C->>M: SUBSCRIBE hexe/addons/+/health
   M-->>C: retained announce + health
   C->>C: Update registry (base_url, capabilities, last_seen)
 ```
@@ -81,8 +81,8 @@ sequenceDiagram
   participant C as Core
   participant S as Service Addon
 
-  S->>M: PUBLISH retained synthia/services/<svc>/catalog
-  C->>M: SUBSCRIBE synthia/services/+/catalog
+  S->>M: PUBLISH retained hexe/services/<svc>/catalog
+  C->>M: SUBSCRIBE hexe/services/+/catalog
   C->>C: Registry knows provider base_url for service
   V->>C: GET /api/services/resolve?capability=ai.classify
   C-->>V: { service_base_url, service_id, required_scopes }
@@ -99,8 +99,8 @@ sequenceDiagram
   participant M as MQTT Broker
   participant S as Service Addon (Enforcement)
 
-  C->>M: PUBLISH retained synthia/policy/grants/<service>
-  S->>M: SUBSCRIBE synthia/policy/grants/<service>
+  C->>M: PUBLISH retained hexe/policy/grants/<service>
+  S->>M: SUBSCRIBE hexe/policy/grants/<service>
   M-->>S: retained grants update
 ```
 
@@ -141,8 +141,8 @@ sequenceDiagram
   participant S as Service Addon
   participant V as Consumer Addon
 
-  C->>M: PUBLISH retained synthia/policy/revocations/<consumer_id>
-  C->>M: PUBLISH retained synthia/policy/revocations/<grant_id>
+  C->>M: PUBLISH retained hexe/policy/revocations/<consumer_id>
+  C->>M: PUBLISH retained hexe/policy/revocations/<grant_id>
   S->>M: SUBSCRIBE revocations topics
   V->>M: SUBSCRIBE its revocations topic (optional)
   M-->>S: retained revocation update

@@ -8,7 +8,7 @@ Status: Implemented
 
 Supervisor currently spans:
 
-- `backend/synthia_supervisor/`
+- `backend/hexe_supervisor/`
 - `backend/app/system/runtime/`
 - `backend/app/supervisor/`
 - `backend/app/supervisor/server.py`

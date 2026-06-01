@@ -7,7 +7,7 @@ FRONTEND_ADDONS="$PROJECT_ROOT/frontend/src/addons"
 
 mkdir -p "$FRONTEND_ADDONS"
 
-echo "[SYNTHIA] Syncing frontend addons..."
+echo "[HEXE] Syncing frontend addons..."
 
 # Clean existing synced entries (but keep .gitkeep)
 find "$FRONTEND_ADDONS" -mindepth 1 -maxdepth 1 ! -name ".gitkeep" -exec rm -rf {} +
@@ -24,4 +24,4 @@ for addon in "$ADDONS_DIR"/*; do
   fi
 done
 
-echo "[SYNTHIA] Done."
+echo "[HEXE] Done."

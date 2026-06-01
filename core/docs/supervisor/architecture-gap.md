@@ -15,10 +15,10 @@ This document compares the current Hexe Supervisor implementation with the targe
   - `backend/app/system/mqtt/runtime_boundary.py`
   - `systemd/user/hexe-supervisor.service.in`
 - Target architecture draft:
-  - `docs/Upgrades/synthia-core-supervisor-node-design.md`
+  - `docs/Upgrades/hexe-core-supervisor-node-design.md`
 - Canonical architecture alignment:
-  - `/home/dan/Projects/Synthia/docs/supervisor/README.md`
-  - `/home/dan/Projects/Synthia/docs/supervisor/runtime-and-supervision.md`
+  - `/home/dan/Projects/Hexe/docs/supervisor/README.md`
+  - `/home/dan/Projects/Hexe/docs/supervisor/runtime-and-supervision.md`
 
 ## Target Architecture Summary
 
@@ -38,7 +38,7 @@ Under that model:
 
 Source:
 
-- `docs/Upgrades/synthia-core-supervisor-node-design.md`
+- `docs/Upgrades/hexe-core-supervisor-node-design.md`
 
 ## Current Supervisor Boundary
 
@@ -334,4 +334,4 @@ The target ownership split should look like this:
 - [README.md](./README.md)
 - [runtime-and-supervision.md](./runtime-and-supervision.md)
 - [domain-models.md](./domain-models.md)
-- [../Upgrades/synthia-core-supervisor-node-design.md](../Upgrades/synthia-core-supervisor-node-design.md)
+- [../Upgrades/hexe-core-supervisor-node-design.md](../Upgrades/hexe-core-supervisor-node-design.md)
