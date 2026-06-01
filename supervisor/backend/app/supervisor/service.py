@@ -1049,6 +1049,62 @@ class SupervisorDomainService:
     def resources_summary(self) -> HostResourceSummary:
         return self._host_resources()
 
+    def resource_history(self, *, range_value: str = "24h", step_value: str | None = "60s") -> dict[str, Any]:
+        return {
+            "scope": "host",
+            "resource_id": "host",
+            "range": range_value,
+            "step": step_value,
+            "samples": self._resource_history_store.samples(
+                scope="host",
+                resource_id="host",
+                range_value=range_value,
+                step_value=step_value,
+            ),
+            "events": self._resource_history_store.events(
+                scope="host",
+                resource_id="host",
+                range_value=range_value,
+            ),
+        }
+
+    def runtime_resource_history(self, node_id: str, *, range_value: str = "24h", step_value: str | None = "60s") -> dict[str, Any]:
+        clean_node_id = str(node_id or "").strip()
+        if not clean_node_id:
+            raise HTTPException(status_code=400, detail="runtime_id_required")
+        if self._runtime_nodes_store.get(clean_node_id) is None:
+            raise HTTPException(status_code=404, detail="runtime_not_registered")
+        child_prefix = f"{clean_node_id}/"
+        return {
+            "scope": "runtime",
+            "resource_id": clean_node_id,
+            "range": range_value,
+            "step": step_value,
+            "samples": self._resource_history_store.samples(
+                scope="runtime",
+                resource_id=clean_node_id,
+                range_value=range_value,
+                step_value=step_value,
+            ),
+            "events": self._resource_history_store.events(
+                scope="runtime",
+                resource_id=clean_node_id,
+                range_value=range_value,
+            ),
+            "service_samples": self._resource_history_store.samples_with_resource_prefix(
+                scope="runtime_service",
+                resource_id_prefix=child_prefix,
+                range_value=range_value,
+                step_value=step_value,
+            ),
+            "container_samples": self._resource_history_store.samples_with_resource_prefix(
+                scope="runtime_container",
+                resource_id_prefix=child_prefix,
+                range_value=range_value,
+                step_value=step_value,
+            ),
+        }
+
     def runtime_summary(self) -> SupervisorRuntimeSummary:
         managed_nodes = self._managed_nodes()
         return SupervisorRuntimeSummary(

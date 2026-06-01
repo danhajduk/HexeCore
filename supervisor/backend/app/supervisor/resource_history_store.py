@@ -243,6 +243,25 @@ class SupervisorResourceHistoryStore:
         points = [self._load_payload(row[0]) for row in rows]
         return self._downsample(points, start_ts=start_ts, step_seconds=parse_duration_seconds(step_value, default_seconds=0) if step_value else 0)
 
+    def samples_with_resource_prefix(
+        self,
+        *,
+        scope: str,
+        resource_id_prefix: str,
+        range_value: object = None,
+        step_value: object = None,
+        end_at: float | int | str | datetime | None = None,
+    ) -> list[dict[str, Any]]:
+        clean_scope = self._clean_scope(scope)
+        clean_prefix = str(resource_id_prefix or "").strip()
+        end_ts = _timestamp(end_at)
+        range_seconds = parse_duration_seconds(range_value, default_seconds=self.retention_seconds)
+        start_ts = end_ts - range_seconds
+        with self._lock:
+            rows = self._sample_prefix_rows(clean_scope, clean_prefix, start_ts, end_ts)
+        points = [self._load_payload(row[0]) for row in rows]
+        return self._downsample(points, start_ts=start_ts, step_seconds=parse_duration_seconds(step_value, default_seconds=0) if step_value else 0)
+
     def events(
         self,
         *,
@@ -279,6 +298,16 @@ class SupervisorResourceHistoryStore:
             ORDER BY sampled_at ASC, id ASC
             """,
             (scope, resource_id, start_ts, end_ts),
+        ).fetchall()
+
+    def _sample_prefix_rows(self, scope: str, resource_id_prefix: str, start_ts: float, end_ts: float) -> list[tuple[str]]:
+        return self._conn.execute(
+            """
+            SELECT payload_json FROM supervisor_resource_samples
+            WHERE scope = ? AND resource_id LIKE ? AND sampled_at >= ? AND sampled_at <= ?
+            ORDER BY sampled_at ASC, id ASC
+            """,
+            (scope, f"{resource_id_prefix}%", start_ts, end_ts),
         ).fetchall()
 
     def _event_rows(self, scope: str, resource_id: str, start_ts: float, end_ts: float) -> list[tuple[str]]:

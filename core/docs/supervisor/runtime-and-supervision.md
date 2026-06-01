@@ -36,6 +36,7 @@ Status: Implemented
 - Host resource summaries are recorded into resource history whenever Supervisor samples `/api/supervisor/resources` or another path that calls the shared host resource collector. Persisted host samples include CPU, load, memory, swap, root disk, network, GPU, Bluetooth, and internet reachability fields when available.
 - Registered Node runtime summaries and Core runtime summaries record Supervisor-observed aggregate resource samples into the same history store. Nested `runtime_metadata.services` and `runtime_metadata.containers` entries with observed process/container metrics are also persisted as child resource samples linked to the parent runtime id.
 - Runtime lifecycle markers are recorded as history events for Supervisor action requests and resource-health observations such as missing processes, OOM indicators, segfault indicators, and other resource errors when those signals are visible to the Supervisor.
+- Resource history can be read with `GET /api/supervisor/resources/history?range=24h&step=60s` for host timelines and `GET /api/supervisor/runtimes/{node_id}/resources/history?range=24h&step=60s` for runtime timelines. Runtime history responses include aggregate samples, lifecycle events, and child service/container samples when present.
 - Supervisor owns a Core-hosted runtime contract for Core services, addons, and aux containers through:
   - `POST /api/supervisor/core/runtimes/register`
   - `POST /api/supervisor/core/runtimes/heartbeat`

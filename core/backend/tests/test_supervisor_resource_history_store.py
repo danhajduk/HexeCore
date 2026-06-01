@@ -80,6 +80,26 @@ class TestSupervisorResourceHistoryStore(unittest.TestCase):
         self.assertEqual(events[0]["message"], "operator restart")
         self.assertEqual(events[0]["payload"]["action"], "restart")
 
+    def test_samples_with_resource_prefix_returns_child_resource_samples(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            now = time.time()
+            store = self._store(Path(tmpdir) / "history.sqlite3", retention_seconds=3600)
+            try:
+                store.insert_sample(scope="runtime_service", resource_id="node-1/api", sampled_at=now - 10, metrics={"cpu_percent": 1})
+                store.insert_sample(scope="runtime_service", resource_id="node-1/worker", sampled_at=now - 5, metrics={"cpu_percent": 2})
+                store.insert_sample(scope="runtime_service", resource_id="node-2/api", sampled_at=now - 5, metrics={"cpu_percent": 3})
+
+                samples = store.samples_with_resource_prefix(
+                    scope="runtime_service",
+                    resource_id_prefix="node-1/",
+                    range_value="1h",
+                    end_at=now,
+                )
+            finally:
+                store.close()
+
+        self.assertEqual([item["resource_id"] for item in samples], ["node-1/api", "node-1/worker"])
+
 
 if __name__ == "__main__":
     unittest.main()

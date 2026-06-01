@@ -42,6 +42,10 @@ def build_supervisor_router(service: SupervisorDomainService | None = None) -> A
     def get_supervisor_resources() -> HostResourceSummary:
         return supervisor.resources_summary()
 
+    @router.get("/supervisor/resources/history")
+    def get_supervisor_resource_history(range: str = "24h", step: str | None = "60s") -> dict[str, Any]:  # noqa: A002
+        return supervisor.resource_history(range_value=range, step_value=step)
+
     @router.get("/supervisor/runtime")
     def get_supervisor_runtime() -> SupervisorRuntimeSummary:
         return supervisor.runtime_summary()
@@ -107,6 +111,10 @@ def build_supervisor_router(service: SupervisorDomainService | None = None) -> A
     @router.get("/supervisor/runtimes/{node_id}")
     def get_supervisor_runtime(node_id: str) -> dict[str, SupervisorRegisteredRuntimeSummary]:
         return {"runtime": supervisor.get_registered_runtime(node_id)}
+
+    @router.get("/supervisor/runtimes/{node_id}/resources/history")
+    def get_supervisor_runtime_resource_history(node_id: str, range: str = "24h", step: str | None = "60s") -> dict[str, Any]:  # noqa: A002
+        return supervisor.runtime_resource_history(node_id, range_value=range, step_value=step)
 
     @router.post("/supervisor/runtimes/{node_id}/start")
     def start_supervisor_runtime(node_id: str) -> SupervisorRuntimeActionResult:

@@ -80,6 +80,16 @@ class _FakeSupervisorService:
     def resources_summary(self) -> HostResourceSummary:
         return self._resources()
 
+    def resource_history(self, *, range_value: str = "24h", step_value: str | None = "60s") -> dict[str, object]:
+        return {
+            "scope": "host",
+            "resource_id": "host",
+            "range": range_value,
+            "step": step_value,
+            "samples": [{"sampled_at": "2026-03-16T00:00:00Z", "metrics": {"cpu_percent_total": 2.0}}],
+            "events": [],
+        }
+
     def runtime_summary(self) -> SupervisorRuntimeSummary:
         return SupervisorRuntimeSummary(
             host=self._host(),
@@ -153,6 +163,18 @@ class _FakeSupervisorService:
     def get_registered_runtime(self, node_id: str) -> SupervisorRegisteredRuntimeSummary:
         return self._runtime()
 
+    def runtime_resource_history(self, node_id: str, *, range_value: str = "24h", step_value: str | None = "60s") -> dict[str, object]:
+        return {
+            "scope": "runtime",
+            "resource_id": node_id,
+            "range": range_value,
+            "step": step_value,
+            "samples": [{"sampled_at": "2026-03-16T00:00:00Z", "metrics": {"cpu_percent": 7.5}}],
+            "events": [{"event_type": "restart_requested"}],
+            "service_samples": [],
+            "container_samples": [],
+        }
+
     def register_runtime(self, body) -> SupervisorRegisteredRuntimeSummary:
         return self._runtime()
 
@@ -208,6 +230,9 @@ class TestSupervisorRouterContract(unittest.TestCase):
         self.assertEqual(client.get("/api/supervisor/admission").json()["admission_state"], "ready")
         self.assertEqual(client.get("/api/supervisor/admission?total_capacity_units=250").json()["total_capacity_units"], 250)
         self.assertEqual(client.get("/api/supervisor/resources").status_code, 200)
+        history = client.get("/api/supervisor/resources/history?range=24h&step=60s")
+        self.assertEqual(history.status_code, 200)
+        self.assertEqual(history.json()["scope"], "host")
         self.assertEqual(client.get("/api/supervisor/runtime").status_code, 200)
         self.assertTrue(client.get("/api/supervisor/runtime/cloudflared").json()["exists"])
         self.assertFalse(client.get("/api/supervisor/runtime/unknown").json()["exists"])
@@ -218,6 +243,9 @@ class TestSupervisorRouterContract(unittest.TestCase):
         self.assertEqual(client.post("/api/supervisor/nodes/mqtt/restart").json()["action"], "restart")
         self.assertEqual(client.get("/api/supervisor/runtimes").json()["items"][0]["node_id"], "node-1")
         self.assertEqual(client.get("/api/supervisor/runtimes/node-1").json()["runtime"]["node_name"], "office-node")
+        runtime_history = client.get("/api/supervisor/runtimes/node-1/resources/history?range=1h")
+        self.assertEqual(runtime_history.status_code, 200)
+        self.assertEqual(runtime_history.json()["resource_id"], "node-1")
         self.assertEqual(client.post("/api/supervisor/runtimes/register", json={"node_id": "node-1", "node_name": "office-node", "node_type": "ai"}).json()["node_id"], "node-1")
         self.assertEqual(client.post("/api/supervisor/runtimes/heartbeat", json={"node_id": "node-1"}).json()["node_id"], "node-1")
         self.assertEqual(client.post("/api/supervisor/runtimes/node-1/start").json()["action"], "start")
