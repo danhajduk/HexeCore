@@ -44,6 +44,7 @@ from .models import (
 )
 from .boot_order import load_boot_order_plan
 from .core_runtime_store import SupervisorCoreRuntimeRecord, SupervisorCoreRuntimeStore
+from .resource_history_store import SupervisorResourceHistoryStore
 from .resource_monitor import SupervisorResourceMonitor
 from .runtime_nodes import merge_runtime_identity
 from .runtime_store import SupervisorRuntimeNodeRecord, SupervisorRuntimeNodesStore
@@ -57,12 +58,14 @@ class SupervisorDomainService:
         core_runtime_store: SupervisorCoreRuntimeStore | None = None,
         node_registrations_store: NodeRegistrationsStore | None = None,
         resource_monitor: SupervisorResourceMonitor | None = None,
+        resource_history_store: SupervisorResourceHistoryStore | None = None,
     ) -> None:
         self._runtime_service = runtime_service or StandaloneRuntimeService()
         self._runtime_nodes_store = runtime_nodes_store or SupervisorRuntimeNodesStore()
         self._core_runtime_store = core_runtime_store or SupervisorCoreRuntimeStore()
         self._node_registrations_store = node_registrations_store
         self._resource_monitor = resource_monitor or SupervisorResourceMonitor()
+        self._resource_history_store = resource_history_store or SupervisorResourceHistoryStore()
         self._boot_loop_status: dict[str, Any] = {
             "state": "idle",
             "updated_at": self._now_iso(),
@@ -260,7 +263,7 @@ class SupervisorDomainService:
         internet_summary = self._internet_summary()
         net_total = stats.net.total
         net_rate = stats.net.total_rate
-        return HostResourceSummary(
+        summary = HostResourceSummary(
             uptime_s=stats.uptime_s,
             load_1m=stats.load.load1,
             load_5m=stats.load.load5,
@@ -325,6 +328,34 @@ class SupervisorDomainService:
             if internet_summary.get("internet_check_error")
             else None,
         )
+        self._record_host_resource_sample(summary, stats=stats)
+        return summary
+
+    def _record_host_resource_sample(self, summary: HostResourceSummary, *, stats: SystemStats) -> None:
+        try:
+            metrics = summary.model_dump(exclude_none=True)
+            metrics.update(
+                {
+                    "swap_total_bytes": stats.swap.total,
+                    "swap_used_bytes": stats.swap.used,
+                    "swap_free_bytes": stats.swap.free,
+                    "swap_percent": stats.swap.percent,
+                }
+            )
+            self._resource_history_store.insert_sample(
+                scope="host",
+                resource_id="host",
+                sampled_at=self._now_iso(),
+                metrics=metrics,
+                metadata={
+                    "resource_observer": "supervisor",
+                    "supervisor_id": self._supervisor_id(),
+                    "host_id": self._host_identity().host_id,
+                    "hostname": self._host_identity().hostname,
+                },
+            )
+        except Exception:
+            return
 
     def _managed_nodes(self) -> list[ManagedNodeSummary]:
         runtimes = self._runtime_service.list_standalone_addon_runtimes()
