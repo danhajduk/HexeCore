@@ -251,21 +251,21 @@ def _node_trust_status_payload(
 
 
 def _onboarding_enabled() -> bool:
-    raw = str(os.getenv("SYNTHIA_NODE_ONBOARDING_ENABLED", "")).strip()
+    raw = str(os.getenv("HEXE_NODE_ONBOARDING_ENABLED", "")).strip()
     if not raw:
-        raw = str(os.getenv("SYNTHIA_AI_NODE_ONBOARDING_ENABLED", "true")).strip()
+        raw = str(os.getenv("HEXE_AI_NODE_ONBOARDING_ENABLED", "true")).strip()
     return raw.lower() in {"1", "true", "yes", "on"}
 
 
 def _supported_protocol_versions() -> set[str]:
-    raw = str(os.getenv("SYNTHIA_NODE_ONBOARDING_PROTOCOLS", "")).strip()
+    raw = str(os.getenv("HEXE_NODE_ONBOARDING_PROTOCOLS", "")).strip()
     if not raw:
-        raw = str(os.getenv("SYNTHIA_AI_NODE_ONBOARDING_PROTOCOLS", "1.0")).strip()
+        raw = str(os.getenv("HEXE_AI_NODE_ONBOARDING_PROTOCOLS", "1.0")).strip()
     return {item.strip() for item in raw.split(",") if item.strip()}
 
 
 def _node_status_stale_after_s() -> int:
-    raw = str(os.getenv("SYNTHIA_NODE_STATUS_STALE_AFTER_S", "300")).strip()
+    raw = str(os.getenv("HEXE_NODE_STATUS_STALE_AFTER_S", "300")).strip()
     try:
         return max(30, int(raw))
     except Exception:
@@ -273,7 +273,7 @@ def _node_status_stale_after_s() -> int:
 
 
 def _node_status_inactive_after_s() -> int:
-    raw = str(os.getenv("SYNTHIA_NODE_STATUS_INACTIVE_AFTER_S", "1800")).strip()
+    raw = str(os.getenv("HEXE_NODE_STATUS_INACTIVE_AFTER_S", "1800")).strip()
     try:
         inactive_after = max(60, int(raw))
     except Exception:
@@ -282,7 +282,7 @@ def _node_status_inactive_after_s() -> int:
 
 
 def _supported_node_types() -> set[str]:
-    raw = str(os.getenv("SYNTHIA_NODE_ONBOARDING_SUPPORTED_TYPES", "ai-node,email-node,voice-node,interaction-node")).strip()
+    raw = str(os.getenv("HEXE_NODE_ONBOARDING_SUPPORTED_TYPES", "ai-node,email-node,voice-node,interaction-node")).strip()
     values = {item.strip() for item in raw.split(",") if item.strip()}
     if not values:
         values = {"ai-node", "email-node", "voice-node", "interaction-node"}
@@ -307,9 +307,9 @@ def _canonical_node_type(node_type: str | None) -> str:
 
 
 def _build_approval_url(request: Request, session_id: str, state: str) -> str:
-    configured = str(os.getenv("SYNTHIA_NODE_ONBOARDING_APPROVAL_URL_BASE", "")).strip()
+    configured = str(os.getenv("HEXE_NODE_ONBOARDING_APPROVAL_URL_BASE", "")).strip()
     if not configured:
-        configured = str(os.getenv("SYNTHIA_AI_NODE_ONBOARDING_APPROVAL_URL_BASE", "")).strip()
+        configured = str(os.getenv("HEXE_AI_NODE_ONBOARDING_APPROVAL_URL_BASE", "")).strip()
     if configured.startswith(("http://", "https://")):
         base = configured.rstrip("/")
     else:
@@ -321,7 +321,7 @@ def _build_approval_url(request: Request, session_id: str, state: str) -> str:
 
 
 def _build_reauth_approval_url(request: Request, session_id: str, state: str) -> str:
-    configured = str(os.getenv("SYNTHIA_NODE_REAUTH_APPROVAL_URL_BASE", "")).strip()
+    configured = str(os.getenv("HEXE_NODE_REAUTH_APPROVAL_URL_BASE", "")).strip()
     if configured.startswith(("http://", "https://")):
         base = configured.rstrip("/")
     else:
@@ -405,14 +405,14 @@ def _enforce_csrf_for_cookie_session(request: Request, x_admin_token: str | None
     if (x_admin_token or "").strip():
         return
     trusted_origins: set[str] = {str(request.base_url).rstrip("/")}
-    configured_origins = str(os.getenv("SYNTHIA_CSRF_TRUSTED_ORIGINS", "")).strip()
+    configured_origins = str(os.getenv("HEXE_CSRF_TRUSTED_ORIGINS", "")).strip()
     for item in configured_origins.split(","):
         value = str(item or "").strip().rstrip("/")
         if value.startswith(("http://", "https://")):
             trusted_origins.add(value)
-    approval_base = str(os.getenv("SYNTHIA_NODE_ONBOARDING_APPROVAL_URL_BASE", "")).strip()
+    approval_base = str(os.getenv("HEXE_NODE_ONBOARDING_APPROVAL_URL_BASE", "")).strip()
     if not approval_base:
-        approval_base = str(os.getenv("SYNTHIA_AI_NODE_ONBOARDING_APPROVAL_URL_BASE", "")).strip()
+        approval_base = str(os.getenv("HEXE_AI_NODE_ONBOARDING_APPROVAL_URL_BASE", "")).strip()
     if approval_base.startswith(("http://", "https://")):
         parts = urlsplit(approval_base)
         if parts.scheme and parts.netloc:
@@ -645,7 +645,7 @@ def build_system_router(
         now = int(time.time())
         ttl_s = 600
         try:
-            ttl_s = max(60, int(str(os.getenv("SYNTHIA_NODE_SERVICE_TOKEN_TTL_S", "600")).strip()))
+            ttl_s = max(60, int(str(os.getenv("HEXE_NODE_SERVICE_TOKEN_TTL_S", "600")).strip()))
         except Exception:
             ttl_s = 600
         payload = {
@@ -2511,7 +2511,7 @@ def build_system_router(
             )
         refresh_interval = 120
         try:
-            refresh_interval = max(30, int(str(os.getenv("SYNTHIA_NODE_GOVERNANCE_REFRESH_INTERVAL_S", "120")).strip()))
+            refresh_interval = max(30, int(str(os.getenv("HEXE_NODE_GOVERNANCE_REFRESH_INTERVAL_S", "120")).strip()))
         except Exception:
             refresh_interval = 120
         max_age = min(refresh_interval, 300)
@@ -2580,7 +2580,7 @@ def build_system_router(
             )
         refresh_interval = 120
         try:
-            refresh_interval = max(30, int(str(os.getenv("SYNTHIA_NODE_GOVERNANCE_REFRESH_INTERVAL_S", "120")).strip()))
+            refresh_interval = max(30, int(str(os.getenv("HEXE_NODE_GOVERNANCE_REFRESH_INTERVAL_S", "120")).strip()))
         except Exception:
             refresh_interval = 120
         response.headers["Cache-Control"] = "private, max-age=5"

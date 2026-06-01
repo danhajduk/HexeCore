@@ -24,7 +24,7 @@ class TestStoreStandalonePaths(unittest.TestCase):
         self.assertEqual(path.parent, repo_root().parent)
 
     def test_relative_env_path_resolves_from_backend_dir(self) -> None:
-        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": "../CustomAddons"}, clear=False):
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": "../CustomAddons"}, clear=False):
             path = synthia_addons_dir()
         self.assertEqual(path.name, "CustomAddons")
         self.assertTrue(path.is_absolute())
@@ -32,7 +32,7 @@ class TestStoreStandalonePaths(unittest.TestCase):
     def test_helpers_create_directories_lazily(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir) / "addons"
-            with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(base)}, clear=False):
+            with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(base)}, clear=False):
                 root = services_root(create=False)
                 self.assertFalse(root.exists())
 

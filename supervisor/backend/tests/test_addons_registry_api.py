@@ -63,7 +63,7 @@ class TestAddonsRegistryApi(unittest.TestCase):
         self.env_patch = patch.dict(
             os.environ,
             {
-                "SYNTHIA_ADMIN_TOKEN": "test-token",
+                "HEXE_ADMIN_TOKEN": "test-token",
             },
             clear=False,
         )

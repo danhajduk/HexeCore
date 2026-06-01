@@ -97,14 +97,14 @@ if [[ "$MODE" == "install" ]]; then
 fi
 
 cd "$INSTALL_DIR"
-RAW_ADDONS_DIR="${SYNTHIA_ADDONS_DIR:-../SynthiaAddons}"
+RAW_ADDONS_DIR="${HEXE_ADDONS_DIR:-../SynthiaAddons}"
 if [[ "$RAW_ADDONS_DIR" = /* ]]; then
   RESOLVED_ADDONS_DIR="$(realpath -m "$RAW_ADDONS_DIR")"
 else
   RESOLVED_ADDONS_DIR="$(realpath -m "$INSTALL_DIR/backend/$RAW_ADDONS_DIR")"
 fi
 if [[ "$RESOLVED_ADDONS_DIR" == "$INSTALL_DIR"* ]]; then
-  echo "[bootstrap] WARN: SYNTHIA_ADDONS_DIR resolves inside repo ($RESOLVED_ADDONS_DIR)."
+  echo "[bootstrap] WARN: HEXE_ADDONS_DIR resolves inside repo ($RESOLVED_ADDONS_DIR)."
   echo "[bootstrap] WARN: use an external path (for example ~/.local/share/hexe/HexeAddons) to keep SSAP state isolated from updater resets."
 fi
 
@@ -134,7 +134,7 @@ echo "[bootstrap] Admin token env"
 mkdir -p "$HOME/.config/hexe"
 ENVFILE="$HOME/.config/hexe/admin.env"
 if [[ ! -f "$ENVFILE" ]]; then
-  TOKEN="$(python3 -c 'import secrets; print("SYNTHIA_ADMIN_TOKEN="+secrets.token_urlsafe(48))')"
+  TOKEN="$(python3 -c 'import secrets; print("HEXE_ADMIN_TOKEN="+secrets.token_urlsafe(48))')"
   echo "$TOKEN" > "$ENVFILE"
   chmod 600 "$ENVFILE"
   echo "[bootstrap] Created $ENVFILE"

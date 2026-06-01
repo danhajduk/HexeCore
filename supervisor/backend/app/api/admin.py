@@ -38,16 +38,16 @@ def configure_admin_users_store(store: "UsersStore | None") -> None:
 
 
 def _admin_token_expected() -> str:
-    return os.getenv("SYNTHIA_ADMIN_TOKEN", "")
+    return os.getenv("HEXE_ADMIN_TOKEN", "")
 
 
 def _cookie_secure() -> bool:
-    raw = os.getenv("SYNTHIA_ADMIN_COOKIE_SECURE", "").strip().lower()
+    raw = os.getenv("HEXE_ADMIN_COOKIE_SECURE", "").strip().lower()
     return raw in {"1", "true", "yes", "on"}
 
 
 def _session_ttl_seconds() -> int:
-    raw = os.getenv("SYNTHIA_ADMIN_SESSION_TTL_SECONDS", "").strip()
+    raw = os.getenv("HEXE_ADMIN_SESSION_TTL_SECONDS", "").strip()
     try:
         parsed = int(raw) if raw else DEFAULT_SESSION_TTL_SECONDS
     except Exception:
@@ -56,7 +56,7 @@ def _session_ttl_seconds() -> int:
 
 
 def _session_secret(expected_token: str) -> str:
-    configured = os.getenv("SYNTHIA_ADMIN_SESSION_SECRET", "")
+    configured = os.getenv("HEXE_ADMIN_SESSION_SECRET", "")
     if configured:
         return configured
     if expected_token:

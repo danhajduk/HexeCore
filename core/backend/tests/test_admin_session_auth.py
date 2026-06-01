@@ -13,9 +13,9 @@ class TestAdminSessionAuth(unittest.TestCase):
         self.env_patch = patch.dict(
             os.environ,
             {
-                "SYNTHIA_ADMIN_TOKEN": "test-token",
-                "SYNTHIA_ADMIN_COOKIE_SECURE": "0",
-                "SYNTHIA_ADMIN_SESSION_TTL_SECONDS": "3600",
+                "HEXE_ADMIN_TOKEN": "test-token",
+                "HEXE_ADMIN_COOKIE_SECURE": "0",
+                "HEXE_ADMIN_SESSION_TTL_SECONDS": "3600",
             },
             clear=False,
         )

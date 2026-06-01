@@ -207,9 +207,9 @@ def _manifest_payload(addon_id: str = "hello_world") -> dict:
 
 class TestStoreApiEndpoints(unittest.TestCase):
     def setUp(self) -> None:
-        self.old_token = os.environ.get("SYNTHIA_ADMIN_TOKEN")
+        self.old_token = os.environ.get("HEXE_ADMIN_TOKEN")
         self.old_install_state = os.environ.get("STORE_INSTALL_STATE_PATH")
-        os.environ["SYNTHIA_ADMIN_TOKEN"] = "test-token"
+        os.environ["HEXE_ADMIN_TOKEN"] = "test-token"
         self.tmp = tempfile.TemporaryDirectory()
         self.db_path = str(Path(self.tmp.name) / "store_audit.db")
         os.environ["STORE_INSTALL_STATE_PATH"] = str(Path(self.tmp.name) / "store_install_state.json")
@@ -228,9 +228,9 @@ class TestStoreApiEndpoints(unittest.TestCase):
     def tearDown(self) -> None:
         self.tmp.cleanup()
         if self.old_token is None:
-            os.environ.pop("SYNTHIA_ADMIN_TOKEN", None)
+            os.environ.pop("HEXE_ADMIN_TOKEN", None)
         else:
-            os.environ["SYNTHIA_ADMIN_TOKEN"] = self.old_token
+            os.environ["HEXE_ADMIN_TOKEN"] = self.old_token
         if self.old_install_state is None:
             os.environ.pop("STORE_INSTALL_STATE_PATH", None)
         else:
@@ -563,7 +563,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
 
     def test_stage_standalone_artifact_overwrites_existing_file(self) -> None:
         root = Path(self.tmp.name) / "SynthiaAddons"
-        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(root)}, clear=False):
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(root)}, clear=False):
             artifact_a = b"artifact-a"
             artifact_b = b"artifact-b"
             staged = _stage_standalone_artifact("hello_world", "1.0.0", artifact_a)
@@ -692,7 +692,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         standalone_root = Path(self.tmp.name) / "SynthiaAddons"
         addon_dir = standalone_root / "services" / "mqtt"
         addon_dir.mkdir(parents=True, exist_ok=True)
-        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
             "app.store.router._addons_root", return_value=Path(self.tmp.name) / "addons"
         ):
             uninstall_res = self.client.post(
@@ -730,7 +730,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
             encoding="utf-8",
         )
 
-        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
             "app.store.router.subprocess.run",
             side_effect=[
                 subprocess.CompletedProcess(
@@ -782,7 +782,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
             encoding="utf-8",
         )
 
-        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
             "app.store.router.subprocess.run",
             side_effect=[
                 subprocess.CompletedProcess(
@@ -844,7 +844,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
             ),
             encoding="utf-8",
         )
-        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(Path(self.tmp.name) / "SynthiaAddons")}, clear=False):
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(Path(self.tmp.name) / "SynthiaAddons")}, clear=False):
             with patch("app.store.router._addons_root", return_value=Path(self.tmp.name) / "addons"):
                 res = self.client.get("/api/store/status/hello_world")
         self.assertEqual(res.status_code, 200, res.text)
@@ -860,7 +860,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         runtime_path = Path(self.tmp.name) / "SynthiaAddons" / "services" / "hello_world" / "runtime.json"
         runtime_path.parent.mkdir(parents=True, exist_ok=True)
         runtime_path.write_text("{not-json", encoding="utf-8")
-        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(Path(self.tmp.name) / "SynthiaAddons")}, clear=False):
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(Path(self.tmp.name) / "SynthiaAddons")}, clear=False):
             with patch("app.store.router._addons_root", return_value=Path(self.tmp.name) / "addons"):
                 res = self.client.get("/api/store/status/hello_world")
         self.assertEqual(res.status_code, 200, res.text)
@@ -905,7 +905,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
             ),
             encoding="utf-8",
         )
-        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(Path(self.tmp.name) / "SynthiaAddons")}, clear=False):
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(Path(self.tmp.name) / "SynthiaAddons")}, clear=False):
             with patch("app.store.router._addons_root", return_value=Path(self.tmp.name) / "addons"):
                 res = self.client.get("/api/store/status/hello_world")
         self.assertEqual(res.status_code, 200, res.text)
@@ -930,7 +930,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
             ),
             encoding="utf-8",
         )
-        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(Path(self.tmp.name) / "SynthiaAddons")}, clear=False):
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(Path(self.tmp.name) / "SynthiaAddons")}, clear=False):
             res = self.client.get("/api/store/status/hello_world/diagnostics")
 
         self.assertEqual(res.status_code, 200, res.text)
@@ -969,7 +969,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
 
         with patch.dict(
             os.environ,
-            {"SYNTHIA_ADDONS_DIR": str(standalone_root), "SYNTHIA_SUPERVISOR_KEEP_VERSIONS": "3"},
+            {"HEXE_ADDONS_DIR": str(standalone_root), "HEXE_SUPERVISOR_KEEP_VERSIONS": "3"},
             clear=False,
         ):
             res = self.client.get("/api/store/status/hello_world/diagnostics")
@@ -1917,7 +1917,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         client = TestClient(app)
         standalone_root = Path(self.tmp.name) / "SynthiaAddons"
 
-        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(standalone_root)}, clear=False):
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False):
             with patch("app.store.router.resolve_manifest_compatibility", return_value=None), patch(
                 "app.store.router._atomic_install_or_update"
             ):
@@ -1963,7 +1963,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         client = TestClient(app)
         standalone_root = Path(self.tmp.name) / "SynthiaAddons"
 
-        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
             "app.store.router.resolve_manifest_compatibility", return_value=None
         ):
             res = client.post(
@@ -1999,7 +1999,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(payload["security_guardrails"]["privileged"], False)
         self.assertEqual(payload["security_guardrails"]["cpu"], 1.5)
         self.assertEqual(payload["security_guardrails"]["memory"], "512m")
-        self.assertEqual(payload["security_guardrails"]["service_token_env_key"], "SYNTHIA_SERVICE_TOKEN")
+        self.assertEqual(payload["security_guardrails"]["service_token_env_key"], "HEXE_SERVICE_TOKEN")
         self.assertTrue(Path(payload["staged_artifact_path"]).exists())
         desired_path = Path(payload["desired_path"])
         self.assertTrue(desired_path.exists())
@@ -2012,7 +2012,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(desired["runtime"]["memory"], "512m")
         self.assertFalse(desired["force_rebuild"])
         self.assertEqual(desired["enabled_docker_groups"], [])
-        self.assertEqual(desired["config"]["env"]["SYNTHIA_SERVICE_TOKEN"], "${SYNTHIA_SERVICE_TOKEN}")
+        self.assertEqual(desired["config"]["env"]["HEXE_SERVICE_TOKEN"], "${HEXE_SERVICE_TOKEN}")
 
     def test_catalog_install_standalone_service_mode_accepts_enabled_docker_groups(self) -> None:
         pkg = Path(self.tmp.name) / "bundle-standalone-enabled-groups.zip"
@@ -2041,7 +2041,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         client = TestClient(app)
         standalone_root = Path(self.tmp.name) / "SynthiaAddons"
 
-        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
             "app.store.router.resolve_manifest_compatibility", return_value=None
         ):
             res = client.post(
@@ -2079,7 +2079,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         client = TestClient(app)
         standalone_root = Path(self.tmp.name) / "SynthiaAddons"
 
-        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
             "app.store.router.resolve_manifest_compatibility", return_value=None
         ):
             res = client.post(
@@ -2119,7 +2119,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         client = TestClient(app)
         standalone_root = Path(self.tmp.name) / "SynthiaAddons"
 
-        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
             "app.store.router.resolve_manifest_compatibility", return_value=None
         ):
             res = client.post(
@@ -2172,7 +2172,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         client = TestClient(app)
         standalone_root = Path(self.tmp.name) / "SynthiaAddons"
 
-        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
             "app.store.router.resolve_manifest_compatibility", return_value=None
         ):
             res = client.post(
@@ -2212,7 +2212,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         client = TestClient(app)
         standalone_root = Path(self.tmp.name) / "SynthiaAddons"
 
-        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
             "app.store.router.resolve_manifest_compatibility", return_value=None
         ):
             res = client.post(
@@ -2249,7 +2249,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         client = TestClient(app)
         standalone_root = Path(self.tmp.name) / "SynthiaAddons"
 
-        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
             "app.store.router.resolve_manifest_compatibility", return_value=None
         ):
             res = client.post(
@@ -2292,7 +2292,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
             encoding="utf-8",
         )
 
-        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
             "app.store.router.resolve_manifest_compatibility", return_value=None
         ):
             res = client.post(
@@ -2351,7 +2351,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
             ),
             encoding="utf-8",
         )
-        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(standalone_root)}, clear=False):
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False):
             res = self.client.post(
                 "/api/store/standalone/update",
                 headers={"X-Admin-Token": "test-token"},
@@ -2418,7 +2418,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
             ),
             encoding="utf-8",
         )
-        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(standalone_root)}, clear=False):
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False):
             res = self.client.post(
                 "/api/store/standalone/update",
                 headers={"X-Admin-Token": "test-token"},
@@ -2465,7 +2465,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
             ),
             encoding="utf-8",
         )
-        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(standalone_root)}, clear=False):
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False):
             res = self.client.post(
                 "/api/store/standalone/update",
                 headers={"X-Admin-Token": "test-token"},
@@ -2491,7 +2491,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         client = TestClient(app)
         standalone_root = Path(self.tmp.name) / "SynthiaAddons"
 
-        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(standalone_root)}, clear=False):
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False):
             res = client.post(
                 "/api/store/install",
                 headers={"X-Admin-Token": "test-token"},
@@ -2524,7 +2524,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         client = TestClient(app)
         standalone_root = Path(self.tmp.name) / "SynthiaAddons"
 
-        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(standalone_root)}, clear=False):
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False):
             res = client.post(
                 "/api/store/install",
                 headers={"X-Admin-Token": "test-token"},
@@ -2557,7 +2557,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         client = TestClient(app)
         standalone_root = Path(self.tmp.name) / "SynthiaAddons"
 
-        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(standalone_root)}, clear=False):
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False):
             res = client.post(
                 "/api/store/install",
                 headers={"X-Admin-Token": "test-token"},
@@ -2590,7 +2590,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         client = TestClient(app)
         standalone_root = Path(self.tmp.name) / "SynthiaAddons"
 
-        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(standalone_root)}, clear=False):
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False):
             res = client.post(
                 "/api/store/install",
                 headers={"X-Admin-Token": "test-token"},
@@ -2623,7 +2623,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         client = TestClient(app)
         standalone_root = Path(self.tmp.name) / "SynthiaAddons"
 
-        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(standalone_root)}, clear=False):
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False):
             res = client.post(
                 "/api/store/install",
                 headers={"X-Admin-Token": "test-token"},

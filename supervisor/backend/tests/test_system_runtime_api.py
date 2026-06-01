@@ -30,7 +30,7 @@ class TestSystemRuntimeApi(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addons_root = Path(self.tmp.name) / "SynthiaAddons" / "services"
         self.addons_root.mkdir(parents=True, exist_ok=True)
-        self.token_patch = patch.dict(os.environ, {"SYNTHIA_ADMIN_TOKEN": "test-token"}, clear=False)
+        self.token_patch = patch.dict(os.environ, {"HEXE_ADMIN_TOKEN": "test-token"}, clear=False)
         self.token_patch.start()
 
     def tearDown(self) -> None:

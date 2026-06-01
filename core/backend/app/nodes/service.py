@@ -33,7 +33,7 @@ class NodesDomainService:
 
     @staticmethod
     def _read_runtime_refresh_interval() -> float:
-        raw = str(os.getenv("SYNTHIA_NODE_RUNTIME_REFRESH_INTERVAL_SECONDS", "5")).strip()
+        raw = str(os.getenv("HEXE_NODE_RUNTIME_REFRESH_INTERVAL_SECONDS", "5")).strip()
         try:
             return max(0.0, float(raw))
         except Exception:

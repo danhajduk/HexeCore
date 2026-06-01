@@ -60,7 +60,7 @@ class TestPlatformIdentity(unittest.TestCase):
         with patch.dict(
             os.environ,
             {
-                "SYNTHIA_CORE_ID": "0123456789abcdef",
+                "HEXE_CORE_ID": "0123456789abcdef",
                 "PLATFORM_NAME": "Acme AI",
                 "PLATFORM_SHORT": "Acme",
                 "PLATFORM_DOMAIN": "acme.example",

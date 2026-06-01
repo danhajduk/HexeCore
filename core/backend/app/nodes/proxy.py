@@ -60,7 +60,7 @@ class NodeUiProxy:
         self._proxy = ReverseProxyService(
             client=httpx.AsyncClient(
                 follow_redirects=False,
-                timeout=httpx.Timeout(_env_float("SYNTHIA_NODE_PROXY_TIMEOUT_SECONDS", NODE_PROXY_TIMEOUT_SECONDS)),
+                timeout=httpx.Timeout(_env_float("HEXE_NODE_PROXY_TIMEOUT_SECONDS", NODE_PROXY_TIMEOUT_SECONDS)),
             )
         )
 
@@ -107,7 +107,7 @@ class NodeUiProxy:
             return True, None
         return await self._proxy.probe_health(
             raw_endpoint,
-            timeout=httpx.Timeout(_env_float("SYNTHIA_NODE_UI_HEALTH_TIMEOUT_SECONDS", NODE_UI_HEALTH_TIMEOUT_SECONDS)),
+            timeout=httpx.Timeout(_env_float("HEXE_NODE_UI_HEALTH_TIMEOUT_SECONDS", NODE_UI_HEALTH_TIMEOUT_SECONDS)),
         )
 
     async def forward(

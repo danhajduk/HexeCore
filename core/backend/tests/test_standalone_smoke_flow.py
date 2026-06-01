@@ -133,16 +133,16 @@ class _FakeProxy:
 
 class TestStandaloneSmokeFlow(unittest.TestCase):
     def setUp(self) -> None:
-        self.old_token = os.environ.get("SYNTHIA_ADMIN_TOKEN")
-        os.environ["SYNTHIA_ADMIN_TOKEN"] = "test-token"
+        self.old_token = os.environ.get("HEXE_ADMIN_TOKEN")
+        os.environ["HEXE_ADMIN_TOKEN"] = "test-token"
         self.tmp = tempfile.TemporaryDirectory()
 
     def tearDown(self) -> None:
         self.tmp.cleanup()
         if self.old_token is None:
-            os.environ.pop("SYNTHIA_ADMIN_TOKEN", None)
+            os.environ.pop("HEXE_ADMIN_TOKEN", None)
         else:
-            os.environ["SYNTHIA_ADMIN_TOKEN"] = self.old_token
+            os.environ["HEXE_ADMIN_TOKEN"] = self.old_token
 
     def test_standalone_install_runtime_health_and_ui_proxy_smoke(self) -> None:
         standalone_root = Path(self.tmp.name) / "SynthiaAddons"
@@ -160,7 +160,7 @@ class TestStandaloneSmokeFlow(unittest.TestCase):
         app.include_router(build_proxy_router(proxy))
         client = TestClient(app)
 
-        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": str(standalone_root)}, clear=False):
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False):
             install = client.post(
                 "/api/store/install",
                 headers={"X-Admin-Token": "test-token"},

@@ -58,13 +58,13 @@ def _detect_advertise_host() -> str:
 
 
 def _resolve_operational_mqtt_host() -> str:
-    preferred = str(os.getenv("SYNTHIA_NODE_OPERATIONAL_MQTT_HOST", "")).strip()
+    preferred = str(os.getenv("HEXE_NODE_OPERATIONAL_MQTT_HOST", "")).strip()
     if preferred and not _is_loopback_host(preferred):
         return preferred
-    advertise = str(os.getenv("SYNTHIA_BOOTSTRAP_ADVERTISE_HOST", "")).strip()
+    advertise = str(os.getenv("HEXE_BOOTSTRAP_ADVERTISE_HOST", "")).strip()
     if advertise and not _is_loopback_host(advertise):
         return advertise
-    mqtt_host = str(os.getenv("SYNTHIA_MQTT_HOST", "")).strip()
+    mqtt_host = str(os.getenv("HEXE_MQTT_HOST", "")).strip()
     if mqtt_host and not _is_loopback_host(mqtt_host):
         return mqtt_host
     return _detect_advertise_host()
@@ -261,10 +261,10 @@ class NodeTrustStore:
 class NodeTrustIssuanceService:
     def __init__(self, store: NodeTrustStore) -> None:
         self._store = store
-        self._core_id = str(os.getenv("SYNTHIA_CORE_ID", "hexe-core")).strip() or "hexe-core"
+        self._core_id = str(os.getenv("HEXE_CORE_ID", "hexe-core")).strip() or "hexe-core"
         self._mqtt_host = _resolve_operational_mqtt_host()
         try:
-            self._mqtt_port = int(str(os.getenv("SYNTHIA_NODE_OPERATIONAL_MQTT_PORT", "")).strip() or 1883)
+            self._mqtt_port = int(str(os.getenv("HEXE_NODE_OPERATIONAL_MQTT_PORT", "")).strip() or 1883)
         except Exception:
             self._mqtt_port = 1883
         # Upgrade existing trust records that still advertise loopback hosts.

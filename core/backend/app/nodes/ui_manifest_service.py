@@ -59,7 +59,7 @@ def _env_float(name: str, default: float) -> float:
 
 
 def _debug_manifest_log_path() -> Path | None:
-    configured = os.getenv("SYNTHIA_NODE_UI_MANIFEST_DEBUG_LOG", NODE_UI_MANIFEST_DEBUG_LOG_PATH).strip()
+    configured = os.getenv("HEXE_NODE_UI_MANIFEST_DEBUG_LOG", NODE_UI_MANIFEST_DEBUG_LOG_PATH).strip()
     if configured.lower() in {"", "0", "false", "off", "none"}:
         return None
     return Path(configured)
@@ -199,7 +199,7 @@ class NodeUiManifestFetchService:
 
     def _refresh_cached_manifest_if_due(self, node_id: str, target_url: str) -> None:
         refresh_after = _env_float(
-            "SYNTHIA_NODE_UI_MANIFEST_REFRESH_AFTER_SECONDS",
+            "HEXE_NODE_UI_MANIFEST_REFRESH_AFTER_SECONDS",
             NODE_UI_MANIFEST_REFRESH_AFTER_SECONDS,
         )
         last_fetch_at = self._latest_fetch_at.get(node_id, 0.0)
@@ -226,7 +226,7 @@ class NodeUiManifestFetchService:
         headers = {"Accept": "application/json"}
         if self._client is not None:
             return await self._client.get(target_url, headers=headers)
-        timeout = httpx.Timeout(_env_float("SYNTHIA_NODE_UI_MANIFEST_TIMEOUT_SECONDS", NODE_UI_MANIFEST_TIMEOUT_SECONDS))
+        timeout = httpx.Timeout(_env_float("HEXE_NODE_UI_MANIFEST_TIMEOUT_SECONDS", NODE_UI_MANIFEST_TIMEOUT_SECONDS))
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
             return await client.get(target_url, headers=headers)
 

@@ -15,11 +15,11 @@ def _normalized_set(raw: str) -> set[str]:
 
 
 def _allowed_task_families() -> set[str]:
-    return _normalized_set(os.getenv("SYNTHIA_NODE_ALLOWED_TASK_FAMILIES", ""))
+    return _normalized_set(os.getenv("HEXE_NODE_ALLOWED_TASK_FAMILIES", ""))
 
 
 def _allowed_providers() -> set[str]:
-    return _normalized_set(os.getenv("SYNTHIA_NODE_ALLOWED_PROVIDERS", ""))
+    return _normalized_set(os.getenv("HEXE_NODE_ALLOWED_PROVIDERS", ""))
 
 
 @dataclass

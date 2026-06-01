@@ -27,7 +27,7 @@ def _resolve_from_backend_dir(raw_path: str) -> Path:
 
 
 def _synthia_addons_dir() -> Path:
-    raw = os.environ.get("SYNTHIA_ADDONS_DIR")
+    raw = os.environ.get("HEXE_ADDONS_DIR")
     if raw is None or not raw.strip():
         return (repo_root().parent / "SynthiaAddons").resolve()
     return _resolve_from_backend_dir(raw.strip())
@@ -252,12 +252,12 @@ class StandaloneRuntimeService:
         self._cmd_runner = cmd_runner or _default_command_runner
         self._health_probe_runner = health_probe_runner or _default_health_probe
         self._health_probe_enabled = (
-            _env_flag("SYNTHIA_RUNTIME_HEALTH_PROBE_ENABLED", False)
+            _env_flag("HEXE_RUNTIME_HEALTH_PROBE_ENABLED", False)
             if health_probe_enabled is None
             else bool(health_probe_enabled)
         )
         self._health_probe_timeout_s = (
-            _env_float("SYNTHIA_RUNTIME_HEALTH_PROBE_TIMEOUT_S", 2.0)
+            _env_float("HEXE_RUNTIME_HEALTH_PROBE_TIMEOUT_S", 2.0)
             if health_probe_timeout_s is None
             else float(health_probe_timeout_s)
         )

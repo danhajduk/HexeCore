@@ -223,7 +223,7 @@ def _installed_summary_map() -> dict[str, dict[str, Any]]:
 
 
 def _configured_core_version() -> str:
-    return os.getenv("SYNTHIA_CORE_VERSION", "0.1.0")
+    return os.getenv("HEXE_CORE_VERSION", "0.1.0")
 
 
 def _abs_path_str(path: Path | str | None) -> str | None:
@@ -604,7 +604,7 @@ def _standalone_ui_redirect_info(
 
 
 def _standalone_retention_diagnostics(addon_id: str, runtime_payload: dict[str, Any]) -> dict[str, Any]:
-    keep_versions_raw = str(os.environ.get("SYNTHIA_SUPERVISOR_KEEP_VERSIONS", "")).strip()
+    keep_versions_raw = str(os.environ.get("HEXE_SUPERVISOR_KEEP_VERSIONS", "")).strip()
     try:
         keep_versions = int(keep_versions_raw) if keep_versions_raw else 3
     except Exception:
@@ -1779,9 +1779,9 @@ def build_store_router(
                 enabled_docker_groups = _normalize_enabled_docker_groups(raw_enabled_groups)
                 _validate_requested_docker_groups(enabled_docker_groups, declared_groups)
                 config_env_defaults: dict[str, str] = {
-                    "CORE_URL": os.getenv("SYNTHIA_CORE_URL", "http://127.0.0.1:8000"),
-                    "SYNTHIA_ADDON_ID": manifest.id,
-                    "SYNTHIA_SERVICE_TOKEN": "${SYNTHIA_SERVICE_TOKEN}",
+                    "CORE_URL": os.getenv("HEXE_CORE_URL", "http://127.0.0.1:8000"),
+                    "HEXE_ADDON_ID": manifest.id,
+                    "HEXE_SERVICE_TOKEN": "${HEXE_SERVICE_TOKEN}",
                 }
                 mqtt_host = os.getenv("MQTT_HOST")
                 mqtt_port = os.getenv("MQTT_PORT")
@@ -1905,7 +1905,7 @@ def build_store_router(
                         "network": runtime_network or "synthia_net",
                         "cpu": runtime_cpu,
                         "memory": runtime_memory,
-                        "service_token_env_key": "SYNTHIA_SERVICE_TOKEN",
+                        "service_token_env_key": "HEXE_SERVICE_TOKEN",
                     },
                     "remediation_path": None,
                     "standalone_runtime": standalone_runtime_payload,

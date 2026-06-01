@@ -223,11 +223,11 @@ class EmbeddedMqttStartupReconciler:
         self._bootstrap_last_attempt_at = _utcnow_iso()
         core_id = "synthia-core"
         core_name = default_platform_naming().core()
-        core_version = str(os.getenv("SYNTHIA_CORE_VERSION", "0.1.0"))
-        advertise_host = str(os.getenv("SYNTHIA_BOOTSTRAP_ADVERTISE_HOST", "")).strip() or _detect_advertise_host()
-        api_base = str(os.getenv("SYNTHIA_API_BASE", "")).strip()
+        core_version = str(os.getenv("HEXE_CORE_VERSION", "0.1.0"))
+        advertise_host = str(os.getenv("HEXE_BOOTSTRAP_ADVERTISE_HOST", "")).strip() or _detect_advertise_host()
+        api_base = str(os.getenv("HEXE_API_BASE", "")).strip()
         if not api_base:
-            api_port = int(os.getenv("SYNTHIA_API_PORT", "9001"))
+            api_port = int(os.getenv("HEXE_API_PORT", "9001"))
             api_base = f"http://{advertise_host}:{api_port}/api"
         mqtt_status = {}
         status_fn = getattr(self._mqtt, "status", None)

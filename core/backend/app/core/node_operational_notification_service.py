@@ -10,7 +10,7 @@ from .notification_publisher import CoreNotificationPublisher
 
 
 def _node_status_stale_after_s() -> int:
-    raw = str(os.getenv("SYNTHIA_NODE_STATUS_STALE_AFTER_S", "300")).strip()
+    raw = str(os.getenv("HEXE_NODE_STATUS_STALE_AFTER_S", "300")).strip()
     try:
         return max(30, int(raw))
     except Exception:
@@ -18,7 +18,7 @@ def _node_status_stale_after_s() -> int:
 
 
 def _node_status_inactive_after_s() -> int:
-    raw = str(os.getenv("SYNTHIA_NODE_STATUS_INACTIVE_AFTER_S", "1800")).strip()
+    raw = str(os.getenv("HEXE_NODE_STATUS_INACTIVE_AFTER_S", "1800")).strip()
     try:
         inactive_after = max(60, int(raw))
     except Exception:

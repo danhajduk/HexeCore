@@ -79,10 +79,10 @@ class TestNodePhase2FlowRegression(unittest.TestCase):
         self.env_patch = patch.dict(
             os.environ,
             {
-                "SYNTHIA_AI_NODE_ONBOARDING_ENABLED": "true",
-                "SYNTHIA_AI_NODE_ONBOARDING_PROTOCOLS": "1.0",
-                "SYNTHIA_NODE_ONBOARDING_SUPPORTED_TYPES": "ai-node,sensor-node",
-                "SYNTHIA_ADMIN_TOKEN": "test-token",
+                "HEXE_AI_NODE_ONBOARDING_ENABLED": "true",
+                "HEXE_AI_NODE_ONBOARDING_PROTOCOLS": "1.0",
+                "HEXE_NODE_ONBOARDING_SUPPORTED_TYPES": "ai-node,sensor-node",
+                "HEXE_ADMIN_TOKEN": "test-token",
             },
             clear=False,
         )

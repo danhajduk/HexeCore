@@ -43,8 +43,8 @@ class _FakeCatalogClient:
 
 class TestStoreSourcesEndpoint(unittest.TestCase):
     def setUp(self) -> None:
-        self.old_token = os.environ.get("SYNTHIA_ADMIN_TOKEN")
-        os.environ["SYNTHIA_ADMIN_TOKEN"] = "test-token"
+        self.old_token = os.environ.get("HEXE_ADMIN_TOKEN")
+        os.environ["HEXE_ADMIN_TOKEN"] = "test-token"
         self.tmp = tempfile.TemporaryDirectory()
         audit = StoreAuditLogStore(str(Path(self.tmp.name) / "store_audit.db"))
         sources = StoreSourcesStore(str(Path(self.tmp.name) / "store_sources.json"))
@@ -58,9 +58,9 @@ class TestStoreSourcesEndpoint(unittest.TestCase):
     def tearDown(self) -> None:
         self.tmp.cleanup()
         if self.old_token is None:
-            os.environ.pop("SYNTHIA_ADMIN_TOKEN", None)
+            os.environ.pop("HEXE_ADMIN_TOKEN", None)
         else:
-            os.environ["SYNTHIA_ADMIN_TOKEN"] = self.old_token
+            os.environ["HEXE_ADMIN_TOKEN"] = self.old_token
 
     def test_sources_crud_and_refresh(self) -> None:
         res = self.client.get("/api/store/sources")

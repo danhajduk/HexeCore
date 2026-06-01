@@ -39,14 +39,14 @@ echo "[update] repo=$REPO_DIR"
 
 cd "$REPO_DIR"
 
-RAW_ADDONS_DIR="${SYNTHIA_ADDONS_DIR:-../SynthiaAddons}"
+RAW_ADDONS_DIR="${HEXE_ADDONS_DIR:-../SynthiaAddons}"
 if [[ "$RAW_ADDONS_DIR" = /* ]]; then
   RESOLVED_ADDONS_DIR="$(realpath -m "$RAW_ADDONS_DIR")"
 else
   RESOLVED_ADDONS_DIR="$(realpath -m "$REPO_DIR/backend/$RAW_ADDONS_DIR")"
 fi
 if [[ "$RESOLVED_ADDONS_DIR" == "$REPO_DIR"* ]]; then
-  echo "[update] WARN: SYNTHIA_ADDONS_DIR resolves inside repo ($RESOLVED_ADDONS_DIR)."
+  echo "[update] WARN: HEXE_ADDONS_DIR resolves inside repo ($RESOLVED_ADDONS_DIR)."
   echo "[update] WARN: use an external path (for example ~/.local/share/hexe/HexeAddons) to keep SSAP state isolated from code updates."
 fi
 

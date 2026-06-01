@@ -70,7 +70,7 @@ class _FakeNodeProxy:
 
 class TestNodeUiProxyRouter(unittest.TestCase):
     def setUp(self) -> None:
-        self.env_patch = patch.dict("os.environ", {"SYNTHIA_ADMIN_TOKEN": "test-token"}, clear=False)
+        self.env_patch = patch.dict("os.environ", {"HEXE_ADMIN_TOKEN": "test-token"}, clear=False)
         self.env_patch.start()
         self.proxy = _FakeNodeProxy()
         app = FastAPI()
@@ -492,7 +492,7 @@ class TestNodeUiProxyTargetSelection(unittest.TestCase):
         )
         app = FastAPI()
         app.include_router(build_node_ui_proxy_router(proxy))
-        with patch.dict("os.environ", {"SYNTHIA_ADMIN_TOKEN": "test-token"}, clear=False):
+        with patch.dict("os.environ", {"HEXE_ADMIN_TOKEN": "test-token"}, clear=False):
             client = TestClient(app)
             response = client.get("/nodes/proxy/ui/node-1/", headers={"X-Admin-Token": "test-token"})
             self.assertEqual(response.status_code, 404, response.text)
@@ -516,7 +516,7 @@ class TestNodeUiProxyTargetSelection(unittest.TestCase):
         proxy._proxy.probe_health = AsyncMock(return_value=(False, "health_probe_status_unhealthy"))
         app = FastAPI()
         app.include_router(build_node_ui_proxy_router(proxy))
-        with patch.dict("os.environ", {"SYNTHIA_ADMIN_TOKEN": "test-token"}, clear=False):
+        with patch.dict("os.environ", {"HEXE_ADMIN_TOKEN": "test-token"}, clear=False):
             client = TestClient(app)
             response = client.get("/nodes/proxy/ui/node-1/", headers={"X-Admin-Token": "test-token"})
             self.assertEqual(response.status_code, 503, response.text)
@@ -538,7 +538,7 @@ class TestNodeUiProxyTargetSelection(unittest.TestCase):
         )
         app = FastAPI()
         app.include_router(build_node_ui_proxy_router(proxy))
-        with patch.dict("os.environ", {"SYNTHIA_ADMIN_TOKEN": "test-token"}, clear=False):
+        with patch.dict("os.environ", {"HEXE_ADMIN_TOKEN": "test-token"}, clear=False):
             client = TestClient(app)
             with self.assertLogs("synthia.proxy", level="INFO") as captured:
                 client.get("/nodes/proxy/ui/node-1/", headers={"X-Admin-Token": "test-token"})

@@ -37,13 +37,13 @@ Status: Implemented
 
 Admin session behavior is configured by:
 
-- `SYNTHIA_ADMIN_TOKEN`
+- `HEXE_ADMIN_TOKEN`
   Required for token-based admin auth and as the fallback signing basis for admin sessions.
-- `SYNTHIA_ADMIN_COOKIE_SECURE`
+- `HEXE_ADMIN_COOKIE_SECURE`
   Enables secure cookies when set to a truthy value.
-- `SYNTHIA_ADMIN_SESSION_TTL_SECONDS`
+- `HEXE_ADMIN_SESSION_TTL_SECONDS`
   Bounded to `300..604800` seconds in code.
-- `SYNTHIA_ADMIN_SESSION_SECRET`
+- `HEXE_ADMIN_SESSION_SECRET`
   Optional explicit signing secret for admin session cookies.
 
 Implemented admin session routes:
@@ -66,7 +66,7 @@ Status: Implemented
 - Service-principal issuance uses:
   - `X-Service-Principal-Id`
   - `X-Service-Principal-Secret`
-- The principal registry is loaded from `SYNTHIA_SERVICE_PRINCIPALS_JSON`.
+- The principal registry is loaded from `HEXE_SERVICE_PRINCIPALS_JSON`.
 
 Supported principal config fields:
 

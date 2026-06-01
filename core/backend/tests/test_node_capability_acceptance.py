@@ -76,7 +76,7 @@ class TestNodeCapabilityAcceptance(unittest.TestCase):
     def test_rejects_unsupported_task_family(self) -> None:
         manifest = self._manifest()
         manifest["declared_task_families"] = ["task.classification", "task.unknown"]
-        with patch.dict(os.environ, {"SYNTHIA_NODE_ALLOWED_TASK_FAMILIES": "task.classification"}, clear=False):
+        with patch.dict(os.environ, {"HEXE_NODE_ALLOWED_TASK_FAMILIES": "task.classification"}, clear=False):
             result = self.service.evaluate(node_id="node-abc123", manifest=manifest)
         self.assertFalse(result.accepted)
         self.assertEqual(result.error_code, "unsupported_task_family")
@@ -84,7 +84,7 @@ class TestNodeCapabilityAcceptance(unittest.TestCase):
     def test_rejects_unsupported_provider_identifier(self) -> None:
         manifest = self._manifest()
         manifest["supported_providers"] = ["openai", "provider-x"]
-        with patch.dict(os.environ, {"SYNTHIA_NODE_ALLOWED_PROVIDERS": "openai,local-llm"}, clear=False):
+        with patch.dict(os.environ, {"HEXE_NODE_ALLOWED_PROVIDERS": "openai,local-llm"}, clear=False):
             result = self.service.evaluate(node_id="node-abc123", manifest=manifest)
         self.assertFalse(result.accepted)
         self.assertEqual(result.error_code, "unsupported_provider_identifier")
@@ -99,7 +99,7 @@ class TestNodeCapabilityAcceptance(unittest.TestCase):
                 "available_models": [{"model_id": "x-large", "pricing": {"input_per_1k": 0.1}}],
             }
         ]
-        with patch.dict(os.environ, {"SYNTHIA_NODE_ALLOWED_PROVIDERS": ""}, clear=False):
+        with patch.dict(os.environ, {"HEXE_NODE_ALLOWED_PROVIDERS": ""}, clear=False):
             result = self.service.evaluate(node_id="node-abc123", manifest=manifest)
         self.assertTrue(result.accepted)
 

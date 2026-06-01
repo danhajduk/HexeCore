@@ -352,7 +352,7 @@ class TestHexeSupervisorReconcile(unittest.TestCase):
             (addon_dir / "current").symlink_to(addon_dir / "versions" / "0.1.3")
             _write_desired(addon_dir, version="0.1.4")
 
-            with patch.dict("os.environ", {"SYNTHIA_SUPERVISOR_KEEP_VERSIONS": "3"}, clear=False), \
+            with patch.dict("os.environ", {"HEXE_SUPERVISOR_KEEP_VERSIONS": "3"}, clear=False), \
                 patch("hexe_supervisor.main.ensure_extracted"), \
                 patch("hexe_supervisor.main.ensure_compose_files"), \
                 patch("hexe_supervisor.main.compose_up"):
@@ -374,7 +374,7 @@ class TestHexeSupervisorReconcile(unittest.TestCase):
                 (version_dir / "addon.tgz").write_bytes(b"artifact-bytes")
             _write_desired(addon_dir, version="0.1.4")
 
-            with patch.dict("os.environ", {"SYNTHIA_SUPERVISOR_KEEP_VERSIONS": "3"}, clear=False), \
+            with patch.dict("os.environ", {"HEXE_SUPERVISOR_KEEP_VERSIONS": "3"}, clear=False), \
                 patch("hexe_supervisor.main.ensure_extracted"), \
                 patch("hexe_supervisor.main.ensure_compose_files"), \
                 patch("hexe_supervisor.main.compose_up", side_effect=RuntimeError("compose-failed")):

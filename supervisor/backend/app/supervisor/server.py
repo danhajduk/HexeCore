@@ -57,13 +57,12 @@ def _supervisor_identity() -> dict[str, str | None]:
     hostname = socket.gethostname()
     supervisor_id = (
         _env_text("HEXE_SUPERVISOR_ID")
-        or _env_text("SYNTHIA_SUPERVISOR_ID")
         or f"{hostname}-supervisor"
     )
     return {
         "supervisor_id": supervisor_id,
-        "supervisor_name": _env_text("HEXE_SUPERVISOR_NAME") or _env_text("SYNTHIA_SUPERVISOR_NAME") or supervisor_id,
-        "supervisor_version": _env_text("SYNTHIA_CORE_VERSION", "0.1.0"),
+        "supervisor_name": _env_text("HEXE_SUPERVISOR_NAME") or supervisor_id,
+        "supervisor_version": _env_text("HEXE_CORE_VERSION", "0.1.0"),
         "host_id": _env_text("HEXE_SUPERVISOR_HOST_ID") or hostname,
         "hostname": hostname,
         "api_base_url": _env_text("HEXE_SUPERVISOR_PUBLIC_URL") or _env_text("HEXE_SUPERVISOR_API_BASE_URL") or None,
@@ -74,7 +73,7 @@ def _supervisor_identity() -> dict[str, str | None]:
 def _supervisor_core_url() -> str:
     return (
         _env_text("HEXE_SUPERVISOR_CORE_URL")
-        or _env_text("SYNTHIA_CORE_URL")
+        or _env_text("HEXE_CORE_URL")
         or _env_text("CORE_URL")
     ).rstrip("/")
 
@@ -99,7 +98,7 @@ def _is_local_core_url(core_url: str) -> bool:
 
 
 def _supervisor_core_token() -> str:
-    return _env_text("HEXE_SUPERVISOR_CORE_TOKEN") or _env_text("SYNTHIA_ADMIN_TOKEN")
+    return _env_text("HEXE_SUPERVISOR_CORE_TOKEN") or _env_text("HEXE_ADMIN_TOKEN")
 
 
 def _supervisor_core_token_kind() -> str:

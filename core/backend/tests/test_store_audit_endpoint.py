@@ -25,8 +25,8 @@ class _FakeRegistry:
 
 class TestStoreAuditEndpoint(unittest.TestCase):
     def test_admin_audit_endpoint_filters(self) -> None:
-        old_token = os.environ.get("SYNTHIA_ADMIN_TOKEN")
-        os.environ["SYNTHIA_ADMIN_TOKEN"] = "test-token"
+        old_token = os.environ.get("HEXE_ADMIN_TOKEN")
+        os.environ["HEXE_ADMIN_TOKEN"] = "test-token"
         try:
             with tempfile.TemporaryDirectory() as td:
                 db_path = str(Path(td) / "store_audit.db")
@@ -98,9 +98,9 @@ class TestStoreAuditEndpoint(unittest.TestCase):
                 self.assertEqual(newer_payload["items"][0]["timestamp"], newer_ts)
         finally:
             if old_token is None:
-                os.environ.pop("SYNTHIA_ADMIN_TOKEN", None)
+                os.environ.pop("HEXE_ADMIN_TOKEN", None)
             else:
-                os.environ["SYNTHIA_ADMIN_TOKEN"] = old_token
+                os.environ["HEXE_ADMIN_TOKEN"] = old_token
 
 
 if __name__ == "__main__":

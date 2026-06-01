@@ -79,7 +79,7 @@ First create a one-time enrollment token from Core with an admin session or admi
 ```bash
 curl -fsS -X POST http://core-host:9001/api/system/supervisors/enrollment-tokens \
   -H "Content-Type: application/json" \
-  -H "X-Admin-Token: $SYNTHIA_ADMIN_TOKEN" \
+  -H "X-Admin-Token: $HEXE_ADMIN_TOKEN" \
   -d '{"supervisor_id":"host-a","supervisor_name":"Host A Supervisor","ttl_seconds":900}'
 ```
 

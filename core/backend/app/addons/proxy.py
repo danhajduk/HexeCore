@@ -84,14 +84,14 @@ class AddonProxy:
         addon = self._registry.registered.get(addon_id)
         if addon is None:
             return (
-                _env_int("SYNTHIA_ADDON_PROXY_RETRIES", LOCAL_PROXY_RETRIES, minimum=0),
-                httpx.Timeout(_env_float("SYNTHIA_ADDON_PROXY_TIMEOUT_SECONDS", LOCAL_PROXY_TIMEOUT_SECONDS)),
+                _env_int("HEXE_ADDON_PROXY_RETRIES", LOCAL_PROXY_RETRIES, minimum=0),
+                httpx.Timeout(_env_float("HEXE_ADDON_PROXY_TIMEOUT_SECONDS", LOCAL_PROXY_TIMEOUT_SECONDS)),
                 _env_int(
-                    "SYNTHIA_ADDON_PROXY_CIRCUIT_FAIL_THRESHOLD",
+                    "HEXE_ADDON_PROXY_CIRCUIT_FAIL_THRESHOLD",
                     LOCAL_PROXY_CIRCUIT_FAIL_THRESHOLD,
                     minimum=1,
                 ),
-                _env_int("SYNTHIA_ADDON_PROXY_CIRCUIT_OPEN_SECONDS", LOCAL_PROXY_CIRCUIT_OPEN_SECONDS, minimum=1),
+                _env_int("HEXE_ADDON_PROXY_CIRCUIT_OPEN_SECONDS", LOCAL_PROXY_CIRCUIT_OPEN_SECONDS, minimum=1),
             )
         return (
             max(0, int(addon.proxy_retries)),

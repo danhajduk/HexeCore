@@ -79,7 +79,7 @@ class _FakeNodesService:
 
 class TestWebSocketProxyIntegration(unittest.TestCase):
     def test_addon_websocket_proxy_round_trip_and_forwarded_headers(self) -> None:
-        with patch.dict("os.environ", {"SYNTHIA_ADMIN_TOKEN": "test-token"}, clear=False):
+        with patch.dict("os.environ", {"HEXE_ADMIN_TOKEN": "test-token"}, clear=False):
             with _EchoServer() as upstream:
                 assert upstream.port is not None
                 proxy = AddonProxy(_FakeAddonRegistry(f"http://127.0.0.1:{upstream.port}"))
@@ -104,7 +104,7 @@ class TestWebSocketProxyIntegration(unittest.TestCase):
                 self.assertEqual(headers.get("sec-websocket-protocol"), "chat")
 
     def test_node_websocket_proxy_round_trip_and_forwarded_headers(self) -> None:
-        with patch.dict("os.environ", {"SYNTHIA_ADMIN_TOKEN": "test-token"}, clear=False):
+        with patch.dict("os.environ", {"HEXE_ADMIN_TOKEN": "test-token"}, clear=False):
             with _EchoServer() as upstream:
                 assert upstream.port is not None
                 proxy = NodeUiProxy(_FakeNodesService(f"http://127.0.0.1:{upstream.port}"))

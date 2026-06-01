@@ -39,8 +39,8 @@ class TestAuthApi(unittest.TestCase):
         self.env_patch = patch.dict(
             os.environ,
             {
-                "SYNTHIA_ADMIN_TOKEN": "test-token",
-                "SYNTHIA_SERVICE_PRINCIPALS_JSON": principals,
+                "HEXE_ADMIN_TOKEN": "test-token",
+                "HEXE_SERVICE_PRINCIPALS_JSON": principals,
             },
             clear=False,
         )

@@ -82,8 +82,8 @@ class TestSupervisorServiceLifecycle(unittest.TestCase):
             with patch.dict(
                 os.environ,
                 {
-                    "SYNTHIA_EDGE_RUNTIME_DIR": tmpdir,
-                    "SYNTHIA_CLOUDFLARED_PROVIDER": "docker",
+                    "HEXE_EDGE_RUNTIME_DIR": tmpdir,
+                    "HEXE_CLOUDFLARED_PROVIDER": "docker",
                 },
                 clear=False,
             ):
@@ -122,8 +122,8 @@ class TestSupervisorServiceLifecycle(unittest.TestCase):
             with patch.dict(
                 os.environ,
                 {
-                    "SYNTHIA_EDGE_RUNTIME_DIR": tmpdir,
-                    "SYNTHIA_CLOUDFLARED_PROVIDER": "disabled",
+                    "HEXE_EDGE_RUNTIME_DIR": tmpdir,
+                    "HEXE_CLOUDFLARED_PROVIDER": "disabled",
                 },
                 clear=False,
             ):

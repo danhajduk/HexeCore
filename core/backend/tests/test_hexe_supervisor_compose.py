@@ -123,7 +123,7 @@ class TestHexeSupervisorCompose(unittest.TestCase):
             runtime_file = Path(tmp) / "runtime.json"
             desired_file.write_text("{}\n", encoding="utf-8")
             runtime_file.write_text("{}\n", encoding="utf-8")
-            with patch.dict(os.environ, {"SYNTHIA_SERVICE_TOKEN": "token-123"}, clear=False):
+            with patch.dict(os.environ, {"HEXE_SERVICE_TOKEN": "token-123"}, clear=False):
                 ensure_compose_files(
                     desired,
                     extracted,
@@ -147,7 +147,7 @@ class TestHexeSupervisorCompose(unittest.TestCase):
             self.assertIn(f"{runtime_file}:/state/runtime.json", compose_text)
             self.assertIn(f"{compose_file}:/state/docker-compose.yml:ro", compose_text)
             self.assertIn("CORE_URL=http://127.0.0.1:9001", env_text)
-            self.assertIn("SYNTHIA_SERVICE_TOKEN=token-123", env_text)
+            self.assertIn("HEXE_SERVICE_TOKEN=token-123", env_text)
 
     def test_compose_uses_host_publish_when_bind_localhost_disabled(self) -> None:
         desired = DesiredState.model_validate(
@@ -293,7 +293,7 @@ class TestHexeSupervisorCompose(unittest.TestCase):
             runtime_file = Path(tmp) / "runtime.json"
             desired_file.write_text("{}\n", encoding="utf-8")
             runtime_file.write_text("{}\n", encoding="utf-8")
-            with patch.dict(os.environ, {"SYNTHIA_SUPERVISOR_COMPOSE_RESTART_POLICY": "unless-stopped"}, clear=False):
+            with patch.dict(os.environ, {"HEXE_SUPERVISOR_COMPOSE_RESTART_POLICY": "unless-stopped"}, clear=False):
                 ensure_compose_files(desired, extracted, compose_file, env_file, desired_file, runtime_file, "mqtt")
             compose_text = compose_file.read_text(encoding="utf-8")
             self.assertIn("restart: unless-stopped", compose_text)

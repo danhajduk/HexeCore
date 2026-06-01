@@ -33,7 +33,7 @@ class ServicePrincipalConfig(BaseModel):
 
 
 def _load_service_principals() -> dict[str, ServicePrincipalConfig]:
-    raw = os.getenv("SYNTHIA_SERVICE_PRINCIPALS_JSON", "").strip()
+    raw = os.getenv("HEXE_SERVICE_PRINCIPALS_JSON", "").strip()
     if not raw:
         return {}
     try:

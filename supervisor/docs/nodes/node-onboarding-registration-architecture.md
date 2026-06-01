@@ -1,7 +1,7 @@
 # Node Onboarding And Registration Architecture
 
 Status: Partial
-Implementation status: Partial (global registration domain model/store exists; onboarding accepts configured node types via `SYNTHIA_NODE_ONBOARDING_SUPPORTED_TYPES`)
+Implementation status: Partial (global registration domain model/store exists; onboarding accepts configured node types via `HEXE_NODE_ONBOARDING_SUPPORTED_TYPES`)
 Last updated: 2026-03-20 10:16
 
 ## Purpose

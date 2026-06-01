@@ -148,7 +148,7 @@ class TestAddonProxyTargetSelection(unittest.TestCase):
         )
         app = FastAPI()
         app.include_router(build_proxy_router(proxy))
-        with patch.dict("os.environ", {"SYNTHIA_ADMIN_TOKEN": "test-token"}, clear=False):
+        with patch.dict("os.environ", {"HEXE_ADMIN_TOKEN": "test-token"}, clear=False):
             client = TestClient(app)
             response = client.get("/addons/proxy/mqtt/", headers={"X-Admin-Token": "test-token"})
             self.assertEqual(response.status_code, 404, response.text)
@@ -172,7 +172,7 @@ class TestAddonProxyTargetSelection(unittest.TestCase):
         )
         app = FastAPI()
         app.include_router(build_proxy_router(proxy))
-        with patch.dict("os.environ", {"SYNTHIA_ADMIN_TOKEN": "test-token"}, clear=False):
+        with patch.dict("os.environ", {"HEXE_ADMIN_TOKEN": "test-token"}, clear=False):
             client = TestClient(app)
             response = client.get("/addons/proxy/mqtt/", headers={"X-Admin-Token": "test-token"})
             self.assertEqual(response.status_code, 503, response.text)
@@ -183,7 +183,7 @@ class TestAddonProxyTargetSelection(unittest.TestCase):
         proxy = AddonProxy(_FakeRegistry())
         app = FastAPI()
         app.include_router(build_proxy_router(proxy))
-        with patch.dict("os.environ", {"SYNTHIA_ADMIN_TOKEN": "test-token"}, clear=False):
+        with patch.dict("os.environ", {"HEXE_ADMIN_TOKEN": "test-token"}, clear=False):
             client = TestClient(app)
             with self.assertLogs("synthia.proxy", level="INFO") as captured:
                 client.get("/ui/addons/missing", headers={"X-Admin-Token": "test-token"})

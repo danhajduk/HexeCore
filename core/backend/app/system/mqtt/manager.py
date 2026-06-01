@@ -89,7 +89,7 @@ class MqttManager:
         self._runtime_sessions: dict[str, dict[str, Any]] = {}
         self._sys_clients_connected: int | None = None
         self._sys_clients_disconnected: int | None = None
-        self._session_idle_timeout_s = int(os.getenv("SYNTHIA_MQTT_SESSION_IDLE_TIMEOUT_S", "300"))
+        self._session_idle_timeout_s = int(os.getenv("HEXE_MQTT_SESSION_IDLE_TIMEOUT_S", "300"))
         self._broker_metrics: dict[str, Any] = {
             "broker_uptime": None,
             "connected_clients": None,
@@ -413,8 +413,8 @@ class MqttManager:
         client_id = str((await self._settings.get("mqtt.client_id")) or "synthia-core")
         if mode == "local":
             # Local embedded runtime is broker-authoritative; avoid stale external settings causing auth/connect drift.
-            host = str(os.getenv("SYNTHIA_MQTT_HOST", "127.0.0.1")).strip() or "127.0.0.1"
-            port = int(os.getenv("SYNTHIA_MQTT_PORT", str(port)))
+            host = str(os.getenv("HEXE_MQTT_HOST", "127.0.0.1")).strip() or "127.0.0.1"
+            port = int(os.getenv("HEXE_MQTT_PORT", str(port)))
             username = str((await self._settings.get("mqtt.local.username")) or "").strip() or None
             password = str((await self._settings.get("mqtt.local.password")) or "")
             password = password if password else None

@@ -208,7 +208,7 @@ def platform_identity_from_values(values: dict[str, Any] | None = None) -> Platf
     core_id = _pick_core_id(
         data.get("platform.core_id"),
         data.get("core.id"),
-        os.getenv("SYNTHIA_CORE_ID"),
+        os.getenv("HEXE_CORE_ID"),
     )
     public_hostname = derive_public_hostname(core_id, platform_domain)
     public_ui_hostname = public_hostname
@@ -269,7 +269,7 @@ async def _ensure_core_identity_settings(settings_store: SettingsStore, values: 
     current = str(values.get("platform.core_id") or values.get("core.id") or "").strip().lower()
     if is_valid_core_id(current):
         return
-    env_value = str(os.getenv("SYNTHIA_CORE_ID", "")).strip().lower()
+    env_value = str(os.getenv("HEXE_CORE_ID", "")).strip().lower()
     if is_valid_core_id(env_value):
         core_id = env_value
     else:

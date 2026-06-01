@@ -123,9 +123,9 @@ Settings notes:
 
 Runtime notes:
 
-- Supervisor defaults to `SYNTHIA_CLOUDFLARED_PROVIDER=auto`
+- Supervisor defaults to `HEXE_CLOUDFLARED_PROVIDER=auto`
 - `auto` prefers Docker and falls back to a native `cloudflared` binary if available
-- tests and non-runtime environments can set `SYNTHIA_CLOUDFLARED_PROVIDER=disabled`
+- tests and non-runtime environments can set `HEXE_CLOUDFLARED_PROVIDER=disabled`
 - the Docker runtime uses host networking so the tunnel can reach Core services at `127.0.0.1`
 
 ## Status And Observability

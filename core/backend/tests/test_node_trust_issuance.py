@@ -96,8 +96,8 @@ class TestNodeTrustIssuanceService(unittest.TestCase):
         with patch.dict(
             "os.environ",
             {
-                "SYNTHIA_NODE_OPERATIONAL_MQTT_HOST": "127.0.0.1",
-                "SYNTHIA_BOOTSTRAP_ADVERTISE_HOST": "10.0.0.100",
+                "HEXE_NODE_OPERATIONAL_MQTT_HOST": "127.0.0.1",
+                "HEXE_BOOTSTRAP_ADVERTISE_HOST": "10.0.0.100",
             },
             clear=False,
         ):
@@ -136,7 +136,7 @@ class TestNodeTrustIssuanceService(unittest.TestCase):
         existing.operational_mqtt_host = "127.0.0.1"
         self.trust_store.upsert(existing)
 
-        with patch.dict("os.environ", {"SYNTHIA_BOOTSTRAP_ADVERTISE_HOST": "10.0.0.123"}, clear=False):
+        with patch.dict("os.environ", {"HEXE_BOOTSTRAP_ADVERTISE_HOST": "10.0.0.123"}, clear=False):
             upgraded_service = NodeTrustIssuanceService(self.trust_store)
         upgraded = self.trust_store.get_by_node("node-fixed-4")
         self.assertIsNotNone(upgraded)

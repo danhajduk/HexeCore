@@ -25,7 +25,7 @@ class _CachedSampler:
 
     async def connectivity(self) -> dict[str, Any]:
         now = time.time()
-        ttl = float(os.getenv("SYNTHIA_STACK_CONNECTIVITY_TTL_S", "30") or 30)
+        ttl = float(os.getenv("HEXE_STACK_CONNECTIVITY_TTL_S", "30") or 30)
         async with self._lock:
             if self._connectivity_cache and (now - float(self._connectivity_cache.get("ts", 0))) <= ttl:
                 return dict(self._connectivity_cache["payload"])
@@ -36,7 +36,7 @@ class _CachedSampler:
 
     async def speed(self) -> dict[str, Any]:
         now = time.time()
-        ttl = float(os.getenv("SYNTHIA_SPEEDTEST_SAMPLE_SECONDS", "1800") or 1800)
+        ttl = float(os.getenv("HEXE_SPEEDTEST_SAMPLE_SECONDS", "1800") or 1800)
         async with self._lock:
             if self._speed_cache and (now - float(self._speed_cache.get("ts", 0))) <= ttl:
                 cached = dict(self._speed_cache["payload"])
@@ -74,7 +74,7 @@ class _CachedSampler:
 async def speed_sampler_loop(interval_s: float | None = None) -> None:
     delay = interval_s
     if delay is None:
-        delay = float(os.getenv("SYNTHIA_SPEEDTEST_SAMPLE_SECONDS", "1800") or 1800)
+        delay = float(os.getenv("HEXE_SPEEDTEST_SAMPLE_SECONDS", "1800") or 1800)
     delay = max(60.0, float(delay))
     while True:
         try:
@@ -97,18 +97,18 @@ def _tcp_reachable(host: str, port: int, timeout_s: float = 1.5) -> bool:
 
 
 def _sample_connectivity() -> dict[str, Any]:
-    local_host = str(os.getenv("SYNTHIA_LOCAL_NETWORK_CHECK_HOST", "")).strip()
+    local_host = str(os.getenv("HEXE_LOCAL_NETWORK_CHECK_HOST", "")).strip()
     if not local_host:
         # Reuse MQTT host as a pragmatic local-network target when explicit
         # network health host is not configured.
         local_host = str(os.getenv("MQTT_HOST", "")).strip()
-    local_port = int(str(os.getenv("SYNTHIA_LOCAL_NETWORK_CHECK_PORT", "53")).strip() or "53")
+    local_port = int(str(os.getenv("HEXE_LOCAL_NETWORK_CHECK_PORT", "53")).strip() or "53")
     if not local_host:
-        # Backend service env commonly includes SYNTHIA_BACKEND_HOST/PORT.
-        local_host = str(os.getenv("SYNTHIA_BACKEND_HOST", "")).strip()
-        local_port = int(str(os.getenv("SYNTHIA_BACKEND_PORT", "9001")).strip() or "9001")
-    internet_host = str(os.getenv("SYNTHIA_INTERNET_CHECK_HOST", "1.1.1.1")).strip()
-    internet_port = int(str(os.getenv("SYNTHIA_INTERNET_CHECK_PORT", "53")).strip() or "53")
+        # Backend service env commonly includes HEXE_BACKEND_HOST/PORT.
+        local_host = str(os.getenv("HEXE_BACKEND_HOST", "")).strip()
+        local_port = int(str(os.getenv("HEXE_BACKEND_PORT", "9001")).strip() or "9001")
+    internet_host = str(os.getenv("HEXE_INTERNET_CHECK_HOST", "1.1.1.1")).strip()
+    internet_port = int(str(os.getenv("HEXE_INTERNET_CHECK_PORT", "53")).strip() or "53")
 
     network_state = "not_configured"
     if local_host:
@@ -136,8 +136,8 @@ def _sample_connectivity() -> dict[str, Any]:
 
 def _sample_speed() -> dict[str, Any]:
     sampled_at = _now_iso()
-    timeout_s = float(str(os.getenv("SYNTHIA_SPEEDTEST_TIMEOUT_S", "45")).strip() or "45")
-    cli_bin = str(os.getenv("SYNTHIA_SPEEDTEST_CLI_BIN", "speedtest-cli")).strip() or "speedtest-cli"
+    timeout_s = float(str(os.getenv("HEXE_SPEEDTEST_TIMEOUT_S", "45")).strip() or "45")
+    cli_bin = str(os.getenv("HEXE_SPEEDTEST_CLI_BIN", "speedtest-cli")).strip() or "speedtest-cli"
     commands: list[tuple[list[str], str]] = []
     seen: set[tuple[str, ...]] = set()
 

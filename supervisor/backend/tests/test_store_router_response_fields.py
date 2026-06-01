@@ -58,8 +58,8 @@ def _manifest_payload(addon_id: str = "hello_world") -> dict:
 
 class TestStoreRouterResponseFields(unittest.TestCase):
     def test_install_response_includes_registry_and_hot_loaded(self) -> None:
-        old_token = os.environ.get("SYNTHIA_ADMIN_TOKEN")
-        os.environ["SYNTHIA_ADMIN_TOKEN"] = "test-token"
+        old_token = os.environ.get("HEXE_ADMIN_TOKEN")
+        os.environ["HEXE_ADMIN_TOKEN"] = "test-token"
         try:
             registry = _FakeRegistry()
             with tempfile.TemporaryDirectory() as td:
@@ -102,9 +102,9 @@ class TestStoreRouterResponseFields(unittest.TestCase):
                 self.assertFalse(payload["hot_loaded"])
         finally:
             if old_token is None:
-                os.environ.pop("SYNTHIA_ADMIN_TOKEN", None)
+                os.environ.pop("HEXE_ADMIN_TOKEN", None)
             else:
-                os.environ["SYNTHIA_ADMIN_TOKEN"] = old_token
+                os.environ["HEXE_ADMIN_TOKEN"] = old_token
 
 
 if __name__ == "__main__":

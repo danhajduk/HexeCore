@@ -168,7 +168,7 @@ Trust-status behavior:
 ## Node Type Support
 
 Supported node types are configured by:
-- `SYNTHIA_NODE_ONBOARDING_SUPPORTED_TYPES`
+- `HEXE_NODE_ONBOARDING_SUPPORTED_TYPES`
 
 Default:
 - `ai-node`

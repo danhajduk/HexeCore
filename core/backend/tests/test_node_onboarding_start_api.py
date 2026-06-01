@@ -70,10 +70,10 @@ class TestNodeOnboardingStartApi(unittest.TestCase):
         self.env_patch = patch.dict(
             os.environ,
             {
-                "SYNTHIA_AI_NODE_ONBOARDING_ENABLED": "true",
-                "SYNTHIA_AI_NODE_ONBOARDING_PROTOCOLS": "1.0",
-                "SYNTHIA_NODE_ONBOARDING_SUPPORTED_TYPES": "ai-node",
-                "SYNTHIA_ADMIN_TOKEN": "test-token",
+                "HEXE_AI_NODE_ONBOARDING_ENABLED": "true",
+                "HEXE_AI_NODE_ONBOARDING_PROTOCOLS": "1.0",
+                "HEXE_NODE_ONBOARDING_SUPPORTED_TYPES": "ai-node",
+                "HEXE_ADMIN_TOKEN": "test-token",
             },
             clear=False,
         )
@@ -181,7 +181,7 @@ class TestNodeOnboardingStartApi(unittest.TestCase):
     def test_supported_node_types_can_be_extended(self) -> None:
         payload = self._payload()
         payload["node_type"] = "sensor-node"
-        with patch.dict(os.environ, {"SYNTHIA_NODE_ONBOARDING_SUPPORTED_TYPES": "ai-node,sensor-node"}, clear=False):
+        with patch.dict(os.environ, {"HEXE_NODE_ONBOARDING_SUPPORTED_TYPES": "ai-node,sensor-node"}, clear=False):
             resp = self.client.post("/api/system/nodes/onboarding/sessions", json=payload)
         self.assertEqual(resp.status_code, 200, resp.text)
         self.assertEqual(resp.json()["session"]["node_type"], "sensor")
@@ -190,7 +190,7 @@ class TestNodeOnboardingStartApi(unittest.TestCase):
     def test_email_node_is_supported_by_default(self) -> None:
         payload = self._payload()
         payload["node_type"] = "email-node"
-        with patch.dict(os.environ, {"SYNTHIA_NODE_ONBOARDING_SUPPORTED_TYPES": ""}, clear=False):
+        with patch.dict(os.environ, {"HEXE_NODE_ONBOARDING_SUPPORTED_TYPES": ""}, clear=False):
             resp = self.client.post("/api/system/nodes/onboarding/sessions", json=payload)
         self.assertEqual(resp.status_code, 200, resp.text)
         self.assertEqual(resp.json()["session"]["node_type"], "email")
@@ -199,7 +199,7 @@ class TestNodeOnboardingStartApi(unittest.TestCase):
     def test_voice_node_is_supported_by_default(self) -> None:
         payload = self._payload()
         payload["node_type"] = "voice-node"
-        with patch.dict(os.environ, {"SYNTHIA_NODE_ONBOARDING_SUPPORTED_TYPES": ""}, clear=False):
+        with patch.dict(os.environ, {"HEXE_NODE_ONBOARDING_SUPPORTED_TYPES": ""}, clear=False):
             resp = self.client.post("/api/system/nodes/onboarding/sessions", json=payload)
         self.assertEqual(resp.status_code, 200, resp.text)
         self.assertEqual(resp.json()["session"]["node_type"], "voice")
@@ -210,7 +210,7 @@ class TestNodeOnboardingStartApi(unittest.TestCase):
         payload["node_name"] = "interaction-node"
         payload["node_type"] = "interaction-node"
         payload["node_nonce"] = "nonce-interaction"
-        with patch.dict(os.environ, {"SYNTHIA_NODE_ONBOARDING_SUPPORTED_TYPES": ""}, clear=False):
+        with patch.dict(os.environ, {"HEXE_NODE_ONBOARDING_SUPPORTED_TYPES": ""}, clear=False):
             resp = self.client.post("/api/system/nodes/onboarding/sessions", json=payload)
         self.assertEqual(resp.status_code, 200, resp.text)
         self.assertEqual(resp.json()["session"]["node_type"], "interaction")
@@ -224,7 +224,7 @@ class TestNodeOnboardingStartApi(unittest.TestCase):
         self.assertEqual(resp.json()["detail"]["error"], "protocol_version_unsupported")
 
     def test_registration_disabled(self) -> None:
-        with patch.dict(os.environ, {"SYNTHIA_AI_NODE_ONBOARDING_ENABLED": "false"}, clear=False):
+        with patch.dict(os.environ, {"HEXE_AI_NODE_ONBOARDING_ENABLED": "false"}, clear=False):
             resp = self.client.post("/api/system/nodes/onboarding/sessions", json=self._payload())
         self.assertEqual(resp.status_code, 503, resp.text)
         self.assertEqual(resp.json()["detail"]["error"], "registration_disabled")

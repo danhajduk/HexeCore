@@ -37,7 +37,7 @@ ALLOW_PATTERNS = [
     re.compile(r'logging\.getLogger\("synthia\.[^"]+"\)'),
     re.compile(r'"synthia\.[^"]+": \{'),
     re.compile(r"\bsynthia-core\b"),
-    re.compile(r"\bSYNTHIA_[A-Z0-9_]+\b"),
+    re.compile(r"\bHEXE_[A-Z0-9_]+\b"),
     re.compile(r"\bsynthia-[a-z0-9_.-]+\b"),
     re.compile(r"Synthia-Addon-Catalog"),
     re.compile(r"\.config/synthia/"),

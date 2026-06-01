@@ -107,7 +107,7 @@ class _FakeMqttManager:
 
 class TestMqttRuntimeIntegration(unittest.TestCase):
     def setUp(self) -> None:
-        self.env_patch = patch.dict(os.environ, {"SYNTHIA_ADMIN_TOKEN": "test-token"}, clear=False)
+        self.env_patch = patch.dict(os.environ, {"HEXE_ADMIN_TOKEN": "test-token"}, clear=False)
         self.env_patch.start()
         self.tmp = tempfile.TemporaryDirectory()
         root = Path(self.tmp.name)

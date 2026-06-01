@@ -33,9 +33,9 @@ def _default_publishers_registry_path() -> Path:
 def _load_publishers_registry() -> dict:
     """
     Loads publishers.json.
-    Default path: $SYNTHIA_CATALOG_PUBLISHERS or <install_root>/runtime/store/cache/official/publishers.json
+    Default path: $HEXE_CATALOG_PUBLISHERS or <install_root>/runtime/store/cache/official/publishers.json
     """
-    p = os.environ.get("SYNTHIA_CATALOG_PUBLISHERS")
+    p = os.environ.get("HEXE_CATALOG_PUBLISHERS")
     if p:
         path = Path(p).expanduser()
     else:
@@ -44,7 +44,7 @@ def _load_publishers_registry() -> dict:
     if not path.exists():
         raise CryptoError(
             f"publishers.json not found at {path}. "
-            f"Set SYNTHIA_CATALOG_PUBLISHERS to the correct path."
+            f"Set HEXE_CATALOG_PUBLISHERS to the correct path."
         )
 
     try:

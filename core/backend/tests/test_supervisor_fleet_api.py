@@ -45,7 +45,7 @@ class _FakeSupervisorClient:
 
 class TestSupervisorFleetApi(unittest.TestCase):
     def setUp(self) -> None:
-        self.env_patch = patch.dict(os.environ, {"SYNTHIA_ADMIN_TOKEN": "test-token"}, clear=False)
+        self.env_patch = patch.dict(os.environ, {"HEXE_ADMIN_TOKEN": "test-token"}, clear=False)
         self.env_patch.start()
         self.tmpdir = tempfile.TemporaryDirectory()
         self.store = SupervisorFleetStore(path=Path(self.tmpdir.name) / "supervisors.json")

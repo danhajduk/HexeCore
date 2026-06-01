@@ -98,7 +98,7 @@ class TestHexeSupervisorCrypto(unittest.TestCase):
 
             with patch.dict(
                 os.environ,
-                {"SYNTHIA_CATALOG_PUBLISHERS": str(publishers)},
+                {"HEXE_CATALOG_PUBLISHERS": str(publishers)},
                 clear=False,
             ):
                 verify_release_option_a(

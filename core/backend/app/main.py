@@ -194,7 +194,7 @@ def create_app() -> FastAPI:
                     sessions_store = getattr(app.state, "node_onboarding_sessions_store", None)
                     if sessions_store is not None:
                         sessions_store.expire_stale_sessions()
-                        retention_days_raw = str(os.getenv("SYNTHIA_NODE_ONBOARDING_ARCHIVE_RETAIN_DAYS", "30")).strip()
+                        retention_days_raw = str(os.getenv("HEXE_NODE_ONBOARDING_ARCHIVE_RETAIN_DAYS", "30")).strip()
                         try:
                             retention_days = int(retention_days_raw)
                         except Exception:
@@ -238,8 +238,8 @@ def create_app() -> FastAPI:
             return [item for item in items if isinstance(item, dict)]
 
         async def _probe_core_api_health() -> tuple[str, str | None]:
-            host = str(os.getenv("SYNTHIA_BACKEND_HOST", "127.0.0.1")).strip() or "127.0.0.1"
-            port = str(os.getenv("SYNTHIA_BACKEND_PORT", "9001")).strip() or "9001"
+            host = str(os.getenv("HEXE_BACKEND_HOST", "127.0.0.1")).strip() or "127.0.0.1"
+            port = str(os.getenv("HEXE_BACKEND_PORT", "9001")).strip() or "9001"
             url = f"http://{host}:{port}/api/health"
             try:
                 async with httpx.AsyncClient(timeout=2.0) as client:
@@ -348,11 +348,11 @@ def create_app() -> FastAPI:
             running = runtime_state.lower() in {"running", "active", "connected"} or bool(tunnel_status.healthy)
             health_status = "healthy" if tunnel_status.healthy else ("unhealthy" if cloudflare_settings.enabled else "unknown")
             last_error = tunnel_status.last_error or cloudflare_settings.last_provision_error
-            provider = str(os.getenv("SYNTHIA_CLOUDFLARED_PROVIDER", "auto")).strip().lower() or "auto"
+            provider = str(os.getenv("HEXE_CLOUDFLARED_PROVIDER", "auto")).strip().lower() or "auto"
             container_name = None
             if provider in {"auto", "docker"}:
                 container_name = (
-                    str(os.getenv("SYNTHIA_CLOUDFLARED_CONTAINER_NAME", "hexe-cloudflared")).strip() or "hexe-cloudflared"
+                    str(os.getenv("HEXE_CLOUDFLARED_CONTAINER_NAME", "hexe-cloudflared")).strip() or "hexe-cloudflared"
                 )
             stats = await _collect_container_stats([container_name] if container_name else [])
             runtime_usage = stats.get(container_name or "", {}) if container_name else {}
@@ -406,7 +406,7 @@ def create_app() -> FastAPI:
                         log.exception("Failed to load MQTT runtime status for Supervisor registration")
 
             container_names: list[str] = []
-            mqtt_container_name = str(os.getenv("SYNTHIA_MQTT_DOCKER_CONTAINER", "synthia-mqtt-broker"))
+            mqtt_container_name = str(os.getenv("HEXE_MQTT_DOCKER_CONTAINER", "synthia-mqtt-broker"))
             container_names.append(mqtt_container_name)
             for addon in addons:
                 last_health = addon.get("last_health") if isinstance(addon.get("last_health"), dict) else {}
@@ -985,8 +985,8 @@ def create_app() -> FastAPI:
         os.path.join(os.getcwd(), "var", "users.db"),
     )
     users_store = UsersStore(users_db)
-    seeded_admin_username = os.getenv("SYNTHIA_ADMIN_USERNAME", "admin").strip() or "admin"
-    seeded_admin_password = os.getenv("SYNTHIA_ADMIN_PASSWORD", "") or os.getenv("SYNTHIA_ADMIN_TOKEN", "")
+    seeded_admin_username = os.getenv("HEXE_ADMIN_USERNAME", "admin").strip() or "admin"
+    seeded_admin_password = os.getenv("HEXE_ADMIN_PASSWORD", "") or os.getenv("HEXE_ADMIN_TOKEN", "")
 
     # Admin routes
     configure_admin_users_store(users_store)
@@ -1136,7 +1136,7 @@ def create_app() -> FastAPI:
     mqtt_credential_store = MqttCredentialStore(
         os.getenv("MQTT_CREDENTIAL_STORE_PATH", os.path.join(os.getcwd(), "var", "mqtt_credentials.json"))
     )
-    runtime_provider = str(os.getenv("SYNTHIA_MQTT_RUNTIME_PROVIDER", "docker")).strip().lower()
+    runtime_provider = str(os.getenv("HEXE_MQTT_RUNTIME_PROVIDER", "docker")).strip().lower()
     if runtime_provider in {"memory", "inmemory"}:
         mqtt_runtime_boundary = InMemoryBrokerRuntimeBoundary(provider="embedded_mosquitto")
     else:
@@ -1145,11 +1145,11 @@ def create_app() -> FastAPI:
             staged_dir=mqtt_dirs["staged"],
             data_dir=mqtt_dirs["data"],
             log_dir=mqtt_dirs["logs"],
-            container_name=os.getenv("SYNTHIA_MQTT_DOCKER_CONTAINER", "synthia-mqtt-broker"),
-            image=os.getenv("SYNTHIA_MQTT_DOCKER_IMAGE", "eclipse-mosquitto:2"),
-            host=str(os.getenv("SYNTHIA_MQTT_HOST", "127.0.0.1")),
-            port=int(os.getenv("SYNTHIA_MQTT_PORT", "1883")),
-            bootstrap_port=int(os.getenv("SYNTHIA_MQTT_BOOTSTRAP_PORT", "1884")),
+            container_name=os.getenv("HEXE_MQTT_DOCKER_CONTAINER", "synthia-mqtt-broker"),
+            image=os.getenv("HEXE_MQTT_DOCKER_IMAGE", "eclipse-mosquitto:2"),
+            host=str(os.getenv("HEXE_MQTT_HOST", "127.0.0.1")),
+            port=int(os.getenv("HEXE_MQTT_PORT", "1883")),
+            bootstrap_port=int(os.getenv("HEXE_MQTT_BOOTSTRAP_PORT", "1884")),
         )
     mqtt_acl_compiler = MqttAclCompiler()
     mqtt_config_renderer = MqttBrokerConfigRenderer()

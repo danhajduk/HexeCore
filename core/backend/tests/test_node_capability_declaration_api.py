@@ -91,10 +91,10 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
         self.env_patch = patch.dict(
             os.environ,
             {
-                "SYNTHIA_AI_NODE_ONBOARDING_ENABLED": "true",
-                "SYNTHIA_AI_NODE_ONBOARDING_PROTOCOLS": "1.0",
-                "SYNTHIA_NODE_ONBOARDING_SUPPORTED_TYPES": "ai-node,sensor-node",
-                "SYNTHIA_ADMIN_TOKEN": "test-token",
+                "HEXE_AI_NODE_ONBOARDING_ENABLED": "true",
+                "HEXE_AI_NODE_ONBOARDING_PROTOCOLS": "1.0",
+                "HEXE_NODE_ONBOARDING_SUPPORTED_TYPES": "ai-node,sensor-node",
+                "HEXE_ADMIN_TOKEN": "test-token",
             },
             clear=False,
         )
@@ -277,7 +277,7 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
         manifest["declared_task_families"] = ["task.classification", "task.unknown.future"]
         manifest["declared_capabilities"] = ["task.classification", "task.unknown.future"]
         manifest["capability_endpoints"] = {}
-        with patch.dict(os.environ, {"SYNTHIA_NODE_ALLOWED_TASK_FAMILIES": "task.classification,task.summarization"}, clear=False):
+        with patch.dict(os.environ, {"HEXE_NODE_ALLOWED_TASK_FAMILIES": "task.classification,task.summarization"}, clear=False):
             res = self.client.post(
                 "/api/system/nodes/capabilities/declaration",
                 json={"manifest": manifest},
@@ -290,7 +290,7 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
         node_id, trust_token = self._trusted_node()
         manifest = self._manifest(node_id)
         manifest["supported_providers"] = ["openai", "provider-x"]
-        with patch.dict(os.environ, {"SYNTHIA_NODE_ALLOWED_PROVIDERS": "openai,local-llm"}, clear=False):
+        with patch.dict(os.environ, {"HEXE_NODE_ALLOWED_PROVIDERS": "openai,local-llm"}, clear=False):
             res = self.client.post(
                 "/api/system/nodes/capabilities/declaration",
                 json={"manifest": manifest},
@@ -307,7 +307,7 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
         manifest["provider_intelligence"] = [
             {"provider": "provider-x", "available_models": [{"model_id": "x-large", "pricing": {"input_per_1k": 0.1}}]}
         ]
-        with patch.dict(os.environ, {"SYNTHIA_NODE_ALLOWED_PROVIDERS": ""}, clear=False):
+        with patch.dict(os.environ, {"HEXE_NODE_ALLOWED_PROVIDERS": ""}, clear=False):
             res = self.client.post(
                 "/api/system/nodes/capabilities/declaration",
                 json={"manifest": manifest},

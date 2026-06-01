@@ -72,8 +72,8 @@ class TestMqttStartupReconcile(unittest.TestCase):
             with patch.dict(
                 os.environ,
                 {
-                    "SYNTHIA_BOOTSTRAP_ADVERTISE_HOST": "10.0.0.55",
-                    "SYNTHIA_API_BASE": "http://10.0.0.55:9001/api",
+                    "HEXE_BOOTSTRAP_ADVERTISE_HOST": "10.0.0.55",
+                    "HEXE_API_BASE": "http://10.0.0.55:9001/api",
                 },
                 clear=False,
             ):

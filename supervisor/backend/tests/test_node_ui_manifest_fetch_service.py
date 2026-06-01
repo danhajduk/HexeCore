@@ -192,8 +192,8 @@ class TestNodeUiManifestFetchService(unittest.IsolatedAsyncioTestCase):
     async def test_writes_fetched_manifest_payload_to_debug_log(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             log_path = Path(tmp) / "node-ui-manifest.jsonl"
-            previous = os.environ.get("SYNTHIA_NODE_UI_MANIFEST_DEBUG_LOG")
-            os.environ["SYNTHIA_NODE_UI_MANIFEST_DEBUG_LOG"] = str(log_path)
+            previous = os.environ.get("HEXE_NODE_UI_MANIFEST_DEBUG_LOG")
+            os.environ["HEXE_NODE_UI_MANIFEST_DEBUG_LOG"] = str(log_path)
             try:
                 service = self._service(lambda request: httpx.Response(200, json=_manifest()))
 
@@ -207,9 +207,9 @@ class TestNodeUiManifestFetchService(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(entry["manifest"]["display_name"], "Voice Node")
             finally:
                 if previous is None:
-                    os.environ.pop("SYNTHIA_NODE_UI_MANIFEST_DEBUG_LOG", None)
+                    os.environ.pop("HEXE_NODE_UI_MANIFEST_DEBUG_LOG", None)
                 else:
-                    os.environ["SYNTHIA_NODE_UI_MANIFEST_DEBUG_LOG"] = previous
+                    os.environ["HEXE_NODE_UI_MANIFEST_DEBUG_LOG"] = previous
 
     async def test_returns_latest_cached_manifest_without_waiting_for_refetch(self) -> None:
         responses = [httpx.Response(200, json=_manifest(revision="rev-2")), httpx.Response(503)]
@@ -276,13 +276,13 @@ class _FakeManifestService:
 
 class TestNodeUiManifestRoute(unittest.TestCase):
     def setUp(self) -> None:
-        os.environ["SYNTHIA_ADMIN_TOKEN"] = "test-token"
+        os.environ["HEXE_ADMIN_TOKEN"] = "test-token"
         app = FastAPI()
         app.include_router(build_nodes_router(_FakeNodesService(), _FakeManifestService()), prefix="/api")
         self.client = TestClient(app)
 
     def tearDown(self) -> None:
-        os.environ.pop("SYNTHIA_ADMIN_TOKEN", None)
+        os.environ.pop("HEXE_ADMIN_TOKEN", None)
 
     def test_route_requires_admin_auth(self) -> None:
         response = self.client.get("/api/nodes/node-1/ui-manifest")

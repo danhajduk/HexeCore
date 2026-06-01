@@ -25,10 +25,10 @@ def setup_logging() -> None:
       logs/system.log
 
     Per-file log levels via env:
-      SYNTHIA_LOG_ADDONS_LEVEL
-      SYNTHIA_LOG_API_LEVEL
-      SYNTHIA_LOG_CORE_LEVEL
-      SYNTHIA_LOG_SYSTEM_LEVEL
+      HEXE_LOG_ADDONS_LEVEL
+      HEXE_LOG_API_LEVEL
+      HEXE_LOG_CORE_LEVEL
+      HEXE_LOG_SYSTEM_LEVEL
     """
     logs_dir = _repo_root() / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
@@ -70,22 +70,22 @@ def setup_logging() -> None:
         "loggers": {
             "synthia.addons": {
                 "handlers": ["addons_file"],
-                "level": _level_from_env("SYNTHIA_LOG_ADDONS_LEVEL", "INFO"),
+                "level": _level_from_env("HEXE_LOG_ADDONS_LEVEL", "INFO"),
                 "propagate": False,
             },
             "synthia.api": {
                 "handlers": ["api_file"],
-                "level": _level_from_env("SYNTHIA_LOG_API_LEVEL", "INFO"),
+                "level": _level_from_env("HEXE_LOG_API_LEVEL", "INFO"),
                 "propagate": False,
             },
             "synthia.core": {
                 "handlers": ["core_file"],
-                "level": _level_from_env("SYNTHIA_LOG_CORE_LEVEL", "INFO"),
+                "level": _level_from_env("HEXE_LOG_CORE_LEVEL", "INFO"),
                 "propagate": False,
             },
             "synthia.system": {
                 "handlers": ["system_file"],
-                "level": _level_from_env("SYNTHIA_LOG_SYSTEM_LEVEL", "INFO"),
+                "level": _level_from_env("HEXE_LOG_SYSTEM_LEVEL", "INFO"),
                 "propagate": False,
             },
         },

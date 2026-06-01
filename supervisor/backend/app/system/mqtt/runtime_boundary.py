@@ -116,7 +116,7 @@ class DockerMosquittoRuntimeBoundary:
         self._host = str(host).strip() or "127.0.0.1"
         self._port = int(port)
         self._bootstrap_port = int(bootstrap_port)
-        restart_policy = str(os.getenv("SYNTHIA_MQTT_DOCKER_RESTART_POLICY", "no")).strip().lower()
+        restart_policy = str(os.getenv("HEXE_MQTT_DOCKER_RESTART_POLICY", "no")).strip().lower()
         self._restart_policy = restart_policy if restart_policy in {"no", "on-failure", "always", "unless-stopped"} else "no"
         self._state = "stopped"
         self._healthy = False

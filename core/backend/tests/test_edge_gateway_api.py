@@ -114,9 +114,9 @@ class TestEdgeGatewayApi(unittest.TestCase):
         self.env = patch.dict(
             os.environ,
             {
-                "SYNTHIA_ADMIN_TOKEN": "test-token",
-                "SYNTHIA_EDGE_RUNTIME_DIR": str(base / "edge-runtime"),
-                "SYNTHIA_CLOUDFLARED_PROVIDER": "disabled",
+                "HEXE_ADMIN_TOKEN": "test-token",
+                "HEXE_EDGE_RUNTIME_DIR": str(base / "edge-runtime"),
+                "HEXE_CLOUDFLARED_PROVIDER": "disabled",
                 "CLOUDFLARE_API_TOKEN": "test-cloudflare-token",
                 "CLOUDFLARE_ACCOUNT_ID": "acct-env",
                 "CLOUDFLARE_ZONE_ID": "zone-env",

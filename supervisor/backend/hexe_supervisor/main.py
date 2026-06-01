@@ -15,7 +15,7 @@ log = logging.getLogger("hexe.supervisor")
 
 
 def configure_logging() -> None:
-    level_name = os.environ.get("SYNTHIA_SUPERVISOR_LOG_LEVEL", DEFAULT_LOG_LEVEL).strip().upper() or DEFAULT_LOG_LEVEL
+    level_name = os.environ.get("HEXE_SUPERVISOR_LOG_LEVEL", DEFAULT_LOG_LEVEL).strip().upper() or DEFAULT_LOG_LEVEL
     level = getattr(logging, level_name, logging.INFO)
     logging.basicConfig(
         level=level,
@@ -60,7 +60,7 @@ def resolve_current_version(addon_dir: Path) -> str | None:
 
 
 def _retention_keep_versions() -> int:
-    raw = os.environ.get("SYNTHIA_SUPERVISOR_KEEP_VERSIONS", "").strip()
+    raw = os.environ.get("HEXE_SUPERVISOR_KEEP_VERSIONS", "").strip()
     if not raw:
         return DEFAULT_KEEP_VERSIONS
     try:
@@ -536,10 +536,10 @@ def reconcile_one(addon_dir: Path) -> ReconcileResult | None:
 
 def main():
     configure_logging()
-    addons_dir = Path(os.environ.get("SYNTHIA_ADDONS_DIR", "../SynthiaAddons")).resolve()
+    addons_dir = Path(os.environ.get("HEXE_ADDONS_DIR", "../SynthiaAddons")).resolve()
     services_dir = addons_dir / "services"
     services_dir.mkdir(parents=True, exist_ok=True)
-    interval = int(os.environ.get("SYNTHIA_SUPERVISOR_INTERVAL_S", DEFAULT_INTERVAL_S))
+    interval = int(os.environ.get("HEXE_SUPERVISOR_INTERVAL_S", DEFAULT_INTERVAL_S))
     log.info("supervisor_start services_dir=%s interval_s=%s", services_dir, interval)
 
     while True:

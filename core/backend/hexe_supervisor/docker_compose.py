@@ -11,7 +11,7 @@ log = logging.getLogger("hexe.supervisor")
 
 
 def _restart_policy() -> str:
-    raw = str(os.environ.get("SYNTHIA_SUPERVISOR_COMPOSE_RESTART_POLICY", "no")).strip().lower()
+    raw = str(os.environ.get("HEXE_SUPERVISOR_COMPOSE_RESTART_POLICY", "no")).strip().lower()
     allowed = {"no", "on-failure", "always", "unless-stopped"}
     return raw if raw in allowed else "no"
 
@@ -153,9 +153,9 @@ def ensure_compose_files(
     service_name: str,
 ):
     env_values = dict(getattr(desired.config, "env", {}) or {})
-    service_token = os.environ.get("SYNTHIA_SERVICE_TOKEN")
+    service_token = os.environ.get("HEXE_SERVICE_TOKEN")
     if service_token:
-        env_values.setdefault("SYNTHIA_SERVICE_TOKEN", service_token)
+        env_values.setdefault("HEXE_SERVICE_TOKEN", service_token)
     env_lines = [f"{k}={v}" for k, v in sorted(env_values.items())]
     env_file.write_text("\n".join(env_lines) + ("\n" if env_lines else ""))
     log.info("runtime_env_written path=%s keys=%s", env_file, sorted(env_values.keys()))

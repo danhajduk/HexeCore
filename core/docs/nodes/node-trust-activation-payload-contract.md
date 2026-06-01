@@ -65,9 +65,9 @@ Approved re-auth finalization:
 ## Operational MQTT Host Resolution
 
 `activation.operational_mqtt_host` is resolved as a non-loopback host using this precedence:
-1. `SYNTHIA_NODE_OPERATIONAL_MQTT_HOST` (when non-loopback)
-2. `SYNTHIA_BOOTSTRAP_ADVERTISE_HOST` (when non-loopback)
-3. `SYNTHIA_MQTT_HOST` (when non-loopback)
+1. `HEXE_NODE_OPERATIONAL_MQTT_HOST` (when non-loopback)
+2. `HEXE_BOOTSTRAP_ADVERTISE_HOST` (when non-loopback)
+3. `HEXE_MQTT_HOST` (when non-loopback)
 4. runtime detected advertise host
 
 Loopback values (for example `127.0.0.1`, `localhost`, `0.0.0.0`, `::1`) are rejected for node-facing payloads.

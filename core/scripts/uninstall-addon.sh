@@ -11,7 +11,7 @@ if [[ -f "$ENV_FILE" ]]; then
   set +a
 fi
 
-CORE_URL="${SYNTHIA_CORE_URL:-http://127.0.0.1:9001}"
+CORE_URL="${HEXE_CORE_URL:-http://127.0.0.1:9001}"
 ADMIN_TOKEN_OVERRIDE=""
 FORCE_LOCAL=false
 ADDON_ID=""
@@ -23,7 +23,7 @@ Usage:
 
 Options:
   --core-url URL       Core API base URL (default: ${CORE_URL})
-  --admin-token TOKEN  Override SYNTHIA_ADMIN_TOKEN for this run
+  --admin-token TOKEN  Override HEXE_ADMIN_TOKEN for this run
   --force-local        If API uninstall fails, remove local standalone files/containers
 EOF
 }
@@ -64,7 +64,7 @@ if [[ -z "$ADDON_ID" ]]; then
   exit 1
 fi
 
-ADMIN_TOKEN="${ADMIN_TOKEN_OVERRIDE:-${SYNTHIA_ADMIN_TOKEN:-}}"
+ADMIN_TOKEN="${ADMIN_TOKEN_OVERRIDE:-${HEXE_ADMIN_TOKEN:-}}"
 COOKIE_JAR="/tmp/synthia_uninstall_cookie_$$.txt"
 trap 'rm -f "$COOKIE_JAR"' EXIT
 
@@ -101,8 +101,8 @@ attempt_uninstall_with_token() {
 
 attempt_uninstall_with_session() {
   local login_payload
-  if [[ -n "${SYNTHIA_ADMIN_USERNAME:-}" && -n "${SYNTHIA_ADMIN_PASSWORD:-}" ]]; then
-    login_payload="{\"username\":\"${SYNTHIA_ADMIN_USERNAME}\",\"password\":\"${SYNTHIA_ADMIN_PASSWORD}\"}"
+  if [[ -n "${HEXE_ADMIN_USERNAME:-}" && -n "${HEXE_ADMIN_PASSWORD:-}" ]]; then
+    login_payload="{\"username\":\"${HEXE_ADMIN_USERNAME}\",\"password\":\"${HEXE_ADMIN_PASSWORD}\"}"
   elif [[ -n "$ADMIN_TOKEN" ]]; then
     login_payload="{\"token\":\"${ADMIN_TOKEN}\"}"
   else
@@ -134,7 +134,7 @@ attempt_uninstall_with_session() {
 }
 
 resolve_addons_dir() {
-  local raw="${SYNTHIA_ADDONS_DIR:-../SynthiaAddons}"
+  local raw="${HEXE_ADDONS_DIR:-../SynthiaAddons}"
   if [[ "$raw" = /* ]]; then
     realpath -m "$raw"
   else

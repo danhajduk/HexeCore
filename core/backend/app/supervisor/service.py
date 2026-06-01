@@ -74,7 +74,7 @@ class SupervisorDomainService:
         self._bluetooth_power_error: str | None = None
 
     def _runtime_provider(self) -> str:
-        return str(os.getenv("SYNTHIA_MQTT_RUNTIME_PROVIDER", "docker")).strip().lower() or "docker"
+        return str(os.getenv("HEXE_MQTT_RUNTIME_PROVIDER", "docker")).strip().lower() or "docker"
 
     def _host_identity(self) -> HostIdentitySummary:
         hostname = socket.gethostname()
@@ -85,7 +85,7 @@ class SupervisorDomainService:
         )
 
     def _supervisor_id(self) -> str:
-        configured = str(os.getenv("HEXE_SUPERVISOR_ID") or os.getenv("SYNTHIA_SUPERVISOR_ID") or "").strip()
+        configured = str(os.getenv("HEXE_SUPERVISOR_ID") or "").strip()
         return configured or self._host_identity().host_id
 
     def _env_bool(self, name: str, default: bool) -> bool:
@@ -375,7 +375,7 @@ class SupervisorDomainService:
         ]
 
     def _runtime_stale_after_s(self) -> int:
-        raw = str(os.getenv("SYNTHIA_SUPERVISOR_NODE_HEARTBEAT_STALE_S", "60")).strip()
+        raw = str(os.getenv("HEXE_SUPERVISOR_NODE_HEARTBEAT_STALE_S", "60")).strip()
         try:
             parsed = int(raw)
         except Exception:
@@ -383,7 +383,7 @@ class SupervisorDomainService:
         return max(1, parsed)
 
     def _runtime_offline_after_s(self) -> int:
-        raw = str(os.getenv("SYNTHIA_SUPERVISOR_NODE_HEARTBEAT_OFFLINE_S", "180")).strip()
+        raw = str(os.getenv("HEXE_SUPERVISOR_NODE_HEARTBEAT_OFFLINE_S", "180")).strip()
         try:
             parsed = int(raw)
         except Exception:
@@ -1582,22 +1582,22 @@ class SupervisorDomainService:
         return self._action_result("restart", node_id)
 
     def _cloudflared_runtime_root(self) -> Path:
-        return Path(os.getenv("SYNTHIA_EDGE_RUNTIME_DIR", Path(os.getcwd()) / "var" / "edge" / "cloudflared"))
+        return Path(os.getenv("HEXE_EDGE_RUNTIME_DIR", Path(os.getcwd()) / "var" / "edge" / "cloudflared"))
 
     def _cloudflared_provider(self) -> str:
-        provider = str(os.getenv("SYNTHIA_CLOUDFLARED_PROVIDER", "auto")).strip().lower() or "auto"
+        provider = str(os.getenv("HEXE_CLOUDFLARED_PROVIDER", "auto")).strip().lower() or "auto"
         if provider in {"disabled", "docker", "binary"}:
             return provider
         return "auto"
 
     def _cloudflared_container_name(self) -> str:
-        return str(os.getenv("SYNTHIA_CLOUDFLARED_CONTAINER_NAME", "hexe-cloudflared")).strip() or "hexe-cloudflared"
+        return str(os.getenv("HEXE_CLOUDFLARED_CONTAINER_NAME", "hexe-cloudflared")).strip() or "hexe-cloudflared"
 
     def _cloudflared_image(self) -> str:
-        return str(os.getenv("SYNTHIA_CLOUDFLARED_IMAGE", "cloudflare/cloudflared:latest")).strip() or "cloudflare/cloudflared:latest"
+        return str(os.getenv("HEXE_CLOUDFLARED_IMAGE", "cloudflare/cloudflared:latest")).strip() or "cloudflare/cloudflared:latest"
 
     def _cloudflared_restart_policy(self) -> str:
-        policy = str(os.getenv("SYNTHIA_CLOUDFLARED_RESTART_POLICY", "unless-stopped")).strip().lower()
+        policy = str(os.getenv("HEXE_CLOUDFLARED_RESTART_POLICY", "unless-stopped")).strip().lower()
         return policy if policy in {"no", "on-failure", "always", "unless-stopped"} else "unless-stopped"
 
     def _cloudflared_log_path(self) -> Path:

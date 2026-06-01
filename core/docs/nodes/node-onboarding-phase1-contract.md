@@ -50,7 +50,7 @@ Bootstrap transport:
 
 - bootstrap discovery is published over the embedded MQTT bootstrap listener
 - default bootstrap MQTT port: `1884`
-- runtime boundary default: `SYNTHIA_MQTT_BOOTSTRAP_PORT=1884`
+- runtime boundary default: `HEXE_MQTT_BOOTSTRAP_PORT=1884`
 - bootstrap listener is distinct from the normal operational MQTT listener on `1883`
 
 Payload includes:

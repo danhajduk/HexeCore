@@ -17,7 +17,7 @@ EventPublisher = Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]]]
 
 class PlatformEventService:
     def __init__(self, *, max_events: int | None = None, mqtt_publish: EventPublisher | None = None) -> None:
-        configured_limit = int(os.getenv("SYNTHIA_EVENTS_MAX_RECENT", "200"))
+        configured_limit = int(os.getenv("HEXE_EVENTS_MAX_RECENT", "200"))
         self._max_events = max(10, int(max_events or configured_limit))
         self._mqtt_publish = mqtt_publish
         self._events: deque[PlatformEvent] = deque(maxlen=self._max_events)
