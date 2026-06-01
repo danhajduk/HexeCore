@@ -4,6 +4,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import psutil
+
 from app.supervisor import (
     SupervisorCoreRuntimeRegistrationRequest,
     SupervisorDomainService,
@@ -38,9 +40,13 @@ class _FakeProcess:
 class _FakeHistoryStore:
     def __init__(self) -> None:
         self.samples: list[dict[str, object]] = []
+        self.events: list[dict[str, object]] = []
 
     def insert_sample(self, **kwargs):  # noqa: ANN001
         self.samples.append(kwargs)
+
+    def record_event(self, **kwargs):  # noqa: ANN001
+        self.events.append(kwargs)
 
 
 class TestSupervisorRuntimeResourceHistory(unittest.TestCase):
@@ -102,6 +108,56 @@ class TestSupervisorRuntimeResourceHistory(unittest.TestCase):
         self.assertEqual(sample["metrics"]["pid"], 4321)
         self.assertEqual(sample["metrics"]["cpu_percent"], 7.5)
         self.assertEqual(sample["metadata"]["runtime_kind"], "core_service")
+
+    def test_registered_runtime_action_records_lifecycle_marker(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            history = _FakeHistoryStore()
+            service = self._service(Path(tmpdir), history)
+            service.register_runtime(
+                SupervisorRuntimeRegistrationRequest(
+                    node_id="node-1",
+                    node_name="AI Node",
+                    node_type="ai",
+                )
+            )
+            history.events.clear()
+
+            service.start_registered_runtime("node-1")
+
+        marker = next(item for item in history.events if item["event_type"] == "start_requested")
+        self.assertEqual(marker["scope"], "runtime")
+        self.assertEqual(marker["resource_id"], "node-1")
+        self.assertEqual(marker["payload"]["action"], "start")
+
+    def test_process_unavailable_sample_records_timeline_marker(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            history = _FakeHistoryStore()
+            monitor = SupervisorResourceMonitor(
+                process_factory=lambda pid: (_ for _ in ()).throw(psutil.NoSuchProcess(pid=pid)),
+                docker_available=lambda: False,
+                systemctl_available=lambda: False,
+                gpu_available=lambda: False,
+            )
+            service = SupervisorDomainService(
+                runtime_nodes_store=SupervisorRuntimeNodesStore(path=Path(tmpdir) / "runtime_nodes.json"),
+                core_runtime_store=SupervisorCoreRuntimeStore(path=Path(tmpdir) / "core_runtimes.json"),
+                resource_monitor=monitor,
+                resource_history_store=history,
+            )
+
+            service.register_runtime(
+                SupervisorRuntimeRegistrationRequest(
+                    node_id="node-1",
+                    node_name="AI Node",
+                    node_type="ai",
+                    runtime_metadata={"pid": 9876},
+                )
+            )
+
+        marker = next(item for item in history.events if item["event_type"] == "process_unavailable")
+        self.assertEqual(marker["scope"], "runtime")
+        self.assertEqual(marker["resource_id"], "node-1")
+        self.assertEqual(marker["payload"]["metrics"]["last_error"], "process_unavailable")
 
 
 if __name__ == "__main__":

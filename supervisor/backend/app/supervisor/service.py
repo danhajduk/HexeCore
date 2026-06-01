@@ -603,10 +603,18 @@ class SupervisorDomainService:
                     metrics=metrics,
                     metadata={**metadata, "resource_observer": "supervisor"},
                 )
+                self._record_resource_health_markers(
+                    scope=scope,
+                    resource_id=resource_id,
+                    metrics=metrics,
+                    metadata=metadata,
+                )
             for entry_kind, entry_id, entry_metrics in self._nested_resource_entries(runtime_metadata):
+                child_scope = f"{scope}_{entry_kind}"
+                child_resource_id = f"{resource_id}/{entry_id}"
                 self._resource_history_store.insert_sample(
-                    scope=f"{scope}_{entry_kind}",
-                    resource_id=f"{resource_id}/{entry_id}",
+                    scope=child_scope,
+                    resource_id=child_resource_id,
                     sampled_at=entry_metrics.get("sampled_at") or self._now_iso(),
                     metrics=entry_metrics,
                     metadata={
@@ -618,6 +626,64 @@ class SupervisorDomainService:
                         "entry_id": entry_id,
                     },
                 )
+                self._record_resource_health_markers(
+                    scope=child_scope,
+                    resource_id=child_resource_id,
+                    metrics=entry_metrics,
+                    metadata={**metadata, "parent_scope": scope, "parent_resource_id": resource_id},
+                )
+        except Exception:
+            return
+
+    def _record_resource_health_markers(
+        self,
+        *,
+        scope: str,
+        resource_id: str,
+        metrics: dict[str, object],
+        metadata: dict[str, object],
+    ) -> None:
+        if metrics.get("running") is False or str(metrics.get("last_error") or "") == "process_unavailable":
+            self._record_runtime_lifecycle_marker(
+                scope=scope,
+                resource_id=resource_id,
+                event_type="process_unavailable",
+                message=f"{resource_id} process unavailable",
+                payload={"metrics": metrics, **metadata},
+            )
+        last_error = str(metrics.get("last_error") or "").strip()
+        if last_error and last_error != "process_unavailable":
+            event_type = "runtime_resource_error"
+            lowered = last_error.lower()
+            if "oom" in lowered:
+                event_type = "oom_indicator"
+            elif "segv" in lowered or "sigsegv" in lowered:
+                event_type = "segfault_indicator"
+            self._record_runtime_lifecycle_marker(
+                scope=scope,
+                resource_id=resource_id,
+                event_type=event_type,
+                message=f"{resource_id} resource error: {last_error}",
+                payload={"last_error": last_error, "metrics": metrics, **metadata},
+            )
+
+    def _record_runtime_lifecycle_marker(
+        self,
+        *,
+        scope: str,
+        resource_id: str,
+        event_type: str,
+        message: str,
+        payload: dict[str, object] | None = None,
+    ) -> None:
+        try:
+            self._resource_history_store.record_event(
+                scope=scope,
+                resource_id=resource_id,
+                event_type=event_type,
+                message=message,
+                payload={**dict(payload or {}), "resource_observer": "supervisor"},
+            )
         except Exception:
             return
 
@@ -747,6 +813,13 @@ class SupervisorDomainService:
                 "scope": "registered_runtime",
                 "message": f"{action.capitalize()} {node_id}",
             },
+        )
+        self._record_runtime_lifecycle_marker(
+            scope="runtime",
+            resource_id=node_id,
+            event_type=f"{action}_requested",
+            message=f"{action.capitalize()} requested for {node_id}",
+            payload={"runtime_id": node_id, "action": action, "desired_state": desired_state, "lifecycle_state": lifecycle_state},
         )
         record = self._runtime_nodes_store.apply_action(
             node_id,
@@ -878,6 +951,13 @@ class SupervisorDomainService:
             raise HTTPException(status_code=404, detail="core_runtime_not_registered")
         if str(record.management_mode or "").strip().lower() != "manage":
             raise HTTPException(status_code=409, detail="core_runtime_monitor_only")
+        self._record_runtime_lifecycle_marker(
+            scope="core_runtime",
+            resource_id=runtime_id,
+            event_type=f"{action}_requested",
+            message=f"{action.capitalize()} requested for {runtime_id}",
+            payload={"runtime_id": runtime_id, "action": action, "desired_state": desired_state, "lifecycle_state": lifecycle_state},
+        )
         self._append_boot_log(
             "runtime_action",
             context={
@@ -1377,6 +1457,13 @@ class SupervisorDomainService:
             "runtime_action",
             context={"runtime_id": node_id, "action": "start", "scope": "managed_node"},
         )
+        self._record_runtime_lifecycle_marker(
+            scope="managed_node",
+            resource_id=node_id,
+            event_type="start_requested",
+            message=f"Start requested for {node_id}",
+            payload={"runtime_id": node_id, "action": "start"},
+        )
         self._set_desired_state(snapshot, "running")
         self._set_runtime_state(snapshot, "running", lifecycle_state="starting", last_action="start")
         try:
@@ -1395,6 +1482,13 @@ class SupervisorDomainService:
             "runtime_action",
             context={"runtime_id": node_id, "action": "stop", "scope": "managed_node"},
         )
+        self._record_runtime_lifecycle_marker(
+            scope="managed_node",
+            resource_id=node_id,
+            event_type="stop_requested",
+            message=f"Stop requested for {node_id}",
+            payload={"runtime_id": node_id, "action": "stop"},
+        )
         self._set_desired_state(snapshot, "stopped")
         self._set_runtime_state(snapshot, "running", lifecycle_state="stopping", last_action="stop")
         try:
@@ -1412,6 +1506,13 @@ class SupervisorDomainService:
         self._append_boot_log(
             "runtime_action",
             context={"runtime_id": node_id, "action": "restart", "scope": "managed_node"},
+        )
+        self._record_runtime_lifecycle_marker(
+            scope="managed_node",
+            resource_id=node_id,
+            event_type="restart_requested",
+            message=f"Restart requested for {node_id}",
+            payload={"runtime_id": node_id, "action": "restart"},
         )
         self._set_desired_state(snapshot, "running")
         self._set_runtime_state(snapshot, "running", lifecycle_state="restarting", last_action="restart")
