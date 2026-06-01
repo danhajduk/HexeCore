@@ -1,4 +1,4 @@
-# synthia_supervisor/crypto.py
+# hexe_supervisor/crypto.py
 from __future__ import annotations
 
 import base64

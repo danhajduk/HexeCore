@@ -11,7 +11,7 @@ DEFAULT_INTERVAL_S = 5
 DEFAULT_LOG_LEVEL = "INFO"
 DEFAULT_KEEP_VERSIONS = 3
 MIN_KEEP_VERSIONS = 2
-log = logging.getLogger("synthia.supervisor")
+log = logging.getLogger("hexe.supervisor")
 
 
 def configure_logging() -> None:

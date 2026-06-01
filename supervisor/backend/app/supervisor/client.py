@@ -12,7 +12,7 @@ from .config import DEFAULT_SUPERVISOR_PORT, DEFAULT_SUPERVISOR_SOCKET
 from .models import SupervisorAdmissionContextSummary, SupervisorCoreRuntimeSummary, SupervisorRegisteredRuntimeSummary
 from .runtime_store import SupervisorRuntimeNodeRecord, SupervisorRuntimeNodesStore
 
-log = logging.getLogger("synthia.supervisor.client")
+log = logging.getLogger("hexe.supervisor.client")
 
 
 def _utcnow_iso() -> str:

@@ -108,7 +108,7 @@ def build_architecture_router() -> APIRouter:
                     "id": "supervisor",
                     "name": "Supervisor",
                     "role": "host_runtime_authority",
-                    "module_paths": ["backend/app/supervisor", "backend/synthia_supervisor"],
+                    "module_paths": ["backend/app/supervisor", "backend/hexe_supervisor"],
                     "docs_path": "docs/supervisor",
                     "routes": ["/api/supervisor/health", "/api/supervisor/info", "/api/supervisor/admission"],
                 },

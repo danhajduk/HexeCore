@@ -11,11 +11,11 @@ from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
 
-from synthia_supervisor.docker_compose import compose_up, ensure_compose_files, ensure_extracted
-from synthia_supervisor.models import DesiredState
+from hexe_supervisor.docker_compose import compose_up, ensure_compose_files, ensure_extracted
+from hexe_supervisor.models import DesiredState
 
 
-class TestSynthiaSupervisorCompose(unittest.TestCase):
+class TestHexeSupervisorCompose(unittest.TestCase):
     def test_ensure_extracted_creates_runtime_dir_when_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             extracted = Path(tmp) / "extracted"
@@ -29,7 +29,7 @@ class TestSynthiaSupervisorCompose(unittest.TestCase):
             extracted = Path(tmp) / "extracted"
             artifact = Path(tmp) / "artifact.tgz"
             artifact.write_text("", encoding="utf-8")
-            with patch("synthia_supervisor.docker_compose.subprocess.run") as run_mock:
+            with patch("hexe_supervisor.docker_compose.subprocess.run") as run_mock:
                 ensure_extracted(artifact, extracted)
                 run_mock.assert_called_once()
             self.assertTrue((extracted / "runtime").is_dir())
@@ -86,7 +86,7 @@ class TestSynthiaSupervisorCompose(unittest.TestCase):
             artifact_hash = hashlib.sha256(artifact.read_bytes()).hexdigest()
             (extracted / ".artifact.sha256").write_text(f"{artifact_hash}\n", encoding="utf-8")
 
-            with patch("synthia_supervisor.docker_compose.subprocess.run") as run_mock:
+            with patch("hexe_supervisor.docker_compose.subprocess.run") as run_mock:
                 ensure_extracted(artifact, extracted)
                 run_mock.assert_not_called()
             self.assertTrue((extracted / "runtime").is_dir())
@@ -308,7 +308,7 @@ class TestSynthiaSupervisorCompose(unittest.TestCase):
                 stdout="",
                 stderr="failed to solve: missing Dockerfile",
             )
-            with patch("synthia_supervisor.docker_compose.subprocess.run", return_value=failed):
+            with patch("hexe_supervisor.docker_compose.subprocess.run", return_value=failed):
                 with self.assertRaises(RuntimeError) as ctx:
                     compose_up(compose_file, "synthia-addon-mqtt")
             self.assertIn("compose_up_failed", str(ctx.exception))
@@ -324,7 +324,7 @@ class TestSynthiaSupervisorCompose(unittest.TestCase):
                 stdout="ok",
                 stderr="",
             )
-            with patch("synthia_supervisor.docker_compose.subprocess.run", return_value=ok) as run_mock:
+            with patch("hexe_supervisor.docker_compose.subprocess.run", return_value=ok) as run_mock:
                 compose_up(compose_file, "synthia-addon-mqtt", force_rebuild=True)
             self.assertEqual(run_mock.call_count, 2)
             build_args = run_mock.call_args_list[0].args[0]
@@ -341,7 +341,7 @@ class TestSynthiaSupervisorCompose(unittest.TestCase):
             base_file.write_text("services: {}\n", encoding="utf-8")
             group_file.write_text("services: {}\n", encoding="utf-8")
             ok = subprocess.CompletedProcess(args=["docker", "compose"], returncode=0, stdout="ok", stderr="")
-            with patch("synthia_supervisor.docker_compose.subprocess.run", return_value=ok) as run_mock:
+            with patch("hexe_supervisor.docker_compose.subprocess.run", return_value=ok) as run_mock:
                 compose_up([base_file, group_file], "synthia-addon-mqtt")
             args = run_mock.call_args.args[0]
             self.assertEqual(args[:2], ["docker", "compose"])

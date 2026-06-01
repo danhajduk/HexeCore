@@ -12,14 +12,14 @@ from unittest.mock import patch
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
-from synthia_supervisor.crypto import CryptoError, _load_publishers_registry, verify_release_option_a
+from hexe_supervisor.crypto import CryptoError, _load_publishers_registry, verify_release_option_a
 
 
-class TestSynthiaSupervisorCrypto(unittest.TestCase):
+class TestHexeSupervisorCrypto(unittest.TestCase):
     def test_load_publishers_registry_uses_install_root_runtime_default(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             install_root = Path(tmpdir) / "install"
-            fake_module = install_root / "backend" / "synthia_supervisor" / "crypto.py"
+            fake_module = install_root / "backend" / "hexe_supervisor" / "crypto.py"
             fake_module.parent.mkdir(parents=True, exist_ok=True)
 
             target = (
@@ -34,7 +34,7 @@ class TestSynthiaSupervisorCrypto(unittest.TestCase):
             target.write_text(json.dumps({"publishers": []}), encoding="utf-8")
 
             with patch.dict(os.environ, {}, clear=True):
-                with patch("synthia_supervisor.crypto.__file__", str(fake_module)):
+                with patch("hexe_supervisor.crypto.__file__", str(fake_module)):
                     payload = _load_publishers_registry()
 
         self.assertEqual(payload, {"publishers": []})
@@ -42,7 +42,7 @@ class TestSynthiaSupervisorCrypto(unittest.TestCase):
     def test_load_publishers_registry_reports_default_path_when_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             install_root = Path(tmpdir) / "install"
-            fake_module = install_root / "backend" / "synthia_supervisor" / "crypto.py"
+            fake_module = install_root / "backend" / "hexe_supervisor" / "crypto.py"
             fake_module.parent.mkdir(parents=True, exist_ok=True)
             expected = (
                 install_root
@@ -54,7 +54,7 @@ class TestSynthiaSupervisorCrypto(unittest.TestCase):
             )
 
             with patch.dict(os.environ, {}, clear=True):
-                with patch("synthia_supervisor.crypto.__file__", str(fake_module)):
+                with patch("hexe_supervisor.crypto.__file__", str(fake_module)):
                     with self.assertRaises(CryptoError) as ctx:
                         _load_publishers_registry()
 

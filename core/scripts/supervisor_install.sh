@@ -30,7 +30,7 @@ script_repo_dir() {
     script_dir="$(cd "$(dirname "$source_path")" && pwd)"
     local candidate
     candidate="$(cd "$script_dir/.." && pwd)"
-    if [[ -d "$candidate/backend/synthia_supervisor" && -d "$candidate/systemd/user" ]]; then
+    if [[ -d "$candidate/backend/hexe_supervisor" && -d "$candidate/systemd/user" ]]; then
       printf "%s\n" "$candidate"
       return 0
     fi
@@ -350,21 +350,21 @@ clone_or_refresh_repo() {
 
 resolve_app_dir() {
   APP_DIR="$INSTALL_DIR"
-  if [[ -d "$APP_DIR/backend/synthia_supervisor" && -d "$APP_DIR/systemd/user" ]]; then
+  if [[ -d "$APP_DIR/backend/hexe_supervisor" && -d "$APP_DIR/systemd/user" ]]; then
     return 0
   fi
 
-  if [[ "$INSTALL_MODE" == "bundled-core" && -d "$INSTALL_DIR/core/backend/synthia_supervisor" ]]; then
+  if [[ "$INSTALL_MODE" == "bundled-core" && -d "$INSTALL_DIR/core/backend/hexe_supervisor" ]]; then
     APP_DIR="$INSTALL_DIR/core"
     return 0
   fi
 
-  if [[ "$INSTALL_MODE" != "bundled-core" && -d "$INSTALL_DIR/supervisor/backend/synthia_supervisor" ]]; then
+  if [[ "$INSTALL_MODE" != "bundled-core" && -d "$INSTALL_DIR/supervisor/backend/hexe_supervisor" ]]; then
     APP_DIR="$INSTALL_DIR/supervisor"
     return 0
   fi
 
-  if [[ -d "$INSTALL_DIR/core/backend/synthia_supervisor" ]]; then
+  if [[ -d "$INSTALL_DIR/core/backend/hexe_supervisor" ]]; then
     APP_DIR="$INSTALL_DIR/core"
   fi
 }
@@ -372,7 +372,7 @@ resolve_app_dir() {
 ensure_repo_layout() {
   local missing=()
   [[ -f "$APP_DIR/backend/requirements.txt" ]] || missing+=("backend/requirements.txt")
-  [[ -d "$APP_DIR/backend/synthia_supervisor" ]] || missing+=("backend/synthia_supervisor")
+  [[ -d "$APP_DIR/backend/hexe_supervisor" ]] || missing+=("backend/hexe_supervisor")
   [[ -f "$APP_DIR/systemd/user/hexe-supervisor.service.in" ]] || missing+=("systemd/user/hexe-supervisor.service.in")
   [[ -f "$APP_DIR/systemd/user/hexe-supervisor-api.service.in" ]] || missing+=("systemd/user/hexe-supervisor-api.service.in")
 

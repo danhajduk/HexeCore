@@ -7,7 +7,7 @@ import shutil
 from pathlib import Path
 from typing import Iterable
 
-log = logging.getLogger("synthia.supervisor")
+log = logging.getLogger("hexe.supervisor")
 
 
 def _restart_policy() -> str:

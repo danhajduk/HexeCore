@@ -17,7 +17,7 @@ from app.system.onboarding import NodeRegistrationsStore
 from app.system.runtime import StandaloneRuntimeService
 from app.system.stats.models import SystemStats, SystemStatsSnapshot
 from app.system.stats.service import collect_process_stats, collect_system_snapshot, collect_system_stats
-from synthia_supervisor.docker_compose import compose_down, compose_up
+from hexe_supervisor.docker_compose import compose_down, compose_up
 
 from .models import (
     HostIdentitySummary,

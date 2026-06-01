@@ -7,7 +7,7 @@ from pathlib import Path
 import os
 from unittest.mock import patch
 
-from synthia_supervisor.main import reconcile_one, run_post_reconcile_hooks
+from hexe_supervisor.main import reconcile_one, run_post_reconcile_hooks
 
 
 def _write_desired(
@@ -45,7 +45,7 @@ def _write_desired(
     (addon_dir / "desired.json").write_text(json.dumps(desired), encoding="utf-8")
 
 
-class TestSynthiaSupervisorReconcile(unittest.TestCase):
+class TestHexeSupervisorReconcile(unittest.TestCase):
     def test_reconcile_returns_none_when_desired_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             addon_dir = Path(tmp) / "services" / "mqtt"
@@ -62,9 +62,9 @@ class TestSynthiaSupervisorReconcile(unittest.TestCase):
             _write_desired(addon_dir)
             calls: list[str] = []
 
-            with patch("synthia_supervisor.main.ensure_extracted", side_effect=lambda *a, **k: calls.append("extract")), \
-                patch("synthia_supervisor.main.ensure_compose_files", side_effect=lambda *a, **k: calls.append("compose_files")), \
-                patch("synthia_supervisor.main.compose_up", side_effect=lambda *a, **k: calls.append("compose_up")):
+            with patch("hexe_supervisor.main.ensure_extracted", side_effect=lambda *a, **k: calls.append("extract")), \
+                patch("hexe_supervisor.main.ensure_compose_files", side_effect=lambda *a, **k: calls.append("compose_files")), \
+                patch("hexe_supervisor.main.compose_up", side_effect=lambda *a, **k: calls.append("compose_up")):
                 result = reconcile_one(addon_dir)
             self.assertIsNotNone(result)
             hooks = run_post_reconcile_hooks(addon_dir, result)  # type: ignore[arg-type]
@@ -91,9 +91,9 @@ class TestSynthiaSupervisorReconcile(unittest.TestCase):
             (version_dir / "addon.tgz").write_bytes(b"artifact-bytes")
             _write_desired(addon_dir)
 
-            with patch("synthia_supervisor.main.ensure_extracted", side_effect=RuntimeError("extract-failed")) as extract_mock, \
-                patch("synthia_supervisor.main.ensure_compose_files") as compose_files_mock, \
-                patch("synthia_supervisor.main.compose_up") as compose_up_mock:
+            with patch("hexe_supervisor.main.ensure_extracted", side_effect=RuntimeError("extract-failed")) as extract_mock, \
+                patch("hexe_supervisor.main.ensure_compose_files") as compose_files_mock, \
+                patch("hexe_supervisor.main.compose_up") as compose_up_mock:
                 result = reconcile_one(addon_dir)
             self.assertIsNotNone(result)
             hooks = run_post_reconcile_hooks(addon_dir, result)  # type: ignore[arg-type]
@@ -121,9 +121,9 @@ class TestSynthiaSupervisorReconcile(unittest.TestCase):
             current.symlink_to(old_version_dir)
             _write_desired(addon_dir)
 
-            with patch("synthia_supervisor.main.ensure_extracted"), \
-                patch("synthia_supervisor.main.ensure_compose_files"), \
-                patch("synthia_supervisor.main.compose_up", side_effect=RuntimeError("compose-failed")):
+            with patch("hexe_supervisor.main.ensure_extracted"), \
+                patch("hexe_supervisor.main.ensure_compose_files"), \
+                patch("hexe_supervisor.main.compose_up", side_effect=RuntimeError("compose-failed")):
                 result = reconcile_one(addon_dir)
             self.assertIsNotNone(result)
             hooks = run_post_reconcile_hooks(addon_dir, result)  # type: ignore[arg-type]
@@ -149,9 +149,9 @@ class TestSynthiaSupervisorReconcile(unittest.TestCase):
             (addon_dir / "current").symlink_to(old_version_dir)
             _write_desired(addon_dir)
 
-            with patch("synthia_supervisor.main.ensure_extracted"), \
-                patch("synthia_supervisor.main.ensure_compose_files"), \
-                patch("synthia_supervisor.main.compose_up"):
+            with patch("hexe_supervisor.main.ensure_extracted"), \
+                patch("hexe_supervisor.main.ensure_compose_files"), \
+                patch("hexe_supervisor.main.compose_up"):
                 result = reconcile_one(addon_dir)
             self.assertIsNotNone(result)
             hooks = run_post_reconcile_hooks(addon_dir, result)  # type: ignore[arg-type]
@@ -191,9 +191,9 @@ class TestSynthiaSupervisorReconcile(unittest.TestCase):
             )
             _write_desired(addon_dir, version="0.1.2", revision="rev-2")
 
-            with patch("synthia_supervisor.main.ensure_extracted"), \
-                patch("synthia_supervisor.main.ensure_compose_files"), \
-                patch("synthia_supervisor.main.compose_up") as up_mock:
+            with patch("hexe_supervisor.main.ensure_extracted"), \
+                patch("hexe_supervisor.main.ensure_compose_files"), \
+                patch("hexe_supervisor.main.compose_up") as up_mock:
                 result = reconcile_one(addon_dir)
 
             self.assertIsNotNone(result)
@@ -221,9 +221,9 @@ class TestSynthiaSupervisorReconcile(unittest.TestCase):
                 encoding="utf-8",
             )
             _write_desired(addon_dir, revision="rev-1")
-            with patch("synthia_supervisor.main.ensure_extracted") as extract_mock, \
-                patch("synthia_supervisor.main.ensure_compose_files") as compose_mock, \
-                patch("synthia_supervisor.main.compose_up") as up_mock:
+            with patch("hexe_supervisor.main.ensure_extracted") as extract_mock, \
+                patch("hexe_supervisor.main.ensure_compose_files") as compose_mock, \
+                patch("hexe_supervisor.main.compose_up") as up_mock:
                 result = reconcile_one(addon_dir)
             self.assertIsNotNone(result)
             extract_mock.assert_not_called()
@@ -257,8 +257,8 @@ class TestSynthiaSupervisorReconcile(unittest.TestCase):
                 encoding="utf-8",
             )
             _write_desired(addon_dir, revision="rev-1")
-            with patch("synthia_supervisor.main.ensure_compose_files") as ensure_compose_mock, \
-                patch("synthia_supervisor.main.compose_up") as up_mock:
+            with patch("hexe_supervisor.main.ensure_compose_files") as ensure_compose_mock, \
+                patch("hexe_supervisor.main.compose_up") as up_mock:
                 result = reconcile_one(addon_dir)
             self.assertIsNotNone(result)
             ensure_compose_mock.assert_called_once()
@@ -289,8 +289,8 @@ class TestSynthiaSupervisorReconcile(unittest.TestCase):
             )
             _write_desired(addon_dir, revision="rev-2", ports=[{"host": 18080, "container": 8080, "proto": "tcp"}])
 
-            with patch("synthia_supervisor.main.ensure_extracted"), \
-                patch("synthia_supervisor.main.compose_up"):
+            with patch("hexe_supervisor.main.ensure_extracted"), \
+                patch("hexe_supervisor.main.compose_up"):
                 result = reconcile_one(addon_dir)
             self.assertIsNotNone(result)
             compose_text = compose_file.read_text(encoding="utf-8")
@@ -324,7 +324,7 @@ class TestSynthiaSupervisorReconcile(unittest.TestCase):
                 encoding="utf-8",
             )
             _write_desired(addon_dir, revision="rev-2", force_rebuild=True)
-            with patch("synthia_supervisor.main.ensure_extracted"), patch("synthia_supervisor.main.compose_up") as up_mock:
+            with patch("hexe_supervisor.main.ensure_extracted"), patch("hexe_supervisor.main.compose_up") as up_mock:
                 result = reconcile_one(addon_dir)
             self.assertIsNotNone(result)
             self.assertTrue(up_mock.called)
@@ -332,7 +332,7 @@ class TestSynthiaSupervisorReconcile(unittest.TestCase):
             runtime = json.loads(runtime_path.read_text(encoding="utf-8"))
             self.assertEqual(runtime["last_force_rebuild_revision"], "rev-2")
 
-            with patch("synthia_supervisor.main.ensure_extracted"), patch("synthia_supervisor.main.compose_up") as up_mock2:
+            with patch("hexe_supervisor.main.ensure_extracted"), patch("hexe_supervisor.main.compose_up") as up_mock2:
                 result2 = reconcile_one(addon_dir)
             self.assertIsNotNone(result2)
             up_mock2.assert_not_called()
@@ -353,9 +353,9 @@ class TestSynthiaSupervisorReconcile(unittest.TestCase):
             _write_desired(addon_dir, version="0.1.4")
 
             with patch.dict("os.environ", {"SYNTHIA_SUPERVISOR_KEEP_VERSIONS": "3"}, clear=False), \
-                patch("synthia_supervisor.main.ensure_extracted"), \
-                patch("synthia_supervisor.main.ensure_compose_files"), \
-                patch("synthia_supervisor.main.compose_up"):
+                patch("hexe_supervisor.main.ensure_extracted"), \
+                patch("hexe_supervisor.main.ensure_compose_files"), \
+                patch("hexe_supervisor.main.compose_up"):
                 result = reconcile_one(addon_dir)
             self.assertIsNotNone(result)
             run_post_reconcile_hooks(addon_dir, result)  # type: ignore[arg-type]
@@ -375,9 +375,9 @@ class TestSynthiaSupervisorReconcile(unittest.TestCase):
             _write_desired(addon_dir, version="0.1.4")
 
             with patch.dict("os.environ", {"SYNTHIA_SUPERVISOR_KEEP_VERSIONS": "3"}, clear=False), \
-                patch("synthia_supervisor.main.ensure_extracted"), \
-                patch("synthia_supervisor.main.ensure_compose_files"), \
-                patch("synthia_supervisor.main.compose_up", side_effect=RuntimeError("compose-failed")):
+                patch("hexe_supervisor.main.ensure_extracted"), \
+                patch("hexe_supervisor.main.ensure_compose_files"), \
+                patch("hexe_supervisor.main.compose_up", side_effect=RuntimeError("compose-failed")):
                 result = reconcile_one(addon_dir)
             self.assertIsNotNone(result)
             run_post_reconcile_hooks(addon_dir, result)  # type: ignore[arg-type]
@@ -397,9 +397,9 @@ class TestSynthiaSupervisorReconcile(unittest.TestCase):
             (extracted_dir / "docker-compose.group-broker.yml").write_text("services: {}\n", encoding="utf-8")
             _write_desired(addon_dir, enabled_docker_groups=["broker", "cache"])
 
-            with patch("synthia_supervisor.main.ensure_extracted"), \
-                patch("synthia_supervisor.main.ensure_compose_files"), \
-                patch("synthia_supervisor.main.compose_up"):
+            with patch("hexe_supervisor.main.ensure_extracted"), \
+                patch("hexe_supervisor.main.ensure_compose_files"), \
+                patch("hexe_supervisor.main.compose_up"):
                 result = reconcile_one(addon_dir)
             self.assertIsNotNone(result)
             runtime = json.loads((addon_dir / "runtime.json").read_text(encoding="utf-8"))
@@ -430,9 +430,9 @@ class TestSynthiaSupervisorReconcile(unittest.TestCase):
             )
             _write_desired(addon_dir, revision="rev-2", enabled_docker_groups=[])
 
-            with patch("synthia_supervisor.main.ensure_extracted"), \
-                patch("synthia_supervisor.main.ensure_compose_files"), \
-                patch("synthia_supervisor.main.compose_up"):
+            with patch("hexe_supervisor.main.ensure_extracted"), \
+                patch("hexe_supervisor.main.ensure_compose_files"), \
+                patch("hexe_supervisor.main.compose_up"):
                 result = reconcile_one(addon_dir)
             self.assertIsNotNone(result)
             runtime = json.loads(runtime_path.read_text(encoding="utf-8"))
@@ -453,7 +453,7 @@ class TestSynthiaSupervisorReconcile(unittest.TestCase):
             )
             _write_desired(addon_dir, enabled_docker_groups=["broker"])
 
-            with patch("synthia_supervisor.main.ensure_extracted"), patch("synthia_supervisor.main.compose_up"):
+            with patch("hexe_supervisor.main.ensure_extracted"), patch("hexe_supervisor.main.compose_up"):
                 result = reconcile_one(addon_dir)
             self.assertIsNotNone(result)
             compose_text = (version_dir / "docker-compose.yml").read_text(encoding="utf-8")

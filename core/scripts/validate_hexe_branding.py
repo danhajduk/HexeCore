@@ -39,7 +39,6 @@ ALLOW_PATTERNS = [
     re.compile(r"\bsynthia-core\b"),
     re.compile(r"\bSYNTHIA_[A-Z0-9_]+\b"),
     re.compile(r"\bsynthia-[a-z0-9_.-]+\b"),
-    re.compile(r"\bbackend/synthia_supervisor\b"),
     re.compile(r"Synthia-Addon-Catalog"),
     re.compile(r"\.config/synthia/"),
     re.compile(r"\$HOME/\.config/synthia"),
@@ -48,6 +47,7 @@ ALLOW_PATTERNS = [
     re.compile(r"DEFAULT_LEGACY_INTERNAL_NAMESPACE"),
     re.compile(r"legacy_internal_namespace"),
     re.compile(r"legacy_compatibility_note"),
+    re.compile(r"LEGACY_MQTT_TOPIC_ROOT"),
     re.compile(r"stable technical identifiers still use `synthia`"),
     re.compile(r"synthia core mqtt"),
 ]
