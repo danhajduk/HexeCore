@@ -339,3 +339,85 @@ Definition of done preserved from the original planning block:
 - Nodes provide manifests, data endpoints, detail endpoints, and action endpoints only.
 - Node-local UI remains available for setup, recovery, diagnostics, and migration fallback.
 - The first pilot can render useful node operational UI in Core without requiring node repository changes in this queue.
+
+## Task 948-956
+Original task details preserved from the AI node resource-history investigation.
+
+Active normalized queue entries:
+
+- Task 948: Add Supervisor resource history store and retention policy
+- Task 949: Persist Supervisor host resource samples
+- Task 950: Persist Supervisor runtime resource samples
+- Task 951: Record Supervisor runtime lifecycle markers in resource timelines
+- Task 952: Expose Supervisor resource history APIs
+- Task 953: Add tests for Supervisor resource history collection and APIs
+- Task 954: Update docs and schemas for Supervisor-owned resource history
+- Task 955: Add Core UI resource history views for Supervisor timelines
+- Task 956: Support remote Supervisor resource history access from Core
+
+Preserved rationale:
+
+- The Supervisor should own resource history because CPU, RAM, swap, disk, GPU, VRAM, system load, process health, exits, restarts, and crash markers are host-level facts.
+- The Supervisor survives and observes Nodes, while Nodes are the processes that may crash or be killed. If an AI node segfaults or exits under memory pressure, node-owned history is the data most likely to be incomplete.
+- Nodes should continue to own request and execution metrics such as in-flight counts, queue and admission decisions, model/provider latency, token counts, request errors, benchmark results, and per-request metadata.
+- Supervisor-owned and node-owned telemetry should be correlated by timestamp rather than forcing the Supervisor to understand request-level node semantics.
+
+Implementation scope:
+
+- Task 948 should define a lightweight persisted time-series store for Supervisor-owned resource history, with a default retention window of 3 days, range parsing, step/downsampling behavior, and durable storage location. Reuse any existing stats-store pattern in the broader app when it fits.
+- Task 949 should persist host-level samples already available to the Supervisor resource monitor: CPU, load average, RAM, swap when available, root disk, network counters/rates, GPU utilization, VRAM, GPU temperature, and GPU power.
+- Task 950 should persist per-runtime samples for registered runtimes, services, processes, and containers using Supervisor-observed resource data such as pid/container identity, CPU, memory, RSS, process status, and resource source.
+- Task 951 should append timeline markers for lifecycle events such as start, stop, restart, exit, missing process, OOM indicators where observable, segfault or signal markers where observable, and last error transitions.
+- Task 952 should expose APIs on the Supervisor service, including standalone and remote Supervisor deployments, equivalent to:
+  - `GET /api/supervisor/resources/history?range=24h&step=60s`
+  - `GET /api/supervisor/runtimes/{node_id}/resources/history?range=24h`
+  Responses should make timestamp correlation straightforward and avoid leaking node request metadata.
+- Task 953 should cover store retention, downsampling/range behavior, host sample persistence, runtime sample persistence, lifecycle marker persistence, and router contracts.
+- Task 954 should document the Supervisor/Node telemetry ownership boundary, the 3-day retention default, local versus remote Supervisor behavior, and update any relevant JSON schemas or API docs.
+- Task 955 should add an operator-facing Core UI view for recent Supervisor host and runtime timelines, focused on crash debugging such as correlating high VRAM/RAM/swap pressure with a backend exit.
+- Task 956 should route Core history reads through the configured Supervisor client path so local and remote Supervisors expose the same history behavior, auth/error handling, range parameters, and runtime id filtering.
+
+Definition of done:
+
+- Supervisor keeps recent host and runtime resource history even when a Node process crashes.
+- Supervisor retains resource history for 3 days by default.
+- Operators can retrieve resource history by time range and, where applicable, by runtime id.
+- Core can retrieve equivalent resource history from local and remote Supervisor services.
+- Runtime crash/debug timelines can show resource pressure immediately before exits or restarts.
+- Node-owned request metrics remain separate and are not required for Supervisor resource history.
+
+## Task 957-963
+Original task details preserved from the request to remove remaining Synthia naming and replace it with Hexe, including environment files.
+
+Active normalized queue entries:
+
+- Task 957: Audit all remaining Synthia identifiers and compatibility requirements
+- Task 958: Rename Synthia code packages, modules, and imports to Hexe
+- Task 959: Rename Synthia environment variables and env file entries to Hexe
+- Task 960: Rename Synthia service, script, systemd, and runtime artifact names to Hexe
+- Task 961: Rename Synthia documentation, schemas, UI text, and fixtures to Hexe
+- Task 962: Add backward-compatible migration handling for legacy Synthia config
+- Task 963: Add tests and repo checks proving Synthia references are removed or explicitly legacy
+
+Preserved rationale:
+
+- Hexe should be the canonical product, service, package, API, environment, documentation, and operator-facing name.
+- Any remaining Synthia references should either be removed, renamed to Hexe, or explicitly isolated as legacy migration compatibility with a planned removal path.
+- Environment files are in scope. Do not skip `.env`, `.env.example`, `.config`, deployment templates, systemd environment files, onboarding examples, or generated config defaults.
+
+Implementation scope:
+
+- Task 957 should produce an inventory of all remaining `synthia`, `Synthia`, and `SYNTHIA` references across tracked files, ignored config templates where safe, scripts, docs, schemas, frontend text, backend modules, service names, systemd units, and env examples. Classify each as rename-now, migrate-with-compatibility, or intentional legacy.
+- Task 958 should rename code-level packages, modules, imports, class names, route labels, loggers, tests, and fixtures from Synthia to Hexe where the rename can be made without breaking persisted user data.
+- Task 959 should rename environment variables and env file keys from `SYNTHIA_*` to `HEXE_*`, including `core/.config/hexe/*.env` style local config files, `.env.example` files, deployment templates, and documented examples. Avoid changing secret values; rename keys and references only.
+- Task 960 should rename service names, script identifiers, systemd unit names, process names, runtime artifact names, directories, and generated files where they still carry Synthia branding.
+- Task 961 should update docs, JSON schemas, UI labels, screenshots references, fixtures, comments, and operator-facing text so Hexe is canonical everywhere.
+- Task 962 should add migration or fallback handling for existing installations that still have `SYNTHIA_*` environment variables, legacy config keys, persisted paths, or service names. Prefer warning and compatibility shims where immediate hard breaks would strand existing deployments.
+- Task 963 should add targeted tests and repo checks that fail on new unapproved Synthia references, while allowing explicitly documented legacy compatibility references until their removal window closes.
+
+Definition of done:
+
+- New installs use Hexe names exclusively across code, services, docs, schemas, scripts, and env files.
+- Existing installs with legacy Synthia env/config can migrate or continue long enough to receive clear operator guidance.
+- Secret values in env files are not regenerated or altered as part of the rename unless explicitly required.
+- Any remaining Synthia references are limited to documented legacy compatibility code/tests.
