@@ -26,15 +26,15 @@ def _resolve_from_backend_dir(raw_path: str) -> Path:
     return (backend_dir / path).resolve()
 
 
-def _synthia_addons_dir() -> Path:
+def _hexe_addons_dir() -> Path:
     raw = os.environ.get("HEXE_ADDONS_DIR")
     if raw is None or not raw.strip():
-        return (repo_root().parent / "SynthiaAddons").resolve()
+        return (repo_root().parent / "HexeAddons").resolve()
     return _resolve_from_backend_dir(raw.strip())
 
 
 def _default_services_root(*, create: bool = False) -> Path:
-    path = _synthia_addons_dir() / "services"
+    path = _hexe_addons_dir() / "services"
     if create:
         path.mkdir(parents=True, exist_ok=True)
     return path

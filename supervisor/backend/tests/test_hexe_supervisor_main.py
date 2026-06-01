@@ -36,8 +36,8 @@ def _write_desired(
             },
         },
         "runtime": {
-            "project_name": "synthia-addon-mqtt",
-            "network": "synthia_net",
+            "project_name": "hexe-addon-mqtt",
+            "network": "hexe_net",
             "ports": list(ports or []),
             "bind_localhost": True,
         },

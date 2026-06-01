@@ -16,7 +16,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from .discovery import discover_backend_addons, repo_root
 from .models import BackendAddon, RegisteredAddon
 
-log = logging.getLogger("synthia.addons")
+log = logging.getLogger("hexe.addons")
 
 
 def _utcnow_iso() -> str:

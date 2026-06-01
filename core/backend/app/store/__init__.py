@@ -20,7 +20,7 @@ from .catalog import CatalogCacheClient, CatalogQuery, StaticCatalogStore
 from .lifecycle import AtomicResult
 from .sources import StoreSource, StoreSourcesStore
 from .standalone_paths import (
-    synthia_addons_dir,
+    hexe_addons_dir,
     services_root,
     service_addon_dir,
     service_versions_dir,
@@ -57,7 +57,7 @@ __all__ = [
     "AtomicResult",
     "StoreSource",
     "StoreSourcesStore",
-    "synthia_addons_dir",
+    "hexe_addons_dir",
     "services_root",
     "service_addon_dir",
     "service_versions_dir",

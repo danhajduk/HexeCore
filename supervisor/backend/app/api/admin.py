@@ -17,8 +17,8 @@ router = APIRouter()
 if TYPE_CHECKING:
     from app.system.users import UsersStore
 
-LOG_FILE = Path("/tmp/synthia_update.log")
-ADMIN_SESSION_COOKIE = "synthia_admin_session"
+LOG_FILE = Path("/tmp/hexe_update.log")
+ADMIN_SESSION_COOKIE = "hexe_admin_session"
 DEFAULT_SESSION_TTL_SECONDS = 8 * 60 * 60
 _users_store: "UsersStore | None" = None
 
@@ -204,7 +204,7 @@ def admin_reload(request: Request, x_admin_token: str | None = Header(default=No
     # Kick the updater oneshot. This survives the backend restarting.
     try:
         subprocess.run(
-            ["systemctl", "--user", "start", "synthia-updater.service"],
+            ["systemctl", "--user", "start", "hexe-updater.service"],
             check=True,
             capture_output=True,
             text=True,
@@ -215,7 +215,7 @@ def admin_reload(request: Request, x_admin_token: str | None = Header(default=No
             detail=f"Failed to start updater: {e.stderr or e.stdout or str(e)}",
         )
 
-    return {"started": True, "unit": "synthia-updater.service", "log": str(LOG_FILE)}
+    return {"started": True, "unit": "hexe-updater.service", "log": str(LOG_FILE)}
 
 
 @router.get("/admin/reload/status")

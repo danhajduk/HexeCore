@@ -145,7 +145,7 @@ class TestStandaloneSmokeFlow(unittest.TestCase):
             os.environ["HEXE_ADMIN_TOKEN"] = self.old_token
 
     def test_standalone_install_runtime_health_and_ui_proxy_smoke(self) -> None:
-        standalone_root = Path(self.tmp.name) / "SynthiaAddons"
+        standalone_root = Path(self.tmp.name) / "HexeAddons"
         artifact_bytes = b"standalone-artifact"
         registry = _FakeRegistry()
         audit = StoreAuditLogStore(str(Path(self.tmp.name) / "store_audit.db"))
@@ -170,8 +170,8 @@ class TestStandaloneSmokeFlow(unittest.TestCase):
                     "install_mode": "standalone_service",
                     "desired_state": "running",
                     "runtime_overrides": {
-                        "project_name": "synthia-addon-hello",
-                        "network": "synthia_net",
+                        "project_name": "hexe-addon-hello",
+                        "network": "hexe_net",
                         "ports": [{"host": 18081, "container": 18081, "proto": "tcp"}],
                         "bind_localhost": False,
                     },

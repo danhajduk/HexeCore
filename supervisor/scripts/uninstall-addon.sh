@@ -134,7 +134,7 @@ attempt_uninstall_with_session() {
 }
 
 resolve_addons_dir() {
-  local raw="${HEXE_ADDONS_DIR:-../SynthiaAddons}"
+  local raw="${HEXE_ADDONS_DIR:-../HexeAddons}"
   if [[ "$raw" = /* ]]; then
     realpath -m "$raw"
   else
@@ -145,7 +145,7 @@ resolve_addons_dir() {
 force_local_cleanup() {
   echo "[uninstall-addon] Running local fallback cleanup for '$ADDON_ID'..."
 
-  local project="synthia-addon-${ADDON_ID}"
+  local project="hexe-addon-${ADDON_ID}"
   mapfile -t ids_by_label < <(docker ps -a --filter "label=com.docker.compose.project=${project}" --format '{{.ID}}' || true)
   mapfile -t ids_by_name < <(docker ps -a --format '{{.ID}}\t{{.Names}}' | awk -v pfx="${project}" '$2 ~ "^" pfx {print $1}')
   mapfile -t container_ids < <(printf "%s\n%s\n" "${ids_by_label[*]:-}" "${ids_by_name[*]:-}" | tr ' ' '\n' | sed '/^$/d' | sort -u)
@@ -154,7 +154,7 @@ force_local_cleanup() {
     docker rm -f "${container_ids[@]}" >/dev/null
     echo "[uninstall-addon] Removed ${#container_ids[@]} local container(s)."
   else
-    echo "[uninstall-addon] No local synthia-addon containers found for '$ADDON_ID'."
+    echo "[uninstall-addon] No local hexe-addon containers found for '$ADDON_ID'."
   fi
 
   local addons_dir service_dir

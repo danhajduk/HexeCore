@@ -18,7 +18,7 @@ from app.system.platform_identity import default_platform_naming
 class LocalDesktopNotificationConsumer:
     def __init__(self, mqtt_manager, *, notifier_cmd: str | None = None) -> None:
         self._mqtt = mqtt_manager
-        self._log = logging.getLogger("synthia.core.notifications")
+        self._log = logging.getLogger("hexe.core.notifications")
         self._hostname = socket.gethostname().strip() or "localhost"
         self._user = (os.getenv("USER") or os.getenv("USERNAME") or "").strip() or None
         self._session = (

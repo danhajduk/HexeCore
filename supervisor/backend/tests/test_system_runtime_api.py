@@ -28,7 +28,7 @@ class _FakeRegistry:
 class TestSystemRuntimeApi(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
-        self.addons_root = Path(self.tmp.name) / "SynthiaAddons" / "services"
+        self.addons_root = Path(self.tmp.name) / "HexeAddons" / "services"
         self.addons_root.mkdir(parents=True, exist_ok=True)
         self.token_patch = patch.dict(os.environ, {"HEXE_ADMIN_TOKEN": "test-token"}, clear=False)
         self.token_patch.start()
@@ -69,8 +69,8 @@ class TestSystemRuntimeApi(unittest.TestCase):
                     "mode": "standalone_service",
                     "desired_state": "running",
                     "runtime": {
-                        "project_name": "synthia-addon-mqtt",
-                        "network": "synthia_net",
+                        "project_name": "hexe-addon-mqtt",
+                        "network": "hexe_net",
                         "ports": [{"host": 1883, "container": 1883, "protocol": "tcp"}],
                     },
                     "install_source": {

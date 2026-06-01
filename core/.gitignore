@@ -38,7 +38,7 @@ data/addons_registry.json
 var/store_install_state.json
 backend/var/store_sources.json
 runtime/store/cache/
-SynthiaAddons/
+HexeAddons/
 completed_task.txt
 docs/New_tasks.txt
 docs/completed.txt
@@ -48,7 +48,7 @@ backend/var/
 
 # Local/private operator config and key material
 .config/
-scripts/synthia.env
+scripts/hexe.env
 scripts/*.local.env
 *.key
 *.p12

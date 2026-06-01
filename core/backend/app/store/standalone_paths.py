@@ -5,7 +5,7 @@ from pathlib import Path
 
 from app.addons.discovery import repo_root
 
-DEFAULT_ADDONS_DIR_NAME = "SynthiaAddons"
+DEFAULT_ADDONS_DIR_NAME = "HexeAddons"
 
 
 def _resolve_from_backend_dir(raw_path: str) -> Path:
@@ -28,7 +28,7 @@ def _validate_segment(name: str, value: str) -> str:
     return cleaned
 
 
-def synthia_addons_dir() -> Path:
+def hexe_addons_dir() -> Path:
     raw = os.environ.get("HEXE_ADDONS_DIR")
     if raw is None or not raw.strip():
         return (repo_root().parent / DEFAULT_ADDONS_DIR_NAME).resolve()
@@ -36,7 +36,7 @@ def synthia_addons_dir() -> Path:
 
 
 def services_root(*, create: bool = False) -> Path:
-    path = synthia_addons_dir() / "services"
+    path = hexe_addons_dir() / "services"
     if create:
         path.mkdir(parents=True, exist_ok=True)
     return path

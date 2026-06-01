@@ -13,7 +13,7 @@ class CoreStartupNotificationProducer:
     def __init__(self, publisher: CoreNotificationPublisher, *, core_version: str = "0.1.0") -> None:
         self._publisher = publisher
         self._core_version = str(core_version or "0.1.0").strip() or "0.1.0"
-        self._log = logging.getLogger("synthia.core.notifications")
+        self._log = logging.getLogger("hexe.core.notifications")
 
     async def emit_startup_notifications(self) -> list[dict[str, Any]]:
         naming = default_platform_naming()

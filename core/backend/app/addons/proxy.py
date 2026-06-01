@@ -17,7 +17,7 @@ from app.ui_target_resolver import UiTargetResolver
 
 from .registry import AddonRegistry
 
-log = logging.getLogger("synthia.proxy")
+log = logging.getLogger("hexe.proxy")
 
 LOCAL_PROXY_RETRIES = 1
 LOCAL_PROXY_TIMEOUT_SECONDS = 10.0

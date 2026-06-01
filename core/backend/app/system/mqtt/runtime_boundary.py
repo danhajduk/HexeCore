@@ -97,7 +97,7 @@ class DockerMosquittoRuntimeBoundary:
         log_dir: str,
         config_filename: str = "broker.conf",
         staged_dir: str | None = None,
-        container_name: str = "synthia-mqtt-broker",
+        container_name: str = "hexe-mqtt-broker",
         image: str = "eclipse-mosquitto:2",
         host: str = "127.0.0.1",
         port: int = 1883,
@@ -111,7 +111,7 @@ class DockerMosquittoRuntimeBoundary:
         self._data_dir = os.path.abspath(data_dir)
         self._log_dir = os.path.abspath(log_dir)
         self._config_filename = config_filename
-        self._container_name = str(container_name).strip() or "synthia-mqtt-broker"
+        self._container_name = str(container_name).strip() or "hexe-mqtt-broker"
         self._image = str(image).strip() or "eclipse-mosquitto:2"
         self._host = str(host).strip() or "127.0.0.1"
         self._port = int(port)

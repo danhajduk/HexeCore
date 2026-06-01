@@ -562,7 +562,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(filename, "artifact.tgz")
 
     def test_stage_standalone_artifact_overwrites_existing_file(self) -> None:
-        root = Path(self.tmp.name) / "SynthiaAddons"
+        root = Path(self.tmp.name) / "HexeAddons"
         with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(root)}, clear=False):
             artifact_a = b"artifact-a"
             artifact_b = b"artifact-b"
@@ -689,7 +689,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
 
     def test_uninstall_blocks_platform_managed_when_only_standalone_installed(self) -> None:
         self.registry.platform_managed.add("mqtt")
-        standalone_root = Path(self.tmp.name) / "SynthiaAddons"
+        standalone_root = Path(self.tmp.name) / "HexeAddons"
         addon_dir = standalone_root / "services" / "mqtt"
         addon_dir.mkdir(parents=True, exist_ok=True)
         with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
@@ -704,7 +704,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(uninstall_res.json()["detail"], "platform_managed_addon_cannot_be_uninstalled")
 
     def test_uninstall_removes_standalone_service_and_registry(self) -> None:
-        standalone_root = Path(self.tmp.name) / "SynthiaAddons"
+        standalone_root = Path(self.tmp.name) / "HexeAddons"
         addon_dir = standalone_root / "services" / "hello_world"
         version_dir = addon_dir / "versions" / "1.0.0"
         version_dir.mkdir(parents=True, exist_ok=True)
@@ -714,7 +714,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
                 {
                     "addon_id": "hello_world",
                     "desired_state": "running",
-                    "runtime": {"project_name": "synthia-addon-hello_world"},
+                    "runtime": {"project_name": "hexe-addon-hello_world"},
                 }
             ),
             encoding="utf-8",
@@ -762,7 +762,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertNotIn("hello_world", store_state)
 
     def test_uninstall_standalone_succeeds_when_compose_down_fails(self) -> None:
-        standalone_root = Path(self.tmp.name) / "SynthiaAddons"
+        standalone_root = Path(self.tmp.name) / "HexeAddons"
         addon_dir = standalone_root / "services" / "hello_world"
         version_dir = addon_dir / "versions" / "1.0.0"
         version_dir.mkdir(parents=True, exist_ok=True)
@@ -772,7 +772,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
                 {
                     "addon_id": "hello_world",
                     "desired_state": "running",
-                    "runtime": {"project_name": "synthia-addon-hello_world"},
+                    "runtime": {"project_name": "hexe-addon-hello_world"},
                 }
             ),
             encoding="utf-8",
@@ -829,7 +829,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(payload["top_errors"][0]["count"], 2)
 
     def test_status_reads_standalone_runtime_json(self) -> None:
-        runtime_path = Path(self.tmp.name) / "SynthiaAddons" / "services" / "hello_world" / "runtime.json"
+        runtime_path = Path(self.tmp.name) / "HexeAddons" / "services" / "hello_world" / "runtime.json"
         runtime_path.parent.mkdir(parents=True, exist_ok=True)
         runtime_path.write_text(
             json.dumps(
@@ -844,7 +844,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
             ),
             encoding="utf-8",
         )
-        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(Path(self.tmp.name) / "SynthiaAddons")}, clear=False):
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(Path(self.tmp.name) / "HexeAddons")}, clear=False):
             with patch("app.store.router._addons_root", return_value=Path(self.tmp.name) / "addons"):
                 res = self.client.get("/api/store/status/hello_world")
         self.assertEqual(res.status_code, 200, res.text)
@@ -857,10 +857,10 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(payload["ui_embed_target"], "/addons/proxy/hello_world/")
 
     def test_status_handles_malformed_standalone_runtime_json(self) -> None:
-        runtime_path = Path(self.tmp.name) / "SynthiaAddons" / "services" / "hello_world" / "runtime.json"
+        runtime_path = Path(self.tmp.name) / "HexeAddons" / "services" / "hello_world" / "runtime.json"
         runtime_path.parent.mkdir(parents=True, exist_ok=True)
         runtime_path.write_text("{not-json", encoding="utf-8")
-        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(Path(self.tmp.name) / "SynthiaAddons")}, clear=False):
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(Path(self.tmp.name) / "HexeAddons")}, clear=False):
             with patch("app.store.router._addons_root", return_value=Path(self.tmp.name) / "addons"):
                 res = self.client.get("/api/store/status/hello_world")
         self.assertEqual(res.status_code, 200, res.text)
@@ -890,7 +890,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(payload["ui_reason"], "embedded_local")
 
     def test_status_marks_ui_reachable_when_running_with_published_ports(self) -> None:
-        runtime_path = Path(self.tmp.name) / "SynthiaAddons" / "services" / "hello_world" / "runtime.json"
+        runtime_path = Path(self.tmp.name) / "HexeAddons" / "services" / "hello_world" / "runtime.json"
         runtime_path.parent.mkdir(parents=True, exist_ok=True)
         runtime_path.write_text(
             json.dumps(
@@ -905,7 +905,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
             ),
             encoding="utf-8",
         )
-        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(Path(self.tmp.name) / "SynthiaAddons")}, clear=False):
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(Path(self.tmp.name) / "HexeAddons")}, clear=False):
             with patch("app.store.router._addons_root", return_value=Path(self.tmp.name) / "addons"):
                 res = self.client.get("/api/store/status/hello_world")
         self.assertEqual(res.status_code, 200, res.text)
@@ -915,7 +915,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(payload["ui_embed_target"], "/addons/proxy/hello_world/")
 
     def test_status_diagnostics_returns_last_error_summary(self) -> None:
-        runtime_path = Path(self.tmp.name) / "SynthiaAddons" / "services" / "hello_world" / "runtime.json"
+        runtime_path = Path(self.tmp.name) / "HexeAddons" / "services" / "hello_world" / "runtime.json"
         runtime_path.parent.mkdir(parents=True, exist_ok=True)
         runtime_path.write_text(
             json.dumps(
@@ -930,7 +930,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
             ),
             encoding="utf-8",
         )
-        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(Path(self.tmp.name) / "SynthiaAddons")}, clear=False):
+        with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(Path(self.tmp.name) / "HexeAddons")}, clear=False):
             res = self.client.get("/api/store/status/hello_world/diagnostics")
 
         self.assertEqual(res.status_code, 200, res.text)
@@ -944,7 +944,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertIn("retention", payload)
 
     def test_status_diagnostics_includes_retention_versions(self) -> None:
-        standalone_root = Path(self.tmp.name) / "SynthiaAddons"
+        standalone_root = Path(self.tmp.name) / "HexeAddons"
         addon_dir = standalone_root / "services" / "hello_world"
         versions_dir = addon_dir / "versions"
         versions_dir.mkdir(parents=True, exist_ok=True)
@@ -1915,7 +1915,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         app = FastAPI()
         app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
         client = TestClient(app)
-        standalone_root = Path(self.tmp.name) / "SynthiaAddons"
+        standalone_root = Path(self.tmp.name) / "HexeAddons"
 
         with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False):
             with patch("app.store.router.resolve_manifest_compatibility", return_value=None), patch(
@@ -1961,7 +1961,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         app = FastAPI()
         app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
         client = TestClient(app)
-        standalone_root = Path(self.tmp.name) / "SynthiaAddons"
+        standalone_root = Path(self.tmp.name) / "HexeAddons"
 
         with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
             "app.store.router.resolve_manifest_compatibility", return_value=None
@@ -2007,7 +2007,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(desired["mode"], "standalone_service")
         self.assertEqual(desired["install_source"]["catalog_id"], "official")
         self.assertEqual(desired["install_source"]["release"]["signature"]["type"], "none")
-        self.assertEqual(desired["runtime"]["project_name"], "synthia-addon-hello_world")
+        self.assertEqual(desired["runtime"]["project_name"], "hexe-addon-hello_world")
         self.assertEqual(desired["runtime"]["cpu"], 1.5)
         self.assertEqual(desired["runtime"]["memory"], "512m")
         self.assertFalse(desired["force_rebuild"])
@@ -2039,7 +2039,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         app = FastAPI()
         app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
         client = TestClient(app)
-        standalone_root = Path(self.tmp.name) / "SynthiaAddons"
+        standalone_root = Path(self.tmp.name) / "HexeAddons"
 
         with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
             "app.store.router.resolve_manifest_compatibility", return_value=None
@@ -2077,7 +2077,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         app = FastAPI()
         app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
         client = TestClient(app)
-        standalone_root = Path(self.tmp.name) / "SynthiaAddons"
+        standalone_root = Path(self.tmp.name) / "HexeAddons"
 
         with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
             "app.store.router.resolve_manifest_compatibility", return_value=None
@@ -2117,7 +2117,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         app = FastAPI()
         app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
         client = TestClient(app)
-        standalone_root = Path(self.tmp.name) / "SynthiaAddons"
+        standalone_root = Path(self.tmp.name) / "HexeAddons"
 
         with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
             "app.store.router.resolve_manifest_compatibility", return_value=None
@@ -2170,7 +2170,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         app = FastAPI()
         app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
         client = TestClient(app)
-        standalone_root = Path(self.tmp.name) / "SynthiaAddons"
+        standalone_root = Path(self.tmp.name) / "HexeAddons"
 
         with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
             "app.store.router.resolve_manifest_compatibility", return_value=None
@@ -2210,7 +2210,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         app = FastAPI()
         app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
         client = TestClient(app)
-        standalone_root = Path(self.tmp.name) / "SynthiaAddons"
+        standalone_root = Path(self.tmp.name) / "HexeAddons"
 
         with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
             "app.store.router.resolve_manifest_compatibility", return_value=None
@@ -2247,7 +2247,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         app = FastAPI()
         app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
         client = TestClient(app)
-        standalone_root = Path(self.tmp.name) / "SynthiaAddons"
+        standalone_root = Path(self.tmp.name) / "HexeAddons"
 
         with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False), patch(
             "app.store.router.resolve_manifest_compatibility", return_value=None
@@ -2267,7 +2267,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         payload = res.json()
         desired_path = Path(payload["desired_path"])
         desired = json.loads(desired_path.read_text(encoding="utf-8"))
-        self.assertEqual(desired["runtime"]["project_name"], "synthia-addon-mqtt")
+        self.assertEqual(desired["runtime"]["project_name"], "hexe-addon-mqtt")
 
     def test_catalog_install_standalone_service_mode_reads_runtime_indicators(self) -> None:
         pkg = Path(self.tmp.name) / "bundle-standalone-runtime.json.zip"
@@ -2284,7 +2284,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         app = FastAPI()
         app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
         client = TestClient(app)
-        standalone_root = Path(self.tmp.name) / "SynthiaAddons"
+        standalone_root = Path(self.tmp.name) / "HexeAddons"
         runtime_path = standalone_root / "services" / "hello_world" / "runtime.json"
         runtime_path.parent.mkdir(parents=True, exist_ok=True)
         runtime_path.write_text(
@@ -2313,7 +2313,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertIsNone(payload["supervisor_hint"])
 
     def test_standalone_update_rewrites_desired_and_always_sets_force_rebuild(self) -> None:
-        standalone_root = Path(self.tmp.name) / "SynthiaAddons"
+        standalone_root = Path(self.tmp.name) / "HexeAddons"
         addon_dir = standalone_root / "services" / "hello_world"
         addon_dir.mkdir(parents=True, exist_ok=True)
         desired_path = addon_dir / "desired.json"
@@ -2341,8 +2341,8 @@ class TestStoreApiEndpoints(unittest.TestCase):
                     },
                     "runtime": {
                         "orchestrator": "docker_compose",
-                        "project_name": "synthia-addon-hello_world",
-                        "network": "synthia_net",
+                        "project_name": "hexe-addon-hello_world",
+                        "network": "hexe_net",
                         "ports": [],
                         "bind_localhost": True,
                     },
@@ -2373,7 +2373,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(desired["config"]["env"]["EXTRA_FLAG"], "1")
 
     def test_standalone_update_sets_enabled_docker_groups(self) -> None:
-        standalone_root = Path(self.tmp.name) / "SynthiaAddons"
+        standalone_root = Path(self.tmp.name) / "HexeAddons"
         addon_dir = standalone_root / "services" / "hello_world"
         extracted_dir = addon_dir / "current" / "extracted"
         extracted_dir.mkdir(parents=True, exist_ok=True)
@@ -2408,8 +2408,8 @@ class TestStoreApiEndpoints(unittest.TestCase):
                     },
                     "runtime": {
                         "orchestrator": "docker_compose",
-                        "project_name": "synthia-addon-hello_world",
-                        "network": "synthia_net",
+                        "project_name": "hexe-addon-hello_world",
+                        "network": "hexe_net",
                         "ports": [],
                         "bind_localhost": True,
                     },
@@ -2431,7 +2431,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(desired["enabled_docker_groups"], ["broker", "worker"])
 
     def test_standalone_update_rejects_unknown_enabled_docker_groups(self) -> None:
-        standalone_root = Path(self.tmp.name) / "SynthiaAddons"
+        standalone_root = Path(self.tmp.name) / "HexeAddons"
         addon_dir = standalone_root / "services" / "hello_world"
         extracted_dir = addon_dir / "current" / "extracted"
         extracted_dir.mkdir(parents=True, exist_ok=True)
@@ -2455,8 +2455,8 @@ class TestStoreApiEndpoints(unittest.TestCase):
                     "install_source": {"type": "catalog", "catalog_id": "official", "release": {"artifact_url": "https://example.test/a.tgz"}},
                     "runtime": {
                         "orchestrator": "docker_compose",
-                        "project_name": "synthia-addon-hello_world",
-                        "network": "synthia_net",
+                        "project_name": "hexe-addon-hello_world",
+                        "network": "hexe_net",
                         "ports": [],
                         "bind_localhost": True,
                     },
@@ -2489,7 +2489,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         app = FastAPI()
         app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
         client = TestClient(app)
-        standalone_root = Path(self.tmp.name) / "SynthiaAddons"
+        standalone_root = Path(self.tmp.name) / "HexeAddons"
 
         with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False):
             res = client.post(
@@ -2522,7 +2522,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         app = FastAPI()
         app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
         client = TestClient(app)
-        standalone_root = Path(self.tmp.name) / "SynthiaAddons"
+        standalone_root = Path(self.tmp.name) / "HexeAddons"
 
         with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False):
             res = client.post(
@@ -2555,7 +2555,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         app = FastAPI()
         app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
         client = TestClient(app)
-        standalone_root = Path(self.tmp.name) / "SynthiaAddons"
+        standalone_root = Path(self.tmp.name) / "HexeAddons"
 
         with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False):
             res = client.post(
@@ -2588,7 +2588,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         app = FastAPI()
         app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
         client = TestClient(app)
-        standalone_root = Path(self.tmp.name) / "SynthiaAddons"
+        standalone_root = Path(self.tmp.name) / "HexeAddons"
 
         with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False):
             res = client.post(
@@ -2621,7 +2621,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         app = FastAPI()
         app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
         client = TestClient(app)
-        standalone_root = Path(self.tmp.name) / "SynthiaAddons"
+        standalone_root = Path(self.tmp.name) / "HexeAddons"
 
         with patch.dict(os.environ, {"HEXE_ADDONS_DIR": str(standalone_root)}, clear=False):
             res = client.post(

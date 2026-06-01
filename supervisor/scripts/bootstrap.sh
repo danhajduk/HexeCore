@@ -97,7 +97,7 @@ if [[ "$MODE" == "install" ]]; then
 fi
 
 cd "$INSTALL_DIR"
-RAW_ADDONS_DIR="${HEXE_ADDONS_DIR:-../SynthiaAddons}"
+RAW_ADDONS_DIR="${HEXE_ADDONS_DIR:-../HexeAddons}"
 if [[ "$RAW_ADDONS_DIR" = /* ]]; then
   RESOLVED_ADDONS_DIR="$(realpath -m "$RAW_ADDONS_DIR")"
 else

@@ -17,7 +17,7 @@ from app.system.security import redact_secrets
 from app.system.settings.store import SettingsStore
 from app.system.services.store import ServiceCatalogStore
 
-log = logging.getLogger("synthia.mqtt")
+log = logging.getLogger("hexe.mqtt")
 
 
 MQTT_SUBSCRIPTIONS = [
@@ -189,7 +189,7 @@ class MqttManager:
             return {"ok": False, "error": "mqtt_not_initialized"}
         msg_topic = topic or "hexe/core/mqtt/info"
         msg_payload = payload or {
-            "source": "synthia-core",
+            "source": "hexe-core",
             "type": "mqtt-test",
             "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }
@@ -373,7 +373,7 @@ class MqttManager:
     def _core_info_payload(self) -> dict[str, Any]:
         cfg = self._config
         return {
-            "source": "synthia-core",
+            "source": "hexe-core",
             "type": "core-mqtt-info",
             "heartbeat_ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "broker": {
@@ -410,7 +410,7 @@ class MqttManager:
         password = (await self._settings.get(pass_key)) or os.getenv("MQTT_PASSWORD")
         tls_enabled = bool((await self._settings.get(tls_key)) or False)
         keepalive_s = int((await self._settings.get("mqtt.keepalive_s")) or 30)
-        client_id = str((await self._settings.get("mqtt.client_id")) or "synthia-core")
+        client_id = str((await self._settings.get("mqtt.client_id")) or "hexe-core")
         if mode == "local":
             # Local embedded runtime is broker-authoritative; avoid stale external settings causing auth/connect drift.
             host = str(os.getenv("HEXE_MQTT_HOST", "127.0.0.1")).strip() or "127.0.0.1"
@@ -494,7 +494,7 @@ class MqttManager:
             self._reconnect_spikes += 1
         self._last_connected_monotonic = now
         self._connection_count += 1
-        client_id = self._config.client_id if self._config is not None else "synthia-core"
+        client_id = self._config.client_id if self._config is not None else "hexe-core"
         self._touch_principal_runtime("core.runtime", client_id=client_id)
         for topic, qos in MQTT_SUBSCRIPTIONS:
             client.subscribe(topic, qos=qos)
@@ -509,7 +509,7 @@ class MqttManager:
     def _on_disconnect(self, client: Any, userdata: Any, disconnect_flags: Any, reason_code: Any, properties: Any = None) -> None:
         self._connected = False
         rc = self._reason_code_value(reason_code)
-        client_id = self._config.client_id if self._config is not None else "synthia-core"
+        client_id = self._config.client_id if self._config is not None else "hexe-core"
         self._mark_principal_runtime_disconnected("core.runtime", client_id=client_id)
         if rc != 0:
             self._last_error = f"disconnect_rc:{rc}"
@@ -874,7 +874,7 @@ class MqttManager:
             updated["connected"] = False
             self._principal_runtime[principal_id] = updated
         for client_id, session in list(self._runtime_sessions.items()):
-            if client_id == (self._config.client_id if self._config is not None else "synthia-core"):
+            if client_id == (self._config.client_id if self._config is not None else "hexe-core"):
                 continue
             if not bool(session.get("connected")):
                 continue

@@ -23,7 +23,7 @@ class NodeNotificationProxyService:
         self._publisher = publisher
         self._mqtt = mqtt_manager
         self._state_store = state_store
-        self._log = logging.getLogger("synthia.core.notifications")
+        self._log = logging.getLogger("hexe.core.notifications")
         self._listener_ids: list[str] = []
 
     async def start(self) -> None:

@@ -107,8 +107,8 @@ class TestHexeSupervisorCompose(unittest.TestCase):
                     },
                 },
                 "runtime": {
-                    "project_name": "synthia-addon-mqtt",
-                    "network": "synthia_net",
+                    "project_name": "hexe-addon-mqtt",
+                    "network": "hexe_net",
                     "ports": [{"host": 9002, "container": 9002, "proto": "tcp"}],
                 },
                 "config": {"env": {"CORE_URL": "http://127.0.0.1:9001"}},
@@ -141,7 +141,7 @@ class TestHexeSupervisorCompose(unittest.TestCase):
             self.assertIn("restart: no", compose_text)
             self.assertNotIn("network_mode: host", compose_text)
             self.assertIn("networks:", compose_text)
-            self.assertIn("synthia_net", compose_text)
+            self.assertIn("hexe_net", compose_text)
             self.assertIn("127.0.0.1:9002:9002/tcp", compose_text)
             self.assertIn(f"{desired_file}:/state/desired.json", compose_text)
             self.assertIn(f"{runtime_file}:/state/runtime.json", compose_text)
@@ -163,8 +163,8 @@ class TestHexeSupervisorCompose(unittest.TestCase):
                     },
                 },
                 "runtime": {
-                    "project_name": "synthia-addon-mqtt",
-                    "network": "synthia_net",
+                    "project_name": "hexe-addon-mqtt",
+                    "network": "hexe_net",
                     "bind_localhost": False,
                     "ports": [{"host": 18081, "container": 18081, "proto": "tcp"}],
                 },
@@ -199,8 +199,8 @@ class TestHexeSupervisorCompose(unittest.TestCase):
                     },
                 },
                 "runtime": {
-                    "project_name": "synthia-addon-mqtt",
-                    "network": "synthia_net",
+                    "project_name": "hexe-addon-mqtt",
+                    "network": "hexe_net",
                     "cpu": 1.25,
                     "memory": "768m",
                 },
@@ -236,8 +236,8 @@ class TestHexeSupervisorCompose(unittest.TestCase):
                     },
                 },
                 "runtime": {
-                    "project_name": "synthia-addon-mqtt",
-                    "network": "synthia_net",
+                    "project_name": "hexe-addon-mqtt",
+                    "network": "hexe_net",
                 },
                 "config": {"env": {}},
             }
@@ -278,8 +278,8 @@ class TestHexeSupervisorCompose(unittest.TestCase):
                     },
                 },
                 "runtime": {
-                    "project_name": "synthia-addon-mqtt",
-                    "network": "synthia_net",
+                    "project_name": "hexe-addon-mqtt",
+                    "network": "hexe_net",
                 },
                 "config": {"env": {}},
             }
@@ -310,7 +310,7 @@ class TestHexeSupervisorCompose(unittest.TestCase):
             )
             with patch("hexe_supervisor.docker_compose.subprocess.run", return_value=failed):
                 with self.assertRaises(RuntimeError) as ctx:
-                    compose_up(compose_file, "synthia-addon-mqtt")
+                    compose_up(compose_file, "hexe-addon-mqtt")
             self.assertIn("compose_up_failed", str(ctx.exception))
             self.assertIn("missing Dockerfile", str(ctx.exception))
 
@@ -325,7 +325,7 @@ class TestHexeSupervisorCompose(unittest.TestCase):
                 stderr="",
             )
             with patch("hexe_supervisor.docker_compose.subprocess.run", return_value=ok) as run_mock:
-                compose_up(compose_file, "synthia-addon-mqtt", force_rebuild=True)
+                compose_up(compose_file, "hexe-addon-mqtt", force_rebuild=True)
             self.assertEqual(run_mock.call_count, 2)
             build_args = run_mock.call_args_list[0].args[0]
             up_args = run_mock.call_args_list[1].args[0]
@@ -342,7 +342,7 @@ class TestHexeSupervisorCompose(unittest.TestCase):
             group_file.write_text("services: {}\n", encoding="utf-8")
             ok = subprocess.CompletedProcess(args=["docker", "compose"], returncode=0, stdout="ok", stderr="")
             with patch("hexe_supervisor.docker_compose.subprocess.run", return_value=ok) as run_mock:
-                compose_up([base_file, group_file], "synthia-addon-mqtt")
+                compose_up([base_file, group_file], "hexe-addon-mqtt")
             args = run_mock.call_args.args[0]
             self.assertEqual(args[:2], ["docker", "compose"])
             self.assertIn(str(base_file), args)

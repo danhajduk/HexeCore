@@ -45,7 +45,7 @@ class _FakeMqttManager:
         return {"ok": True, "topic": topic, "rc": 0}
 
     def _core_info_payload(self) -> dict:
-        return {"source": "synthia-core", "type": "core-mqtt-info"}
+        return {"source": "hexe-core", "type": "core-mqtt-info"}
 
     async def debug_connection_config(self):
         return {

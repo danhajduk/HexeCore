@@ -58,7 +58,7 @@ class _FakeMqttManager:
         return {"ok": True, "topic": topic, "rc": 0}
 
     def _core_info_payload(self) -> dict:
-        return {"source": "synthia-core", "type": "core-mqtt-info"}
+        return {"source": "hexe-core", "type": "core-mqtt-info"}
 
     async def principal_connection_states(self):
         return {
@@ -75,7 +75,7 @@ class _FakeMqttManager:
             "ok": True,
             "items": [
                 {
-                    "client_id": "synthia-core",
+                    "client_id": "hexe-core",
                     "principal_id": "core.runtime",
                     "connected": True,
                     "connected_at": "2026-03-10T00:00:00Z",

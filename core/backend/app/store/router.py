@@ -44,7 +44,7 @@ from .standalone_desired import SSAPDesiredValidationError, build_desired_state,
 from .standalone_paths import service_addon_dir, service_version_dir
 from .sources import StoreSource, StoreSourcesStore
 
-log = logging.getLogger("synthia.store")
+log = logging.getLogger("hexe.store")
 CATALOG_RELEASE_VERSION_RE = re.compile(
     r"^(0|[1-9]\d*)\."
     r"(0|[1-9]\d*)\."
@@ -239,8 +239,8 @@ def _compose_safe_project_name(value: str | None, addon_id: str) -> str:
         return normalized
     fallback = re.sub(r"[^a-z0-9_-]+", "-", str(addon_id).strip().lower()).strip("-_")
     if fallback and re.match(r"^[a-z0-9]", fallback):
-        return f"synthia-addon-{fallback}"
-    return "synthia-addon-service"
+        return f"hexe-addon-{fallback}"
+    return "hexe-addon-service"
 
 
 def _stage_standalone_artifact(
@@ -415,7 +415,7 @@ def _uninstall_standalone_service(addon_id: str) -> dict[str, Any]:
     runtime_payload = _load_json_file(runtime_path) or {}
 
     runtime_cfg = desired_payload.get("runtime") if isinstance(desired_payload.get("runtime"), dict) else {}
-    project_name = str(runtime_cfg.get("project_name") or f"synthia-addon-{addon_id}").strip() or f"synthia-addon-{addon_id}"
+    project_name = str(runtime_cfg.get("project_name") or f"hexe-addon-{addon_id}").strip() or f"hexe-addon-{addon_id}"
     active_version = str(runtime_payload.get("active_version") or "").strip() or None
     compose_file = _standalone_compose_file(service_dir, active_version)
 
@@ -1709,10 +1709,10 @@ def build_store_router(
                 manifest_runtime_defaults = _runtime_defaults_from_artifact(package_path, manifest.id) or manifest.runtime_defaults
                 declared_groups = _docker_groups_from_artifact(package_path, manifest.id) or list(manifest.docker_groups or [])
                 runtime_project_name = _compose_safe_project_name(
-                    runtime_overrides.get("project_name") or f"synthia-addon-{manifest.id}",
+                    runtime_overrides.get("project_name") or f"hexe-addon-{manifest.id}",
                     manifest.id,
                 )
-                runtime_network = str(runtime_overrides.get("network") or "synthia_net").strip()
+                runtime_network = str(runtime_overrides.get("network") or "hexe_net").strip()
                 if runtime_network.lower() in {"host", "host_network"}:
                     raise HTTPException(
                         status_code=400,
@@ -1803,7 +1803,7 @@ def build_store_router(
                     publisher_key_id=debug_publisher_key_id or "",
                     signature_value=release_signature_b64 or "",
                     runtime_project_name=runtime_project_name,
-                    runtime_network=runtime_network or "synthia_net",
+                    runtime_network=runtime_network or "hexe_net",
                     runtime_ports=runtime_ports_payload,
                     runtime_bind_localhost=runtime_bind_localhost,
                     runtime_cpu=runtime_cpu,
@@ -1830,7 +1830,7 @@ def build_store_router(
                 runtime_state = runtime_payload.get("runtime_state")
                 supervisor_hint = None
                 if runtime_state == "unknown":
-                    supervisor_hint = "runtime.json not found yet; ensure synthia-supervisor is running"
+                    supervisor_hint = "runtime.json not found yet; ensure hexe-supervisor is running"
                 install_state = {
                     "installed_version": manifest.version,
                     "installed_from_source_id": source_id,
@@ -1896,13 +1896,13 @@ def build_store_router(
                     "ui_embed_target": ui_redirect["ui_embed_target"],
                     "ui_reason": ui_redirect["ui_reason"],
                     "next_steps": [
-                        "Ensure synthia-supervisor is running and reconciling desired.json.",
+                        "Ensure hexe-supervisor is running and reconciling desired.json.",
                         "Check runtime.json and service logs if runtime_state stays unknown.",
                     ],
                     "security_guardrails": {
                         "bind_localhost": runtime_bind_localhost,
                         "privileged": False,
-                        "network": runtime_network or "synthia_net",
+                        "network": runtime_network or "hexe_net",
                         "cpu": runtime_cpu,
                         "memory": runtime_memory,
                         "service_token_env_key": "HEXE_SERVICE_TOKEN",
@@ -2363,10 +2363,10 @@ def build_store_router(
         runtime_overrides = body.runtime_overrides if isinstance(body.runtime_overrides, dict) else {}
 
         runtime_project_name = _compose_safe_project_name(
-            runtime_overrides.get("project_name") or runtime_current.get("project_name") or f"synthia-addon-{addon_id}",
+            runtime_overrides.get("project_name") or runtime_current.get("project_name") or f"hexe-addon-{addon_id}",
             addon_id,
         )
-        runtime_network = str(runtime_overrides.get("network") or runtime_current.get("network") or "synthia_net").strip()
+        runtime_network = str(runtime_overrides.get("network") or runtime_current.get("network") or "hexe_net").strip()
         if runtime_network.lower() in {"host", "host_network"}:
             raise HTTPException(
                 status_code=400,
@@ -2475,7 +2475,7 @@ def build_store_router(
             publisher_key_id=str(release.get("publisher_key_id") or "").strip(),
             signature_value=str((release.get("signature") or {}).get("value") if isinstance(release.get("signature"), dict) else ""),
             runtime_project_name=runtime_project_name,
-            runtime_network=runtime_network or "synthia_net",
+            runtime_network=runtime_network or "hexe_net",
             runtime_ports=runtime_ports_payload,
             runtime_bind_localhost=runtime_bind_localhost,
             runtime_cpu=runtime_cpu,

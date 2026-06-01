@@ -49,7 +49,7 @@ class TestNotificationProducer(unittest.IsolatedAsyncioTestCase):
         publisher = _FakeNotificationPublisher()
         producer = CoreStartupNotificationProducer(publisher, core_version="0.1.0")
 
-        with self.assertLogs("synthia.core.notifications", level="INFO") as logs:
+        with self.assertLogs("hexe.core.notifications", level="INFO") as logs:
             await producer.emit_startup_notifications()
 
         joined = "\n".join(logs.output)

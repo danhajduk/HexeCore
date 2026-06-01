@@ -10,7 +10,7 @@ from app.system.security import redact_secrets
 
 from .models import PlatformEvent
 
-log = logging.getLogger("synthia.events")
+log = logging.getLogger("hexe.events")
 
 EventPublisher = Callable[[str, dict[str, Any]], Awaitable[dict[str, Any]]]
 

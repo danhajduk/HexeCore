@@ -38,7 +38,7 @@ class NodeOperationalNotificationService:
         self._mqtt = mqtt_manager
         self._registrations = registrations_store
         self._governance = node_governance_status_service
-        self._log = logging.getLogger("synthia.core.notifications")
+        self._log = logging.getLogger("hexe.core.notifications")
         self._last_health_by_node: dict[str, str] = {}
 
     async def poll_once(self) -> list[dict[str, Any]]:

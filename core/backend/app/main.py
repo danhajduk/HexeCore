@@ -115,7 +115,7 @@ from app.store import CatalogCacheClient, build_store_models_router, StoreAuditL
 from app.store.catalog import catalog_refresh_due
 
 setup_logging()
-log = logging.getLogger("synthia.core")
+log = logging.getLogger("hexe.core")
 
 
 def _configured_cors_origins() -> list[str]:
@@ -406,7 +406,7 @@ def create_app() -> FastAPI:
                         log.exception("Failed to load MQTT runtime status for Supervisor registration")
 
             container_names: list[str] = []
-            mqtt_container_name = str(os.getenv("HEXE_MQTT_DOCKER_CONTAINER", "synthia-mqtt-broker"))
+            mqtt_container_name = str(os.getenv("HEXE_MQTT_DOCKER_CONTAINER", "hexe-mqtt-broker"))
             container_names.append(mqtt_container_name)
             for addon in addons:
                 last_health = addon.get("last_health") if isinstance(addon.get("last_health"), dict) else {}
@@ -1145,7 +1145,7 @@ def create_app() -> FastAPI:
             staged_dir=mqtt_dirs["staged"],
             data_dir=mqtt_dirs["data"],
             log_dir=mqtt_dirs["logs"],
-            container_name=os.getenv("HEXE_MQTT_DOCKER_CONTAINER", "synthia-mqtt-broker"),
+            container_name=os.getenv("HEXE_MQTT_DOCKER_CONTAINER", "hexe-mqtt-broker"),
             image=os.getenv("HEXE_MQTT_DOCKER_IMAGE", "eclipse-mosquitto:2"),
             host=str(os.getenv("HEXE_MQTT_HOST", "127.0.0.1")),
             port=int(os.getenv("HEXE_MQTT_PORT", "1883")),

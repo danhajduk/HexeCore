@@ -547,7 +547,7 @@ def addon_ui_root() -> str:
         </label>
         <label>
           Client ID
-          <input id="client_id" placeholder="synthia-core" />
+          <input id="client_id" placeholder="hexe-core" />
         </label>
       </div>
       <div class="card" style="margin-top:12px;">
@@ -1903,7 +1903,7 @@ def addon_ui_root() -> str:
       password.value = String(settings[`mqtt.${selectedMode}.password`] || "");
       tls.value = Boolean(settings[`mqtt.${selectedMode}.tls_enabled`]) ? "true" : "false";
       keepalive.value = String(settings["mqtt.keepalive_s"] ?? 30);
-      clientId.value = String(settings["mqtt.client_id"] || "synthia-core");
+      clientId.value = String(settings["mqtt.client_id"] || "hexe-core");
       applyModeClass();
       renderPreflight();
     }
@@ -1991,7 +1991,7 @@ def addon_ui_root() -> str:
             password: String(password.value || ""),
             tls_enabled: tls.value === "true",
             keepalive_s: parsedKeepalive,
-            client_id: String(clientId.value || "").trim() || "synthia-core",
+            client_id: String(clientId.value || "").trim() || "hexe-core",
             initialize: true,
             restart_after: Boolean(restartAfter),
           }),

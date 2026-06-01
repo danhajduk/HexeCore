@@ -249,7 +249,7 @@
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "properties": {
         "client_id": {
-          "default": "synthia-core",
+          "default": "hexe-core",
           "title": "Client Id",
           "type": "string"
         },

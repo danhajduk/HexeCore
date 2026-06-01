@@ -185,7 +185,7 @@ class TestAddonProxyTargetSelection(unittest.TestCase):
         app.include_router(build_proxy_router(proxy))
         with patch.dict("os.environ", {"HEXE_ADMIN_TOKEN": "test-token"}, clear=False):
             client = TestClient(app)
-            with self.assertLogs("synthia.proxy", level="INFO") as captured:
+            with self.assertLogs("hexe.proxy", level="INFO") as captured:
                 client.get("/ui/addons/missing", headers={"X-Admin-Token": "test-token"})
         self.assertTrue(any("surface=ui" in message and "addon_id=missing" in message for message in captured.output))
 

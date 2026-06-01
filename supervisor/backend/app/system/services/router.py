@@ -32,7 +32,7 @@ def build_service_resolution_router(
     router = APIRouter()
     require_register_scope = require_service_token(
         key_store=key_store,
-        audience="synthia-core",
+        audience="hexe-core",
         scopes=["services.register"],
     )
 

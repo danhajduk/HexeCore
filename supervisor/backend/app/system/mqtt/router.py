@@ -110,7 +110,7 @@ class MqttSetupApplyRequest(BaseModel):
     password: str | None = None
     tls_enabled: bool = False
     keepalive_s: int = Field(default=30, ge=1)
-    client_id: str = "synthia-core"
+    client_id: str = "hexe-core"
     initialize: bool = True
 
 
@@ -276,7 +276,7 @@ async def _authorize_mqtt_request(
             _, payload = verify_hs256(token, await key_store.all_keys())
             claims = validate_claims(
                 payload,
-                audience="synthia-core",
+                audience="hexe-core",
                 required_scopes=[required_scope] if required_scope else None,
             )
             return claims.sub
@@ -599,7 +599,7 @@ def build_mqtt_router(
         now = datetime.now(timezone.utc)
         timeout_s = max(30, int(body.timeout_s))
         expires_at = now + timedelta(seconds=timeout_s)
-        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"synthia-debug-{subscription_id[:12]}")
+        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=f"hexe-debug-{subscription_id[:12]}")
         username = str(cfg.get("username") or "").strip()
         password = str(cfg.get("password") or "")
         if username:
@@ -810,7 +810,7 @@ def build_mqtt_router(
         await settings.set(f"mqtt.{mode}.password", str(body.password or ""))
         await settings.set(f"mqtt.{mode}.tls_enabled", bool(body.tls_enabled))
         await settings.set("mqtt.keepalive_s", int(body.keepalive_s))
-        await settings.set("mqtt.client_id", str(body.client_id or "").strip() or "synthia-core")
+        await settings.set("mqtt.client_id", str(body.client_id or "").strip() or "hexe-core")
 
         external_probe = None
         reconcile_payload: dict[str, Any] = {}

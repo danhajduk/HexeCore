@@ -27,7 +27,7 @@ def _p95(values: List[float]) -> float:
 class ApiMetricsCollector:
     """
     Rolling in-memory window of request events.
-    Cheap, good enough, and perfectly fine for a single-node SynthiaCore.
+    Cheap, good enough, and perfectly fine for a single-node HexeCore.
     """
     def __init__(self, max_events: int = 50_000):
         self._events: Deque[ApiEvent] = deque(maxlen=max_events)

@@ -51,7 +51,7 @@ class TestMqttRuntimeBoundary(unittest.TestCase):
                 live_dir=str(live_dir),
                 data_dir=str(data_dir),
                 log_dir=str(log_dir),
-                container_name="synthia-mqtt-broker-test-missing-docker",
+                container_name="hexe-mqtt-broker-test-missing-docker",
             )
             with patch("shutil.which", return_value=None):
                 status = asyncio.run(boundary.ensure_running())
@@ -74,7 +74,7 @@ class TestMqttRuntimeBoundary(unittest.TestCase):
                 live_dir=str(live_dir),
                 data_dir=str(data_dir),
                 log_dir=str(log_dir),
-                container_name="synthia-mqtt-broker-test-legacy-alias",
+                container_name="hexe-mqtt-broker-test-legacy-alias",
             )
             self.assertIsInstance(boundary, DockerMosquittoRuntimeBoundary)
 
@@ -91,7 +91,7 @@ class TestMqttRuntimeBoundary(unittest.TestCase):
                 live_dir=str(live_dir),
                 data_dir=str(data_dir),
                 log_dir=str(log_dir),
-                container_name="synthia-mqtt-broker-test-preflight",
+                container_name="hexe-mqtt-broker-test-preflight",
             )
             status = asyncio.run(boundary.ensure_running())
             self.assertEqual(status.state, "stopped")
@@ -200,7 +200,7 @@ class TestMqttRuntimeBoundary(unittest.TestCase):
                 live_dir=str(live_dir),
                 data_dir=str(data_dir),
                 log_dir=str(log_dir),
-                container_name="synthia-mqtt-broker-test-restart-policy",
+                container_name="hexe-mqtt-broker-test-restart-policy",
             )
             calls: list[list[str]] = []
 
@@ -208,13 +208,13 @@ class TestMqttRuntimeBoundary(unittest.TestCase):
                 calls.append(list(args))
                 cmd = " ".join(args)
                 if cmd.startswith("ps -a"):
-                    return subprocess.CompletedProcess(["docker", *args], 0, stdout="synthia-mqtt-broker-test-restart-policy\n", stderr="")
+                    return subprocess.CompletedProcess(["docker", *args], 0, stdout="hexe-mqtt-broker-test-restart-policy\n", stderr="")
                 if cmd.startswith("inspect --format {{.HostConfig.RestartPolicy.Name}}"):
                     return subprocess.CompletedProcess(["docker", *args], 0, stdout="unless-stopped\n", stderr="")
                 if cmd.startswith("update --restart no"):
                     return subprocess.CompletedProcess(["docker", *args], 0, stdout="", stderr="")
                 if cmd.startswith("ps --"):
-                    return subprocess.CompletedProcess(["docker", *args], 0, stdout="synthia-mqtt-broker-test-restart-policy\n", stderr="")
+                    return subprocess.CompletedProcess(["docker", *args], 0, stdout="hexe-mqtt-broker-test-restart-policy\n", stderr="")
                 return subprocess.CompletedProcess(["docker", *args], 0, stdout="", stderr="")
 
             with patch.object(boundary, "_docker_available", return_value=True):
@@ -241,7 +241,7 @@ class TestMqttRuntimeBoundary(unittest.TestCase):
                 live_dir=str(live_dir),
                 data_dir=str(data_dir),
                 log_dir=str(log_dir),
-                container_name="synthia-mqtt-broker-test-reuse",
+                container_name="hexe-mqtt-broker-test-reuse",
             )
             calls: list[list[str]] = []
             running = {"value": False}
@@ -250,9 +250,9 @@ class TestMqttRuntimeBoundary(unittest.TestCase):
                 calls.append(list(args))
                 cmd = " ".join(args)
                 if cmd.startswith("ps -a"):
-                    return subprocess.CompletedProcess(["docker", *args], 0, stdout="synthia-mqtt-broker-test-reuse\n", stderr="")
+                    return subprocess.CompletedProcess(["docker", *args], 0, stdout="hexe-mqtt-broker-test-reuse\n", stderr="")
                 if cmd.startswith("ps --"):
-                    out = "synthia-mqtt-broker-test-reuse\n" if running["value"] else ""
+                    out = "hexe-mqtt-broker-test-reuse\n" if running["value"] else ""
                     return subprocess.CompletedProcess(["docker", *args], 0, stdout=out, stderr="")
                 if cmd.startswith("inspect --format"):
                     payload = '{"1883/tcp":[{"HostIp":"0.0.0.0","HostPort":"1883"}],"1884/tcp":[{"HostIp":"0.0.0.0","HostPort":"1884"}]}'
@@ -287,7 +287,7 @@ class TestMqttRuntimeBoundary(unittest.TestCase):
                 live_dir=str(live_dir),
                 data_dir=str(data_dir),
                 log_dir=str(log_dir),
-                container_name="synthia-mqtt-broker-test-recreate",
+                container_name="hexe-mqtt-broker-test-recreate",
             )
             calls: list[list[str]] = []
             running = {"value": True}
@@ -296,9 +296,9 @@ class TestMqttRuntimeBoundary(unittest.TestCase):
                 calls.append(list(args))
                 cmd = " ".join(args)
                 if cmd.startswith("ps -a"):
-                    return subprocess.CompletedProcess(["docker", *args], 0, stdout="synthia-mqtt-broker-test-recreate\n", stderr="")
+                    return subprocess.CompletedProcess(["docker", *args], 0, stdout="hexe-mqtt-broker-test-recreate\n", stderr="")
                 if cmd.startswith("ps --"):
-                    out = "synthia-mqtt-broker-test-recreate\n" if running["value"] else ""
+                    out = "hexe-mqtt-broker-test-recreate\n" if running["value"] else ""
                     return subprocess.CompletedProcess(["docker", *args], 0, stdout=out, stderr="")
                 if cmd.startswith("inspect --format"):
                     return subprocess.CompletedProcess(["docker", *args], 0, stdout='{"1883/tcp":null,"1884/tcp":null}', stderr="")

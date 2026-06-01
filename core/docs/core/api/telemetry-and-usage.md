@@ -34,7 +34,7 @@ Full routes:
 
 Status: Implemented
 
-- Telemetry ingestion requires a service token with audience `synthia-core`.
+- Telemetry ingestion requires a service token with audience `hexe-core`.
 - The required scope is `telemetry.write`.
 - The write endpoint resolves claims through `require_service_token(...)`.
 

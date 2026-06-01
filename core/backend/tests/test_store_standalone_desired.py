@@ -22,8 +22,8 @@ class TestStoreStandaloneDesired(unittest.TestCase):
             sha256="a" * 64,
             publisher_key_id="publisher.dan#2026-02",
             signature_value="base64-signature",
-            runtime_project_name="synthia-addon-mqtt",
-            runtime_network="synthia_net",
+            runtime_project_name="hexe-addon-mqtt",
+            runtime_network="hexe_net",
             runtime_ports=[{"host": 9002, "container": 9002, "proto": "tcp", "purpose": "http_api"}],
             config_env={"CORE_URL": "http://127.0.0.1:9001"},
             runtime_cpu=1.5,
@@ -39,8 +39,8 @@ class TestStoreStandaloneDesired(unittest.TestCase):
         self.assertEqual(payload["install_source"]["type"], "catalog")
         self.assertEqual(payload["install_source"]["catalog_id"], "official")
         self.assertEqual(payload["install_source"]["release"]["signature"]["type"], "none")
-        self.assertEqual(payload["runtime"]["project_name"], "synthia-addon-mqtt")
-        self.assertEqual(payload["runtime"]["network"], "synthia_net")
+        self.assertEqual(payload["runtime"]["project_name"], "hexe-addon-mqtt")
+        self.assertEqual(payload["runtime"]["network"], "hexe_net")
         self.assertEqual(payload["runtime"]["cpu"], 1.5)
         self.assertEqual(payload["runtime"]["memory"], "512m")
         self.assertEqual(payload["config"]["env"]["CORE_URL"], "http://127.0.0.1:9001")
@@ -55,8 +55,8 @@ class TestStoreStandaloneDesired(unittest.TestCase):
             sha256="b" * 64,
             publisher_key_id="publisher.dan#2026-02",
             signature_value="base64-signature",
-            runtime_project_name="synthia-addon-mqtt",
-            runtime_network="synthia_net",
+            runtime_project_name="hexe-addon-mqtt",
+            runtime_network="hexe_net",
         )
         with tempfile.TemporaryDirectory() as tmpdir:
             desired_path = Path(tmpdir) / "services" / "mqtt" / "desired.json"
@@ -79,8 +79,8 @@ class TestStoreStandaloneDesired(unittest.TestCase):
             channel="stable",
             pinned_version="0.1.2",
             artifact_url="https://example.test/mqtt-0.1.2.tgz",
-            runtime_project_name="synthia-addon-mqtt",
-            runtime_network="synthia_net",
+            runtime_project_name="hexe-addon-mqtt",
+            runtime_network="hexe_net",
             enabled_docker_groups=["broker", "worker", "broker"],
         )
         self.assertEqual(payload["enabled_docker_groups"], ["broker", "worker", "broker"])
@@ -95,8 +95,8 @@ class TestStoreStandaloneDesired(unittest.TestCase):
             sha256="c" * 64,
             publisher_key_id="publisher.dan#2026-02",
             signature_value="base64-signature",
-            runtime_project_name="synthia-addon-mqtt",
-            runtime_network="synthia_net",
+            runtime_project_name="hexe-addon-mqtt",
+            runtime_network="hexe_net",
         )
         payload["desired_state"] = "invalid-state"
         with self.assertRaises(SSAPDesiredValidationError) as ctx:
@@ -113,8 +113,8 @@ class TestStoreStandaloneDesired(unittest.TestCase):
             sha256="d" * 64,
             publisher_key_id="publisher.dan#2026-02",
             signature_value="base64-signature",
-            runtime_project_name="synthia-addon-mqtt",
-            runtime_network="synthia_net",
+            runtime_project_name="hexe-addon-mqtt",
+            runtime_network="hexe_net",
         )
         payload["install_source"]["release"]["sha256"] = "A" * 64
         with self.assertRaises(SSAPDesiredValidationError):
@@ -130,8 +130,8 @@ class TestStoreStandaloneDesired(unittest.TestCase):
             sha256="d" * 64,
             publisher_key_id="publisher.dan#2026-02",
             signature_value="base64-signature",
-            runtime_project_name="synthia-addon-mqtt",
-            runtime_network="synthia_net",
+            runtime_project_name="hexe-addon-mqtt",
+            runtime_network="hexe_net",
         )
         payload["runtime"]["cpu"] = 0
         with self.assertRaises(SSAPDesiredValidationError):

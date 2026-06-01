@@ -11,7 +11,7 @@ from app.system.runtime import StandaloneRuntimeService
 class TestStandaloneRuntimeService(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
-        self.root = Path(self.tmp.name) / "SynthiaAddons" / "services"
+        self.root = Path(self.tmp.name) / "HexeAddons" / "services"
         self.root.mkdir(parents=True, exist_ok=True)
 
     def tearDown(self) -> None:
@@ -53,8 +53,8 @@ class TestStandaloneRuntimeService(unittest.TestCase):
                         "release": {"artifact_url": "https://example.test/mqtt.tgz"},
                     },
                     "runtime": {
-                        "project_name": "synthia-addon-mqtt",
-                        "network": "synthia_net",
+                        "project_name": "hexe-addon-mqtt",
+                        "network": "hexe_net",
                         "ports": [{"host": 1883, "container": 1883, "protocol": "tcp"}],
                     },
                 }
@@ -76,14 +76,14 @@ class TestStandaloneRuntimeService(unittest.TestCase):
         def cmd_runner(cmd: list[str]):
             if cmd[:2] == ["docker", "ps"]:
                 row = {
-                    "Names": "synthia-addon-mqtt-main-1",
+                    "Names": "hexe-addon-mqtt-main-1",
                     "Status": "Up 3 minutes",
                 }
                 return 0, json.dumps(row) + "\n", ""
             if cmd[:2] == ["docker", "inspect"]:
                 payload = [
                     {
-                        "Name": "/synthia-addon-mqtt-main-1",
+                        "Name": "/hexe-addon-mqtt-main-1",
                         "State": {
                             "Running": True,
                             "Status": "running",
@@ -94,7 +94,7 @@ class TestStandaloneRuntimeService(unittest.TestCase):
                                 "Log": [{"Output": "service healthy"}],
                             },
                         },
-                        "HostConfig": {"NetworkMode": "synthia_net"},
+                        "HostConfig": {"NetworkMode": "hexe_net"},
                         "NetworkSettings": {
                             "Ports": {
                                 "1883/tcp": [{"HostIp": "127.0.0.1", "HostPort": "1883"}],
@@ -113,7 +113,7 @@ class TestStandaloneRuntimeService(unittest.TestCase):
         self.assertEqual(payload["runtime_state"], "running")
         self.assertEqual(payload["active_version"], "1.2.3")
         self.assertEqual(payload["target_version"], "1.2.3")
-        self.assertEqual(payload["container_name"], "synthia-addon-mqtt-main-1")
+        self.assertEqual(payload["container_name"], "hexe-addon-mqtt-main-1")
         self.assertEqual(payload["container_status"], "running")
         self.assertTrue(payload["running"])
         self.assertEqual(payload["restart_count"], 2)
@@ -133,8 +133,8 @@ class TestStandaloneRuntimeService(unittest.TestCase):
                     "addon_id": "mqtt",
                     "desired_state": "running",
                     "runtime": {
-                        "project_name": "synthia-addon-mqtt",
-                        "network": "synthia_net",
+                        "project_name": "hexe-addon-mqtt",
+                        "network": "hexe_net",
                         "ports": [{"host": 1883, "container": 1883, "protocol": "tcp"}],
                     },
                 }
@@ -167,8 +167,8 @@ class TestStandaloneRuntimeService(unittest.TestCase):
                     "addon_id": "mqtt",
                     "desired_state": "running",
                     "runtime": {
-                        "project_name": "synthia-addon-mqtt",
-                        "network": "synthia_net",
+                        "project_name": "hexe-addon-mqtt",
+                        "network": "hexe_net",
                         "ports": [{"host": 1883, "container": 1883, "protocol": "tcp"}],
                     },
                 }

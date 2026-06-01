@@ -221,7 +221,7 @@ class EmbeddedMqttStartupReconciler:
     async def _publish_bootstrap(self) -> bool:
         self._bootstrap_attempts += 1
         self._bootstrap_last_attempt_at = _utcnow_iso()
-        core_id = "synthia-core"
+        core_id = "hexe-core"
         core_name = default_platform_naming().core()
         core_version = str(os.getenv("HEXE_CORE_VERSION", "0.1.0"))
         advertise_host = str(os.getenv("HEXE_BOOTSTRAP_ADVERTISE_HOST", "")).strip() or _detect_advertise_host()

@@ -25,7 +25,7 @@ def build_telemetry_router(store: UsageTelemetryStore, key_store: ServiceTokenKe
     router = APIRouter()
     require_write_scope = require_service_token(
         key_store=key_store,
-        audience="synthia-core",
+        audience="hexe-core",
         scopes=["telemetry.write"],
     )
 

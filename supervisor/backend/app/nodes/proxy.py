@@ -16,7 +16,7 @@ from app.reverse_proxy import ReverseProxyService
 from app.ui_target_resolver import UiTargetResolver
 from .service import NodesDomainService
 
-log = logging.getLogger("synthia.proxy")
+log = logging.getLogger("hexe.proxy")
 HTML_ROOT_URL_ATTR_RE = re.compile(r'(?P<prefix>\b(?:src|href|action)=["\'])(?P<path>/[^"\']*)')
 ROOT_URL_STRING_RE = re.compile(r'(?P<quote>["\'`])(?P<path>/[^"\'`]*)(?P=quote)')
 PROXIED_NODE_PATH_DETECTOR = r"/^\/nodes\/([^/]+)\/ui(?:\/.*)?$/i"

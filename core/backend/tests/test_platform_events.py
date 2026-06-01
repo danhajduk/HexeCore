@@ -67,7 +67,7 @@ class TestPlatformEvents(unittest.TestCase):
             {"alg": "HS256", "typ": "JWT", "kid": key["kid"]},
             {
                 "sub": sub,
-                "aud": "synthia-core",
+                "aud": "hexe-core",
                 "scp": scopes,
                 "exp": now + 600,
                 "iat": now,

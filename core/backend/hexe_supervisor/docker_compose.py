@@ -160,7 +160,7 @@ def ensure_compose_files(
     env_file.write_text("\n".join(env_lines) + ("\n" if env_lines else ""))
     log.info("runtime_env_written path=%s keys=%s", env_file, sorted(env_values.keys()))
 
-    network_name = desired.runtime.network or "synthia_net"
+    network_name = desired.runtime.network or "hexe_net"
     bind_localhost = bool(getattr(desired.runtime, "bind_localhost", True))
     host_bind = "127.0.0.1" if bind_localhost else "0.0.0.0"
     ports_yaml = ""

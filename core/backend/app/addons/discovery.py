@@ -11,7 +11,7 @@ import logging
 from fastapi.routing import APIRoute
 
 from .models import BackendAddon, AddonMeta
-log = logging.getLogger("synthia.addons")
+log = logging.getLogger("hexe.addons")
 
 REQUIRED_CONTRACT_ENDPOINTS: tuple[tuple[str, str], ...] = (
     ("GET", "/api/addon/meta"),

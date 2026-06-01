@@ -23,7 +23,7 @@ class NotificationMqttPublisher(Protocol):
 class CoreNotificationPublisher:
     def __init__(self, mqtt_publisher: NotificationMqttPublisher) -> None:
         self._mqtt = mqtt_publisher
-        self._log = logging.getLogger("synthia.core.notifications")
+        self._log = logging.getLogger("hexe.core.notifications")
 
     async def publish_message(
         self,

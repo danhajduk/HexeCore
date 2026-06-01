@@ -14,7 +14,7 @@ class NotificationBridgeService:
     def __init__(self, mqtt_publisher: NotificationMqttPublisher, mqtt_manager) -> None:
         self._publisher = mqtt_publisher
         self._mqtt_manager = mqtt_manager
-        self._log = logging.getLogger("synthia.core.notifications")
+        self._log = logging.getLogger("hexe.core.notifications")
         self._listener_ids: list[str] = []
 
     async def start(self) -> None:

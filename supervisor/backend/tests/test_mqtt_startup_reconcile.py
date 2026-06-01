@@ -31,7 +31,7 @@ class _FakeMqttManager:
         return {"host": "127.0.0.1", "port": 1883}
 
     def _core_info_payload(self) -> dict:
-        return {"source": "synthia-core", "type": "core-mqtt-info"}
+        return {"source": "hexe-core", "type": "core-mqtt-info"}
 
 
 class TestMqttStartupReconcile(unittest.TestCase):

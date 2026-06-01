@@ -11,21 +11,21 @@ from app.store.standalone_paths import (
     service_version_dir,
     service_versions_dir,
     services_root,
-    synthia_addons_dir,
+    hexe_addons_dir,
 )
 
 
 class TestStoreStandalonePaths(unittest.TestCase):
-    def test_default_synthia_addons_dir_under_repo_parent(self) -> None:
+    def test_default_hexe_addons_dir_under_repo_parent(self) -> None:
         with patch.dict(os.environ, {}, clear=False):
-            path = synthia_addons_dir()
-        self.assertEqual(path.name, "SynthiaAddons")
+            path = hexe_addons_dir()
+        self.assertEqual(path.name, "HexeAddons")
         self.assertTrue(path.is_absolute())
         self.assertEqual(path.parent, repo_root().parent)
 
     def test_relative_env_path_resolves_from_backend_dir(self) -> None:
         with patch.dict(os.environ, {"HEXE_ADDONS_DIR": "../CustomAddons"}, clear=False):
-            path = synthia_addons_dir()
+            path = hexe_addons_dir()
         self.assertEqual(path.name, "CustomAddons")
         self.assertTrue(path.is_absolute())
 

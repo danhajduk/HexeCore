@@ -138,7 +138,7 @@ class NodeDomainEventPromoterService:
         self._state_store = state_store
         self._observability = observability_store
         self._core_id = _clean_text(core_id or os.getenv("HEXE_CORE_ID") or "hexe-core")
-        self._log = logging.getLogger("synthia.core.node_domain_events")
+        self._log = logging.getLogger("hexe.core.node_domain_events")
         self._listener_ids: list[str] = []
         self._noise: dict[str, _NodeNoiseWindow] = {}
         self._dedupe: dict[str, float] = {}

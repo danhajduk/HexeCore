@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 WorkingDirectory=@INSTALL_DIR@/backend
 # Where standalone services live (sibling folder to the Core repo)
-Environment=HEXE_ADDONS_DIR=%h/Projects/SynthiaAddons
+Environment=HEXE_ADDONS_DIR=%h/Projects/HexeAddons
 Environment=HEXE_CATALOG_PUBLISHERS=@INSTALL_DIR@/runtime/store/cache/official/publishers.json
 Environment=HEXE_SUPERVISOR_INTERVAL_S=5
 Environment=PYTHONUNBUFFERED=1

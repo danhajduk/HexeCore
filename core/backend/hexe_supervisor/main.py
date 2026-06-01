@@ -129,7 +129,7 @@ def _compose_input_digest(desired: DesiredState) -> str:
     runtime = desired.runtime
     payload = {
         "addon_id": desired.addon_id,
-        "network": runtime.network or "synthia_net",
+        "network": runtime.network or "hexe_net",
         "bind_localhost": bool(getattr(runtime, "bind_localhost", True)),
         "ports": list(getattr(runtime, "ports", []) or []),
         "cpu": getattr(runtime, "cpu", None),
@@ -536,7 +536,7 @@ def reconcile_one(addon_dir: Path) -> ReconcileResult | None:
 
 def main():
     configure_logging()
-    addons_dir = Path(os.environ.get("HEXE_ADDONS_DIR", "../SynthiaAddons")).resolve()
+    addons_dir = Path(os.environ.get("HEXE_ADDONS_DIR", "../HexeAddons")).resolve()
     services_dir = addons_dir / "services"
     services_dir.mkdir(parents=True, exist_ok=True)
     interval = int(os.environ.get("HEXE_SUPERVISOR_INTERVAL_S", DEFAULT_INTERVAL_S))

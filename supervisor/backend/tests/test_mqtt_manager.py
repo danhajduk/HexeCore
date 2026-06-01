@@ -199,7 +199,7 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
             password=None,
             keepalive_s=30,
             tls_enabled=False,
-            client_id="synthia-core",
+            client_id="hexe-core",
         )
         client = _FakeClient()
 
@@ -212,7 +212,7 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(topic, "hexe/core/mqtt/info")
         self.assertEqual(qos, 1)
         self.assertTrue(retain)
-        self.assertEqual(payload["source"], "synthia-core")
+        self.assertEqual(payload["source"], "hexe-core")
         self.assertEqual(payload["type"], "core-mqtt-info")
         self.assertTrue(payload["heartbeat_ts"].endswith("Z"))
         self.assertEqual(payload["broker"]["mode"], "external")
@@ -241,7 +241,7 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
             password=None,
             keepalive_s=30,
             tls_enabled=False,
-            client_id="synthia-core",
+            client_id="hexe-core",
         )
         client = _FakeClient()
 
@@ -268,7 +268,7 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
             password=None,
             keepalive_s=30,
             tls_enabled=False,
-            client_id="synthia-core",
+            client_id="hexe-core",
         )
         client = _FakeClient()
         manager._on_connect(client, None, None, 0)
@@ -721,7 +721,7 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
             password=None,
             keepalive_s=30,
             tls_enabled=False,
-            client_id="synthia-core",
+            client_id="hexe-core",
         )
         client = _FakeClient()
         rc = ReasonCode(mqtt.PacketTypes.CONNACK, identifier=0)
@@ -741,7 +741,7 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
                     "mqtt.local.username": "admin",
                     "mqtt.local.password": "bad",
                     "mqtt.local.tls_enabled": True,
-                    "mqtt.client_id": "synthia-core",
+                    "mqtt.client_id": "hexe-core",
                 }
             ),
             registry=_FakeRegistry(),
@@ -792,7 +792,7 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
                         "mqtt.local.username": "admin",
                         "mqtt.local.password": "stale-password",
                         "mqtt.local.tls_enabled": True,
-                        "mqtt.client_id": "synthia-core",
+                        "mqtt.client_id": "hexe-core",
                     }
                 ),
                 registry=_FakeRegistry(),
@@ -822,7 +822,7 @@ class TestMqttManager(unittest.IsolatedAsyncioTestCase):
                     "mqtt.external.username": "broker-user",
                     "mqtt.external.password": "broker-pass",
                     "mqtt.external.tls_enabled": True,
-                    "mqtt.client_id": "synthia-core",
+                    "mqtt.client_id": "hexe-core",
                 }
             ),
             registry=_FakeRegistry(),

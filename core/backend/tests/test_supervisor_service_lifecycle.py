@@ -35,7 +35,7 @@ class TestSupervisorServiceLifecycle(unittest.TestCase):
                     {
                         "addon_id": "mqtt",
                         "desired_state": "running",
-                        "runtime": {"project_name": "synthia-addon-mqtt", "ports": []},
+                        "runtime": {"project_name": "hexe-addon-mqtt", "ports": []},
                         "install_source": {"type": "catalog", "release": {"artifact_url": "https://example.test/mqtt.tgz"}},
                         "config": {"env": {}},
                         "ssap_version": "1.0",

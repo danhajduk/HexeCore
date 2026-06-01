@@ -68,7 +68,7 @@ def setup_logging() -> None:
             },
         },
         "loggers": {
-            "synthia.addons": {
+            "hexe.addons": {
                 "handlers": ["addons_file"],
                 "level": _level_from_env("HEXE_LOG_ADDONS_LEVEL", "INFO"),
                 "propagate": False,
@@ -78,12 +78,12 @@ def setup_logging() -> None:
                 "level": _level_from_env("HEXE_LOG_API_LEVEL", "INFO"),
                 "propagate": False,
             },
-            "synthia.core": {
+            "hexe.core": {
                 "handlers": ["core_file"],
                 "level": _level_from_env("HEXE_LOG_CORE_LEVEL", "INFO"),
                 "propagate": False,
             },
-            "synthia.system": {
+            "hexe.system": {
                 "handlers": ["system_file"],
                 "level": _level_from_env("HEXE_LOG_SYSTEM_LEVEL", "INFO"),
                 "propagate": False,

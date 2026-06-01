@@ -22,7 +22,7 @@ class DesiredInstallSource(BaseModel):
 
 class DesiredRuntime(BaseModel):
     project_name: str
-    network: str = "synthia_net"
+    network: str = "hexe_net"
     ports: list[dict] = Field(default_factory=list)
     bind_localhost: bool = True
     cpu: float | None = Field(default=None, gt=0)

@@ -37,8 +37,8 @@ from .models import (
 _SERVICE_UNITS: Dict[str, str] = {
     "backend": "synthia-backend.service",
     "frontend": "synthia-frontend-dev.service",
-    "updater": "synthia-updater.service",
-    "supervisor": "synthia-supervisor.service",
+    "updater": "hexe-updater.service",
+    "supervisor": "hexe-supervisor.service",
 }
 
 
