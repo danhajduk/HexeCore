@@ -9,19 +9,34 @@ DEFAULT_CORE_INSTALL_DIR="$HOME/hexe/hexe/core"
 DEFAULT_SUPERVISOR_INSTALL_DIR="$HOME/hexe/hexe/supervisor"
 START_SERVICES=true
 REFRESH_REPO=false
-INSTALL_MODE="${HEXE_SUPERVISOR_INSTALL_MODE:-}"
-SUPERVISOR_SOCKET="${HEXE_SUPERVISOR_SOCKET:-/run/hexe/supervisor.sock}"
-CORE_URL="${HEXE_SUPERVISOR_CORE_URL:-${HEXE_CORE_URL:-}}"
-CORE_TOKEN="${HEXE_SUPERVISOR_CORE_TOKEN:-${HEXE_ADMIN_TOKEN:-}}"
-CORE_TOKEN_KIND="${HEXE_SUPERVISOR_CORE_TOKEN_KIND:-}"
-ENROLLMENT_TOKEN="${HEXE_SUPERVISOR_ENROLLMENT_TOKEN:-}"
+
+hexe_env() {
+  local name="$1"
+  local default="${2:-}"
+  local legacy="SYNTHIA_${name#HEXE_}"
+  local value="${!name:-}"
+  if [[ -n "$value" ]]; then
+    printf "%s" "$value"
+  elif [[ -n "${!legacy:-}" ]]; then
+    printf "%s" "${!legacy}"
+  else
+    printf "%s" "$default"
+  fi
+}
+
+INSTALL_MODE="$(hexe_env HEXE_SUPERVISOR_INSTALL_MODE)"
+SUPERVISOR_SOCKET="$(hexe_env HEXE_SUPERVISOR_SOCKET "/run/hexe/supervisor.sock")"
+CORE_URL="$(hexe_env HEXE_SUPERVISOR_CORE_URL "$(hexe_env HEXE_CORE_URL)")"
+CORE_TOKEN="$(hexe_env HEXE_SUPERVISOR_CORE_TOKEN "$(hexe_env HEXE_ADMIN_TOKEN)")"
+CORE_TOKEN_KIND="$(hexe_env HEXE_SUPERVISOR_CORE_TOKEN_KIND)"
+ENROLLMENT_TOKEN="$(hexe_env HEXE_SUPERVISOR_ENROLLMENT_TOKEN)"
 CORE_URL_ARG=false
 CORE_TOKEN_ARG=false
 ENROLLMENT_TOKEN_ARG=false
-SUPERVISOR_ID="${HEXE_SUPERVISOR_ID:-}"
-SUPERVISOR_NAME="${HEXE_SUPERVISOR_NAME:-}"
-SUPERVISOR_PUBLIC_URL="${HEXE_SUPERVISOR_PUBLIC_URL:-}"
-REPORT_INTERVAL_S="${HEXE_SUPERVISOR_REPORT_INTERVAL_S:-15}"
+SUPERVISOR_ID="$(hexe_env HEXE_SUPERVISOR_ID)"
+SUPERVISOR_NAME="$(hexe_env HEXE_SUPERVISOR_NAME)"
+SUPERVISOR_PUBLIC_URL="$(hexe_env HEXE_SUPERVISOR_PUBLIC_URL)"
+REPORT_INTERVAL_S="$(hexe_env HEXE_SUPERVISOR_REPORT_INTERVAL_S "15")"
 
 script_repo_dir() {
   local source_path="${BASH_SOURCE[0]:-${0:-}}"
@@ -184,24 +199,26 @@ load_existing_supervisor_env() {
   # shellcheck source=/dev/null
   source "$env_file"
 
-  if [[ -z "$INSTALL_MODE" && -n "${HEXE_SUPERVISOR_INSTALL_MODE:-}" ]]; then
-    INSTALL_MODE="$HEXE_SUPERVISOR_INSTALL_MODE"
+  if [[ -z "$INSTALL_MODE" ]]; then
+    INSTALL_MODE="$(hexe_env HEXE_SUPERVISOR_INSTALL_MODE)"
   fi
-  if [[ -z "$CORE_URL" && -n "${HEXE_SUPERVISOR_CORE_URL:-}" ]]; then
-    CORE_URL="$HEXE_SUPERVISOR_CORE_URL"
+  if [[ -z "$CORE_URL" ]]; then
+    CORE_URL="$(hexe_env HEXE_SUPERVISOR_CORE_URL)"
   fi
-  if [[ -z "$SUPERVISOR_ID" && -n "${HEXE_SUPERVISOR_ID:-}" ]]; then
-    SUPERVISOR_ID="$HEXE_SUPERVISOR_ID"
+  if [[ -z "$SUPERVISOR_ID" ]]; then
+    SUPERVISOR_ID="$(hexe_env HEXE_SUPERVISOR_ID)"
   fi
-  if [[ -z "$SUPERVISOR_NAME" && -n "${HEXE_SUPERVISOR_NAME:-}" ]]; then
-    SUPERVISOR_NAME="$HEXE_SUPERVISOR_NAME"
+  if [[ -z "$SUPERVISOR_NAME" ]]; then
+    SUPERVISOR_NAME="$(hexe_env HEXE_SUPERVISOR_NAME)"
   fi
-  if [[ -z "$SUPERVISOR_PUBLIC_URL" && -n "${HEXE_SUPERVISOR_PUBLIC_URL:-}" ]]; then
-    SUPERVISOR_PUBLIC_URL="$HEXE_SUPERVISOR_PUBLIC_URL"
+  if [[ -z "$SUPERVISOR_PUBLIC_URL" ]]; then
+    SUPERVISOR_PUBLIC_URL="$(hexe_env HEXE_SUPERVISOR_PUBLIC_URL)"
   fi
-  if [[ -z "$CORE_TOKEN" && -z "$ENROLLMENT_TOKEN" && -n "${HEXE_SUPERVISOR_CORE_TOKEN:-}" ]]; then
-    CORE_TOKEN="$HEXE_SUPERVISOR_CORE_TOKEN"
-    CORE_TOKEN_KIND="${HEXE_SUPERVISOR_CORE_TOKEN_KIND:-supervisor}"
+  if [[ -z "$CORE_TOKEN" && -z "$ENROLLMENT_TOKEN" ]]; then
+    CORE_TOKEN="$(hexe_env HEXE_SUPERVISOR_CORE_TOKEN)"
+    if [[ -n "$CORE_TOKEN" ]]; then
+      CORE_TOKEN_KIND="$(hexe_env HEXE_SUPERVISOR_CORE_TOKEN_KIND "supervisor")"
+    fi
   fi
 }
 

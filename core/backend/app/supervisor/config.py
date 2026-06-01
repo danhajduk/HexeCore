@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+from app.core.env import getenv
+
 
 DEFAULT_SUPERVISOR_BIND = "127.0.0.1"
 DEFAULT_SUPERVISOR_PORT = 57665
@@ -19,7 +21,7 @@ class SupervisorApiConfig:
 
 
 def _env_text(name: str, default: str) -> str:
-    raw = os.getenv(name)
+    raw = getenv(name)
     if raw is None:
         return default
     value = str(raw).strip()
@@ -27,7 +29,7 @@ def _env_text(name: str, default: str) -> str:
 
 
 def _env_port(name: str, default: int) -> int:
-    raw = os.getenv(name)
+    raw = getenv(name)
     if raw is None or not str(raw).strip():
         return default
     try:

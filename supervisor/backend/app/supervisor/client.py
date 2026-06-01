@@ -8,6 +8,8 @@ from typing import Any
 
 import httpx
 
+from app.core.env import getenv
+
 from .config import DEFAULT_SUPERVISOR_PORT, DEFAULT_SUPERVISOR_SOCKET
 from .models import SupervisorAdmissionContextSummary, SupervisorCoreRuntimeSummary, SupervisorRegisteredRuntimeSummary
 from .runtime_store import SupervisorRuntimeNodeRecord, SupervisorRuntimeNodesStore
@@ -20,12 +22,12 @@ def _utcnow_iso() -> str:
 
 
 def _env_text(name: str, default: str) -> str:
-    raw = os.getenv(name)
+    raw = getenv(name)
     return str(raw).strip() if raw is not None else default
 
 
 def _env_float(name: str, default: float) -> float:
-    raw = os.getenv(name)
+    raw = getenv(name)
     try:
         return float(raw) if raw is not None else default
     except (TypeError, ValueError):

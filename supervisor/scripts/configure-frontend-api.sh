@@ -12,8 +12,22 @@ fi
 
 FRONTEND_DIR="$REPO_DIR/frontend"
 
-BACKEND_HOST="${HEXE_BACKEND_HOST:-}"
-BACKEND_PORT="${HEXE_BACKEND_PORT:-9001}"
+hexe_env() {
+  local name="$1"
+  local default="${2:-}"
+  local legacy="SYNTHIA_${name#HEXE_}"
+  local value="${!name:-}"
+  if [[ -n "$value" ]]; then
+    printf "%s" "$value"
+  elif [[ -n "${!legacy:-}" ]]; then
+    printf "%s" "${!legacy}"
+  else
+    printf "%s" "$default"
+  fi
+}
+
+BACKEND_HOST="$(hexe_env HEXE_BACKEND_HOST)"
+BACKEND_PORT="$(hexe_env HEXE_BACKEND_PORT "9001")"
 
 resolve_host() {
   local host="$1"

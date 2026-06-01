@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING, Any
 from fastapi import APIRouter, Header, HTTPException, Request, Response
 from pydantic import BaseModel
 
+from app.core.env import getenv
+
 router = APIRouter()
 
 if TYPE_CHECKING:
@@ -19,6 +21,7 @@ if TYPE_CHECKING:
 
 LOG_FILE = Path("/tmp/hexe_update.log")
 ADMIN_SESSION_COOKIE = "hexe_admin_session"
+LEGACY_ADMIN_SESSION_COOKIE = "synthia_admin_session"
 DEFAULT_SESSION_TTL_SECONDS = 8 * 60 * 60
 _users_store: "UsersStore | None" = None
 
@@ -38,16 +41,16 @@ def configure_admin_users_store(store: "UsersStore | None") -> None:
 
 
 def _admin_token_expected() -> str:
-    return os.getenv("HEXE_ADMIN_TOKEN", "")
+    return getenv("HEXE_ADMIN_TOKEN", "") or ""
 
 
 def _cookie_secure() -> bool:
-    raw = os.getenv("HEXE_ADMIN_COOKIE_SECURE", "").strip().lower()
+    raw = (getenv("HEXE_ADMIN_COOKIE_SECURE", "") or "").strip().lower()
     return raw in {"1", "true", "yes", "on"}
 
 
 def _session_ttl_seconds() -> int:
-    raw = os.getenv("HEXE_ADMIN_SESSION_TTL_SECONDS", "").strip()
+    raw = (getenv("HEXE_ADMIN_SESSION_TTL_SECONDS", "") or "").strip()
     try:
         parsed = int(raw) if raw else DEFAULT_SESSION_TTL_SECONDS
     except Exception:
@@ -56,7 +59,7 @@ def _session_ttl_seconds() -> int:
 
 
 def _session_secret(expected_token: str) -> str:
-    configured = os.getenv("HEXE_ADMIN_SESSION_SECRET", "")
+    configured = getenv("HEXE_ADMIN_SESSION_SECRET", "") or ""
     if configured:
         return configured
     if expected_token:
@@ -102,7 +105,7 @@ def require_admin_token(x_admin_token: str | None, request: Request | None = Non
     if expected and x_admin_token and x_admin_token == expected:
         return
     if request is not None:
-        cookie = request.cookies.get(ADMIN_SESSION_COOKIE)
+        cookie = request.cookies.get(ADMIN_SESSION_COOKIE) or request.cookies.get(LEGACY_ADMIN_SESSION_COOKIE)
         if _is_valid_session_cookie(cookie, expected_token=expected):
             return
     raise HTTPException(status_code=401, detail="Unauthorized")
@@ -115,7 +118,7 @@ def is_admin_request_authenticated(request: Any) -> bool:
     header_token = str(headers.get("x-admin-token", "") or "").strip()
     if expected and header_token and header_token == expected:
         return True
-    cookie = cookies.get(ADMIN_SESSION_COOKIE)
+    cookie = cookies.get(ADMIN_SESSION_COOKIE) or cookies.get(LEGACY_ADMIN_SESSION_COOKIE)
     return _is_valid_session_cookie(cookie, expected_token=expected)
 
 

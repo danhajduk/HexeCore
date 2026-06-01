@@ -60,6 +60,12 @@ class TestAdminSessionAuth(unittest.TestCase):
         login = self.client.post("/api/admin/session/login", json={"token": "wrong"})
         self.assertEqual(login.status_code, 401, login.text)
 
+    def test_login_accepts_legacy_synthia_admin_token(self) -> None:
+        with patch.dict(os.environ, {"SYNTHIA_ADMIN_TOKEN": "legacy-token"}, clear=True):
+            login = self.client.post("/api/admin/session/login", json={"token": "legacy-token"})
+        self.assertEqual(login.status_code, 200, login.text)
+        self.assertTrue(login.json()["authenticated"])
+
 
 if __name__ == "__main__":
     unittest.main()

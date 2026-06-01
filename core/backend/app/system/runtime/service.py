@@ -9,6 +9,7 @@ from urllib import error as urlerror
 from urllib import request as urlrequest
 
 from app.addons.discovery import repo_root
+from app.core.env import getenv
 
 from .models import StandaloneAddonRuntime, StandaloneAddonRuntimeSnapshot
 
@@ -27,7 +28,7 @@ def _resolve_from_backend_dir(raw_path: str) -> Path:
 
 
 def _hexe_addons_dir() -> Path:
-    raw = os.environ.get("HEXE_ADDONS_DIR")
+    raw = getenv("HEXE_ADDONS_DIR")
     if raw is None or not raw.strip():
         return (repo_root().parent / "HexeAddons").resolve()
     return _resolve_from_backend_dir(raw.strip())
@@ -75,7 +76,7 @@ def _default_command_runner(cmd: list[str]) -> tuple[int, str, str] | None:
 
 
 def _env_flag(name: str, default: bool) -> bool:
-    raw = os.environ.get(name)
+    raw = getenv(name)
     if raw is None:
         return default
     normalized = raw.strip().lower()
@@ -87,7 +88,7 @@ def _env_flag(name: str, default: bool) -> bool:
 
 
 def _env_float(name: str, default: float) -> float:
-    raw = os.environ.get(name)
+    raw = getenv(name)
     if raw is None or not raw.strip():
         return default
     try:

@@ -78,6 +78,16 @@ Metadata requirements for managed resources:
 - Docker-managed services must expose `container_name` or `container_id`.
 - Node-provided app health remains useful, but CPU and memory should be treated as Supervisor-owned when the process/container is local to the Supervisor host.
 
+## Legacy Configuration Compatibility
+
+Status: Implemented
+
+- `HEXE_*` environment variables are canonical for Core, Supervisor, runtime, MQTT, admin, and addon path configuration.
+- At process startup, any `SYNTHIA_*` environment variable is copied to the matching `HEXE_*` name only when that `HEXE_*` value is absent.
+- Runtime helpers that read configuration dynamically also check the legacy `SYNTHIA_*` alias when the `HEXE_*` name is missing.
+- Browser settings now write `hexe_api_base` and `hexe_theme`, but read and migrate existing `synthia_api_base` and `synthia_theme` values.
+- The shared addon stylesheet is served at `/styles/hexe-core.css`; `/styles/synthia-core.css` remains as a compatibility shim that imports the Hexe stylesheet.
+
 ## Aux Container Heartbeats
 
 Status: Implemented

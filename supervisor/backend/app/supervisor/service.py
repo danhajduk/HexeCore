@@ -14,6 +14,7 @@ import httpx
 from fastapi import HTTPException
 
 from app.system.onboarding import NodeRegistrationsStore
+from app.core.env import getenv
 from app.system.runtime import StandaloneRuntimeService
 from app.system.stats.models import SystemStats, SystemStatsSnapshot
 from app.system.stats.service import collect_process_stats, collect_system_snapshot, collect_system_stats
@@ -74,7 +75,7 @@ class SupervisorDomainService:
         self._bluetooth_power_error: str | None = None
 
     def _runtime_provider(self) -> str:
-        return str(os.getenv("HEXE_MQTT_RUNTIME_PROVIDER", "docker")).strip().lower() or "docker"
+        return str(getenv("HEXE_MQTT_RUNTIME_PROVIDER", "docker")).strip().lower() or "docker"
 
     def _host_identity(self) -> HostIdentitySummary:
         hostname = socket.gethostname()
@@ -85,11 +86,11 @@ class SupervisorDomainService:
         )
 
     def _supervisor_id(self) -> str:
-        configured = str(os.getenv("HEXE_SUPERVISOR_ID") or "").strip()
+        configured = str(getenv("HEXE_SUPERVISOR_ID") or "").strip()
         return configured or self._host_identity().host_id
 
     def _env_bool(self, name: str, default: bool) -> bool:
-        raw = str(os.getenv(name, "")).strip().lower()
+        raw = str(getenv(name, "")).strip().lower()
         if not raw:
             return default
         return raw in {"1", "true", "yes", "on"}
@@ -146,7 +147,7 @@ class SupervisorDomainService:
             return
         now = time.time()
         retry_s = 60.0
-        raw_retry = str(os.getenv("HEXE_BLUETOOTH_POWER_RETRY_S", "")).strip()
+        raw_retry = str(getenv("HEXE_BLUETOOTH_POWER_RETRY_S", "")).strip()
         if raw_retry:
             try:
                 retry_s = max(5.0, float(raw_retry))
@@ -242,8 +243,8 @@ class SupervisorDomainService:
         }
 
     def _internet_summary(self) -> dict[str, Any]:
-        host = str(os.getenv("HEXE_SUPERVISOR_INTERNET_CHECK_HOST", "1.1.1.1")).strip() or "1.1.1.1"
-        raw_port = str(os.getenv("HEXE_SUPERVISOR_INTERNET_CHECK_PORT", "53")).strip()
+        host = str(getenv("HEXE_SUPERVISOR_INTERNET_CHECK_HOST", "1.1.1.1")).strip() or "1.1.1.1"
+        raw_port = str(getenv("HEXE_SUPERVISOR_INTERNET_CHECK_PORT", "53")).strip()
         try:
             port = int(raw_port)
         except Exception:
@@ -375,7 +376,7 @@ class SupervisorDomainService:
         ]
 
     def _runtime_stale_after_s(self) -> int:
-        raw = str(os.getenv("HEXE_SUPERVISOR_NODE_HEARTBEAT_STALE_S", "60")).strip()
+        raw = str(getenv("HEXE_SUPERVISOR_NODE_HEARTBEAT_STALE_S", "60")).strip()
         try:
             parsed = int(raw)
         except Exception:
@@ -383,7 +384,7 @@ class SupervisorDomainService:
         return max(1, parsed)
 
     def _runtime_offline_after_s(self) -> int:
-        raw = str(os.getenv("HEXE_SUPERVISOR_NODE_HEARTBEAT_OFFLINE_S", "180")).strip()
+        raw = str(getenv("HEXE_SUPERVISOR_NODE_HEARTBEAT_OFFLINE_S", "180")).strip()
         try:
             parsed = int(raw)
         except Exception:
@@ -497,7 +498,7 @@ class SupervisorDomainService:
         )
 
     def _node_service_action_timeout_s(self) -> float:
-        raw = str(os.getenv("HEXE_SUPERVISOR_NODE_SERVICE_ACTION_TIMEOUT_S", "30")).strip()
+        raw = str(getenv("HEXE_SUPERVISOR_NODE_SERVICE_ACTION_TIMEOUT_S", "30")).strip()
         try:
             parsed = float(raw)
         except Exception:
@@ -688,7 +689,7 @@ class SupervisorDomainService:
             return
 
     def _core_runtime_heartbeat_interval_s(self) -> float:
-        raw = str(os.getenv("HEXE_SUPERVISOR_CORE_HEARTBEAT_S", "5")).strip()
+        raw = str(getenv("HEXE_SUPERVISOR_CORE_HEARTBEAT_S", "5")).strip()
         try:
             parsed = float(raw)
         except Exception:
@@ -696,7 +697,7 @@ class SupervisorDomainService:
         return max(1.0, parsed)
 
     def _core_runtime_stale_after_s(self) -> float:
-        raw = str(os.getenv("HEXE_SUPERVISOR_CORE_HEARTBEAT_STALE_S", "")).strip()
+        raw = str(getenv("HEXE_SUPERVISOR_CORE_HEARTBEAT_STALE_S", "")).strip()
         if raw:
             try:
                 parsed = float(raw)
@@ -706,7 +707,7 @@ class SupervisorDomainService:
         return max(1.0, self._core_runtime_heartbeat_interval_s() * 2)
 
     def _core_runtime_offline_after_s(self) -> float:
-        raw = str(os.getenv("HEXE_SUPERVISOR_CORE_HEARTBEAT_OFFLINE_S", "")).strip()
+        raw = str(getenv("HEXE_SUPERVISOR_CORE_HEARTBEAT_OFFLINE_S", "")).strip()
         if raw:
             try:
                 parsed = float(raw)
@@ -1119,7 +1120,7 @@ class SupervisorDomainService:
         return dict(self._boot_loop_status)
 
     def _boot_step_timeout_s(self) -> float:
-        raw = str(os.getenv("HEXE_SUPERVISOR_BOOT_STEP_TIMEOUT_S", "60")).strip()
+        raw = str(getenv("HEXE_SUPERVISOR_BOOT_STEP_TIMEOUT_S", "60")).strip()
         try:
             parsed = float(raw)
         except Exception:
@@ -1127,7 +1128,7 @@ class SupervisorDomainService:
         return max(5.0, parsed)
 
     def _boot_poll_s(self) -> float:
-        raw = str(os.getenv("HEXE_SUPERVISOR_BOOT_POLL_S", "2")).strip()
+        raw = str(getenv("HEXE_SUPERVISOR_BOOT_POLL_S", "2")).strip()
         try:
             parsed = float(raw)
         except Exception:
@@ -1438,7 +1439,7 @@ class SupervisorDomainService:
         return datetime.now(timezone.utc).isoformat()
 
     def _boot_log_path(self) -> Path:
-        raw = str(os.getenv("HEXE_SUPERVISOR_BOOT_LOG", "var/supervisor/boot.log")).strip()
+        raw = str(getenv("HEXE_SUPERVISOR_BOOT_LOG", "var/supervisor/boot.log")).strip()
         return Path(raw or "var/supervisor/boot.log")
 
     def _append_boot_log(self, event: str, *, context: dict[str, Any] | None = None) -> None:
@@ -1582,22 +1583,22 @@ class SupervisorDomainService:
         return self._action_result("restart", node_id)
 
     def _cloudflared_runtime_root(self) -> Path:
-        return Path(os.getenv("HEXE_EDGE_RUNTIME_DIR", Path(os.getcwd()) / "var" / "edge" / "cloudflared"))
+        return Path(getenv("HEXE_EDGE_RUNTIME_DIR", Path(os.getcwd()) / "var" / "edge" / "cloudflared"))
 
     def _cloudflared_provider(self) -> str:
-        provider = str(os.getenv("HEXE_CLOUDFLARED_PROVIDER", "auto")).strip().lower() or "auto"
+        provider = str(getenv("HEXE_CLOUDFLARED_PROVIDER", "auto")).strip().lower() or "auto"
         if provider in {"disabled", "docker", "binary"}:
             return provider
         return "auto"
 
     def _cloudflared_container_name(self) -> str:
-        return str(os.getenv("HEXE_CLOUDFLARED_CONTAINER_NAME", "hexe-cloudflared")).strip() or "hexe-cloudflared"
+        return str(getenv("HEXE_CLOUDFLARED_CONTAINER_NAME", "hexe-cloudflared")).strip() or "hexe-cloudflared"
 
     def _cloudflared_image(self) -> str:
-        return str(os.getenv("HEXE_CLOUDFLARED_IMAGE", "cloudflare/cloudflared:latest")).strip() or "cloudflare/cloudflared:latest"
+        return str(getenv("HEXE_CLOUDFLARED_IMAGE", "cloudflare/cloudflared:latest")).strip() or "cloudflare/cloudflared:latest"
 
     def _cloudflared_restart_policy(self) -> str:
-        policy = str(os.getenv("HEXE_CLOUDFLARED_RESTART_POLICY", "unless-stopped")).strip().lower()
+        policy = str(getenv("HEXE_CLOUDFLARED_RESTART_POLICY", "unless-stopped")).strip().lower()
         return policy if policy in {"no", "on-failure", "always", "unless-stopped"} else "unless-stopped"
 
     def _cloudflared_log_path(self) -> Path:

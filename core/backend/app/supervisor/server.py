@@ -16,6 +16,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
+from app.core.env import getenv
 from app.system.runtime import StandaloneRuntimeService
 
 from .config import supervisor_api_config
@@ -27,12 +28,12 @@ log = logging.getLogger(__name__)
 
 
 def _env_text(name: str, default: str = "") -> str:
-    raw = os.getenv(name)
+    raw = getenv(name)
     return str(raw).strip() if raw is not None else default
 
 
 def _env_bool(name: str, default: bool) -> bool:
-    raw = str(os.getenv(name, "")).strip().lower()
+    raw = str(getenv(name, "") or "").strip().lower()
     if not raw:
         return default
     return raw in {"1", "true", "yes", "on"}
@@ -46,7 +47,7 @@ def _env_list(name: str, default: list[str]) -> list[str]:
 
 
 def _env_float(name: str, default: float) -> float:
-    raw = str(os.getenv(name, "")).strip()
+    raw = str(getenv(name, "") or "").strip()
     try:
         return float(raw) if raw else default
     except Exception:
@@ -448,8 +449,8 @@ def _init_boot_log(path: str) -> None:
 
 def run() -> None:
     config = supervisor_api_config()
-    log_level = str(os.getenv("HEXE_SUPERVISOR_LOG_LEVEL", "INFO")).strip().lower() or "info"
-    boot_log_path = str(os.getenv("HEXE_SUPERVISOR_BOOT_LOG", "var/supervisor/boot.log")).strip() or "var/supervisor/boot.log"
+    log_level = str(getenv("HEXE_SUPERVISOR_LOG_LEVEL", "INFO") or "INFO").strip().lower() or "info"
+    boot_log_path = str(getenv("HEXE_SUPERVISOR_BOOT_LOG", "var/supervisor/boot.log") or "var/supervisor/boot.log").strip() or "var/supervisor/boot.log"
     try:
         _init_boot_log(boot_log_path)
     except Exception:

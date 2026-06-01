@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import "./admin-reload-card.css";
-import { LS_API_BASE_KEY, defaultApiBase } from "./localKeys";
+import { getStoredApiBase, setStoredApiBase } from "./localKeys";
 
 type ReloadStartResponse = { started: boolean; unit?: string; log?: string };
 type ReloadStatusResponse = { exists: boolean; tail: string };
 
 export default function AdminReloadCard() {
-  const [apiBase, setApiBase] = useState<string>(() => localStorage.getItem(LS_API_BASE_KEY) || defaultApiBase());
+  const [apiBase, setApiBase] = useState<string>(() => getStoredApiBase());
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [tail, setTail] = useState<string>("");
@@ -14,7 +14,7 @@ export default function AdminReloadCard() {
   const pollTimer = useRef<number | null>(null);
 
   useEffect(() => {
-    localStorage.setItem(LS_API_BASE_KEY, apiBase);
+    setStoredApiBase(apiBase);
   }, [apiBase]);
 
   function stopPolling() {

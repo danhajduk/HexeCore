@@ -29,6 +29,12 @@ class TestStoreStandalonePaths(unittest.TestCase):
         self.assertEqual(path.name, "CustomAddons")
         self.assertTrue(path.is_absolute())
 
+    def test_legacy_synthia_addons_dir_resolves_from_backend_dir(self) -> None:
+        with patch.dict(os.environ, {"SYNTHIA_ADDONS_DIR": "../LegacyAddons"}, clear=True):
+            path = hexe_addons_dir()
+        self.assertEqual(path.name, "LegacyAddons")
+        self.assertTrue(path.is_absolute())
+
     def test_helpers_create_directories_lazily(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             base = Path(tmpdir) / "addons"

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import "./admin-reload-card.css";
-import { LS_API_BASE_KEY, defaultApiBase } from "./localKeys";
+import { getStoredApiBase, setStoredApiBase } from "./localKeys";
 
 type RegisteredAddon = {
   id: string;
@@ -15,7 +15,7 @@ type RegisteredAddon = {
 };
 
 export default function RegistryAdminCard() {
-  const [apiBase, setApiBase] = useState<string>(() => localStorage.getItem(LS_API_BASE_KEY) || defaultApiBase());
+  const [apiBase, setApiBase] = useState<string>(() => getStoredApiBase());
   const [items, setItems] = useState<RegisteredAddon[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -28,7 +28,7 @@ export default function RegistryAdminCard() {
   const [authMode, setAuthMode] = useState("none");
 
   useEffect(() => {
-    localStorage.setItem(LS_API_BASE_KEY, apiBase);
+    setStoredApiBase(apiBase);
   }, [apiBase]);
 
   const jsonHeaders: Record<string, string> = { "Content-Type": "application/json" };

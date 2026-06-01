@@ -3,14 +3,33 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
+import os
 
 import httpx
 
-from app.supervisor.client import SupervisorApiClient, SupervisorClientConfig
+from app.supervisor.client import SupervisorApiClient, SupervisorClientConfig, supervisor_client_config
 from app.supervisor.runtime_store import SupervisorRuntimeNodesStore
 
 
 class TestSupervisorApiClient(unittest.TestCase):
+    def test_supervisor_client_config_accepts_legacy_synthia_env(self) -> None:
+        with patch.dict(
+            os.environ,
+            {
+                "SYNTHIA_SUPERVISOR_API_TRANSPORT": "http",
+                "SYNTHIA_SUPERVISOR_API_BASE_URL": "10.0.0.55:57665",
+                "SYNTHIA_SUPERVISOR_API_SOCKET": "/tmp/legacy-supervisor.sock",
+                "SYNTHIA_SUPERVISOR_API_TIMEOUT_S": "7.5",
+            },
+            clear=True,
+        ):
+            config = supervisor_client_config()
+        self.assertEqual(config.transport, "http")
+        self.assertEqual(config.base_url, "http://10.0.0.55:57665")
+        self.assertEqual(config.unix_socket, "/tmp/legacy-supervisor.sock")
+        self.assertEqual(config.timeout_s, 7.5)
+
     def test_supervisor_client_requests(self) -> None:
         def handler(request: httpx.Request) -> httpx.Response:
             if request.url.path == "/api/supervisor/admission":

@@ -11,7 +11,21 @@ if [[ -f "$ENV_FILE" ]]; then
   set +a
 fi
 
-CORE_URL="${HEXE_CORE_URL:-http://127.0.0.1:9001}"
+hexe_env() {
+  local name="$1"
+  local default="${2:-}"
+  local legacy="SYNTHIA_${name#HEXE_}"
+  local value="${!name:-}"
+  if [[ -n "$value" ]]; then
+    printf "%s" "$value"
+  elif [[ -n "${!legacy:-}" ]]; then
+    printf "%s" "${!legacy}"
+  else
+    printf "%s" "$default"
+  fi
+}
+
+CORE_URL="$(hexe_env HEXE_CORE_URL "http://127.0.0.1:9001")"
 ADMIN_TOKEN_OVERRIDE=""
 FORCE_LOCAL=false
 ADDON_ID=""
@@ -64,7 +78,7 @@ if [[ -z "$ADDON_ID" ]]; then
   exit 1
 fi
 
-ADMIN_TOKEN="${ADMIN_TOKEN_OVERRIDE:-${HEXE_ADMIN_TOKEN:-}}"
+ADMIN_TOKEN="${ADMIN_TOKEN_OVERRIDE:-$(hexe_env HEXE_ADMIN_TOKEN)}"
 COOKIE_JAR="/tmp/hexe_uninstall_cookie_$$.txt"
 trap 'rm -f "$COOKIE_JAR"' EXIT
 
@@ -101,8 +115,12 @@ attempt_uninstall_with_token() {
 
 attempt_uninstall_with_session() {
   local login_payload
-  if [[ -n "${HEXE_ADMIN_USERNAME:-}" && -n "${HEXE_ADMIN_PASSWORD:-}" ]]; then
-    login_payload="{\"username\":\"${HEXE_ADMIN_USERNAME}\",\"password\":\"${HEXE_ADMIN_PASSWORD}\"}"
+  local admin_username
+  local admin_password
+  admin_username="$(hexe_env HEXE_ADMIN_USERNAME)"
+  admin_password="$(hexe_env HEXE_ADMIN_PASSWORD)"
+  if [[ -n "$admin_username" && -n "$admin_password" ]]; then
+    login_payload="{\"username\":\"${admin_username}\",\"password\":\"${admin_password}\"}"
   elif [[ -n "$ADMIN_TOKEN" ]]; then
     login_payload="{\"token\":\"${ADMIN_TOKEN}\"}"
   else
@@ -134,7 +152,8 @@ attempt_uninstall_with_session() {
 }
 
 resolve_addons_dir() {
-  local raw="${HEXE_ADDONS_DIR:-../HexeAddons}"
+  local raw
+  raw="$(hexe_env HEXE_ADDONS_DIR "../HexeAddons")"
   if [[ "$raw" = /* ]]; then
     realpath -m "$raw"
   else

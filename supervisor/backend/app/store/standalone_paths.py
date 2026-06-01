@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 from app.addons.discovery import repo_root
+from app.core.env import getenv
 
 DEFAULT_ADDONS_DIR_NAME = "HexeAddons"
 
@@ -29,7 +30,7 @@ def _validate_segment(name: str, value: str) -> str:
 
 
 def hexe_addons_dir() -> Path:
-    raw = os.environ.get("HEXE_ADDONS_DIR")
+    raw = getenv("HEXE_ADDONS_DIR")
     if raw is None or not raw.strip():
         return (repo_root().parent / DEFAULT_ADDONS_DIR_NAME).resolve()
     return _resolve_from_backend_dir(raw.strip())

@@ -9,6 +9,8 @@ from pathlib import Path
 from threading import RLock
 from typing import Any
 
+from app.core.env import getenv
+
 
 SUPERVISOR_RESOURCE_HISTORY_SCHEMA_VERSION = "1"
 DEFAULT_RESOURCE_HISTORY_RETENTION_SECONDS = 3 * 24 * 60 * 60
@@ -126,9 +128,9 @@ class SupervisorResourceHistoryStore:
         *,
         retention_seconds: int | None = None,
     ) -> None:
-        configured_path = str(os.getenv("HEXE_SUPERVISOR_RESOURCE_HISTORY_PATH", "")).strip()
+        configured_path = str(getenv("HEXE_SUPERVISOR_RESOURCE_HISTORY_PATH", "") or "").strip()
         self._path = path or Path(configured_path) if configured_path else path or (_repo_root() / "data" / "supervisor_resource_history.sqlite3")
-        raw_retention = os.getenv("HEXE_SUPERVISOR_RESOURCE_HISTORY_RETENTION") or os.getenv(
+        raw_retention = getenv("HEXE_SUPERVISOR_RESOURCE_HISTORY_RETENTION") or getenv(
             "HEXE_SUPERVISOR_RESOURCE_HISTORY_RETENTION_SECONDS"
         )
         self.retention_seconds = int(

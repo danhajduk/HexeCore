@@ -10,6 +10,20 @@ if [[ -f "$ENV_FILE" ]]; then
   set +a
 fi
 
+hexe_env() {
+  local name="$1"
+  local default="${2:-}"
+  local legacy="SYNTHIA_${name#HEXE_}"
+  local value="${!name:-}"
+  if [[ -n "$value" ]]; then
+    printf "%s" "$value"
+  elif [[ -n "${!legacy:-}" ]]; then
+    printf "%s" "${!legacy}"
+  else
+    printf "%s" "$default"
+  fi
+}
+
 LOG_FILE="${LOG_FILE:-/tmp/hexe_update.log}"
 SERVICE_UPDATE=false
 PLATFORM_NAME="${PLATFORM_NAME:-Hexe AI}"
@@ -39,7 +53,7 @@ echo "[update] repo=$REPO_DIR"
 
 cd "$REPO_DIR"
 
-RAW_ADDONS_DIR="${HEXE_ADDONS_DIR:-../HexeAddons}"
+RAW_ADDONS_DIR="$(hexe_env HEXE_ADDONS_DIR "../HexeAddons")"
 if [[ "$RAW_ADDONS_DIR" = /* ]]; then
   RESOLVED_ADDONS_DIR="$(realpath -m "$RAW_ADDONS_DIR")"
 else

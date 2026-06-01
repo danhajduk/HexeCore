@@ -46,6 +46,11 @@ Admin session behavior is configured by:
 - `HEXE_ADMIN_SESSION_SECRET`
   Optional explicit signing secret for admin session cookies.
 
+Compatibility:
+
+- `SYNTHIA_*` environment variables are read as legacy aliases when the matching `HEXE_*` variable is not set. New configuration should use `HEXE_*`.
+- Existing `synthia_admin_session` cookies are accepted for the same signed admin-session payload, but new logins issue `hexe_admin_session`.
+
 Implemented admin session routes:
 
 - `POST /api/admin/session/login`
