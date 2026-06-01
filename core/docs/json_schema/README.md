@@ -31,6 +31,7 @@ This folder contains Core-owned JSON schema documents for the Hexe platform.
   - `supervisor.api.schema.json`
   - `supervisor.runtime-nodes.schema.json`
   - `supervisor.core-runtimes.schema.json`
+  - `supervisor.resource-history.schema.json`
   - `scheduler.models.schema.json`
   - `runtime.models.schema.json`
   - `stats.models.schema.json`
