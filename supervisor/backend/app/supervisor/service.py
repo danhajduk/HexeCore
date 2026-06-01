@@ -534,6 +534,93 @@ class SupervisorDomainService:
             metadata["resource_observer_error"] = str(exc) or type(exc).__name__
             return usage, metadata
 
+    def _resource_metric_view(self, entry: dict[str, object] | None) -> dict[str, object]:
+        if not isinstance(entry, dict):
+            return {}
+        keys = {
+            "pid",
+            "running",
+            "cpu_percent",
+            "mem_percent",
+            "rss_bytes",
+            "process_status",
+            "container_name",
+            "container_id",
+            "resource_source",
+            "sampled_at",
+            "last_error",
+        }
+        return {key: value for key, value in entry.items() if key in keys and value is not None}
+
+    def _nested_resource_entries(self, runtime_metadata: dict[str, object] | None) -> list[tuple[str, str, dict[str, object]]]:
+        entries: list[tuple[str, str, dict[str, object]]] = []
+        if not isinstance(runtime_metadata, dict):
+            return entries
+        services = runtime_metadata.get("services")
+        if isinstance(services, list):
+            for item in services:
+                if not isinstance(item, dict):
+                    continue
+                service_id = str(item.get("service_id") or item.get("name") or item.get("service_name") or "").strip()
+                metrics = self._resource_metric_view(item)
+                if service_id and metrics:
+                    entries.append(("service", service_id, metrics))
+        elif isinstance(services, dict):
+            for key, item in services.items():
+                if not isinstance(item, dict):
+                    continue
+                service_id = str(item.get("service_id") or item.get("name") or item.get("service_name") or key or "").strip()
+                metrics = self._resource_metric_view(item)
+                if service_id and metrics:
+                    entries.append(("service", service_id, metrics))
+        containers = runtime_metadata.get("containers")
+        if isinstance(containers, list):
+            for item in containers:
+                if not isinstance(item, dict):
+                    continue
+                container_id = str(item.get("container_name") or item.get("container_id") or item.get("name") or "").strip()
+                metrics = self._resource_metric_view(item)
+                if container_id and metrics:
+                    entries.append(("container", container_id, metrics))
+        return entries
+
+    def _record_runtime_resource_sample(
+        self,
+        *,
+        scope: str,
+        resource_id: str,
+        resource_usage: dict[str, object],
+        runtime_metadata: dict[str, object],
+        metadata: dict[str, object],
+    ) -> None:
+        try:
+            metrics = self._resource_metric_view(resource_usage)
+            if metrics:
+                self._resource_history_store.insert_sample(
+                    scope=scope,
+                    resource_id=resource_id,
+                    sampled_at=metrics.get("sampled_at") or self._now_iso(),
+                    metrics=metrics,
+                    metadata={**metadata, "resource_observer": "supervisor"},
+                )
+            for entry_kind, entry_id, entry_metrics in self._nested_resource_entries(runtime_metadata):
+                self._resource_history_store.insert_sample(
+                    scope=f"{scope}_{entry_kind}",
+                    resource_id=f"{resource_id}/{entry_id}",
+                    sampled_at=entry_metrics.get("sampled_at") or self._now_iso(),
+                    metrics=entry_metrics,
+                    metadata={
+                        **metadata,
+                        "resource_observer": "supervisor",
+                        "parent_scope": scope,
+                        "parent_resource_id": resource_id,
+                        "entry_kind": entry_kind,
+                        "entry_id": entry_id,
+                    },
+                )
+        except Exception:
+            return
+
     def _core_runtime_heartbeat_interval_s(self) -> float:
         raw = str(os.getenv("HEXE_SUPERVISOR_CORE_HEARTBEAT_S", "5")).strip()
         try:
@@ -581,6 +668,21 @@ class SupervisorDomainService:
     def _registered_runtime_summary(self, record: SupervisorRuntimeNodeRecord) -> SupervisorRegisteredRuntimeSummary:
         merged = merge_runtime_identity(record, self._node_registrations_store)
         resource_usage, runtime_metadata = self._observed_resource_view(merged.resource_usage, merged.runtime_metadata)
+        self._record_runtime_resource_sample(
+            scope="runtime",
+            resource_id=merged.node_id,
+            resource_usage=resource_usage,
+            runtime_metadata=runtime_metadata,
+            metadata={
+                "node_id": merged.node_id,
+                "node_name": merged.node_name,
+                "node_type": merged.node_type,
+                "runtime_kind": "real_node",
+                "runtime_state": merged.runtime_state,
+                "lifecycle_state": merged.lifecycle_state,
+                "health_status": merged.health_status,
+            },
+        )
         return SupervisorRegisteredRuntimeSummary(
             node_id=merged.node_id,
             node_name=merged.node_name,
@@ -698,6 +800,21 @@ class SupervisorDomainService:
 
     def _core_runtime_summary(self, record: SupervisorCoreRuntimeRecord) -> SupervisorCoreRuntimeSummary:
         resource_usage, runtime_metadata = self._observed_resource_view(record.resource_usage, record.runtime_metadata)
+        self._record_runtime_resource_sample(
+            scope="core_runtime",
+            resource_id=record.runtime_id,
+            resource_usage=resource_usage,
+            runtime_metadata=runtime_metadata,
+            metadata={
+                "runtime_id": record.runtime_id,
+                "runtime_name": record.runtime_name,
+                "runtime_kind": record.runtime_kind,
+                "management_mode": record.management_mode,
+                "runtime_state": record.runtime_state,
+                "lifecycle_state": record.lifecycle_state,
+                "health_status": record.health_status,
+            },
+        )
         return SupervisorCoreRuntimeSummary(
             runtime_id=record.runtime_id,
             runtime_name=record.runtime_name,
