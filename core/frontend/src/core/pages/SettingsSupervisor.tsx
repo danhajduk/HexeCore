@@ -112,6 +112,31 @@ type NodeServiceRow = {
   pid?: number;
 };
 
+type ResourceHistorySample = {
+  sampled_at?: string;
+  metrics?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+};
+
+type ResourceHistoryEvent = {
+  event_type?: string;
+  occurred_at?: string;
+  message?: string | null;
+  resource_id?: string;
+  payload?: Record<string, unknown>;
+};
+
+type SupervisorResourceHistory = {
+  scope?: string;
+  resource_id?: string;
+  range?: string;
+  step?: string | null;
+  samples?: ResourceHistorySample[];
+  events?: ResourceHistoryEvent[];
+  service_samples?: ResourceHistorySample[];
+  container_samples?: ResourceHistorySample[];
+};
+
 type SystemStats = {
   hostname: string;
   uptime_s: number;
@@ -318,6 +343,23 @@ function formatNumber(value: unknown, fallback = "-"): string {
 function numberValue(value: unknown): number | null {
   const parsed = typeof value === "number" ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function latestHistorySample(history?: SupervisorResourceHistory | null): ResourceHistorySample | null {
+  const samples = Array.isArray(history?.samples) ? history?.samples || [] : [];
+  return samples.length > 0 ? samples[samples.length - 1] : null;
+}
+
+function historyMetric(history: SupervisorResourceHistory | null | undefined, key: string): unknown {
+  return latestHistorySample(history)?.metrics?.[key];
+}
+
+function historySeries(history: SupervisorResourceHistory | null | undefined, key: string, limit = 24): number[] {
+  const samples = Array.isArray(history?.samples) ? history?.samples || [] : [];
+  return samples
+    .slice(-limit)
+    .map((sample) => numberValue(sample.metrics?.[key]))
+    .filter((value): value is number => value !== null);
 }
 
 function runtimeLabel(row: Record<string, unknown>): string {
@@ -625,6 +667,8 @@ export default function SettingsSupervisor() {
   const [loading, setLoading] = useState(false);
   const [actionBusy, setActionBusy] = useState<Record<string, string | null>>({});
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
+  const [hostHistory, setHostHistory] = useState<SupervisorResourceHistory | null>(null);
+  const [runtimeHistories, setRuntimeHistories] = useState<Record<string, SupervisorResourceHistory>>({});
 
   async function loadSummary() {
     setErr(null);
@@ -637,7 +681,8 @@ export default function SettingsSupervisor() {
         fetch("/api/system/stack/summary", { cache: "no-store" }),
       ]);
       if (!supervisorRes.ok) throw new Error(`HTTP ${supervisorRes.status}`);
-      setSummary((await supervisorRes.json()) as SupervisorSummary);
+      const supervisorPayload = (await supervisorRes.json()) as SupervisorSummary;
+      setSummary(supervisorPayload);
       if (fleetRes.ok) {
         const fleet = (await fleetRes.json()) as { items?: SupervisorFleetRecord[] };
         setSupervisors(Array.isArray(fleet.items) ? fleet.items : []);
@@ -646,12 +691,42 @@ export default function SettingsSupervisor() {
       }
       if (statsRes.ok) setStats((await statsRes.json()) as SystemStats);
       if (stackRes.ok) setStack((await stackRes.json()) as StackSummary);
+      try {
+        const hostHistoryRes = await fetch("/api/supervisor/resources/history?range=24h&step=60s", { cache: "no-store" });
+        setHostHistory(hostHistoryRes.ok ? ((await hostHistoryRes.json()) as SupervisorResourceHistory) : null);
+      } catch {
+        setHostHistory(null);
+      }
+      const runtimeItems = Array.isArray(supervisorPayload.runtimes) ? supervisorPayload.runtimes : [];
+      const runtimePairs = await Promise.all(
+        runtimeItems.slice(0, 8).map(async (runtime) => {
+          const nodeId = String(runtime.node_id || "").trim();
+          if (!nodeId) return null;
+          try {
+            const res = await fetch(`/api/supervisor/runtimes/${encodeURIComponent(nodeId)}/resources/history?range=24h&step=60s`, {
+              cache: "no-store",
+            });
+            if (!res.ok) return null;
+            return [nodeId, (await res.json()) as SupervisorResourceHistory] as const;
+          } catch {
+            return null;
+          }
+        }),
+      );
+      setRuntimeHistories(
+        runtimePairs.reduce<Record<string, SupervisorResourceHistory>>((acc, item) => {
+          if (item) acc[item[0]] = item[1];
+          return acc;
+        }, {}),
+      );
     } catch (e: any) {
       setErr(e?.message ?? String(e));
       setSummary(null);
       setSupervisors([]);
       setStats(null);
       setStack(null);
+      setHostHistory(null);
+      setRuntimeHistories({});
     } finally {
       setLoading(false);
     }
@@ -879,6 +954,8 @@ export default function SettingsSupervisor() {
           )}
         </div>
       </section>
+
+      <ResourceHistoryPanel hostHistory={hostHistory} runtimeHistories={runtimeHistories} nodeRuntimes={nodeRuntimes} />
 
       <section className="settings-section">
         <div className="settings-section-head">
@@ -1217,6 +1294,115 @@ export default function SettingsSupervisor() {
         </div>
       </section>
     </div>
+  );
+}
+
+function HistorySparkline({ values, label }: { values: number[]; label: string }) {
+  const max = Math.max(1, ...values);
+  return (
+    <div className="settings-history-sparkline" aria-label={label}>
+      {values.length === 0 ? (
+        <span className="settings-muted">-</span>
+      ) : (
+        values.map((value, index) => (
+          <span
+            className="settings-history-bar"
+            key={`${label}:${index}`}
+            style={{ height: `${Math.max(8, Math.min(100, (value / max) * 100))}%` }}
+            title={`${label}: ${value.toFixed(1)}`}
+          />
+        ))
+      )}
+    </div>
+  );
+}
+
+function ResourceHistoryPanel({
+  hostHistory,
+  runtimeHistories,
+  nodeRuntimes,
+}: {
+  hostHistory: SupervisorResourceHistory | null;
+  runtimeHistories: Record<string, SupervisorResourceHistory>;
+  nodeRuntimes: Array<Record<string, unknown>>;
+}) {
+  const runtimeRows = nodeRuntimes.reduce<
+    Array<{ nodeId: string; runtime: Record<string, unknown>; history?: SupervisorResourceHistory }>
+  >((acc, runtime) => {
+    const nodeId = String(runtime.node_id || "").trim();
+    if (nodeId) acc.push({ nodeId, runtime, history: runtimeHistories[nodeId] });
+    return acc;
+  }, []);
+  const hostEvents = Array.isArray(hostHistory?.events) ? hostHistory?.events || [] : [];
+  const runtimeEvents = runtimeRows.flatMap((row) =>
+    (row.history?.events || []).map((event) => ({ ...event, resource_id: row.nodeId })),
+  );
+  const events = [...hostEvents, ...runtimeEvents]
+    .sort((a, b) => String(b.occurred_at || "").localeCompare(String(a.occurred_at || "")))
+    .slice(0, 6);
+
+  return (
+    <section className="settings-section">
+      <div className="settings-section-head">
+        <h2>Resource History</h2>
+      </div>
+      <div className="settings-card settings-history-card">
+        {!hostHistory && runtimeRows.every((row) => !row.history) ? (
+          <div className="settings-help">No resource history samples recorded yet.</div>
+        ) : (
+          <>
+            <div className="settings-history-grid">
+              <div className="settings-history-panel">
+                <div className="settings-subtable-label">Host</div>
+                <div className="settings-history-kpis">
+                  <MetricRow label="CPU" value={formatPctValue(historyMetric(hostHistory, "cpu_percent_total"))} />
+                  <MetricRow label="Memory" value={formatPctValue(historyMetric(hostHistory, "memory_percent"))} />
+                  <MetricRow label="Swap" value={formatPctValue(historyMetric(hostHistory, "swap_percent"))} />
+                  <MetricRow label="VRAM" value={formatPctValue(historyMetric(hostHistory, "gpu_memory_percent"))} />
+                </div>
+                <HistorySparkline values={historySeries(hostHistory, "memory_percent")} label="host memory" />
+              </div>
+              <div className="settings-history-panel">
+                <div className="settings-subtable-label">Runtimes</div>
+                {runtimeRows.length === 0 ? (
+                  <div className="settings-help">No runtime history recorded yet.</div>
+                ) : (
+                  <div className="settings-history-runtime-list">
+                    {runtimeRows.slice(0, 6).map((row) => (
+                      <div className="settings-history-runtime" key={`history:${row.nodeId}`}>
+                        <div>
+                          <strong>{String(row.runtime.node_name || row.nodeId)}</strong>
+                          <div className="settings-muted settings-mono">{row.nodeId}</div>
+                        </div>
+                        <div className="settings-history-runtime-metrics">
+                          <span>{formatPctValue(historyMetric(row.history, "cpu_percent"))}</span>
+                          <span>{formatPctValue(historyMetric(row.history, "mem_percent"))}</span>
+                        </div>
+                        <HistorySparkline values={historySeries(row.history, "cpu_percent", 12)} label={`${row.nodeId} cpu`} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="settings-history-events">
+              <div className="settings-subtable-label">Timeline Markers</div>
+              {events.length === 0 ? (
+                <div className="settings-help">No lifecycle markers recorded yet.</div>
+              ) : (
+                events.map((event, index) => (
+                  <div className="settings-history-event" key={`${event.resource_id || "host"}:${event.occurred_at || index}`}>
+                    <span className="settings-mono">{formatDateTime(event.occurred_at)}</span>
+                    <strong>{displayState(event.event_type)}</strong>
+                    <span>{event.message || String(event.resource_id || "")}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </section>
   );
 }
 

@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
+import { Bluetooth, Globe2, Network, Wifi, type LucideIcon } from "lucide-react";
 import "./settings.css";
 import "./home.css";
 
@@ -15,6 +16,31 @@ type SupervisorHostResources = {
   root_disk_total_bytes?: number | null;
   root_disk_free_bytes?: number | null;
   root_disk_percent?: number | null;
+  gpu_count?: number;
+  gpu_utilization_percent?: number | null;
+  gpu_memory_percent?: number | null;
+  gpu_devices?: Array<Record<string, unknown>>;
+  cuda_available?: boolean;
+  cuda_version?: string | null;
+  bluetooth_present?: boolean;
+  bluetooth_powered?: boolean;
+  bluetooth_ensure_powered?: boolean;
+  bluetooth_power_error?: string | null;
+  bluetooth_adapters?: Array<Record<string, unknown>>;
+  network_rx_Bps?: number | null;
+  network_tx_Bps?: number | null;
+  network_bytes_recv?: number | null;
+  network_bytes_sent?: number | null;
+  network_errin?: number | null;
+  network_errout?: number | null;
+  network_dropin?: number | null;
+  network_dropout?: number | null;
+  network_primary_interface?: string | null;
+  network_primary_type?: string;
+  network_link_speed_mbps?: number | null;
+  wifi_signal_percent?: number | null;
+  internet_reachable?: boolean | null;
+  internet_check_error?: string | null;
 };
 
 type SupervisorHostProcess = {
@@ -84,6 +110,31 @@ type NodeServiceRow = {
   cpu_percent?: number;
   mem_percent?: number;
   pid?: number;
+};
+
+type ResourceHistorySample = {
+  sampled_at?: string;
+  metrics?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+};
+
+type ResourceHistoryEvent = {
+  event_type?: string;
+  occurred_at?: string;
+  message?: string | null;
+  resource_id?: string;
+  payload?: Record<string, unknown>;
+};
+
+type SupervisorResourceHistory = {
+  scope?: string;
+  resource_id?: string;
+  range?: string;
+  step?: string | null;
+  samples?: ResourceHistorySample[];
+  events?: ResourceHistoryEvent[];
+  service_samples?: ResourceHistorySample[];
+  container_samples?: ResourceHistorySample[];
 };
 
 type SystemStats = {
@@ -169,8 +220,97 @@ function formatRps(value: unknown): string {
   return parsed.toFixed(2);
 }
 
+function runtimeResourceMetric(runtime: Record<string, unknown>, key: string): unknown {
+  const usage = runtime.resource_usage;
+  if (usage && typeof usage === "object" && key in usage) {
+    return (usage as Record<string, unknown>)[key];
+  }
+  const metadata = runtime.runtime_metadata;
+  if (metadata && typeof metadata === "object" && key in metadata) {
+    return (metadata as Record<string, unknown>)[key];
+  }
+  return undefined;
+}
+
+function coreRuntimeRps(runtime: Record<string, unknown>, stats: SystemStats | null): string {
+  if (String(runtime.runtime_id || "") === "core-api") return formatRps(stats?.api?.rps);
+  return formatRps(runtimeResourceMetric(runtime, "rps"));
+}
+
+function coreRuntimeP95(runtime: Record<string, unknown>, stats: SystemStats | null): string {
+  if (String(runtime.runtime_id || "") === "core-api") return formatMs(stats?.api?.latency_ms_p95);
+  return formatMs(runtimeResourceMetric(runtime, "latency_ms_p95"));
+}
+
+function coreRuntimeErr(runtime: Record<string, unknown>, stats: SystemStats | null): string {
+  if (String(runtime.runtime_id || "") === "core-api") return formatPct(stats?.api?.error_rate);
+  return formatPct(runtimeResourceMetric(runtime, "error_rate"));
+}
+
+function networkTransportTone(resources: SupervisorHostResources): "ok" | "warn" | "bad" | "neutral" {
+  const normalized = String(resources.network_primary_type || "unknown").toLowerCase();
+  if (normalized === "ethernet") return "ok";
+  if (normalized === "wifi") {
+    const signal = typeof resources.wifi_signal_percent === "number" ? resources.wifi_signal_percent : null;
+    if (signal === null) return "ok";
+    if (signal < 35) return "bad";
+    if (signal < 60) return "warn";
+    return "ok";
+  }
+  if (normalized === "loopback") return "bad";
+  return "neutral";
+}
+
+function networkTransportIcon(type: unknown): LucideIcon {
+  return String(type || "").toLowerCase() === "wifi" ? Wifi : Network;
+}
+
+function networkTransportLabel(resources: SupervisorHostResources): string {
+  const type = displayState(resources.network_primary_type || "unknown");
+  const iface = resources.network_primary_interface ? ` · ${resources.network_primary_interface}` : "";
+  const speed = typeof resources.network_link_speed_mbps === "number" ? ` · ${resources.network_link_speed_mbps} Mbps` : "";
+  const signal =
+    typeof resources.wifi_signal_percent === "number" ? ` · ${resources.wifi_signal_percent.toFixed(0)}% signal` : "";
+  return `Network ${type}${iface}${speed}${signal}`;
+}
+
+function bluetoothStatusLabel(resources: SupervisorHostResources): string {
+  const powered = resources.bluetooth_powered === true;
+  const ensure = resources.bluetooth_ensure_powered === true ? " · auto-on" : "";
+  const error = resources.bluetooth_power_error ? ` · ${resources.bluetooth_power_error}` : "";
+  return `Bluetooth ${powered ? "On" : "Present"}${ensure}${error}`;
+}
+
+function supervisorInternetState(resources: SupervisorHostResources, local: boolean, stack: StackSummary | null): string {
+  if (typeof resources.internet_reachable === "boolean") {
+    return resources.internet_reachable ? "reachable" : "unreachable";
+  }
+  return local ? stack?.connectivity.internet.state || "unknown" : "unknown";
+}
+
+function supervisorInternetLabel(resources: SupervisorHostResources, state: string): string {
+  const error = resources.internet_check_error ? ` · ${resources.internet_check_error}` : "";
+  return `Internet ${displayState(state)}${error}`;
+}
+
 function StatusLed({ tone }: { tone: "ok" | "warn" | "bad" | "neutral" }) {
   return <span className={`settings-led settings-led-${tone}`} />;
+}
+
+function StatusIconPill({
+  label,
+  icon: StatusIcon,
+  tone,
+}: {
+  label: string;
+  icon: LucideIcon;
+  tone: "ok" | "warn" | "bad" | "neutral";
+}) {
+  return (
+    <span className={`settings-icon-pill settings-icon-pill-${tone}`} title={label} aria-label={label}>
+      <StatusIcon aria-hidden="true" />
+    </span>
+  );
 }
 
 function fmtUptime(sec: number): string {
@@ -198,6 +338,169 @@ function formatNumber(value: unknown, fallback = "-"): string {
   if (typeof value === "number" && Number.isFinite(value)) return value.toLocaleString();
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed.toLocaleString() : fallback;
+}
+
+function numberValue(value: unknown): number | null {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function latestHistorySample(history?: SupervisorResourceHistory | null): ResourceHistorySample | null {
+  const samples = Array.isArray(history?.samples) ? history?.samples || [] : [];
+  return samples.length > 0 ? samples[samples.length - 1] : null;
+}
+
+function historyMetric(history: SupervisorResourceHistory | null | undefined, key: string): unknown {
+  return latestHistorySample(history)?.metrics?.[key];
+}
+
+function historySeries(history: SupervisorResourceHistory | null | undefined, key: string, limit = 24): number[] {
+  const samples = Array.isArray(history?.samples) ? history?.samples || [] : [];
+  return samples
+    .slice(-limit)
+    .map((sample) => numberValue(sample.metrics?.[key]))
+    .filter((value): value is number => value !== null);
+}
+
+function runtimeLabel(row: Record<string, unknown>): string {
+  const id = String(row.node_id || row.runtime_id || "-");
+  const name = String(row.node_name || row.runtime_name || id);
+  const health = displayState(row.health_status || row.lifecycle_state || row.runtime_state);
+  return `${name} (${id}) · ${health}`;
+}
+
+function hostLabel(supervisor: SupervisorFleetRecord): string {
+  return String(supervisor.hostname || supervisor.host_id || supervisor.supervisor_name || supervisor.supervisor_id);
+}
+
+function load15Percent(resources?: SupervisorHostResources): number | null {
+  const load = numberValue(resources?.load_15m);
+  const cores = numberValue(resources?.cpu_cores_logical);
+  if (load === null || !cores || cores <= 0) return null;
+  return (load / cores) * 100;
+}
+
+function loadPercent(value: unknown, resources?: SupervisorHostResources): number | null {
+  const load = numberValue(value);
+  const cores = numberValue(resources?.cpu_cores_logical);
+  if (load === null || !cores || cores <= 0) return null;
+  return (load / cores) * 100;
+}
+
+function loadTone(percent: number | null): "ok" | "warn" | "bad" | "neutral" {
+  if (percent === null) return "neutral";
+  if (percent >= 100) return "bad";
+  if (percent >= 70) return "warn";
+  return "ok";
+}
+
+function loadTrendValue(resources?: SupervisorHostResources): string {
+  const load1m = numberValue(resources?.load_1m);
+  const load15m = numberValue(resources?.load_15m);
+  if (load1m === null || load15m === null) return "Trend unknown";
+  const cores = numberValue(resources?.cpu_cores_logical);
+  const threshold = Math.max(0.1, (cores && cores > 0 ? cores : 1) * 0.05);
+  const delta = load1m - load15m;
+  if (delta >= threshold) return "↑";
+  if (delta <= -threshold) return "↓";
+  return "→";
+}
+
+function gpuMetricValue(resources?: SupervisorHostResources): string {
+  const count = numberValue(resources?.gpu_count);
+  const util = numberValue(resources?.gpu_utilization_percent);
+  const mem = numberValue(resources?.gpu_memory_percent);
+  if (count === null) return "-";
+  if (count <= 0) return "0 devices";
+  const parts = [`${count} device${count === 1 ? "" : "s"}`];
+  if (util !== null) parts.push(`${formatPctValue(util)} util`);
+  if (mem !== null) parts.push(`${formatPctValue(mem)} mem`);
+  return parts.join(" · ");
+}
+
+function gpuMemoryValue(gpu: Record<string, unknown>): string {
+  const used = numberValue(gpu.memory_used_mib);
+  const total = numberValue(gpu.memory_total_mib);
+  if (used === null && total === null) return "-";
+  if (total !== null && total >= 1024) {
+    const usedGib = used === null ? "-" : (used / 1024).toFixed(1);
+    return `${usedGib} / ${(total / 1024).toFixed(1)} GiB`;
+  }
+  return `${used === null ? "-" : formatNumber(used)} / ${total === null ? "-" : formatNumber(total)} MiB`;
+}
+
+function gpuPowerValue(gpu: Record<string, unknown>): string {
+  const power = numberValue(gpu.power_w);
+  const limit = numberValue(gpu.power_limit_w);
+  if (power === null && limit === null) return "-";
+  if (limit !== null) return `${power === null ? "-" : power.toFixed(1)} / ${limit.toFixed(1)} W`;
+  if (power === null) return "-";
+  return `${power.toFixed(1)} W`;
+}
+
+function cudaValue(resources?: SupervisorHostResources): string {
+  if (!resources?.cuda_available) return "No";
+  const version = String(resources.cuda_version || "").trim();
+  return version ? `Yes · ${version}` : "Yes";
+}
+
+function GpuDetailBlock({ resources }: { resources?: SupervisorHostResources }) {
+  const devices = Array.isArray(resources?.gpu_devices) ? resources?.gpu_devices || [] : [];
+  if (devices.length === 0) return null;
+  return (
+    <div className="settings-gpu-detail">
+      <div className="settings-gpu-detail-row settings-gpu-detail-head">
+        <span>GPU Detail</span>
+        <span>Util</span>
+        <span>VRAM</span>
+        <span>Temp.</span>
+        <span>Power</span>
+      </div>
+      {devices.map((gpu, idx) => {
+        const index = gpu.index === null || gpu.index === undefined ? idx : gpu.index;
+        const name = String(gpu.name || `GPU ${index}`).trim();
+        const temp = numberValue(gpu.temperature_c);
+        return (
+          <div className="settings-gpu-detail-row" key={`${index}-${name}`}>
+            <strong>{name}</strong>
+            <span>{formatPctValue(gpu.utilization_percent)}</span>
+            <span>
+              {gpuMemoryValue(gpu)}
+              <small>{formatPctValue(gpu.memory_percent)}</small>
+            </span>
+            <span>{temp === null ? "-" : `${temp.toFixed(0)}°C`}</span>
+            <span>{gpuPowerValue(gpu)}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function supervisorThroughputValue(resources?: SupervisorHostResources): string {
+  const rx = numberValue(resources?.network_rx_Bps);
+  const tx = numberValue(resources?.network_tx_Bps);
+  if (rx === null && tx === null) return "-";
+  return `↓${rx === null ? "-" : fmtBps(rx)} ↑${tx === null ? "-" : fmtBps(tx)}`;
+}
+
+function supervisorNetworkCountersValue(resources?: SupervisorHostResources): string {
+  const rx = numberValue(resources?.network_bytes_recv);
+  const tx = numberValue(resources?.network_bytes_sent);
+  if (rx === null && tx === null) return "-";
+  return `↓${rx === null ? "-" : fmtBytes(rx)} ↑${tx === null ? "-" : fmtBytes(tx)}`;
+}
+
+function supervisorNetworkErrorsValue(resources?: SupervisorHostResources): string {
+  const errIn = numberValue(resources?.network_errin) ?? 0;
+  const errOut = numberValue(resources?.network_errout) ?? 0;
+  const dropIn = numberValue(resources?.network_dropin) ?? 0;
+  const dropOut = numberValue(resources?.network_dropout) ?? 0;
+  return `err ${errIn}/${errOut} drop ${dropIn}/${dropOut}`;
+}
+
+function isLocalSupervisor(supervisor: SupervisorFleetRecord): boolean {
+  return String(supervisor.transport || "").toLowerCase() === "local";
 }
 
 function formatBytes(value: unknown): string {
@@ -304,7 +607,7 @@ function mergeNodeRuntimes(
   supervisors: SupervisorFleetRecord[],
 ): Array<Record<string, unknown>> {
   const byNode = new Map<string, Record<string, unknown>>();
-  const localSupervisor = supervisors.find((supervisor) => String(supervisor.transport || "").toLowerCase() === "local");
+  const localSupervisor = supervisors.find(isLocalSupervisor);
   const addRuntime = (runtime: Record<string, unknown>, supervisor?: SupervisorFleetRecord) => {
     const freshness = String(runtime.freshness_state || "").toLowerCase();
     if (["offline", "error"].includes(freshness)) return;
@@ -364,6 +667,8 @@ export default function SettingsSupervisor() {
   const [loading, setLoading] = useState(false);
   const [actionBusy, setActionBusy] = useState<Record<string, string | null>>({});
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
+  const [hostHistory, setHostHistory] = useState<SupervisorResourceHistory | null>(null);
+  const [runtimeHistories, setRuntimeHistories] = useState<Record<string, SupervisorResourceHistory>>({});
 
   async function loadSummary() {
     setErr(null);
@@ -376,7 +681,8 @@ export default function SettingsSupervisor() {
         fetch("/api/system/stack/summary", { cache: "no-store" }),
       ]);
       if (!supervisorRes.ok) throw new Error(`HTTP ${supervisorRes.status}`);
-      setSummary((await supervisorRes.json()) as SupervisorSummary);
+      const supervisorPayload = (await supervisorRes.json()) as SupervisorSummary;
+      setSummary(supervisorPayload);
       if (fleetRes.ok) {
         const fleet = (await fleetRes.json()) as { items?: SupervisorFleetRecord[] };
         setSupervisors(Array.isArray(fleet.items) ? fleet.items : []);
@@ -385,12 +691,42 @@ export default function SettingsSupervisor() {
       }
       if (statsRes.ok) setStats((await statsRes.json()) as SystemStats);
       if (stackRes.ok) setStack((await stackRes.json()) as StackSummary);
+      try {
+        const hostHistoryRes = await fetch("/api/supervisor/resources/history?range=24h&step=60s", { cache: "no-store" });
+        setHostHistory(hostHistoryRes.ok ? ((await hostHistoryRes.json()) as SupervisorResourceHistory) : null);
+      } catch {
+        setHostHistory(null);
+      }
+      const runtimeItems = Array.isArray(supervisorPayload.runtimes) ? supervisorPayload.runtimes : [];
+      const runtimePairs = await Promise.all(
+        runtimeItems.slice(0, 8).map(async (runtime) => {
+          const nodeId = String(runtime.node_id || "").trim();
+          if (!nodeId) return null;
+          try {
+            const res = await fetch(`/api/supervisor/runtimes/${encodeURIComponent(nodeId)}/resources/history?range=24h&step=60s`, {
+              cache: "no-store",
+            });
+            if (!res.ok) return null;
+            return [nodeId, (await res.json()) as SupervisorResourceHistory] as const;
+          } catch {
+            return null;
+          }
+        }),
+      );
+      setRuntimeHistories(
+        runtimePairs.reduce<Record<string, SupervisorResourceHistory>>((acc, item) => {
+          if (item) acc[item[0]] = item[1];
+          return acc;
+        }, {}),
+      );
     } catch (e: any) {
       setErr(e?.message ?? String(e));
       setSummary(null);
       setSupervisors([]);
       setStats(null);
       setStack(null);
+      setHostHistory(null);
+      setRuntimeHistories({});
     } finally {
       setLoading(false);
     }
@@ -503,6 +839,9 @@ export default function SettingsSupervisor() {
     return acc;
   }, {});
   const hasServicePid = nodeServices.some((service) => typeof service.pid === "number");
+  const supervisorsWithResources = supervisors.filter(
+    (supervisor) => supervisor.resources && Object.keys(supervisor.resources).length > 0,
+  );
 
   async function runNodeRuntimeAction(nodeId: string, action: "start" | "stop" | "restart") {
     if (!nodeId) return;
@@ -563,6 +902,7 @@ export default function SettingsSupervisor() {
                   <th>Health</th>
                   <th>Nodes</th>
                   <th>Runtimes</th>
+                  <th>GPU</th>
                   <th>CPU</th>
                   <th>Mem</th>
                   <th>Last Seen</th>
@@ -581,6 +921,7 @@ export default function SettingsSupervisor() {
                     <td>{displayState(supervisor.health_status)}</td>
                     <td>{formatNumber(supervisorNodeCount(supervisor))}</td>
                     <td>{formatNumber(supervisor.registered_runtime_count)}</td>
+                    <td>{numberValue(supervisor.resources?.gpu_count) ? "Yes" : "No"}</td>
                     <td>{formatPctValue(supervisor.resources?.cpu_percent_total)}</td>
                     <td>{formatPctValue(supervisor.resources?.memory_percent)}</td>
                     <td>{formatDateTime(supervisor.last_seen_at)}</td>
@@ -594,38 +935,27 @@ export default function SettingsSupervisor() {
 
       <section className="settings-section">
         <div className="settings-section-head">
-          <h2>System Metrics</h2>
+          <h2>Supervisor Host Metrics</h2>
+          <p>Host resources from Supervisor heartbeats. Load is shown as the 1m / 5m / 15m averages.</p>
         </div>
         <div className="settings-card">
-          {!stats ? (
-            <div className="settings-help">Metrics unavailable.</div>
+          {supervisorsWithResources.length === 0 ? (
+            <div className="settings-help">No supervisor host metrics reported yet.</div>
           ) : (
-            <>
-              <div className="settings-help">
-                Host {stats.hostname} • uptime {fmtUptime(stats.uptime_s)}
-              </div>
-              <div className="settings-metrics-grid">
-                <MetricBar label="CPU" percent={stats.cpu.percent_total} />
-                <MetricBar label="Memory" percent={stats.mem.percent} />
-                <MetricBar
-                  label="Disk"
-                  percent={
-                    Object.values(stats.disks).length > 0
-                      ? Math.max(...Object.values(stats.disks).map((x) => x.percent))
-                      : 0
-                  }
+            <div className="settings-remote-metrics-grid">
+              {supervisorsWithResources.map((supervisor) => (
+                <SupervisorHostMetricPanel
+                  key={`host-metrics:${supervisor.supervisor_id}`}
+                  supervisor={supervisor}
+                  stack={stack}
                 />
-                <MetricRow label="Network" value={displayState(stack?.connectivity.network.state || "unknown")} />
-                <MetricRow label="Throughput" value={throughputValue(stack?.samples.network_throughput)} />
-                <MetricRow label="Net I/O" value={networkCountersValue(stack?.samples.network_metrics)} />
-                <MetricRow label="Net Errors" value={networkErrorsValue(stack?.samples.network_metrics)} />
-                <MetricRow label="Internet" value={displayState(stack?.connectivity.internet.state || "unknown")} />
-                <MetricRow label="Speed" value={speedValue(stack?.samples.internet_speed)} />
-              </div>
-            </>
+              ))}
+            </div>
           )}
         </div>
       </section>
+
+      <ResourceHistoryPanel hostHistory={hostHistory} runtimeHistories={runtimeHistories} nodeRuntimes={nodeRuntimes} />
 
       <section className="settings-section">
         <div className="settings-section-head">
@@ -666,11 +996,11 @@ export default function SettingsSupervisor() {
                     <td>{displayState(runtime.runtime_state)}</td>
                     <td>{displayState(runtime.health_status)}</td>
                     <td>{displayState(runtime.desired_state)}</td>
-                    <td>{String(runtime.runtime_id) === "core-api" ? formatRps(stats?.api?.rps) : "-"}</td>
-                    <td>{String(runtime.runtime_id) === "core-api" ? formatMs(stats?.api?.latency_ms_p95) : "-"}</td>
-                    <td>{String(runtime.runtime_id) === "core-api" ? formatPct(stats?.api?.error_rate) : "-"}</td>
-                    <td>{String(runtime.runtime_id) === "core-api" ? pct(stats?.cpu?.percent_total ?? 0) : "-"}</td>
-                    <td>{String(runtime.runtime_id) === "core-api" ? pct(stats?.mem?.percent ?? 0) : "-"}</td>
+                    <td>{coreRuntimeRps(runtime, stats)}</td>
+                    <td>{coreRuntimeP95(runtime, stats)}</td>
+                    <td>{coreRuntimeErr(runtime, stats)}</td>
+                    <td>{formatPctValue(runtimeResourceMetric(runtime, "cpu_percent"))}</td>
+                    <td>{formatPctValue(runtimeResourceMetric(runtime, "mem_percent"))}</td>
                   </tr>
                 ))}
               </tbody>
@@ -967,25 +1297,245 @@ export default function SettingsSupervisor() {
   );
 }
 
-function MetricRow({ label, value }: { label: string; value: string }) {
+function HistorySparkline({ values, label }: { values: number[]; label: string }) {
+  const max = Math.max(1, ...values);
   return (
-    <div className="home-metric-row">
+    <div className="settings-history-sparkline" aria-label={label}>
+      {values.length === 0 ? (
+        <span className="settings-muted">-</span>
+      ) : (
+        values.map((value, index) => (
+          <span
+            className="settings-history-bar"
+            key={`${label}:${index}`}
+            style={{ height: `${Math.max(8, Math.min(100, (value / max) * 100))}%` }}
+            title={`${label}: ${value.toFixed(1)}`}
+          />
+        ))
+      )}
+    </div>
+  );
+}
+
+function ResourceHistoryPanel({
+  hostHistory,
+  runtimeHistories,
+  nodeRuntimes,
+}: {
+  hostHistory: SupervisorResourceHistory | null;
+  runtimeHistories: Record<string, SupervisorResourceHistory>;
+  nodeRuntimes: Array<Record<string, unknown>>;
+}) {
+  const runtimeRows = nodeRuntimes.reduce<
+    Array<{ nodeId: string; runtime: Record<string, unknown>; history?: SupervisorResourceHistory }>
+  >((acc, runtime) => {
+    const nodeId = String(runtime.node_id || "").trim();
+    if (nodeId) acc.push({ nodeId, runtime, history: runtimeHistories[nodeId] });
+    return acc;
+  }, []);
+  const hostEvents = Array.isArray(hostHistory?.events) ? hostHistory?.events || [] : [];
+  const runtimeEvents = runtimeRows.flatMap((row) =>
+    (row.history?.events || []).map((event) => ({ ...event, resource_id: row.nodeId })),
+  );
+  const events = [...hostEvents, ...runtimeEvents]
+    .sort((a, b) => String(b.occurred_at || "").localeCompare(String(a.occurred_at || "")))
+    .slice(0, 6);
+
+  return (
+    <section className="settings-section">
+      <div className="settings-section-head">
+        <h2>Resource History</h2>
+      </div>
+      <div className="settings-card settings-history-card">
+        {!hostHistory && runtimeRows.every((row) => !row.history) ? (
+          <div className="settings-help">No resource history samples recorded yet.</div>
+        ) : (
+          <>
+            <div className="settings-history-grid">
+              <div className="settings-history-panel">
+                <div className="settings-subtable-label">Host</div>
+                <div className="settings-history-kpis">
+                  <MetricRow label="CPU" value={formatPctValue(historyMetric(hostHistory, "cpu_percent_total"))} />
+                  <MetricRow label="Memory" value={formatPctValue(historyMetric(hostHistory, "memory_percent"))} />
+                  <MetricRow label="Swap" value={formatPctValue(historyMetric(hostHistory, "swap_percent"))} />
+                  <MetricRow label="VRAM" value={formatPctValue(historyMetric(hostHistory, "gpu_memory_percent"))} />
+                </div>
+                <HistorySparkline values={historySeries(hostHistory, "memory_percent")} label="host memory" />
+              </div>
+              <div className="settings-history-panel">
+                <div className="settings-subtable-label">Runtimes</div>
+                {runtimeRows.length === 0 ? (
+                  <div className="settings-help">No runtime history recorded yet.</div>
+                ) : (
+                  <div className="settings-history-runtime-list">
+                    {runtimeRows.slice(0, 6).map((row) => (
+                      <div className="settings-history-runtime" key={`history:${row.nodeId}`}>
+                        <div>
+                          <strong>{String(row.runtime.node_name || row.nodeId)}</strong>
+                          <div className="settings-muted settings-mono">{row.nodeId}</div>
+                        </div>
+                        <div className="settings-history-runtime-metrics">
+                          <span>{formatPctValue(historyMetric(row.history, "cpu_percent"))}</span>
+                          <span>{formatPctValue(historyMetric(row.history, "mem_percent"))}</span>
+                        </div>
+                        <HistorySparkline values={historySeries(row.history, "cpu_percent", 12)} label={`${row.nodeId} cpu`} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="settings-history-events">
+              <div className="settings-subtable-label">Timeline Markers</div>
+              {events.length === 0 ? (
+                <div className="settings-help">No lifecycle markers recorded yet.</div>
+              ) : (
+                events.map((event, index) => (
+                  <div className="settings-history-event" key={`${event.resource_id || "host"}:${event.occurred_at || index}`}>
+                    <span className="settings-mono">{formatDateTime(event.occurred_at)}</span>
+                    <strong>{displayState(event.event_type)}</strong>
+                    <span>{event.message || String(event.resource_id || "")}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function MetricRow({ label, value, tone }: { label: string; value: string; tone?: "ok" | "warn" | "bad" | "neutral" }) {
+  return (
+    <div className={`home-metric-row${tone ? ` settings-metric-row-${tone}` : ""}`}>
       <span>{label}</span>
       <strong>{value}</strong>
     </div>
   );
 }
 
-function MetricBar({ label, percent }: { label: string; percent: number }) {
+function NetworkMetricRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="home-metric-row settings-network-metric-row">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function LoadMetricRow({ resources, trend }: { resources?: SupervisorHostResources; trend: string }) {
+  const values = [
+    { label: "1m", value: resources?.load_1m },
+    { label: "5m", value: resources?.load_5m },
+    { label: "15m", value: resources?.load_15m },
+  ];
+  return (
+    <div className="home-metric-row settings-load-metric-row">
+      <span>Load</span>
+      <strong>
+        {values.map((item, idx) => (
+          <span className={`settings-load-value settings-load-value-${loadTone(loadPercent(item.value, resources))}`} key={item.label}>
+            {idx > 0 ? " / " : ""}
+            <span title={item.label}>{formatNumber(item.value)}</span>
+          </span>
+        ))}
+        <span className="settings-load-trend"> · {trend}</span>
+      </strong>
+    </div>
+  );
+}
+
+function WideMetricBlock({ children }: { children: ReactNode }) {
+  return <div className="settings-wide-metric-block">{children}</div>;
+}
+
+function MetricGroup({ columns, children }: { columns: 3 | 4; children: ReactNode }) {
+  return <div className={`settings-metric-row-group settings-metric-row-group-${columns}`}>{children}</div>;
+}
+
+function MetricBar({ label, percent, tone }: { label: string; percent: number; tone?: "ok" | "warn" | "bad" | "neutral" }) {
   const clamped = Math.max(0, Math.min(100, percent));
   return (
-    <div className="home-metric-bar">
+    <div className={`home-metric-bar${tone ? ` settings-metric-bar-${tone}` : ""}`}>
       <div className="home-metric-bar-top">
         <span>{label}</span>
         <strong>{pct(clamped)}</strong>
       </div>
       <div className="home-metric-bar-track">
         <div className="home-metric-bar-fill" style={{ width: `${clamped}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function SupervisorHostMetricPanel({
+  supervisor,
+  stack,
+}: {
+  supervisor: SupervisorFleetRecord;
+  stack: StackSummary | null;
+}) {
+  const resources = supervisor.resources || {};
+  const loadPct = load15Percent(resources);
+  const local = isLocalSupervisor(supervisor);
+  const hasGpuDevices = Array.isArray(resources.gpu_devices) && resources.gpu_devices.length > 0;
+  const internetState = supervisorInternetState(resources, local, stack);
+  const hasBluetooth = resources.bluetooth_present === true;
+  const bluetoothPowered = resources.bluetooth_powered === true;
+  const bluetoothTone = bluetoothPowered ? "ok" : "warn";
+  const networkType = resources.network_primary_type || "unknown";
+  return (
+    <div className="settings-host-metric-panel">
+      <div className="settings-host-metric-head">
+        <div className="settings-host-metric-main">
+          <strong>{hostLabel(supervisor)}</strong>
+          <div className="settings-muted settings-mono">{supervisor.supervisor_id}</div>
+        </div>
+        <div className="settings-host-metric-online">
+          <StatusIconPill
+            label={supervisorInternetLabel(resources, internetState)}
+            icon={Globe2}
+            tone={statusTone(internetState)}
+          />
+          {hasBluetooth && (
+            <StatusIconPill
+              label={bluetoothStatusLabel(resources)}
+              icon={Bluetooth}
+              tone={bluetoothTone}
+            />
+          )}
+          <StatusIconPill
+            label={networkTransportLabel(resources)}
+            icon={networkTransportIcon(networkType)}
+            tone={networkTransportTone(resources)}
+          />
+          <span className="settings-pill">{displayState(supervisor.freshness_state)}</span>
+        </div>
+      </div>
+      <div className="settings-help">Last report {formatDateTime(supervisor.last_seen_at)}</div>
+      <div className="settings-metrics-grid settings-metrics-grid-compact settings-host-metric-top">
+        <MetricBar label="CPU" percent={numberValue(resources.cpu_percent_total) ?? 0} />
+        <MetricBar label="Memory" percent={numberValue(resources.memory_percent) ?? 0} />
+        <MetricBar label="Disk" percent={numberValue(resources.root_disk_percent) ?? 0} />
+        <MetricBar label="15m Load" percent={loadPct ?? 0} tone={loadTone(loadPct)} />
+        {hasGpuDevices && (
+          <WideMetricBlock>
+            <GpuDetailBlock resources={resources} />
+          </WideMetricBlock>
+        )}
+      </div>
+      <div className="settings-host-metric-bottom">
+        <MetricGroup columns={3}>
+          <MetricRow label="Cores" value={formatNumber(resources.cpu_cores_logical)} />
+          <MetricRow label="CUDA" value={cudaValue(resources)} />
+          <LoadMetricRow resources={resources} trend={loadTrendValue(resources)} />
+        </MetricGroup>
+        <MetricGroup columns={3}>
+          <NetworkMetricRow label="Throughput" value={supervisorThroughputValue(resources)} />
+          <NetworkMetricRow label="Net I/O" value={supervisorNetworkCountersValue(resources)} />
+          <NetworkMetricRow label="Net Errors" value={supervisorNetworkErrorsValue(resources)} />
+        </MetricGroup>
       </div>
     </div>
   );

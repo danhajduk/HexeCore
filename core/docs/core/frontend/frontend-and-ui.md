@@ -69,6 +69,7 @@ Status: Implemented
 
 - Home dashboard surfaces stack health and metrics.
 - Settings organizes platform controls by subsystem.
+- Settings Supervisor includes a resource history panel for recent local Supervisor host and runtime timelines, including current CPU/memory/swap/VRAM readings, compact trend bars, and lifecycle markers for crash-debug correlation.
 - MQTT embedded UI includes overview/principals/users/runtime/audit/noisy-client pages.
 - Node onboarding approval page requires normal admin session login before showing approval context.
 - Major visible component labels now consume the shared branding abstraction instead of inferring product names from internal identifiers.
