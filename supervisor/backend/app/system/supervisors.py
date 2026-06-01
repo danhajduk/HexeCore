@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+import httpx
 from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
@@ -55,6 +56,14 @@ def _local_probe_cache_s() -> float:
         return max(1.0, float(raw))
     except Exception:
         return 10.0
+
+
+def _supervisor_history_timeout_s() -> float:
+    raw = str(os.getenv("HEXE_SUPERVISOR_HISTORY_TIMEOUT_S") or os.getenv("HEXE_SUPERVISOR_API_TIMEOUT_S") or "5.0").strip()
+    try:
+        return min(max(1.0, float(raw)), 60.0)
+    except Exception:
+        return 5.0
 
 
 def _bluetooth_access_policy() -> str:
@@ -128,6 +137,19 @@ def _dict_payload(value: object) -> dict[str, Any]:
 
 def _list_payload(value: object) -> list[dict[str, Any]]:
     return [dict(item) for item in value if isinstance(item, dict)] if isinstance(value, list) else []
+
+
+def _history_params(range_value: str, step_value: str | None) -> dict[str, str]:
+    params = {"range": _clean_text(range_value, "24h")}
+    if _clean_text(step_value):
+        params["step"] = _clean_text(step_value)
+    return params
+
+
+def _is_local_supervisor_record(record: "SupervisorFleetRecord") -> bool:
+    transport = _clean_text(record.transport).lower()
+    metadata = dict(record.metadata or {})
+    return transport == "local" or metadata.get("attached_to_core") is True
 
 
 def _active_node_runtime_count(items: list[dict[str, Any]]) -> int:
@@ -678,6 +700,44 @@ def build_supervisors_router(
         )
         cache["updated_at"] = now
 
+    def request_supervisor_history(
+        record: SupervisorFleetRecord,
+        request: Request,
+        path: str,
+        *,
+        range_value: str,
+        step_value: str | None,
+    ) -> dict[str, Any]:
+        params = _history_params(range_value, step_value)
+        if _is_local_supervisor_record(record):
+            client = getattr(request.app.state, "supervisor_client", None)
+            request_json = getattr(client, "request_json", None)
+            if not callable(request_json):
+                raise HTTPException(status_code=503, detail="supervisor_client_unavailable")
+            payload = request_json("GET", path, params=params)
+            if payload is None:
+                raise HTTPException(status_code=502, detail="supervisor_unavailable")
+            return payload
+
+        base_url = _clean_text(record.api_base_url).rstrip("/")
+        if not base_url:
+            raise HTTPException(status_code=409, detail="supervisor_api_base_url_missing")
+        try:
+            response = httpx.get(f"{base_url}{path}", params=params, timeout=_supervisor_history_timeout_s())
+        except httpx.HTTPError:
+            raise HTTPException(status_code=502, detail="supervisor_unavailable") from None
+        if response.status_code == 404:
+            raise HTTPException(status_code=404, detail="supervisor_history_not_found")
+        if response.status_code >= 400:
+            raise HTTPException(status_code=502, detail="supervisor_history_error")
+        try:
+            payload = response.json()
+        except ValueError:
+            raise HTTPException(status_code=502, detail="supervisor_history_invalid_json") from None
+        if not isinstance(payload, dict):
+            raise HTTPException(status_code=502, detail="supervisor_history_invalid_payload")
+        return payload
+
     @router.get("/supervisors")
     def list_supervisors(request: Request, x_admin_token: str | None = Header(default=None)) -> dict[str, Any]:
         require_admin_token(x_admin_token, request)
@@ -731,6 +791,49 @@ def build_supervisors_router(
         if record is None:
             raise HTTPException(status_code=404, detail="supervisor_not_found")
         return {"supervisor": record.to_api_dict()}
+
+    @router.get("/supervisors/{supervisor_id}/resources/history")
+    def get_supervisor_resource_history(
+        supervisor_id: str,
+        request: Request,
+        range: str = "24h",  # noqa: A002
+        step: str | None = "60s",
+        x_admin_token: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        require_admin_token(x_admin_token, request)
+        sync_local_supervisor(request)
+        record = registry.get(supervisor_id)
+        if record is None:
+            raise HTTPException(status_code=404, detail="supervisor_not_found")
+        return request_supervisor_history(
+            record,
+            request,
+            "/api/supervisor/resources/history",
+            range_value=range,
+            step_value=step,
+        )
+
+    @router.get("/supervisors/{supervisor_id}/runtimes/{node_id}/resources/history")
+    def get_supervisor_runtime_resource_history(
+        supervisor_id: str,
+        node_id: str,
+        request: Request,
+        range: str = "24h",  # noqa: A002
+        step: str | None = "60s",
+        x_admin_token: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        require_admin_token(x_admin_token, request)
+        sync_local_supervisor(request)
+        record = registry.get(supervisor_id)
+        if record is None:
+            raise HTTPException(status_code=404, detail="supervisor_not_found")
+        return request_supervisor_history(
+            record,
+            request,
+            f"/api/supervisor/runtimes/{node_id}/resources/history",
+            range_value=range,
+            step_value=step,
+        )
 
     @router.post("/supervisors/register")
     def register_supervisor(

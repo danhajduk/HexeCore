@@ -48,6 +48,15 @@ class TestSupervisorApiClient(unittest.TestCase):
                         ]
                     },
                 )
+            if request.url.path == "/api/supervisor/resources/history":
+                params = dict(request.url.params)
+                assert params.get("range") == "1h"
+                assert params.get("step") == "60s"
+                return httpx.Response(200, json={"scope": "host", "samples": [{"metrics": {"memory_percent": 42.0}}]})
+            if request.url.path == "/api/supervisor/runtimes/node-1/resources/history":
+                params = dict(request.url.params)
+                assert params.get("range") == "1h"
+                return httpx.Response(200, json={"scope": "runtime", "resource_id": "node-1", "samples": []})
             if request.url.path == "/api/supervisor/runtime/cloudflared":
                 return httpx.Response(200, json={"exists": True})
             if request.url.path == "/api/supervisor/runtime/cloudflared/apply":
@@ -120,6 +129,12 @@ class TestSupervisorApiClient(unittest.TestCase):
         runtimes = client.list_registered_runtimes()
         self.assertIsNotNone(runtimes)
         self.assertEqual(runtimes[0].node_id, "node-1")
+
+        host_history = client.resource_history(range_value="1h", step_value="60s")
+        self.assertEqual(host_history["scope"], "host")
+
+        runtime_history = client.runtime_resource_history("node-1", range_value="1h", step_value=None)
+        self.assertEqual(runtime_history["resource_id"], "node-1")
 
         runtime_state = client.get_runtime_state("cloudflared")
         self.assertTrue(runtime_state["exists"])

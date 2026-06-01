@@ -37,7 +37,9 @@ Status: Implemented
 - Registered Node runtime summaries and Core runtime summaries record Supervisor-observed aggregate resource samples into the same history store. Nested `runtime_metadata.services` and `runtime_metadata.containers` entries with observed process/container metrics are also persisted as child resource samples linked to the parent runtime id.
 - Runtime lifecycle markers are recorded as history events for Supervisor action requests and resource-health observations such as missing processes, OOM indicators, segfault indicators, and other resource errors when those signals are visible to the Supervisor.
 - Resource history can be read with `GET /api/supervisor/resources/history?range=24h&step=60s` for host timelines and `GET /api/supervisor/runtimes/{node_id}/resources/history?range=24h&step=60s` for runtime timelines. Runtime history responses include aggregate samples, lifecycle events, and child service/container samples when present.
-- Core Settings renders the local Supervisor resource history in the Supervisor page so operators can correlate recent host pressure, runtime CPU/memory trends, and lifecycle markers before exits or restarts.
+- Core proxies local configured Supervisor history through `GET /api/system/supervisor/resources/history` and `GET /api/system/supervisor/runtimes/{node_id}/resources/history`.
+- Core proxies fleet-scoped local or remote Supervisor history through `GET /api/system/supervisors/{supervisor_id}/resources/history` and `GET /api/system/supervisors/{supervisor_id}/runtimes/{node_id}/resources/history`, using the local Supervisor client for attached Supervisors and the registered `api_base_url` for remote Supervisors.
+- Core Settings renders local and remote Supervisor resource history in the Supervisor page so operators can correlate recent host pressure, runtime CPU/memory trends, and lifecycle markers before exits or restarts.
 - Supervisor owns a Core-hosted runtime contract for Core services, addons, and aux containers through:
   - `POST /api/supervisor/core/runtimes/register`
   - `POST /api/supervisor/core/runtimes/heartbeat`

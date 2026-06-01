@@ -115,6 +115,24 @@ class SupervisorApiClient:
     ) -> dict[str, Any] | None:
         return self._request_json(method, path, payload=payload, params=params)
 
+    def resource_history(self, *, range_value: str = "24h", step_value: str | None = "60s") -> dict[str, Any] | None:
+        params: dict[str, Any] = {"range": range_value}
+        if step_value:
+            params["step"] = step_value
+        return self._request_json("GET", "/api/supervisor/resources/history", params=params)
+
+    def runtime_resource_history(
+        self,
+        node_id: str,
+        *,
+        range_value: str = "24h",
+        step_value: str | None = "60s",
+    ) -> dict[str, Any] | None:
+        params: dict[str, Any] = {"range": range_value}
+        if step_value:
+            params["step"] = step_value
+        return self._request_json("GET", f"/api/supervisor/runtimes/{node_id}/resources/history", params=params)
+
     def admission_summary(
         self,
         *,

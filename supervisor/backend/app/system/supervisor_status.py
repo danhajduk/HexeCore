@@ -4,8 +4,9 @@ from typing import Any
 import os
 import time
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Header, HTTPException, Request
 
+from app.api.admin import require_admin_token
 from app.supervisor.client import SupervisorApiClient
 
 
@@ -63,6 +64,39 @@ def build_supervisor_status_router() -> APIRouter:
         }
         cache["payload"] = payload
         cache["updated_at"] = now
+        return payload
+
+    @router.get("/supervisor/resources/history")
+    def supervisor_resource_history(
+        request: Request,
+        range: str = "24h",  # noqa: A002
+        step: str | None = "60s",
+        x_admin_token: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        require_admin_token(x_admin_token, request)
+        client: SupervisorApiClient | None = getattr(request.app.state, "supervisor_client", None)
+        if client is None:
+            raise HTTPException(status_code=503, detail="supervisor_client_unavailable")
+        payload = client.resource_history(range_value=range, step_value=step)
+        if payload is None:
+            raise HTTPException(status_code=502, detail="supervisor_unavailable")
+        return payload
+
+    @router.get("/supervisor/runtimes/{node_id}/resources/history")
+    def supervisor_runtime_resource_history(
+        node_id: str,
+        request: Request,
+        range: str = "24h",  # noqa: A002
+        step: str | None = "60s",
+        x_admin_token: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        require_admin_token(x_admin_token, request)
+        client: SupervisorApiClient | None = getattr(request.app.state, "supervisor_client", None)
+        if client is None:
+            raise HTTPException(status_code=503, detail="supervisor_client_unavailable")
+        payload = client.runtime_resource_history(node_id, range_value=range, step_value=step)
+        if payload is None:
+            raise HTTPException(status_code=502, detail="supervisor_unavailable")
         return payload
 
     return router

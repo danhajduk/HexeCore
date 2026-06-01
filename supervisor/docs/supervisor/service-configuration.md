@@ -34,6 +34,7 @@ Core talks to a remote Supervisor over the following environment-backed client s
 - `HEXE_SUPERVISOR_API_BASE_URL`: Base URL for `http` transport. Default: `http://127.0.0.1:57665`.
 - `HEXE_SUPERVISOR_API_SOCKET`: Unix socket path for `socket` transport. Default: `/run/hexe/supervisor.sock`.
 - `HEXE_SUPERVISOR_API_TIMEOUT_S`: Client timeout (seconds). Default: `5.0`.
+- `HEXE_SUPERVISOR_HISTORY_TIMEOUT_S`: Optional Core timeout for fleet-scoped remote Supervisor resource history reads. Defaults to `HEXE_SUPERVISOR_API_TIMEOUT_S` or `5.0`.
 - `HEXE_CORE_RUNTIME_DECLARATIONS_JSON`: Optional JSON list (or `{ "items": [...] }`) of extra Core runtime declarations to register with the local Supervisor. Each entry should include `runtime_id`, `runtime_name`, `runtime_kind`, and `management_mode` plus optional state/metadata fields.
 - `HEXE_BLUETOOTH_ACCESS_POLICY`: Bluetooth governance policy advertised by Supervisor when BT hardware is present. Supported values: `disabled`, `ask`, `trusted_only`, `allowed`. Default: `disabled`.
 - `HEXE_BLUETOOTH_ENSURE_POWERED`: When true, Supervisor attempts to keep detected Bluetooth adapters powered. Default: `true`.

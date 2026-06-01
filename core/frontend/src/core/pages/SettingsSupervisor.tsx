@@ -649,6 +649,27 @@ function runtimeSupervisorLabel(runtime: Record<string, unknown>): string {
   return name ? `${scope} · ${name}` : scope;
 }
 
+function runtimeHistoryKey(runtime: Record<string, unknown>): string {
+  const supervisorId = String(runtime.__supervisor_id || "local").trim() || "local";
+  const nodeId = String(runtime.node_id || "").trim();
+  return `${supervisorId}:${nodeId}`;
+}
+
+function supervisorHostHistoryUrl(supervisor: SupervisorFleetRecord): string {
+  if (isLocalSupervisor(supervisor)) return "/api/system/supervisor/resources/history?range=24h&step=60s";
+  return `/api/system/supervisors/${encodeURIComponent(supervisor.supervisor_id)}/resources/history?range=24h&step=60s`;
+}
+
+function runtimeHistoryUrl(runtime: Record<string, unknown>): string {
+  const nodeId = String(runtime.node_id || "").trim();
+  const supervisorId = String(runtime.__supervisor_id || "").trim();
+  const transport = String(runtime.__supervisor_transport || "local").toLowerCase();
+  if (supervisorId && transport !== "local") {
+    return `/api/system/supervisors/${encodeURIComponent(supervisorId)}/runtimes/${encodeURIComponent(nodeId)}/resources/history?range=24h&step=60s`;
+  }
+  return `/api/system/supervisor/runtimes/${encodeURIComponent(nodeId)}/resources/history?range=24h&step=60s`;
+}
+
 function supervisorNodeCount(supervisor: SupervisorFleetRecord): number | null {
   if (Array.isArray(supervisor.registered_runtimes)) {
     return supervisor.registered_runtimes.filter(
@@ -668,6 +689,7 @@ export default function SettingsSupervisor() {
   const [actionBusy, setActionBusy] = useState<Record<string, string | null>>({});
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
   const [hostHistory, setHostHistory] = useState<SupervisorResourceHistory | null>(null);
+  const [supervisorHistories, setSupervisorHistories] = useState<Record<string, SupervisorResourceHistory>>({});
   const [runtimeHistories, setRuntimeHistories] = useState<Record<string, SupervisorResourceHistory>>({});
 
   async function loadSummary() {
@@ -683,31 +705,49 @@ export default function SettingsSupervisor() {
       if (!supervisorRes.ok) throw new Error(`HTTP ${supervisorRes.status}`);
       const supervisorPayload = (await supervisorRes.json()) as SupervisorSummary;
       setSummary(supervisorPayload);
+      let fleetItems: SupervisorFleetRecord[] = [];
       if (fleetRes.ok) {
         const fleet = (await fleetRes.json()) as { items?: SupervisorFleetRecord[] };
-        setSupervisors(Array.isArray(fleet.items) ? fleet.items : []);
+        fleetItems = Array.isArray(fleet.items) ? fleet.items : [];
+        setSupervisors(fleetItems);
       } else {
         setSupervisors([]);
       }
       if (statsRes.ok) setStats((await statsRes.json()) as SystemStats);
       if (stackRes.ok) setStack((await stackRes.json()) as StackSummary);
       try {
-        const hostHistoryRes = await fetch("/api/supervisor/resources/history?range=24h&step=60s", { cache: "no-store" });
+        const hostHistoryRes = await fetch("/api/system/supervisor/resources/history?range=24h&step=60s", { cache: "no-store" });
         setHostHistory(hostHistoryRes.ok ? ((await hostHistoryRes.json()) as SupervisorResourceHistory) : null);
       } catch {
         setHostHistory(null);
       }
+      const supervisorHistoryPairs = await Promise.all(
+        fleetItems.slice(0, 8).map(async (supervisor) => {
+          try {
+            const res = await fetch(supervisorHostHistoryUrl(supervisor), { cache: "no-store" });
+            if (!res.ok) return null;
+            return [supervisor.supervisor_id, (await res.json()) as SupervisorResourceHistory] as const;
+          } catch {
+            return null;
+          }
+        }),
+      );
+      setSupervisorHistories(
+        supervisorHistoryPairs.reduce<Record<string, SupervisorResourceHistory>>((acc, item) => {
+          if (item) acc[item[0]] = item[1];
+          return acc;
+        }, {}),
+      );
       const runtimeItems = Array.isArray(supervisorPayload.runtimes) ? supervisorPayload.runtimes : [];
+      const historyRuntimeItems = mergeNodeRuntimes(runtimeItems, fleetItems);
       const runtimePairs = await Promise.all(
-        runtimeItems.slice(0, 8).map(async (runtime) => {
+        historyRuntimeItems.slice(0, 8).map(async (runtime) => {
           const nodeId = String(runtime.node_id || "").trim();
           if (!nodeId) return null;
           try {
-            const res = await fetch(`/api/supervisor/runtimes/${encodeURIComponent(nodeId)}/resources/history?range=24h&step=60s`, {
-              cache: "no-store",
-            });
+            const res = await fetch(runtimeHistoryUrl(runtime), { cache: "no-store" });
             if (!res.ok) return null;
-            return [nodeId, (await res.json()) as SupervisorResourceHistory] as const;
+            return [runtimeHistoryKey(runtime), (await res.json()) as SupervisorResourceHistory] as const;
           } catch {
             return null;
           }
@@ -726,6 +766,7 @@ export default function SettingsSupervisor() {
       setStats(null);
       setStack(null);
       setHostHistory(null);
+      setSupervisorHistories({});
       setRuntimeHistories({});
     } finally {
       setLoading(false);
@@ -955,7 +996,13 @@ export default function SettingsSupervisor() {
         </div>
       </section>
 
-      <ResourceHistoryPanel hostHistory={hostHistory} runtimeHistories={runtimeHistories} nodeRuntimes={nodeRuntimes} />
+      <ResourceHistoryPanel
+        hostHistory={hostHistory}
+        supervisorHistories={supervisorHistories}
+        runtimeHistories={runtimeHistories}
+        supervisors={supervisors}
+        nodeRuntimes={nodeRuntimes}
+      />
 
       <section className="settings-section">
         <div className="settings-section-head">
@@ -1319,27 +1366,42 @@ function HistorySparkline({ values, label }: { values: number[]; label: string }
 
 function ResourceHistoryPanel({
   hostHistory,
+  supervisorHistories,
   runtimeHistories,
+  supervisors,
   nodeRuntimes,
 }: {
   hostHistory: SupervisorResourceHistory | null;
+  supervisorHistories: Record<string, SupervisorResourceHistory>;
   runtimeHistories: Record<string, SupervisorResourceHistory>;
+  supervisors: SupervisorFleetRecord[];
   nodeRuntimes: Array<Record<string, unknown>>;
 }) {
   const runtimeRows = nodeRuntimes.reduce<
     Array<{ nodeId: string; runtime: Record<string, unknown>; history?: SupervisorResourceHistory }>
   >((acc, runtime) => {
     const nodeId = String(runtime.node_id || "").trim();
-    if (nodeId) acc.push({ nodeId, runtime, history: runtimeHistories[nodeId] });
+    if (nodeId) acc.push({ nodeId, runtime, history: runtimeHistories[runtimeHistoryKey(runtime)] || runtimeHistories[nodeId] });
     return acc;
   }, []);
-  const hostEvents = Array.isArray(hostHistory?.events) ? hostHistory?.events || [] : [];
+  const hostRows =
+    supervisors.length > 0
+      ? supervisors.slice(0, 8).map((supervisor) => ({
+          supervisor,
+          history: supervisorHistories[supervisor.supervisor_id] || (isLocalSupervisor(supervisor) ? hostHistory : null),
+        }))
+      : [{ supervisor: null, history: hostHistory }];
+  const hostEvents = hostRows.flatMap((row) =>
+    (row.history?.events || []).map((event) => ({ ...event, resource_id: row.supervisor?.supervisor_id || "local" })),
+  );
   const runtimeEvents = runtimeRows.flatMap((row) =>
     (row.history?.events || []).map((event) => ({ ...event, resource_id: row.nodeId })),
   );
   const events = [...hostEvents, ...runtimeEvents]
     .sort((a, b) => String(b.occurred_at || "").localeCompare(String(a.occurred_at || "")))
     .slice(0, 6);
+  const hasHostHistory = hostRows.some((row) => Boolean(row.history));
+  const hasRuntimeHistory = runtimeRows.some((row) => Boolean(row.history));
 
   return (
     <section className="settings-section">
@@ -1347,20 +1409,28 @@ function ResourceHistoryPanel({
         <h2>Resource History</h2>
       </div>
       <div className="settings-card settings-history-card">
-        {!hostHistory && runtimeRows.every((row) => !row.history) ? (
+        {!hasHostHistory && !hasRuntimeHistory ? (
           <div className="settings-help">No resource history samples recorded yet.</div>
         ) : (
           <>
             <div className="settings-history-grid">
               <div className="settings-history-panel">
                 <div className="settings-subtable-label">Host</div>
-                <div className="settings-history-kpis">
-                  <MetricRow label="CPU" value={formatPctValue(historyMetric(hostHistory, "cpu_percent_total"))} />
-                  <MetricRow label="Memory" value={formatPctValue(historyMetric(hostHistory, "memory_percent"))} />
-                  <MetricRow label="Swap" value={formatPctValue(historyMetric(hostHistory, "swap_percent"))} />
-                  <MetricRow label="VRAM" value={formatPctValue(historyMetric(hostHistory, "gpu_memory_percent"))} />
+                <div className="settings-history-runtime-list">
+                  {hostRows.map((row, index) => (
+                    <div className="settings-history-runtime" key={`host-history:${row.supervisor?.supervisor_id || index}`}>
+                      <div>
+                        <strong>{row.supervisor ? hostLabel(row.supervisor) : "Local Supervisor"}</strong>
+                        <div className="settings-muted settings-mono">{row.supervisor?.supervisor_id || "local"}</div>
+                      </div>
+                      <div className="settings-history-runtime-metrics">
+                        <span>{formatPctValue(historyMetric(row.history, "cpu_percent_total"))}</span>
+                        <span>{formatPctValue(historyMetric(row.history, "memory_percent"))}</span>
+                      </div>
+                      <HistorySparkline values={historySeries(row.history, "memory_percent")} label={`${row.supervisor?.supervisor_id || "local"} memory`} />
+                    </div>
+                  ))}
                 </div>
-                <HistorySparkline values={historySeries(hostHistory, "memory_percent")} label="host memory" />
               </div>
               <div className="settings-history-panel">
                 <div className="settings-subtable-label">Runtimes</div>

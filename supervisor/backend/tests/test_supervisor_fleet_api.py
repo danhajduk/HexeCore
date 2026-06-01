@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import httpx
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -29,6 +30,12 @@ class _FakeSupervisorClient:
             },
             "/api/supervisor/runtimes": {"items": [{"node_id": "local-node", "node_name": "Local Node"}]},
             "/api/supervisor/core/runtimes": {"items": [{"runtime_id": "core-api", "runtime_name": "Core API"}]},
+            "/api/supervisor/resources/history": {"scope": "host", "samples": [{"metrics": {"memory_percent": 41.0}}]},
+            "/api/supervisor/runtimes/local-node/resources/history": {
+                "scope": "runtime",
+                "resource_id": "local-node",
+                "samples": [],
+            },
         }
         return payloads.get(path)
 
@@ -228,6 +235,59 @@ class TestSupervisorFleetApi(unittest.TestCase):
 
         self.assertEqual(listed.status_code, 200, listed.text)
         self.assertEqual([item["supervisor_id"] for item in listed.json()["items"]], ["zzz-local", "aaa-remote"])
+
+    def test_local_supervisor_history_uses_configured_client(self) -> None:
+        app = FastAPI()
+        supervisor_client = _FakeSupervisorClient()
+        app.state.supervisor_client = supervisor_client
+        app.include_router(build_supervisors_router(self.store, self.enrollment_store), prefix="/api/system")
+        client = TestClient(app)
+        headers = {"X-Admin-Token": "test-token"}
+
+        host_history = client.get(
+            "/api/system/supervisors/local-core-supervisor/resources/history?range=1h&step=60s",
+            headers=headers,
+        )
+        runtime_history = client.get(
+            "/api/system/supervisors/local-core-supervisor/runtimes/local-node/resources/history?range=1h",
+            headers=headers,
+        )
+
+        self.assertEqual(host_history.status_code, 200, host_history.text)
+        self.assertEqual(runtime_history.status_code, 200, runtime_history.text)
+        self.assertEqual(host_history.json()["scope"], "host")
+        self.assertEqual(runtime_history.json()["resource_id"], "local-node")
+        self.assertIn(("GET", "/api/supervisor/resources/history"), supervisor_client.requests)
+        self.assertIn(("GET", "/api/supervisor/runtimes/local-node/resources/history"), supervisor_client.requests)
+
+    def test_remote_supervisor_history_uses_registered_api_base_url(self) -> None:
+        headers = {"X-Admin-Token": "test-token"}
+        registered = self.client.post(
+            "/api/system/supervisors/register",
+            headers=headers,
+            json={
+                "supervisor_id": "host-remote",
+                "api_base_url": "http://remote-supervisor:57665",
+                "transport": "http",
+            },
+        )
+        self.assertEqual(registered.status_code, 200, registered.text)
+        calls: list[tuple[str, dict[str, str]]] = []
+
+        def fake_get(url: str, *, params: dict[str, str], timeout: float) -> httpx.Response:
+            calls.append((url, params))
+            return httpx.Response(200, json={"scope": "host", "samples": [], "timeout": timeout})
+
+        with patch("app.system.supervisors.httpx.get", side_effect=fake_get):
+            response = self.client.get(
+                "/api/system/supervisors/host-remote/resources/history?range=24h&step=60s",
+                headers=headers,
+            )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["scope"], "host")
+        self.assertEqual(calls[0][0], "http://remote-supervisor:57665/api/supervisor/resources/history")
+        self.assertEqual(calls[0][1], {"range": "24h", "step": "60s"})
 
 
 if __name__ == "__main__":
