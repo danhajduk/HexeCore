@@ -32,6 +32,7 @@ Status: Implemented
 - Validate route claims from backend router files and `backend/app/main.py` mounts.
 - Validate frontend claims from `frontend/src/core/router/routes.tsx` and related page components.
 - Validate runtime/state claims from active service/store modules and schema files.
+- Run `python3 scripts/validate_hexe_branding.py` before branding-sensitive changes. Any old-brand reference in active code or docs must either be removed or listed in the validator with a compatibility reason and path scope.
 
 ## Documentation Maintenance Note
 

@@ -2,7 +2,7 @@
 
 Hexe Core is the control-plane service for the Hexe AI platform. This repository now documents the migration foundation for the `Core -> Supervisor -> Nodes` structure while preserving the current runtime and API surface.
 
-Compatibility note: Hexe is now the canonical product and operator-facing name. Legacy Synthia identifiers only remain where compatibility requires them.
+Compatibility note: Hexe is now the canonical product and operator-facing name. A few legacy identifiers only remain where compatibility requires them.
 
 ## Start Here
 

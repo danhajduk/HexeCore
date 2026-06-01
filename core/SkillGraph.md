@@ -1,4 +1,4 @@
-# Synthia Skill Graph
+# Hexe Skill Graph
 
 This file defines how Codex should sequence and combine skills in this repository.
 
