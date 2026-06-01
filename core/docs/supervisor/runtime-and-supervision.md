@@ -32,6 +32,7 @@ Status: Implemented
   - Docker runtime: `container_name`, `container_id`, or entries in `runtime_metadata.containers`
   - nested service inventory: entries in `runtime_metadata.services`
 - Supervisor-sampled CPU, memory, RSS, PID, container identity, and `sampled_at` values are returned in `resource_usage` and merged back into `runtime_metadata` service/container entries for operator display.
+- Supervisor resource history persistence starts with `backend/app/supervisor/resource_history_store.py`. The store is SQLite-backed, defaults to a 3-day retention window, supports `s`/`m`/`h`/`d` range parsing, and can return step-downsampled points for later API/UI timeline work. Samples and lifecycle marker events share the same retention policy so crash-debug timelines can correlate resource pressure with runtime events.
 - Supervisor owns a Core-hosted runtime contract for Core services, addons, and aux containers through:
   - `POST /api/supervisor/core/runtimes/register`
   - `POST /api/supervisor/core/runtimes/heartbeat`
