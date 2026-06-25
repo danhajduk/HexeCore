@@ -8,6 +8,9 @@ describe("addonFrameContract", () => {
       ui_reachable: true,
       ui_embed_target: "/addons/proxy/mqtt/",
       ui_reason: "ready",
+      standalone_runtime: {
+        published_ports: ["0.0.0.0:18080->8080/tcp"],
+      },
     });
     expect(resolved.reachable).toBe(true);
     expect(resolved.reason).toBe("ready");
@@ -49,6 +52,19 @@ describe("addonFrameContract", () => {
     });
     expect(resolved.reachable).toBe(true);
     expect(resolved.reason).toBe("embedded_local");
-    expect(resolved.frameSrc.endsWith("/addons/proxy/mqtt/")).toBe(true);
+    expect(resolved.frameSrc.endsWith("/api/addons/mqtt")).toBe(true);
+  });
+
+  it("uses the embedded addon API route when backend advertises embedded local UI", () => {
+    const resolved = resolveAddonUiEmbedState("mqtt", {
+      loaded: true,
+      runtime_state: "unknown",
+      ui_reachable: true,
+      ui_embed_target: "/api/addons/mqtt",
+      ui_reason: "embedded_local",
+    });
+    expect(resolved.reachable).toBe(true);
+    expect(resolved.reason).toBe("embedded_local");
+    expect(resolved.frameSrc.endsWith("/api/addons/mqtt")).toBe(true);
   });
 });

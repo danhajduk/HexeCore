@@ -886,7 +886,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertTrue(payload["installed"])
         self.assertTrue(payload["ui_reachable"])
         self.assertEqual(payload["ui_redirect_target"], "/addons/mqtt")
-        self.assertEqual(payload["ui_embed_target"], "/addons/proxy/mqtt/")
+        self.assertEqual(payload["ui_embed_target"], "/api/addons/mqtt")
         self.assertEqual(payload["ui_reason"], "embedded_local")
 
     def test_status_marks_ui_reachable_when_running_with_published_ports(self) -> None:

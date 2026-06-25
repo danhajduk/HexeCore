@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import type { RouteObject } from "react-router-dom";
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation, useParams } from "react-router-dom";
 import Home from "../pages/Home";
 import Addons from "../pages/Addons";
 import AddonFrame from "../pages/AddonFrame";
@@ -25,6 +25,12 @@ function ProtectedRedirect() {
   return <Navigate to={`/?next=${encodeURIComponent(next)}`} replace />;
 }
 
+function AddonProxyPathRedirect() {
+  const params = useParams<{ addonId: string }>();
+  const addonId = String(params.addonId || "").trim();
+  return <Navigate to={addonId ? `/addons/${encodeURIComponent(addonId)}` : "/addons"} replace />;
+}
+
 export function buildRoutes(isAdmin: boolean, ready: boolean): RouteObject[] {
   const addonRoutes = getAddonRoutes();
   const protectedRoute = (element: ReactElement): ReactElement => {
@@ -43,6 +49,8 @@ export function buildRoutes(isAdmin: boolean, ready: boolean): RouteObject[] {
     { path: "/nodes/:nodeId/rendered-ui", element: protectedRoute(<RenderedNodeUiPage />) },
     { path: "/nodes/:nodeId/UI", element: protectedRoute(<NodeFrame />) },
     { path: "/nodes/:nodeId", element: protectedRoute(<NodeDetails />) },
+    { path: "/addons/proxy/:addonId", element: protectedRoute(<AddonProxyPathRedirect />) },
+    { path: "/addons/proxy/:addonId/*", element: protectedRoute(<AddonProxyPathRedirect />) },
     { path: "/addons/:addonId/:section", element: protectedRoute(<AddonFrame />) },
     { path: "/addons/:addonId", element: protectedRoute(<AddonFrame />) },
     { path: "/onboarding/registrations/approve", element: <OnboardingNodeApproval /> },

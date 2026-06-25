@@ -10,6 +10,11 @@ Status: Implemented
 - Embedded addon UI and API integration is handled by Core backend and frontend surfaces.
 - Embedded addons are the canonical addon path only for Core-local extensions.
 - MQTT coordination for embedded addons stays within the Core-owned messaging boundary.
+- Core-local embedded addon UIs are framed through `/api/addons/<addon_id>`.
+  Remote or standalone addon runtimes may still advertise proxy targets under
+  `/addons/proxy/<addon_id>/`.
+- The embedded MQTT admin UI exposes principal registration actions for addon
+  bridges, including approve, provision, and revoke controls.
 
 ## See Also
 

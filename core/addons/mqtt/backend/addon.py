@@ -412,6 +412,21 @@ def addon_ui_root() -> str:
       color: #7dd3fc;
       background: #082f49;
     }
+    .badge.ok {
+      border-color: #166534;
+      color: #86efac;
+      background: #052e16;
+    }
+    .badge.warn {
+      border-color: #92400e;
+      color: #fcd34d;
+      background: #451a03;
+    }
+    .badge.bad {
+      border-color: #991b1b;
+      color: #fca5a5;
+      background: #450a0a;
+    }
     .group-title {
       margin: 12px 0 6px;
       font-size: 13px;
@@ -981,6 +996,61 @@ def addon_ui_root() -> str:
       }
     }
 
+    function addonIdFromPrincipal(item) {
+      const linked = String(item && item.linked_addon_id ? item.linked_addon_id : "").trim();
+      if (linked) return linked;
+      const principalId = String(item && item.principal_id ? item.principal_id : "").trim();
+      if (principalId.startsWith("addon:")) return principalId.slice("addon:".length);
+      return "";
+    }
+
+    function defaultAddonRegistrationBody(addonId) {
+      return {
+        addon_id: addonId,
+        access_mode: "gateway",
+        publish_topics: [`hexe/addons/${addonId}/event/#`, `hexe/addons/${addonId}/state/#`],
+        subscribe_topics: [`hexe/addons/${addonId}/command/#`, "hexe/bootstrap/core"],
+        capabilities: { ha_discovery: "disabled" },
+      };
+    }
+
+    async function runAddonRegistrationAction(action, addonId) {
+      const id = String(addonId || "").trim();
+      const act = String(action || "").trim().toLowerCase();
+      if (!id || !act) return;
+      let url = "";
+      let body = null;
+      if (act === "approve") {
+        url = "/api/system/mqtt/registrations/approve";
+        body = defaultAddonRegistrationBody(id);
+      } else if (act === "provision") {
+        url = `/api/system/mqtt/registrations/${encodeURIComponent(id)}/provision`;
+      } else if (act === "revoke") {
+        if (!window.confirm(`Revoke MQTT grant for ${id}?`)) return;
+        url = `/api/system/mqtt/registrations/${encodeURIComponent(id)}/revoke`;
+      } else {
+        return;
+      }
+      setStatus(`Running ${act} for addon ${id}...`, "");
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          credentials: "include",
+          headers: body ? { "Content-Type": "application/json" } : undefined,
+          body: body ? JSON.stringify(body) : undefined,
+        });
+        const payload = await response.json();
+        if (!response.ok || (payload && payload.ok === false)) {
+          throw new Error(payload && (payload.detail || payload.error) ? (payload.detail || payload.error) : `${act}_failed`);
+        }
+        state.sectionCache = {};
+        await loadStatus();
+        setStatus(`${act} completed for addon ${id}.`, "ok");
+      } catch (error) {
+        setStatus(`${act} failed for addon ${id}: ${error && error.message ? error.message : String(error)}`, "error");
+      }
+    }
+
     async function runPrincipalInfoAction(action, principalId) {
       const id = String(principalId || "").trim();
       const act = String(action || "").trim().toLowerCase();
@@ -1489,7 +1559,16 @@ def addon_ui_root() -> str:
           const users = await fetchJson("/api/addons/mqtt/users?format=json");
           return Array.isArray(users.items) ? users.items : [];
         }
-        const principals = await fetchJson("/api/system/mqtt/principals");
+        const [principals, grants] = await Promise.all([
+          fetchJson("/api/system/mqtt/principals"),
+          fetchJson("/api/system/mqtt/grants"),
+        ]);
+        const grantsByAddon = {};
+        (Array.isArray(grants.items) ? grants.items : []).forEach((grant) => {
+          const addonId = String(grant && grant.addon_id ? grant.addon_id : "").trim();
+          if (addonId) grantsByAddon[addonId] = grant;
+        });
+        state.sectionCache.mqttGrantsByAddon = grantsByAddon;
         const items = Array.isArray(principals.items) ? principals.items : [];
         return items;
       }
@@ -1624,7 +1703,7 @@ def addon_ui_root() -> str:
       try {
         const items = await loadSectionPayload(section);
         state.sectionCache[section] = items;
-        if (!Array.isArray(items) || items.length === 0) {
+        if (!Array.isArray(items) || (items.length === 0 && section !== "principals")) {
           sectionContent.innerHTML = "<div class='empty'>No items.</div>";
           return;
         }
@@ -1637,6 +1716,8 @@ def addon_ui_root() -> str:
             `<select data-filter='principals-type'><option value='' ${state.filters.principals.type === "" ? "selected" : ""}>All types</option><option value='system' ${state.filters.principals.type === "system" ? "selected" : ""}>System</option><option value='addon' ${state.filters.principals.type === "addon" ? "selected" : ""}>Addon</option><option value='node' ${state.filters.principals.type === "node" ? "selected" : ""}>Node</option><option value='generic' ${state.filters.principals.type === "generic" ? "selected" : ""}>Generic</option></select>` +
             `<select data-filter='principals-status'><option value='' ${state.filters.principals.status === "" ? "selected" : ""}>All status</option><option value='pending' ${state.filters.principals.status === "pending" ? "selected" : ""}>Pending</option><option value='active' ${state.filters.principals.status === "active" ? "selected" : ""}>Active</option><option value='probation' ${state.filters.principals.status === "probation" ? "selected" : ""}>Probation</option><option value='revoked' ${state.filters.principals.status === "revoked" ? "selected" : ""}>Revoked</option><option value='expired' ${state.filters.principals.status === "expired" ? "selected" : ""}>Expired</option></select>` +
             `<span class='toolbar-spacer'></span>` +
+            `<button class='mini primary' data-registration-action='approve' data-addon-id='mqtt'>Approve MQTT Addon</button>` +
+            `<button class='mini' data-registration-action='provision' data-addon-id='mqtt'>Provision MQTT Addon</button>` +
             `<button class='mini primary' data-ui-action='open-add-user'>Add User</button>` +
             `</div>`;
           visible = filteredPrincipals(items);
@@ -1714,6 +1795,14 @@ def addon_ui_root() -> str:
                   const allowedSubscribeTopics = escapeHtml(
                     Array.isArray(item.allowed_subscribe_topics) ? item.allowed_subscribe_topics.join(",") : ""
                   );
+                  const addonId = addonIdFromPrincipal(item);
+                  const grant = addonId && state.sectionCache.mqttGrantsByAddon ? state.sectionCache.mqttGrantsByAddon[addonId] : null;
+                  const grantStatusRaw = grant && grant.status ? String(grant.status) : "";
+                  const grantStatus = escapeHtml(grantStatusRaw || "none");
+                  const grantTone = grantStatusRaw === "active" ? "ok" : (grantStatusRaw === "approved" || grantStatusRaw === "error" ? "warn" : "bad");
+                  const grantBadge = key === "addon"
+                    ? `<span class='badge ${grantTone}'>Grant ${grantStatus}</span>`
+                    : "";
                   const managed = String(item.managed_by || "").toLowerCase() === "core";
                   const managedBadge = managed ? `<span class='badge core'>Core Managed</span>` : "";
                   const updated = escapeHtml(formatLocalTimestamp(item.updated_at || item.ts || item.reason || "-"));
@@ -1737,7 +1826,12 @@ def addon_ui_root() -> str:
                       `<button class='mini' data-principal-action='probation' data-principal-id='${principalId}'>Disable</button>` +
                       `<button class='mini' data-principal-action='revoke' data-principal-id='${principalId}'>Revoke</button>`
                     : "";
-                  return `<tr><td class='led-cell'>${led}</td><td>${principalId}</td><td>${principalType}${managedBadge}</td><td>${status}</td><td>${topicPrefix}</td><td>${updated}</td><td><div class='row-actions'>${readonly}${systemLocked ? destructive : (key === "generic" ? genericActions : principalActions)}</div></td></tr>`;
+                  const registrationActions = key === "addon" && addonId
+                    ? `<button class='mini primary' data-registration-action='approve' data-addon-id='${escapeHtml(addonId)}'>Approve MQTT</button>` +
+                      `<button class='mini' data-registration-action='provision' data-addon-id='${escapeHtml(addonId)}' ${grantStatusRaw === "active" ? "disabled" : ""}>Provision</button>` +
+                      `<button class='mini' data-registration-action='revoke' data-addon-id='${escapeHtml(addonId)}' ${grant ? "" : "disabled"}>Revoke Grant</button>`
+                    : "";
+                  return `<tr><td class='led-cell'>${led}</td><td>${principalId}</td><td>${principalType}${managedBadge}${grantBadge}</td><td>${status}</td><td>${topicPrefix}</td><td>${updated}</td><td><div class='row-actions'>${readonly}${registrationActions}${systemLocked ? destructive : (key === "generic" ? genericActions : principalActions)}</div></td></tr>`;
                 })
                 .join("");
               return `<div class='group-title'>${escapeHtml(principalGroupLabel(key))}</div><table class='table'><thead><tr><th class='led-cell'>State</th><th>Principal</th><th>Type</th><th>Status</th><th>Topic Prefix</th><th>Updated</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
@@ -2150,6 +2244,13 @@ def addon_ui_root() -> str:
         const action = principalAction.getAttribute("data-principal-action");
         const principalId = principalAction.getAttribute("data-principal-id");
         if (action && principalId) void runPrincipalAction(action, principalId);
+        return;
+      }
+      const registrationAction = event.target.closest("[data-registration-action]");
+      if (registrationAction) {
+        const action = registrationAction.getAttribute("data-registration-action");
+        const addonId = registrationAction.getAttribute("data-addon-id");
+        if (action && addonId) void runAddonRegistrationAction(action, addonId);
         return;
       }
       const noisyAction = event.target.closest("[data-noisy-action]");

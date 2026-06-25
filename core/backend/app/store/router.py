@@ -570,7 +570,7 @@ def _standalone_ui_redirect_info(
         return {
             "ui_reachable": True,
             "ui_redirect_target": f"/addons/{addon_id}",
-            "ui_embed_target": ui_embed_target,
+            "ui_embed_target": f"/api/addons/{addon_id}",
             "ui_reason": "embedded_local",
         }
     runtime = runtime_payload.get("standalone_runtime")
