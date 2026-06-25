@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 MQTT_SETUP_STATES = Literal["unconfigured", "configuring", "ready", "error", "degraded"]
 MQTT_ACCESS_MODES = Literal["gateway", "direct", "both"]
 MQTT_GRANT_STATUSES = Literal["approved", "active", "provisioned", "revoked", "error"]
-MQTT_NODE_BRIDGE_GRANT_STATUSES = Literal["requested", "approved", "active", "rejected", "revoked", "error"]
+MQTT_NODE_BRIDGE_GRANT_STATUSES = Literal["requested", "approved", "active", "provisioned", "rejected", "revoked", "error"]
 MQTT_HA_DISCOVERY_MODES = Literal["disabled", "gateway_managed", "addon_managed"]
 MQTT_PRINCIPAL_TYPES = Literal["synthia_addon", "synthia_node", "generic_user", "system"]
 MQTT_PRINCIPAL_STATUSES = Literal["pending", "active", "probation", "revoked", "expired"]
@@ -82,6 +82,10 @@ class MqttNodeBridgeGrant(BaseModel):
     approved_at: str | None = None
     last_provisioned_at: str | None = None
     last_revoked_at: str | None = None
+    credential_claimed_at: str | None = None
+    credential_claimed_by_node_id: str | None = None
+    last_credential_delivery_at: str | None = None
+    delivery_status: str | None = None
     updated_at: str = Field(default_factory=_utcnow_iso)
 
 

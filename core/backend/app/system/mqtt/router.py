@@ -10,7 +10,7 @@ from collections import deque
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
-from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi import APIRouter, Body, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.api.admin import require_admin_token
@@ -108,6 +108,10 @@ class MqttNodeBridgeGrantRequest(BaseModel):
     bridge_type: str = Field(..., min_length=1)
     publish_topics: list[str] = Field(default_factory=list)
     subscribe_topics: list[str] = Field(default_factory=list)
+
+
+class MqttNodeBridgeCredentialClaimRequest(BaseModel):
+    bridge_id: str | None = None
 
 
 class MqttSetupApplyRequest(BaseModel):
@@ -314,34 +318,38 @@ def build_mqtt_router(
     approval = approval_service or MqttRegistrationApprovalService(registry=registry, state_store=state_store)
     debug_subscriptions: dict[str, dict[str, Any]] = {}
 
+    def _require_trusted_node_identity(*, x_node_id: str | None, x_node_trust_token: str | None) -> str:
+        header_node_id = str(x_node_id or "").strip()
+        token = str(x_node_trust_token or "").strip()
+        if not header_node_id:
+            raise HTTPException(status_code=401, detail="node_id_header_required")
+        if not token:
+            raise HTTPException(status_code=401, detail="node_trust_token_required")
+        if node_trust_issuance is None:
+            raise HTTPException(status_code=503, detail="node_trust_auth_unavailable")
+        trust = node_trust_issuance.authenticate_node(header_node_id, token)
+        if trust is None:
+            raise HTTPException(status_code=403, detail="node_trust_invalid")
+        if node_registrations_store is not None:
+            registration = node_registrations_store.get(header_node_id)
+            if registration is None:
+                raise HTTPException(status_code=404, detail="node_registration_not_found")
+            if str(registration.trust_status or "").strip().lower() != "trusted":
+                raise HTTPException(status_code=403, detail="node_not_trusted")
+        return header_node_id
+
     def _require_trusted_node_bridge_request(
         body: MqttNodeBridgeGrantRequest,
         *,
         x_node_id: str | None,
         x_node_trust_token: str | None,
     ) -> None:
-        header_node_id = str(x_node_id or "").strip()
         body_node_id = str(body.node_id or "").strip()
-        token = str(x_node_trust_token or "").strip()
         if not body_node_id:
             raise HTTPException(status_code=400, detail="node_id_required")
-        if not header_node_id:
-            raise HTTPException(status_code=401, detail="node_id_header_required")
+        header_node_id = _require_trusted_node_identity(x_node_id=x_node_id, x_node_trust_token=x_node_trust_token)
         if header_node_id != body_node_id:
             raise HTTPException(status_code=403, detail="node_id_mismatch")
-        if not token:
-            raise HTTPException(status_code=401, detail="node_trust_token_required")
-        if node_trust_issuance is None:
-            raise HTTPException(status_code=503, detail="node_trust_auth_unavailable")
-        trust = node_trust_issuance.authenticate_node(body_node_id, token)
-        if trust is None:
-            raise HTTPException(status_code=403, detail="node_trust_invalid")
-        if node_registrations_store is not None:
-            registration = node_registrations_store.get(body_node_id)
-            if registration is None:
-                raise HTTPException(status_code=404, detail="node_registration_not_found")
-            if str(registration.trust_status or "").strip().lower() != "trusted":
-                raise HTTPException(status_code=403, detail="node_not_trusted")
 
     def _runtime_status_payload(status: Any) -> dict[str, Any]:
         if isinstance(status, dict):
@@ -1354,18 +1362,24 @@ def build_mqtt_router(
         result = await approval.provision_node_bridge_grant(grant_id)
         if not result.get("ok"):
             raise HTTPException(status_code=400, detail=result)
-        principal = result.get("principal") if isinstance(result.get("principal"), dict) else {}
-        principal_id = str(principal.get("principal_id") or "").strip()
-        credential = None
-        if credential_store is not None and principal_id:
-            state = await state_store.get_state()
-            try:
-                credential_store.render_password_file(state)
-                credential = credential_store.get_principal_credential(principal_id)
-            except Exception:
-                credential = None
-        if credential:
-            result = {**result, "credential": credential}
+        return result
+
+    @router.post("/mqtt/node-bridge-grants/{grant_id}/credential/claim")
+    async def mqtt_node_bridge_grant_credential_claim(
+        grant_id: str,
+        body: MqttNodeBridgeCredentialClaimRequest | None = Body(default=None),
+        x_node_id: str | None = Header(default=None),
+        x_node_trust_token: str | None = Header(default=None),
+    ):
+        node_id = _require_trusted_node_identity(x_node_id=x_node_id, x_node_trust_token=x_node_trust_token)
+        result = await approval.claim_node_bridge_credential(
+            grant_id,
+            node_id=node_id,
+            credential_store=credential_store,
+            requested_bridge_id=(body.bridge_id if body else None),
+        )
+        if not result.get("ok"):
+            raise HTTPException(status_code=int(result.get("status_code") or 400), detail=result)
         return result
 
     @router.post("/mqtt/node-bridge-grants/{grant_id}/revoke")

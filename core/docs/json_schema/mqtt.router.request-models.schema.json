@@ -168,6 +168,66 @@
       "title": "MqttGenericUserUpsertRequest",
       "type": "object"
     },
+    "MqttNodeBridgeCredentialClaimRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "bridge_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bridge Id"
+        }
+      },
+      "title": "MqttNodeBridgeCredentialClaimRequest",
+      "type": "object"
+    },
+    "MqttNodeBridgeGrantRequest": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "bridge_id": {
+          "minLength": 1,
+          "title": "Bridge Id",
+          "type": "string"
+        },
+        "bridge_type": {
+          "minLength": 1,
+          "title": "Bridge Type",
+          "type": "string"
+        },
+        "node_id": {
+          "minLength": 1,
+          "title": "Node Id",
+          "type": "string"
+        },
+        "publish_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Publish Topics",
+          "type": "array"
+        },
+        "subscribe_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Subscribe Topics",
+          "type": "array"
+        }
+      },
+      "required": [
+        "node_id",
+        "bridge_id",
+        "bridge_type"
+      ],
+      "title": "MqttNodeBridgeGrantRequest",
+      "type": "object"
+    },
     "MqttNoisyActionRequest": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "properties": {
@@ -668,7 +728,5 @@
       "title": "MqttUsersImportRequest",
       "type": "object"
     }
-  },
-  "title": "Hexe MQTT Router Request Models",
-  "type": "object"
+  }
 }

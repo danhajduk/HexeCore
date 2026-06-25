@@ -159,6 +159,7 @@ Representative routes under `/api/system`:
 - setup/control: `/mqtt/status`, `/mqtt/setup-summary`, `/mqtt/setup/apply`, `/mqtt/setup/test-connection`, `/mqtt/setup-state`
 - runtime: `/mqtt/runtime/health`, `/mqtt/runtime/start`, `/mqtt/runtime/stop`, `/mqtt/runtime/init`, `/mqtt/runtime/rebuild`, `/mqtt/runtime/config`
 - approvals/principals/users: `/mqtt/registrations/*`, `/mqtt/node-bridge-grants*`, `/mqtt/principals*`, `/mqtt/users*`, `/mqtt/generic-users*`
+- node bridge credential claim: `POST /mqtt/node-bridge-grants/{grant_id}/credential/claim` with `X-Node-Id` and `X-Node-Trust-Token`
 - observability/audit: `/mqtt/noisy-clients*`, `/mqtt/observability`, `/mqtt/audit`
 - debug: `/mqtt/debug/*`
 - notification dev hook: `POST /mqtt/debug/notifications/test-flow` (admin token required; only active when `NOTIFICATION_DEBUG_ENABLED=true`)
@@ -230,12 +231,14 @@ Status: Not developed
 ## See Also
 
 - [Core Platform](./core-platform.md)
+- [Core Communication API Guide](./core-communication-api-guide.md)
 - [Edge Gateway](./edge-gateway.md)
 - [Phase 5 Cloudflare Auto-Provisioning](../../migration/phase-5-cloudflare-auto-provisioning.md)
 - [Node Provider Intelligence Contract](./node-provider-intelligence-contract.md)
 - [Node Service Resolution And Budgeting](../node-service-resolution-and-budgeting.md)
 - [Telemetry And Usage](./telemetry-and-usage.md)
 - [MQTT Platform](../mqtt/mqtt-platform.md)
+- [Node Bridge Topic Grants](../mqtt/node-bridge-topic-grants.md)
 - [Notifications Bus](../mqtt/notifications.md)
 - [Auth and Identity](./auth-and-identity.md)
 - [Runtime and Supervision](../supervisor/runtime-and-supervision.md)

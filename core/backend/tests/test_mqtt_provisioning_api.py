@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from app.addons.models import AddonMeta, BackendAddon, RegisteredAddon
 from app.addons.registry import AddonRegistry
 from app.system.auth import ServiceTokenKeyStore, sign_hs256
-from app.system.mqtt import MqttCredentialStore, MqttIntegrationStateStore, build_mqtt_router
+from app.system.mqtt import MqttCredentialStore, MqttIntegrationStateStore, MqttNodeBridgeGrant, build_mqtt_router
 from app.system.onboarding import NodeRegistrationRecord, NodeRegistrationsStore, NodeTrustIssuanceService, NodeTrustStore
 
 
@@ -128,6 +128,57 @@ class TestMqttProvisioningApi(unittest.TestCase):
         )
         return str(activation["activation"]["node_trust_token"])
 
+    def _mark_mqtt_setup_ready(self) -> None:
+        setup_ready = self.client.post(
+            "/api/system/mqtt/setup-state",
+            headers={"X-Admin-Token": "test-token"},
+            json={
+                "requires_setup": True,
+                "setup_complete": True,
+                "setup_status": "ready",
+                "broker_mode": "embedded",
+                "direct_mqtt_supported": True,
+                "authority_ready": True,
+            },
+        )
+        self.assertEqual(setup_ready.status_code, 200, setup_ready.text)
+
+    def _request_homeassistant_bridge_grant(
+        self,
+        *,
+        node_id: str = "node-6812313e6d1efad6",
+        token: str | None = None,
+    ) -> dict:
+        token = token or self._trusted_node(node_id)
+        requested = self.client.post(
+            "/api/system/mqtt/node-bridge-grants/request",
+            headers={
+                "X-Node-Id": node_id,
+                "X-Node-Trust-Token": token,
+            },
+            json={
+                "node_id": node_id,
+                "bridge_id": "homeassistant",
+                "bridge_type": "homeassistant",
+                "publish_topics": [
+                    "homeassistant/+/hexe_ecosystem/+/config",
+                    "homeassistant/hexe_ecosystem/state",
+                ],
+                "subscribe_topics": ["homeassistant/status"],
+            },
+        )
+        self.assertEqual(requested.status_code, 200, requested.text)
+        return requested.json()["grant"]
+
+    def _approve_homeassistant_bridge_grant(self, node_id: str = "node-6812313e6d1efad6") -> dict:
+        approved = self.client.post(
+            f"/api/system/mqtt/node-bridge-grants/{node_id}:homeassistant/approve",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(approved.status_code, 200, approved.text)
+        self.assertEqual(approved.json()["grant"]["status"], "approved")
+        return approved.json()["grant"]
+
     def test_provisioning_and_revocation_handshake(self) -> None:
         setup_ready = self.client.post(
             "/api/system/mqtt/setup-state",
@@ -174,25 +225,7 @@ class TestMqttProvisioningApi(unittest.TestCase):
 
     def test_node_bridge_grant_request_approval_and_provisioning(self) -> None:
         token = self._trusted_node()
-        requested = self.client.post(
-            "/api/system/mqtt/node-bridge-grants/request",
-            headers={
-                "X-Node-Id": "node-6812313e6d1efad6",
-                "X-Node-Trust-Token": token,
-            },
-            json={
-                "node_id": "node-6812313e6d1efad6",
-                "bridge_id": "homeassistant",
-                "bridge_type": "homeassistant",
-                "publish_topics": [
-                    "homeassistant/+/hexe_ecosystem/+/config",
-                    "homeassistant/hexe_ecosystem/state",
-                ],
-                "subscribe_topics": ["homeassistant/status"],
-            },
-        )
-        self.assertEqual(requested.status_code, 200, requested.text)
-        grant = requested.json()["grant"]
+        grant = self._request_homeassistant_bridge_grant(token=token)
         self.assertEqual(grant["grant_id"], "node-6812313e6d1efad6:homeassistant")
         self.assertEqual(grant["status"], "requested")
         self.assertEqual(grant["requester_principal_id"], "node:node-6812313e6d1efad6")
@@ -201,26 +234,8 @@ class TestMqttProvisioningApi(unittest.TestCase):
         self.assertEqual(grants.status_code, 200, grants.text)
         self.assertEqual(grants.json()["items"][0]["bridge_id"], "homeassistant")
 
-        approved = self.client.post(
-            "/api/system/mqtt/node-bridge-grants/node-6812313e6d1efad6:homeassistant/approve",
-            headers={"X-Admin-Token": "test-token"},
-        )
-        self.assertEqual(approved.status_code, 200, approved.text)
-        self.assertEqual(approved.json()["grant"]["status"], "approved")
-
-        setup_ready = self.client.post(
-            "/api/system/mqtt/setup-state",
-            headers={"X-Admin-Token": "test-token"},
-            json={
-                "requires_setup": True,
-                "setup_complete": True,
-                "setup_status": "ready",
-                "broker_mode": "embedded",
-                "direct_mqtt_supported": True,
-                "authority_ready": True,
-            },
-        )
-        self.assertEqual(setup_ready.status_code, 200, setup_ready.text)
+        self._approve_homeassistant_bridge_grant()
+        self._mark_mqtt_setup_ready()
 
         provisioned = self.client.post(
             "/api/system/mqtt/node-bridge-grants/node-6812313e6d1efad6:homeassistant/provision",
@@ -230,9 +245,124 @@ class TestMqttProvisioningApi(unittest.TestCase):
         body = provisioned.json()
         self.assertEqual(body["grant"]["status"], "active")
         self.assertEqual(body["principal"]["managed_by"], "node_bridge_grant")
-        self.assertEqual(body["credential"]["principal_id"], body["principal"]["principal_id"])
-        self.assertTrue(body["credential"]["username"].startswith("hb_"))
-        self.assertTrue(body["credential"]["password"])
+        self.assertNotIn("credential", body)
+
+    def test_node_can_claim_own_approved_bridge_credential(self) -> None:
+        token = self._trusted_node()
+        self._request_homeassistant_bridge_grant(token=token)
+        self._approve_homeassistant_bridge_grant()
+        self._mark_mqtt_setup_ready()
+
+        claim = self.client.post(
+            "/api/system/mqtt/node-bridge-grants/node-6812313e6d1efad6:homeassistant/credential/claim",
+            headers={
+                "X-Node-Id": "node-6812313e6d1efad6",
+                "X-Node-Trust-Token": token,
+            },
+            json={"bridge_id": "homeassistant"},
+        )
+        self.assertEqual(claim.status_code, 200, claim.text)
+        body = claim.json()
+        self.assertTrue(body["ok"])
+        self.assertEqual(body["grant"]["status"], "active")
+        self.assertEqual(body["grant"]["delivery_status"], "delivered")
+        self.assertEqual(body["grant"]["credential_claimed_by_node_id"], "node-6812313e6d1efad6")
+        self.assertTrue(body["grant"]["credential_claimed_at"])
+        self.assertTrue(body["grant"]["last_credential_delivery_at"])
+        self.assertTrue(body["mqtt"]["username"].startswith("hb_"))
+        self.assertTrue(body["mqtt"]["password"])
+
+        second_claim = self.client.post(
+            "/api/system/mqtt/node-bridge-grants/node-6812313e6d1efad6:homeassistant/credential/claim",
+            headers={
+                "X-Node-Id": "node-6812313e6d1efad6",
+                "X-Node-Trust-Token": token,
+            },
+        )
+        self.assertEqual(second_claim.status_code, 200, second_claim.text)
+        self.assertEqual(second_claim.json()["mqtt"]["password"], body["mqtt"]["password"])
+
+        grants = self.client.get("/api/system/mqtt/node-bridge-grants", headers={"X-Admin-Token": "test-token"})
+        self.assertEqual(grants.status_code, 200, grants.text)
+        self.assertNotIn("password", str(grants.json()))
+        detail = self.client.get(
+            "/api/system/mqtt/node-bridge-grants/node-6812313e6d1efad6:homeassistant",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(detail.status_code, 200, detail.text)
+        self.assertNotIn("password", str(detail.json()))
+
+    def test_node_cannot_claim_another_nodes_bridge_credential(self) -> None:
+        owner_token = self._trusted_node("node-owner")
+        other_token = self._trusted_node("node-other")
+        self._request_homeassistant_bridge_grant(node_id="node-owner", token=owner_token)
+        self._approve_homeassistant_bridge_grant("node-owner")
+        self._mark_mqtt_setup_ready()
+
+        claim = self.client.post(
+            "/api/system/mqtt/node-bridge-grants/node-owner:homeassistant/credential/claim",
+            headers={"X-Node-Id": "node-other", "X-Node-Trust-Token": other_token},
+        )
+        self.assertEqual(claim.status_code, 403, claim.text)
+        self.assertEqual(claim.json()["detail"]["error"], "node_bridge_grant_node_mismatch")
+
+    def test_node_cannot_claim_bridge_credential_before_approval(self) -> None:
+        token = self._trusted_node()
+        self._request_homeassistant_bridge_grant(token=token)
+        self._mark_mqtt_setup_ready()
+
+        claim = self.client.post(
+            "/api/system/mqtt/node-bridge-grants/node-6812313e6d1efad6:homeassistant/credential/claim",
+            headers={
+                "X-Node-Id": "node-6812313e6d1efad6",
+                "X-Node-Trust-Token": token,
+            },
+        )
+        self.assertEqual(claim.status_code, 400, claim.text)
+        self.assertEqual(claim.json()["detail"]["error"], "node_bridge_grant_not_approved:requested")
+
+    def test_node_cannot_claim_revoked_or_rejected_bridge_credential(self) -> None:
+        token = self._trusted_node()
+        self._request_homeassistant_bridge_grant(token=token)
+        self._approve_homeassistant_bridge_grant()
+        self._mark_mqtt_setup_ready()
+
+        revoked = self.client.post(
+            "/api/system/mqtt/node-bridge-grants/node-6812313e6d1efad6:homeassistant/revoke",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(revoked.status_code, 200, revoked.text)
+
+        claim_revoked = self.client.post(
+            "/api/system/mqtt/node-bridge-grants/node-6812313e6d1efad6:homeassistant/credential/claim",
+            headers={
+                "X-Node-Id": "node-6812313e6d1efad6",
+                "X-Node-Trust-Token": token,
+            },
+        )
+        self.assertEqual(claim_revoked.status_code, 400, claim_revoked.text)
+        self.assertEqual(claim_revoked.json()["detail"]["error"], "node_bridge_grant_revoked")
+
+        rejected_grant = MqttNodeBridgeGrant(
+            grant_id="node-6812313e6d1efad6:rejectedbridge",
+            node_id="node-6812313e6d1efad6",
+            bridge_id="rejectedbridge",
+            bridge_type="test",
+            status="rejected",
+            requested_publish_topics=["external/test/state"],
+            requested_subscribe_topics=[],
+            requester_principal_id="node:node-6812313e6d1efad6",
+        )
+        asyncio.run(self.state_store.upsert_node_bridge_grant(rejected_grant))
+        claim_rejected = self.client.post(
+            "/api/system/mqtt/node-bridge-grants/node-6812313e6d1efad6:rejectedbridge/credential/claim",
+            headers={
+                "X-Node-Id": "node-6812313e6d1efad6",
+                "X-Node-Trust-Token": token,
+            },
+        )
+        self.assertEqual(claim_rejected.status_code, 400, claim_rejected.text)
+        self.assertEqual(claim_rejected.json()["detail"]["error"], "node_bridge_grant_rejected")
 
     def test_grant_and_setup_inspection_endpoints(self) -> None:
         approved = self.client.post(

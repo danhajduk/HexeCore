@@ -400,6 +400,120 @@ class MqttRegistrationApprovalService:
         await self._append_lifecycle_audit("principal_activated", principal_id=principal.principal_id, actor="authority")
         return {"ok": True, "grant": next_grant.model_dump(mode="json"), "principal": principal.model_dump(mode="json")}
 
+    async def claim_node_bridge_credential(
+        self,
+        grant_id: str,
+        *,
+        node_id: str,
+        credential_store,
+        requested_bridge_id: str | None = None,
+    ) -> dict[str, Any]:
+        clean_grant_id = str(grant_id or "").strip()
+        clean_node_id = str(node_id or "").strip()
+        clean_bridge_id = str(requested_bridge_id or "").strip()
+        await self._append_audit(
+            event_type="node_bridge_credential_claim_requested",
+            status="ok",
+            message="claim_requested",
+            payload={"grant_id": clean_grant_id, "node_id": clean_node_id},
+        )
+
+        def denied(error: str, *, status_code: int = 400, extra: dict[str, Any] | None = None) -> dict[str, Any]:
+            payload = {"grant_id": clean_grant_id, "node_id": clean_node_id, "error": error, **(extra or {})}
+            return {"ok": False, "error": error, "status_code": status_code, "audit_payload": payload}
+
+        async def deny(error: str, *, status_code: int = 400, extra: dict[str, Any] | None = None) -> dict[str, Any]:
+            result = denied(error, status_code=status_code, extra=extra)
+            await self._append_node_bridge_claim_denied(result["audit_payload"])
+            return {key: value for key, value in result.items() if key != "audit_payload"}
+
+        state = await self._state_store.get_state()
+        current = state.node_bridge_grants.get(clean_grant_id)
+        if current is None:
+            return await deny("node_bridge_grant_not_found", status_code=404)
+        if current.node_id != clean_node_id:
+            return await deny("node_bridge_grant_node_mismatch", status_code=403, extra={"grant_node_id": current.node_id})
+        if clean_bridge_id and current.bridge_id != clean_bridge_id:
+            return await deny("node_bridge_grant_bridge_mismatch", status_code=403, extra={"grant_bridge_id": current.bridge_id})
+        if current.status in {"rejected", "revoked"}:
+            return await deny(f"node_bridge_grant_{current.status}", status_code=400, extra={"grant_status": current.status})
+        if current.status not in {"approved", "active", "provisioned"}:
+            return await deny(
+                f"node_bridge_grant_not_approved:{current.status}",
+                status_code=400,
+                extra={"grant_status": current.status},
+            )
+        if credential_store is None:
+            return await deny("credential_store_unavailable", status_code=503, extra={"grant_status": current.status})
+        if not self._setup_ready(state):
+            next_grant = current.model_copy(deep=True)
+            next_grant.last_error = f"mqtt_setup_not_ready:{state.setup_status}"
+            next_grant.delivery_status = "error"
+            await self._state_store.upsert_node_bridge_grant(next_grant)
+            return await deny("mqtt_setup_not_ready", status_code=409, extra={"setup_status": state.setup_status})
+
+        next_grant = current.model_copy(deep=True)
+        principal_id = next_grant.bridge_principal_id or _bridge_principal_id(next_grant.grant_id)
+        principal = state.principals.get(principal_id)
+        first_delivery = not next_grant.credential_claimed_at
+        credential = credential_store.get_principal_credential(principal_id)
+        should_provision = current.status == "approved" or principal is None
+        if should_provision:
+            next_grant.status = "active"
+            next_grant.last_error = None
+            next_grant.last_provisioned_at = _utcnow_iso()
+            next_grant.bridge_principal_id = principal_id
+            principal = self._principal_from_node_bridge_grant(next_grant)
+            principal.status = "active"
+            principal.last_activated_at = _utcnow_iso()
+            await self._state_store.upsert_node_bridge_grant(next_grant)
+            await self._state_store.upsert_principal(principal)
+            state = await self._state_store.get_state()
+            credential_store.render_password_file(state)
+            credential = credential_store.get_principal_credential(principal_id)
+            await self._reconcile_runtime_if_needed(reason=f"node_bridge_claim:{next_grant.grant_id}")
+            await self._append_lifecycle_audit("principal_activated", principal_id=principal_id, actor="authority")
+        elif credential is None and first_delivery:
+            state = await self._state_store.get_state()
+            credential_store.render_password_file(state)
+            credential = credential_store.get_principal_credential(principal_id)
+
+        if credential is None or not str(credential.get("password") or ""):
+            next_grant = next_grant.model_copy(deep=True)
+            next_grant.delivery_status = "error"
+            next_grant.last_error = "credential_not_retrievable_rotate_required"
+            await self._state_store.upsert_node_bridge_grant(next_grant)
+            return await deny(
+                "credential_not_retrievable_rotate_required",
+                status_code=409,
+                extra={"principal_id": principal_id, "grant_status": next_grant.status},
+            )
+
+        now = _utcnow_iso()
+        delivered_grant = next_grant.model_copy(deep=True)
+        delivered_grant.status = "active"
+        delivered_grant.bridge_principal_id = principal_id
+        delivered_grant.last_error = None
+        delivered_grant.credential_claimed_at = delivered_grant.credential_claimed_at or now
+        delivered_grant.credential_claimed_by_node_id = clean_node_id
+        delivered_grant.last_credential_delivery_at = now
+        delivered_grant.delivery_status = "delivered"
+        await self._state_store.upsert_node_bridge_grant(delivered_grant)
+        await self._append_audit(
+            event_type="node_bridge_credential_claim_succeeded",
+            status="ok",
+            message="claim_succeeded",
+            payload={"grant_id": delivered_grant.grant_id, "node_id": clean_node_id, "principal_id": principal_id},
+        )
+        return {
+            "ok": True,
+            "grant": delivered_grant.model_dump(mode="json"),
+            "mqtt": {
+                "username": str(credential.get("username") or ""),
+                "password": str(credential.get("password") or ""),
+            },
+        }
+
     async def revoke_node_bridge_grant(self, grant_id: str, reason: str = "api_request") -> dict[str, Any]:
         state = await self._state_store.get_state()
         current = state.node_bridge_grants.get(str(grant_id or "").strip())
@@ -422,6 +536,12 @@ class MqttRegistrationApprovalService:
             event_type="mqtt_node_bridge_grant_action",
             status="ok",
             message="revoke",
+            payload={"grant_id": next_grant.grant_id, "reason": reason, "principal_id": principal_id},
+        )
+        await self._append_audit(
+            event_type="node_bridge_credential_revoked",
+            status="ok",
+            message="credential_revoked",
             payload={"grant_id": next_grant.grant_id, "reason": reason, "principal_id": principal_id},
         )
         await self._append_lifecycle_audit("principal_revoked", principal_id=principal_id, actor="admin")
@@ -803,6 +923,30 @@ class MqttRegistrationApprovalService:
             )
             if act in {"revoke_credentials", "rotate_credentials"} and rotated:
                 await self._append_lifecycle_audit("password_rotated", principal_id=principal_id, actor="admin")
+                if principal.managed_by == "node_bridge_grant":
+                    bridge_grant = next(
+                        (
+                            grant
+                            for grant in state.node_bridge_grants.values()
+                            if (grant.bridge_principal_id or _bridge_principal_id(grant.grant_id)) == principal_id
+                        ),
+                        None,
+                    )
+                    await self._append_audit(
+                        event_type=(
+                            "node_bridge_credential_rotated"
+                            if act == "rotate_credentials"
+                            else "node_bridge_credential_revoked"
+                        ),
+                        status="ok",
+                        message=("credential_rotated" if act == "rotate_credentials" else "credential_revoked"),
+                        payload={
+                            "grant_id": bridge_grant.grant_id if bridge_grant else None,
+                            "node_id": bridge_grant.node_id if bridge_grant else principal.linked_node_id,
+                            "principal_id": principal_id,
+                            "reason": reason,
+                        },
+                    )
             return {"ok": True, "principal": next_principal.model_dump(mode="json"), "rotated": rotated}
         else:
             return {"ok": False, "error": "noisy_action_invalid", "principal_id": principal_id}
@@ -907,6 +1051,15 @@ class MqttRegistrationApprovalService:
             await self._audit.append_event(event_type=event_type, status=status, message=message, payload=payload)
         except Exception:
             return
+
+    async def _append_node_bridge_claim_denied(self, payload: dict[str, Any]) -> None:
+        payload = {key: value for key, value in payload.items() if key != "password"}
+        await self._append_audit(
+            event_type="node_bridge_credential_claim_denied",
+            status="denied",
+            message=str(payload.get("error") or "claim_denied"),
+            payload=payload,
+        )
 
     async def _append_lifecycle_audit(self, action: str, *, principal_id: str, actor: str) -> None:
         await self._append_audit(

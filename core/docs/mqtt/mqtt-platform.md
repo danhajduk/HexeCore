@@ -88,7 +88,11 @@ Status: Implemented
 - Operators approve, provision, and revoke node bridge grants through
   `/api/system/mqtt/node-bridge-grants*` or the MQTT admin UI Bridge Grants tab.
 - Provisioning creates a managed bridge principal with scoped publish/subscribe
-  ACLs and returns the generated MQTT username/password to the admin caller.
+  ACLs.
+- Approved grants can be claimed by the owning trusted node with
+  `POST /api/system/mqtt/node-bridge-grants/{grant_id}/credential/claim`.
+  Credential claim creates or reuses the bridge principal, reconciles ACLs, and
+  returns the MQTT username/password only to that node claim response.
 
 ## ACL / Compiler Model
 

@@ -423,6 +423,202 @@
           "title": "MqttAddonGrant",
           "type": "object"
         },
+        "MqttNodeBridgeGrant": {
+          "properties": {
+            "approved_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Approved At"
+            },
+            "approved_publish_topics": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Approved Publish Topics",
+              "type": "array"
+            },
+            "approved_subscribe_topics": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Approved Subscribe Topics",
+              "type": "array"
+            },
+            "bridge_id": {
+              "minLength": 1,
+              "title": "Bridge Id",
+              "type": "string"
+            },
+            "bridge_principal_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Bridge Principal Id"
+            },
+            "bridge_type": {
+              "minLength": 1,
+              "title": "Bridge Type",
+              "type": "string"
+            },
+            "credential_claimed_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Credential Claimed At"
+            },
+            "credential_claimed_by_node_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Credential Claimed By Node Id"
+            },
+            "delivery_status": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Delivery Status"
+            },
+            "grant_id": {
+              "minLength": 1,
+              "title": "Grant Id",
+              "type": "string"
+            },
+            "last_credential_delivery_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Last Credential Delivery At"
+            },
+            "last_error": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Last Error"
+            },
+            "last_provisioned_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Last Provisioned At"
+            },
+            "last_revoked_at": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Last Revoked At"
+            },
+            "node_id": {
+              "minLength": 1,
+              "title": "Node Id",
+              "type": "string"
+            },
+            "requested_at": {
+              "title": "Requested At",
+              "type": "string"
+            },
+            "requested_publish_topics": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Requested Publish Topics",
+              "type": "array"
+            },
+            "requested_subscribe_topics": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Requested Subscribe Topics",
+              "type": "array"
+            },
+            "requester_principal_id": {
+              "minLength": 1,
+              "title": "Requester Principal Id",
+              "type": "string"
+            },
+            "status": {
+              "default": "requested",
+              "enum": [
+                "requested",
+                "approved",
+                "active",
+                "provisioned",
+                "rejected",
+                "revoked",
+                "error"
+              ],
+              "title": "Status",
+              "type": "string"
+            },
+            "updated_at": {
+              "title": "Updated At",
+              "type": "string"
+            }
+          },
+          "required": [
+            "grant_id",
+            "node_id",
+            "bridge_id",
+            "bridge_type",
+            "requester_principal_id"
+          ],
+          "title": "MqttNodeBridgeGrant",
+          "type": "object"
+        },
         "MqttPrincipal": {
           "properties": {
             "access_mode": {
@@ -708,6 +904,13 @@
           "title": "Mqtt Enabled",
           "type": "boolean"
         },
+        "node_bridge_grants": {
+          "additionalProperties": {
+            "$ref": "#/$defs/MqttNodeBridgeGrant"
+          },
+          "title": "Node Bridge Grants",
+          "type": "object"
+        },
         "principals": {
           "additionalProperties": {
             "$ref": "#/$defs/MqttPrincipal"
@@ -761,6 +964,203 @@
         }
       },
       "title": "MqttIntegrationState",
+      "type": "object"
+    },
+    "MqttNodeBridgeGrant": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "approved_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved At"
+        },
+        "approved_publish_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Approved Publish Topics",
+          "type": "array"
+        },
+        "approved_subscribe_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Approved Subscribe Topics",
+          "type": "array"
+        },
+        "bridge_id": {
+          "minLength": 1,
+          "title": "Bridge Id",
+          "type": "string"
+        },
+        "bridge_principal_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bridge Principal Id"
+        },
+        "bridge_type": {
+          "minLength": 1,
+          "title": "Bridge Type",
+          "type": "string"
+        },
+        "credential_claimed_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Credential Claimed At"
+        },
+        "credential_claimed_by_node_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Credential Claimed By Node Id"
+        },
+        "delivery_status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Delivery Status"
+        },
+        "grant_id": {
+          "minLength": 1,
+          "title": "Grant Id",
+          "type": "string"
+        },
+        "last_credential_delivery_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Credential Delivery At"
+        },
+        "last_error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Error"
+        },
+        "last_provisioned_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Provisioned At"
+        },
+        "last_revoked_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Revoked At"
+        },
+        "node_id": {
+          "minLength": 1,
+          "title": "Node Id",
+          "type": "string"
+        },
+        "requested_at": {
+          "title": "Requested At",
+          "type": "string"
+        },
+        "requested_publish_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Requested Publish Topics",
+          "type": "array"
+        },
+        "requested_subscribe_topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Requested Subscribe Topics",
+          "type": "array"
+        },
+        "requester_principal_id": {
+          "minLength": 1,
+          "title": "Requester Principal Id",
+          "type": "string"
+        },
+        "status": {
+          "default": "requested",
+          "enum": [
+            "requested",
+            "approved",
+            "active",
+            "provisioned",
+            "rejected",
+            "revoked",
+            "error"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "updated_at": {
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "grant_id",
+        "node_id",
+        "bridge_id",
+        "bridge_type",
+        "requester_principal_id"
+      ],
+      "title": "MqttNodeBridgeGrant",
       "type": "object"
     },
     "MqttPrincipal": {
@@ -1300,7 +1700,5 @@
       "title": "MqttSetupStateUpdate",
       "type": "object"
     }
-  },
-  "title": "Hexe MQTT Integration Models",
-  "type": "object"
+  }
 }
