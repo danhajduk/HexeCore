@@ -12,7 +12,8 @@ from fastapi.testclient import TestClient
 from app.addons.models import AddonMeta, BackendAddon, RegisteredAddon
 from app.addons.registry import AddonRegistry
 from app.system.auth import ServiceTokenKeyStore, sign_hs256
-from app.system.mqtt import MqttIntegrationStateStore, build_mqtt_router
+from app.system.mqtt import MqttCredentialStore, MqttIntegrationStateStore, build_mqtt_router
+from app.system.onboarding import NodeRegistrationRecord, NodeRegistrationsStore, NodeTrustIssuanceService, NodeTrustStore
 
 
 class _FakeSettingsStore:
@@ -46,6 +47,9 @@ class TestMqttProvisioningApi(unittest.TestCase):
         self.settings = _FakeSettingsStore()
         self.key_store = ServiceTokenKeyStore(self.settings)
         self.state_store = MqttIntegrationStateStore(str(Path(self.tmpdir.name) / "mqtt_state.json"))
+        self.credential_store = MqttCredentialStore(str(Path(self.tmpdir.name) / "mqtt_credentials.json"))
+        self.node_registrations = NodeRegistrationsStore(path=Path(self.tmpdir.name) / "node_registrations.json")
+        self.node_trust = NodeTrustIssuanceService(NodeTrustStore(path=Path(self.tmpdir.name) / "node_trust.json"))
         self.registry = AddonRegistry(
             addons={
                 "vision": BackendAddon(
@@ -66,7 +70,15 @@ class TestMqttProvisioningApi(unittest.TestCase):
         )
         app = FastAPI()
         app.include_router(
-            build_mqtt_router(_FakeMqttManager(), self.registry, self.state_store, self.key_store),
+            build_mqtt_router(
+                _FakeMqttManager(),
+                self.registry,
+                self.state_store,
+                self.key_store,
+                credential_store=self.credential_store,
+                node_registrations_store=self.node_registrations,
+                node_trust_issuance=self.node_trust,
+            ),
             prefix="/api/system",
         )
         self.client = TestClient(app)
@@ -90,6 +102,31 @@ class TestMqttProvisioningApi(unittest.TestCase):
             },
             key["secret"],
         )
+
+    def _trusted_node(self, node_id: str = "node-6812313e6d1efad6") -> str:
+        now = "2026-06-25T00:00:00+00:00"
+        self.node_registrations.upsert(
+            NodeRegistrationRecord(
+                node_id=node_id,
+                node_type="interaction-node",
+                node_name="hexe-interaction",
+                node_software_version="0.1.0",
+                requested_node_type="interaction-node",
+                capabilities_summary=[],
+                trust_status="trusted",
+                source_onboarding_session_id="session-1",
+                approved_by_user_id="admin",
+                approved_at=now,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+        activation = self.node_trust.reissue_for_node(
+            node_id=node_id,
+            node_type="interaction-node",
+            source_session_id="session-1",
+        )
+        return str(activation["activation"]["node_trust_token"])
 
     def test_provisioning_and_revocation_handshake(self) -> None:
         setup_ready = self.client.post(
@@ -134,6 +171,68 @@ class TestMqttProvisioningApi(unittest.TestCase):
         self.assertEqual(revoked.status_code, 200, revoked.text)
         self.assertTrue(revoked.json()["ok"])
         self.assertEqual(revoked.json()["status"], "revoked")
+
+    def test_node_bridge_grant_request_approval_and_provisioning(self) -> None:
+        token = self._trusted_node()
+        requested = self.client.post(
+            "/api/system/mqtt/node-bridge-grants/request",
+            headers={
+                "X-Node-Id": "node-6812313e6d1efad6",
+                "X-Node-Trust-Token": token,
+            },
+            json={
+                "node_id": "node-6812313e6d1efad6",
+                "bridge_id": "homeassistant",
+                "bridge_type": "homeassistant",
+                "publish_topics": [
+                    "homeassistant/+/hexe_ecosystem/+/config",
+                    "homeassistant/hexe_ecosystem/state",
+                ],
+                "subscribe_topics": ["homeassistant/status"],
+            },
+        )
+        self.assertEqual(requested.status_code, 200, requested.text)
+        grant = requested.json()["grant"]
+        self.assertEqual(grant["grant_id"], "node-6812313e6d1efad6:homeassistant")
+        self.assertEqual(grant["status"], "requested")
+        self.assertEqual(grant["requester_principal_id"], "node:node-6812313e6d1efad6")
+
+        grants = self.client.get("/api/system/mqtt/node-bridge-grants", headers={"X-Admin-Token": "test-token"})
+        self.assertEqual(grants.status_code, 200, grants.text)
+        self.assertEqual(grants.json()["items"][0]["bridge_id"], "homeassistant")
+
+        approved = self.client.post(
+            "/api/system/mqtt/node-bridge-grants/node-6812313e6d1efad6:homeassistant/approve",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(approved.status_code, 200, approved.text)
+        self.assertEqual(approved.json()["grant"]["status"], "approved")
+
+        setup_ready = self.client.post(
+            "/api/system/mqtt/setup-state",
+            headers={"X-Admin-Token": "test-token"},
+            json={
+                "requires_setup": True,
+                "setup_complete": True,
+                "setup_status": "ready",
+                "broker_mode": "embedded",
+                "direct_mqtt_supported": True,
+                "authority_ready": True,
+            },
+        )
+        self.assertEqual(setup_ready.status_code, 200, setup_ready.text)
+
+        provisioned = self.client.post(
+            "/api/system/mqtt/node-bridge-grants/node-6812313e6d1efad6:homeassistant/provision",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(provisioned.status_code, 200, provisioned.text)
+        body = provisioned.json()
+        self.assertEqual(body["grant"]["status"], "active")
+        self.assertEqual(body["principal"]["managed_by"], "node_bridge_grant")
+        self.assertEqual(body["credential"]["principal_id"], body["principal"]["principal_id"])
+        self.assertTrue(body["credential"]["username"].startswith("hb_"))
+        self.assertTrue(body["credential"]["password"])
 
     def test_grant_and_setup_inspection_endpoints(self) -> None:
         approved = self.client.post(

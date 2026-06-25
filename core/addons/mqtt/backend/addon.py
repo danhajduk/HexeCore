@@ -504,6 +504,7 @@ def addon_ui_root() -> str:
         <button class="tab" data-section="setup">Setup</button>
         <button class="tab" data-section="overview">Overview</button>
         <button class="tab" data-section="principals">Principals</button>
+        <button class="tab" data-section="bridge-grants">Bridge Grants</button>
         <button class="tab" data-section="users">Generic Users</button>
         <button class="tab" data-section="runtime">Runtime</button>
         <button class="tab" data-section="topics">Topics</button>
@@ -612,7 +613,7 @@ def addon_ui_root() -> str:
     const preflight = document.getElementById("preflight");
     const actionStatus = document.getElementById("action-status");
     const runtimeStatus = document.getElementById("runtime-status");
-    const sections = ["setup", "overview", "principals", "users", "runtime", "topics", "audit", "noisy-clients"];
+    const sections = ["setup", "overview", "principals", "bridge-grants", "users", "runtime", "topics", "audit", "noisy-clients"];
     const state = {
       currentSection: "overview",
       gateActive: false,
@@ -1048,6 +1049,34 @@ def addon_ui_root() -> str:
         setStatus(`${act} completed for addon ${id}.`, "ok");
       } catch (error) {
         setStatus(`${act} failed for addon ${id}: ${error && error.message ? error.message : String(error)}`, "error");
+      }
+    }
+
+    async function runNodeBridgeGrantAction(action, grantId) {
+      const id = String(grantId || "").trim();
+      const act = String(action || "").trim().toLowerCase();
+      if (!id || !act) return;
+      if (act === "revoke" && !window.confirm(`Revoke bridge grant ${id}?`)) return;
+      setStatus(`Running ${act} for bridge grant ${id}...`, "");
+      try {
+        const response = await fetch(`/api/system/mqtt/node-bridge-grants/${encodeURIComponent(id)}/${encodeURIComponent(act)}`, {
+          method: "POST",
+          credentials: "include",
+        });
+        const payload = await response.json();
+        if (!response.ok || (payload && payload.ok === false)) {
+          throw new Error(payload && (payload.detail || payload.error) ? (payload.detail || payload.error) : `${act}_failed`);
+        }
+        state.sectionCache = {};
+        await loadStatus();
+        const credential = payload && payload.credential ? payload.credential : null;
+        if (credential && credential.username && credential.password) {
+          setStatus(`${act} completed for ${id}. Username: ${credential.username} Password: ${credential.password}`, "ok");
+        } else {
+          setStatus(`${act} completed for ${id}.`, "ok");
+        }
+      } catch (error) {
+        setStatus(`${act} failed for ${id}: ${error && error.message ? error.message : String(error)}`, "error");
       }
     }
 
@@ -1576,6 +1605,10 @@ def addon_ui_root() -> str:
         const noisy = await fetchJson("/api/system/mqtt/noisy-clients");
         return Array.isArray(noisy.items) ? noisy.items : [];
       }
+      if (section === "bridge-grants") {
+        const grants = await fetchJson("/api/system/mqtt/node-bridge-grants");
+        return Array.isArray(grants.items) ? grants.items : [];
+      }
       if (section === "topics") {
         const topics = await fetchJson("/api/system/runtime/topics?limit=1000");
         return Array.isArray(topics.items) ? topics.items : [];
@@ -1696,6 +1729,7 @@ def addon_ui_root() -> str:
 
       sectionTitle.textContent =
         section === "principals" ? "Principals" :
+        section === "bridge-grants" ? "Bridge Grants" :
         section === "users" ? "Generic Users" :
         section === "topics" ? "Topic Explorer" :
         section === "audit" ? "Audit" : "Noisy Clients";
@@ -1841,6 +1875,34 @@ def addon_ui_root() -> str:
           return;
         }
 
+        if (section === "bridge-grants") {
+          const rows = visible
+            .slice(0, 50)
+            .map((item) => {
+              const grantId = escapeHtml(String(item.grant_id || "-"));
+              const nodeId = escapeHtml(String(item.node_id || "-"));
+              const bridgeId = escapeHtml(String(item.bridge_id || "-"));
+              const bridgeType = escapeHtml(String(item.bridge_type || "-"));
+              const statusRaw = String(item.status || "-");
+              const status = escapeHtml(statusRaw);
+              const statusClass = statusRaw === "active" ? "ok" : (statusRaw === "approved" || statusRaw === "requested" ? "warn" : "bad");
+              const publishTopics = escapeHtml(Array.isArray(item.requested_publish_topics) ? item.requested_publish_topics.join(", ") : "");
+              const subscribeTopics = escapeHtml(Array.isArray(item.requested_subscribe_topics) ? item.requested_subscribe_topics.join(", ") : "");
+              const principalId = escapeHtml(String(item.bridge_principal_id || item.requester_principal_id || "-"));
+              const requestedAt = escapeHtml(formatLocalTimestamp(item.requested_at || item.updated_at || "-"));
+              const actions =
+                `<button class='mini primary' data-bridge-grant-action='approve' data-grant-id='${grantId}' ${statusRaw === "active" ? "disabled" : ""}>Approve</button>` +
+                `<button class='mini' data-bridge-grant-action='provision' data-grant-id='${grantId}' ${statusRaw !== "approved" && statusRaw !== "active" ? "disabled" : ""}>Provision</button>` +
+                `<button class='mini' data-bridge-grant-action='revoke' data-grant-id='${grantId}' ${statusRaw === "revoked" ? "disabled" : ""}>Revoke</button>`;
+              return `<tr><td>${grantId}</td><td>${nodeId}</td><td>${bridgeId}</td><td>${bridgeType}</td><td><span class='badge ${statusClass}'>${status}</span></td><td>${publishTopics}</td><td>${subscribeTopics}</td><td>${principalId}</td><td>${requestedAt}</td><td><div class='row-actions'>${actions}</div></td></tr>`;
+            })
+            .join("");
+          sectionContent.innerHTML =
+            toolbar +
+            `<table class='table'><thead><tr><th>Grant</th><th>Node</th><th>Bridge</th><th>Type</th><th>Status</th><th>Publish Topics</th><th>Subscribe Topics</th><th>Principal</th><th>Requested</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
+          return;
+        }
+
         if (section === "noisy-clients") {
           const rows = visible
             .slice(0, 50)
@@ -1961,7 +2023,7 @@ def addon_ui_root() -> str:
       }
       const desiredOrder = state.gateActive
         ? ["setup"]
-        : ["overview", "principals", "users", "runtime", "topics", "audit", "noisy-clients", "setup"];
+        : ["overview", "principals", "bridge-grants", "users", "runtime", "topics", "audit", "noisy-clients", "setup"];
       const buttonBySection = {};
       tabs.querySelectorAll(".tab").forEach((node) => {
         const section = String(node.getAttribute("data-section") || "");
@@ -2251,6 +2313,13 @@ def addon_ui_root() -> str:
         const action = registrationAction.getAttribute("data-registration-action");
         const addonId = registrationAction.getAttribute("data-addon-id");
         if (action && addonId) void runAddonRegistrationAction(action, addonId);
+        return;
+      }
+      const bridgeGrantAction = event.target.closest("[data-bridge-grant-action]");
+      if (bridgeGrantAction) {
+        const action = bridgeGrantAction.getAttribute("data-bridge-grant-action");
+        const grantId = bridgeGrantAction.getAttribute("data-grant-id");
+        if (action && grantId) void runNodeBridgeGrantAction(action, grantId);
         return;
       }
       const noisyAction = event.target.closest("[data-noisy-action]");

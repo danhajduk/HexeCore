@@ -5,7 +5,7 @@ import json
 import os
 from datetime import datetime, timezone
 
-from .integration_models import MqttAddonGrant, MqttIntegrationState, MqttPrincipal, MqttSetupStateUpdate
+from .integration_models import MqttAddonGrant, MqttIntegrationState, MqttNodeBridgeGrant, MqttPrincipal, MqttSetupStateUpdate
 from .topic_families import normalize_legacy_topic_namespace
 
 
@@ -36,6 +36,16 @@ class MqttIntegrationStateStore:
             grants = dict(state.active_grants)
             grants[next_grant.addon_id] = next_grant
             next_state = state.model_copy(update={"active_grants": grants, "updated_at": _utcnow_iso()})
+            await asyncio.to_thread(self._write_sync, next_state)
+            return next_state
+
+    async def upsert_node_bridge_grant(self, grant: MqttNodeBridgeGrant) -> MqttIntegrationState:
+        async with self._lock:
+            state = await asyncio.to_thread(self._read_sync)
+            next_grant = grant.model_copy(update={"updated_at": _utcnow_iso()})
+            grants = dict(state.node_bridge_grants)
+            grants[next_grant.grant_id] = next_grant
+            next_state = state.model_copy(update={"node_bridge_grants": grants, "updated_at": _utcnow_iso()})
             await asyncio.to_thread(self._write_sync, next_state)
             return next_state
 
@@ -120,6 +130,17 @@ class MqttIntegrationStateStore:
             )
             for addon_id, grant in state.active_grants.items()
         }
+        node_bridge_grants = {
+            grant_id: grant.model_copy(
+                update={
+                    "requested_publish_topics": cls._normalize_topics(list(grant.requested_publish_topics or [])),
+                    "requested_subscribe_topics": cls._normalize_topics(list(grant.requested_subscribe_topics or [])),
+                    "approved_publish_topics": cls._normalize_topics(list(grant.approved_publish_topics or [])),
+                    "approved_subscribe_topics": cls._normalize_topics(list(grant.approved_subscribe_topics or [])),
+                }
+            )
+            for grant_id, grant in state.node_bridge_grants.items()
+        }
         principals = {
             principal_id: principal.model_copy(
                 update={
@@ -134,4 +155,4 @@ class MqttIntegrationStateStore:
             )
             for principal_id, principal in state.principals.items()
         }
-        return state.model_copy(update={"active_grants": grants, "principals": principals})
+        return state.model_copy(update={"active_grants": grants, "node_bridge_grants": node_bridge_grants, "principals": principals})

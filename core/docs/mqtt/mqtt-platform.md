@@ -83,6 +83,12 @@ Status: Implemented
 - Principal listing/details and lifecycle actions are exposed via admin endpoints.
 - Generic users support create/update/delete/rotate/export/import and effective-access inspection.
 - System principals and addon principals are visible in principal APIs and UI.
+- Trusted nodes can request external bridge MQTT grants with
+  `POST /api/system/mqtt/node-bridge-grants/request`.
+- Operators approve, provision, and revoke node bridge grants through
+  `/api/system/mqtt/node-bridge-grants*` or the MQTT admin UI Bridge Grants tab.
+- Provisioning creates a managed bridge principal with scoped publish/subscribe
+  ACLs and returns the generated MQTT username/password to the admin caller.
 
 ## ACL / Compiler Model
 
@@ -130,6 +136,7 @@ Representative routes under `/api/system`:
 - `/mqtt/status`, `/mqtt/setup-summary`, `/mqtt/health`
 - `/mqtt/setup/apply`, `/mqtt/setup/test-connection`, `/mqtt/setup-state`
 - `/mqtt/runtime/*` and compatibility aliases `/runtime/*`
+- `/mqtt/node-bridge-grants*`
 - `/mqtt/principals*`, `/mqtt/users*`, `/mqtt/generic-users*`
 - `/mqtt/noisy-clients*`, `/mqtt/audit`, `/mqtt/observability`
 - `/mqtt/debug/*`

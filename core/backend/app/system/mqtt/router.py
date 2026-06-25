@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 from app.api.admin import require_admin_token
 from app.system.auth import ServiceTokenError, ServiceTokenKeyStore, validate_claims, verify_hs256
-from app.system.onboarding import NodeRegistrationsStore
+from app.system.onboarding import NodeRegistrationsStore, NodeTrustIssuanceService
 
 from .acl_compiler import MqttAclCompiler
 from .approval import MqttRegistrationApprovalService
@@ -100,6 +100,14 @@ class MqttRuntimeMitigationRequest(BaseModel):
 
 class MqttRuntimeRebuildRequest(BaseModel):
     force: bool = False
+
+
+class MqttNodeBridgeGrantRequest(BaseModel):
+    node_id: str = Field(..., min_length=1)
+    bridge_id: str = Field(..., min_length=1)
+    bridge_type: str = Field(..., min_length=1)
+    publish_topics: list[str] = Field(default_factory=list)
+    subscribe_topics: list[str] = Field(default_factory=list)
 
 
 class MqttSetupApplyRequest(BaseModel):
@@ -300,10 +308,40 @@ def build_mqtt_router(
     observability_store=None,
     audit_store=None,
     node_registrations_store: NodeRegistrationsStore | None = None,
+    node_trust_issuance: NodeTrustIssuanceService | None = None,
 ) -> APIRouter:
     router = APIRouter()
     approval = approval_service or MqttRegistrationApprovalService(registry=registry, state_store=state_store)
     debug_subscriptions: dict[str, dict[str, Any]] = {}
+
+    def _require_trusted_node_bridge_request(
+        body: MqttNodeBridgeGrantRequest,
+        *,
+        x_node_id: str | None,
+        x_node_trust_token: str | None,
+    ) -> None:
+        header_node_id = str(x_node_id or "").strip()
+        body_node_id = str(body.node_id or "").strip()
+        token = str(x_node_trust_token or "").strip()
+        if not body_node_id:
+            raise HTTPException(status_code=400, detail="node_id_required")
+        if not header_node_id:
+            raise HTTPException(status_code=401, detail="node_id_header_required")
+        if header_node_id != body_node_id:
+            raise HTTPException(status_code=403, detail="node_id_mismatch")
+        if not token:
+            raise HTTPException(status_code=401, detail="node_trust_token_required")
+        if node_trust_issuance is None:
+            raise HTTPException(status_code=503, detail="node_trust_auth_unavailable")
+        trust = node_trust_issuance.authenticate_node(body_node_id, token)
+        if trust is None:
+            raise HTTPException(status_code=403, detail="node_trust_invalid")
+        if node_registrations_store is not None:
+            registration = node_registrations_store.get(body_node_id)
+            if registration is None:
+                raise HTTPException(status_code=404, detail="node_registration_not_found")
+            if str(registration.trust_status or "").strip().lower() != "trusted":
+                raise HTTPException(status_code=403, detail="node_not_trusted")
 
     def _runtime_status_payload(status: Any) -> dict[str, Any]:
         if isinstance(status, dict):
@@ -1266,6 +1304,77 @@ def build_mqtt_router(
         if subject and subject != addon_id:
             return {"ok": False, "addon_id": addon_id, "status": "rejected", "error": "request_subject_mismatch"}
         return await approval.revoke_or_mark(addon_id, reason="api_request")
+
+    @router.post("/mqtt/node-bridge-grants/request")
+    async def mqtt_node_bridge_grant_request(
+        body: MqttNodeBridgeGrantRequest,
+        x_node_id: str | None = Header(default=None),
+        x_node_trust_token: str | None = Header(default=None),
+    ):
+        _require_trusted_node_bridge_request(
+            body,
+            x_node_id=x_node_id,
+            x_node_trust_token=x_node_trust_token,
+        )
+        result = await approval.request_node_bridge_grant(
+            node_id=body.node_id,
+            bridge_id=body.bridge_id,
+            bridge_type=body.bridge_type,
+            publish_topics=body.publish_topics,
+            subscribe_topics=body.subscribe_topics,
+        )
+        if not result.get("ok"):
+            raise HTTPException(status_code=400, detail=result)
+        return result
+
+    @router.get("/mqtt/node-bridge-grants")
+    async def mqtt_node_bridge_grants(request: Request, x_admin_token: str | None = Header(default=None)):
+        require_admin_token(x_admin_token, request)
+        return {"ok": True, "items": await approval.list_node_bridge_grants()}
+
+    @router.get("/mqtt/node-bridge-grants/{grant_id}")
+    async def mqtt_node_bridge_grant(grant_id: str, request: Request, x_admin_token: str | None = Header(default=None)):
+        require_admin_token(x_admin_token, request)
+        item = await approval.get_node_bridge_grant(grant_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="node_bridge_grant_not_found")
+        return {"ok": True, "grant": item}
+
+    @router.post("/mqtt/node-bridge-grants/{grant_id}/approve")
+    async def mqtt_node_bridge_grant_approve(grant_id: str, request: Request, x_admin_token: str | None = Header(default=None)):
+        require_admin_token(x_admin_token, request)
+        result = await approval.approve_node_bridge_grant(grant_id)
+        if not result.get("ok"):
+            raise HTTPException(status_code=400, detail=result)
+        return result
+
+    @router.post("/mqtt/node-bridge-grants/{grant_id}/provision")
+    async def mqtt_node_bridge_grant_provision(grant_id: str, request: Request, x_admin_token: str | None = Header(default=None)):
+        require_admin_token(x_admin_token, request)
+        result = await approval.provision_node_bridge_grant(grant_id)
+        if not result.get("ok"):
+            raise HTTPException(status_code=400, detail=result)
+        principal = result.get("principal") if isinstance(result.get("principal"), dict) else {}
+        principal_id = str(principal.get("principal_id") or "").strip()
+        credential = None
+        if credential_store is not None and principal_id:
+            state = await state_store.get_state()
+            try:
+                credential_store.render_password_file(state)
+                credential = credential_store.get_principal_credential(principal_id)
+            except Exception:
+                credential = None
+        if credential:
+            result = {**result, "credential": credential}
+        return result
+
+    @router.post("/mqtt/node-bridge-grants/{grant_id}/revoke")
+    async def mqtt_node_bridge_grant_revoke(grant_id: str, request: Request, x_admin_token: str | None = Header(default=None)):
+        require_admin_token(x_admin_token, request)
+        result = await approval.revoke_node_bridge_grant(grant_id)
+        if not result.get("ok"):
+            raise HTTPException(status_code=400, detail=result)
+        return result
 
     @router.get("/mqtt/grants")
     async def mqtt_grants(request: Request, x_admin_token: str | None = Header(default=None)):

@@ -1260,6 +1260,7 @@ def create_app() -> FastAPI:
             observability_store=mqtt_observability_store,
             audit_store=mqtt_authority_audit,
             node_registrations_store=node_registrations_store,
+            node_trust_issuance=node_trust_issuance,
         ),
         prefix="/api/system",
         tags=["mqtt"],

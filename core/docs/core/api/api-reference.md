@@ -158,7 +158,7 @@ Status: Partially implemented
 Representative routes under `/api/system`:
 - setup/control: `/mqtt/status`, `/mqtt/setup-summary`, `/mqtt/setup/apply`, `/mqtt/setup/test-connection`, `/mqtt/setup-state`
 - runtime: `/mqtt/runtime/health`, `/mqtt/runtime/start`, `/mqtt/runtime/stop`, `/mqtt/runtime/init`, `/mqtt/runtime/rebuild`, `/mqtt/runtime/config`
-- approvals/principals/users: `/mqtt/registrations/*`, `/mqtt/principals*`, `/mqtt/users*`, `/mqtt/generic-users*`
+- approvals/principals/users: `/mqtt/registrations/*`, `/mqtt/node-bridge-grants*`, `/mqtt/principals*`, `/mqtt/users*`, `/mqtt/generic-users*`
 - observability/audit: `/mqtt/noisy-clients*`, `/mqtt/observability`, `/mqtt/audit`
 - debug: `/mqtt/debug/*`
 - notification dev hook: `POST /mqtt/debug/notifications/test-flow` (admin token required; only active when `NOTIFICATION_DEBUG_ENABLED=true`)
