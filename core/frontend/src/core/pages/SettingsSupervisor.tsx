@@ -93,6 +93,8 @@ type SupervisorFleetRecord = {
   health_status?: string;
   lifecycle_state?: string;
   freshness_state?: string;
+  freshness_age_s?: number | null;
+  freshness_reason?: string | null;
   resources?: SupervisorHostResources;
   managed_node_count?: number | null;
   registered_runtime_count?: number | null;
@@ -101,6 +103,7 @@ type SupervisorFleetRecord = {
   core_runtimes?: Array<Record<string, unknown>>;
   last_seen_at?: string | null;
   visibility_state?: string;
+  visibility_reason?: string | null;
 };
 
 type NodeServiceRow = {
@@ -356,6 +359,17 @@ function formatDateTime(value: unknown): string {
   return date.toLocaleString();
 }
 
+function formatDuration(value: unknown): string {
+  const seconds = numberValue(value);
+  if (seconds === null) return "-";
+  if (seconds < 60) return `${seconds.toFixed(0)}s`;
+  const minutes = seconds / 60;
+  if (minutes < 60) return `${minutes.toFixed(0)}m`;
+  const hours = minutes / 60;
+  if (hours < 48) return `${hours.toFixed(1)}h`;
+  return `${Math.floor(hours / 24)}d`;
+}
+
 function pct(value: number): string {
   return `${Math.max(0, Math.min(100, value)).toFixed(1)}%`;
 }
@@ -528,6 +542,41 @@ function supervisorNetworkErrorsValue(resources?: SupervisorHostResources): stri
 
 function isLocalSupervisor(supervisor: SupervisorFleetRecord): boolean {
   return String(supervisor.transport || "").toLowerCase() === "local";
+}
+
+function supervisorFreshnessLabel(supervisor: SupervisorFleetRecord): string {
+  const reason = String(supervisor.freshness_reason || "").toLowerCase();
+  if (reason === "superseded_by_newer_local_supervisor") return "Superseded";
+  if (reason === "no_heartbeat") return "No heartbeat";
+  if (reason === "heartbeat_offline") return "Offline";
+  if (reason === "heartbeat_stale") return "Stale";
+  return displayState(supervisor.freshness_state);
+}
+
+function supervisorHealthLabel(supervisor: SupervisorFleetRecord): string {
+  const freshness = String(supervisor.freshness_state || "").toLowerCase();
+  const health = displayState(supervisor.health_status);
+  if (freshness === "offline" && ["Ok", "Healthy"].includes(health)) return "No heartbeat";
+  if (freshness === "stale" && ["Ok", "Healthy"].includes(health)) return "Stale";
+  return health;
+}
+
+function supervisorDiagnostic(supervisor: SupervisorFleetRecord): string {
+  const age = formatDuration(supervisor.freshness_age_s);
+  switch (String(supervisor.freshness_reason || "").toLowerCase()) {
+    case "superseded_by_newer_local_supervisor":
+      return "Newer local record active";
+    case "no_heartbeat":
+      return "Waiting for first heartbeat";
+    case "heartbeat_offline":
+      return age === "-" ? "Heartbeat expired" : `Last heartbeat ${age} ago`;
+    case "heartbeat_stale":
+      return age === "-" ? "Heartbeat stale" : `Heartbeat ${age} old`;
+    case "heartbeat_fresh":
+      return age === "-" ? "Heartbeat fresh" : `Heartbeat ${age} old`;
+    default:
+      return supervisor.last_seen_at ? `Last seen ${formatDateTime(supervisor.last_seen_at)}` : "-";
+  }
 }
 
 function formatBytes(value: unknown): string {
@@ -749,6 +798,7 @@ function supervisorNodeCount(supervisor: SupervisorFleetRecord): number | null {
 export default function SettingsSupervisor() {
   const [summary, setSummary] = useState<SupervisorSummary | null>(null);
   const [supervisors, setSupervisors] = useState<SupervisorFleetRecord[]>([]);
+  const [hiddenHistoricalCount, setHiddenHistoricalCount] = useState(0);
   const [stats, setStats] = useState<SystemStats | null>(null);
   const [stack, setStack] = useState<StackSummary | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -775,11 +825,13 @@ export default function SettingsSupervisor() {
       setSummary(supervisorPayload);
       let fleetItems: SupervisorFleetRecord[] = [];
       if (fleetRes.ok) {
-        const fleet = (await fleetRes.json()) as { items?: SupervisorFleetRecord[] };
+        const fleet = (await fleetRes.json()) as { items?: SupervisorFleetRecord[]; hidden_historical_count?: number };
         fleetItems = Array.isArray(fleet.items) ? fleet.items : [];
         setSupervisors(fleetItems);
+        setHiddenHistoricalCount(typeof fleet.hidden_historical_count === "number" ? fleet.hidden_historical_count : 0);
       } else {
         setSupervisors([]);
+        setHiddenHistoricalCount(0);
       }
       if (statsRes.ok) setStats((await statsRes.json()) as SystemStats);
       if (stackRes.ok) setStack((await stackRes.json()) as StackSummary);
@@ -870,6 +922,7 @@ export default function SettingsSupervisor() {
       setErr(e?.message ?? String(e));
       setSummary(null);
       setSupervisors([]);
+      setHiddenHistoricalCount(0);
       setStats(null);
       setStack(null);
       setHostHistory(null);
@@ -1050,6 +1103,7 @@ export default function SettingsSupervisor() {
                   <th>Host</th>
                   <th>Freshness</th>
                   <th>Health</th>
+                  <th>Diagnostic</th>
                   <th>Nodes</th>
                   <th>Runtimes</th>
                   <th>GPU</th>
@@ -1067,8 +1121,9 @@ export default function SettingsSupervisor() {
                     <td>{String(supervisor.supervisor_name || supervisor.supervisor_id)}</td>
                     <td className="settings-mono">{supervisor.supervisor_id}</td>
                     <td>{String(supervisor.hostname || supervisor.host_id || "-")}</td>
-                    <td>{displayState(supervisor.freshness_state)}</td>
-                    <td>{displayState(supervisor.health_status)}</td>
+                    <td>{supervisorFreshnessLabel(supervisor)}</td>
+                    <td>{supervisorHealthLabel(supervisor)}</td>
+                    <td>{supervisorDiagnostic(supervisor)}</td>
                     <td>{formatNumber(supervisorNodeCount(supervisor))}</td>
                     <td>{formatNumber(supervisor.registered_runtime_count)}</td>
                     <td>{numberValue(supervisor.resources?.gpu_count) ? "Yes" : "No"}</td>
@@ -1079,6 +1134,11 @@ export default function SettingsSupervisor() {
                 ))}
               </tbody>
             </table>
+          )}
+          {hiddenHistoricalCount > 0 && (
+            <div className="settings-help">
+              {hiddenHistoricalCount} historical Supervisor {hiddenHistoricalCount === 1 ? "record is" : "records are"} hidden from this view.
+            </div>
           )}
         </div>
       </section>

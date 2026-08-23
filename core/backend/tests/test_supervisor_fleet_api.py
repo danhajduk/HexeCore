@@ -83,6 +83,7 @@ class TestSupervisorFleetApi(unittest.TestCase):
         supervisor = registered.json()["supervisor"]
         self.assertEqual(supervisor["supervisor_id"], "host-a")
         self.assertEqual(supervisor["freshness_state"], "offline")
+        self.assertEqual(supervisor["freshness_reason"], "no_heartbeat")
 
         heartbeat = self.client.post(
             "/api/system/supervisors/heartbeat",
@@ -117,6 +118,8 @@ class TestSupervisorFleetApi(unittest.TestCase):
         updated = heartbeat.json()["supervisor"]
         self.assertEqual(updated["health_status"], "healthy")
         self.assertEqual(updated["freshness_state"], "online")
+        self.assertEqual(updated["freshness_reason"], "heartbeat_fresh")
+        self.assertIsInstance(updated["freshness_age_s"], float)
         self.assertEqual(updated["managed_node_count"], 2)
         self.assertEqual(updated["registered_runtimes"][0]["node_id"], "node-ai")
         self.assertEqual(updated["core_runtimes"][0]["runtime_id"], "addon:mqtt")
@@ -278,6 +281,7 @@ class TestSupervisorFleetApi(unittest.TestCase):
         self.assertEqual(listed_with_history.status_code, 200, listed_with_history.text)
         items_by_id = {item["supervisor_id"]: item for item in listed_with_history.json()["items"]}
         self.assertEqual(items_by_id["old-remote"]["visibility_state"], "historical")
+        self.assertEqual(items_by_id["old-remote"]["freshness_reason"], "heartbeat_offline")
         self.assertEqual(items_by_id["fresh-remote"]["visibility_state"], "active")
 
     def test_list_keeps_local_attached_supervisor_even_when_last_seen_is_old(self) -> None:
@@ -337,6 +341,8 @@ class TestSupervisorFleetApi(unittest.TestCase):
         self.assertEqual(listed.json()["hidden_historical_count"], 1)
         items_by_id = {item["supervisor_id"]: item for item in listed_with_history.json()["items"]}
         self.assertEqual(items_by_id["Hexe"]["visibility_state"], "historical")
+        self.assertEqual(items_by_id["Hexe"]["visibility_reason"], "superseded_local_supervisor")
+        self.assertEqual(items_by_id["Hexe"]["freshness_reason"], "superseded_by_newer_local_supervisor")
         self.assertEqual(items_by_id["hxe-supervisor"]["visibility_state"], "active")
 
     def test_local_supervisor_history_uses_configured_client(self) -> None:

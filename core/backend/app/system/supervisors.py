@@ -133,6 +133,26 @@ def _freshness_state(last_seen_at: str | None) -> str:
     return "online"
 
 
+def _freshness_age_s(last_seen_at: str | None) -> float | None:
+    seen = _parse_iso(last_seen_at)
+    if seen is None:
+        return None
+    return max(0.0, (datetime.now(timezone.utc) - seen).total_seconds())
+
+
+def _freshness_reason(record: "SupervisorFleetRecord", *, visibility_reason: str | None = None) -> str:
+    if visibility_reason == "superseded_local_supervisor":
+        return "superseded_by_newer_local_supervisor"
+    state = _freshness_state(record.last_seen_at)
+    if not record.last_seen_at:
+        return "no_heartbeat"
+    if state == "offline":
+        return "heartbeat_offline"
+    if state == "stale":
+        return "heartbeat_stale"
+    return "heartbeat_fresh"
+
+
 def _parse_iso(value: str | None) -> datetime | None:
     if not value:
         return None
@@ -385,6 +405,8 @@ class SupervisorFleetRecord:
         payload.pop("reporting_token_hash", None)
         payload["freshness_state"] = _freshness_state(self.last_seen_at)
         payload["visibility_state"] = visibility_state or ("historical" if _is_historical_supervisor_record(self) else "active")
+        payload["freshness_age_s"] = _freshness_age_s(self.last_seen_at)
+        payload["freshness_reason"] = _freshness_reason(self)
         return payload
 
 
@@ -503,7 +525,15 @@ class SupervisorFleetStore:
 
     def api_dict(self, record: SupervisorFleetRecord) -> dict[str, Any]:
         visibility_state = "historical" if self.is_historical(record) else "active"
-        return record.to_api_dict(visibility_state=visibility_state)
+        visibility_reason = (
+            "superseded_local_supervisor"
+            if _is_superseded_local_supervisor_record(record, list(self._records.values()))
+            else None
+        )
+        payload = record.to_api_dict(visibility_state=visibility_state)
+        payload["visibility_reason"] = visibility_reason
+        payload["freshness_reason"] = _freshness_reason(record, visibility_reason=visibility_reason)
+        return payload
 
     @staticmethod
     def _list_sort_key(record: SupervisorFleetRecord) -> tuple[int, str]:

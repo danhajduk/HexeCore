@@ -47,5 +47,3 @@ Standards reference:
 
 Do not edit above this line:
 #######################################################################
-
-[TODO] Task 973: Improve Supervisor Fleet offline/health UI semantics and operator diagnostics
