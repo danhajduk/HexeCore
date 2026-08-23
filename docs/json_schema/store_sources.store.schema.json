@@ -52,7 +52,7 @@
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "description": "Schema for backend/var/store_sources.json or var/store_sources.json.",
+  "description": "Schema for live var/store_sources.json state seeded from backend/app/store/default_sources.json.",
   "items": {
     "$ref": "#/$defs/StoreSource"
   },

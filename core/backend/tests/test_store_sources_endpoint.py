@@ -101,6 +101,17 @@ class TestStoreSourcesEndpoint(unittest.TestCase):
         )
         self.assertEqual(res.status_code, 400, res.text)
 
+    def test_missing_state_is_initialized_from_default_template(self) -> None:
+        path = Path(self.tmp.name) / "missing_store_sources.json"
+        self.assertFalse(path.exists())
+
+        sources = StoreSourcesStore(str(path))
+        items = self._run_async(sources.list_sources())
+
+        self.assertTrue(path.exists())
+        official = next(x for x in items if x.id == OFFICIAL_SOURCE_ID)
+        self.assertEqual(official.base_url, OFFICIAL_SOURCE_BASE_URL)
+
     def test_official_legacy_master_url_is_migrated_to_main(self) -> None:
         path = Path(self.tmp.name) / "store_sources_legacy.json"
         path.write_text(

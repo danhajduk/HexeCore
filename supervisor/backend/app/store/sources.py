@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 OFFICIAL_SOURCE_ID = "official"
 OFFICIAL_SOURCE_BASE_URL = "https://raw.githubusercontent.com/danhajduk/Synthia-Addon-Catalog/main"
 OFFICIAL_SOURCE_LEGACY_BASE_URL = "https://raw.githubusercontent.com/danhajduk/Synthia-Addon-Catalog/master"
+DEFAULT_SOURCES_TEMPLATE_PATH = Path(__file__).with_name("default_sources.json")
 
 
 def _utcnow_iso() -> str:
@@ -54,15 +55,24 @@ class StoreSourcesStore:
             return StoreSource.model_validate(saved)
 
     def _default_sources(self) -> list[dict]:
-        return [
-            StoreSource(
-                id=OFFICIAL_SOURCE_ID,
-                type="github_raw",
-                base_url=OFFICIAL_SOURCE_BASE_URL,
-                enabled=True,
-                refresh_seconds=300,
-            ).model_dump(mode="json")
-        ]
+        try:
+            raw = json.loads(DEFAULT_SOURCES_TEMPLATE_PATH.read_text(encoding="utf-8"))
+            if isinstance(raw, list):
+                sources = [StoreSource.model_validate(item).model_dump(mode="json") for item in raw if isinstance(item, dict)]
+                if sources:
+                    return sources
+        except Exception:
+            pass
+        return [self._official_source_default()]
+
+    def _official_source_default(self) -> dict:
+        return StoreSource(
+            id=OFFICIAL_SOURCE_ID,
+            type="github_raw",
+            base_url=OFFICIAL_SOURCE_BASE_URL,
+            enabled=True,
+            refresh_seconds=300,
+        ).model_dump(mode="json")
 
     def _ensure_defaults(self) -> None:
         if not os.path.exists(self.path):
@@ -77,7 +87,7 @@ class StoreSourcesStore:
                 item["base_url"] = OFFICIAL_SOURCE_BASE_URL
                 updated = True
         if not any(str(x.get("id", "")).strip() == OFFICIAL_SOURCE_ID for x in data):
-            data.append(self._default_sources()[0])
+            data.append(self._official_source_default())
             updated = True
         if updated:
             self._write_sync(data)

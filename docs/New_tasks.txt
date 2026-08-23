@@ -47,6 +47,5 @@ Standards reference:
 
 Do not edit above this line:
 #######################################################################
-[TODO] Task 960: Move tracked store source runtime defaults out of live var
 [TODO] Task 961: Add OpenAPI contract snapshot and removed-endpoint regression checks
 [TODO] Task 962: Prune and classify active documentation versus archive/future material
