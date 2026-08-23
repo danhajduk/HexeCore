@@ -40,6 +40,10 @@ Core talks to a remote Supervisor over the following environment-backed client s
 - `HEXE_BLUETOOTH_ENSURE_POWERED`: When true, Supervisor attempts to keep detected Bluetooth adapters powered. Default: `true`.
 - `HEXE_BLUETOOTH_POWER_RETRY_S`: Minimum seconds between Bluetooth power-on retries after a failed attempt. Default: `60`.
 - `HEXE_SUPERVISOR_INTERNET_CHECK_HOST` / `HEXE_SUPERVISOR_INTERNET_CHECK_PORT`: Host and port used by each Supervisor to report local Internet reachability. Defaults: `1.1.1.1` and `53`.
+- `HEXE_SUPERVISOR_FLEET_STALE_S`: Seconds after the latest Supervisor report before Core marks a fleet record `stale`. Default: `60`.
+- `HEXE_SUPERVISOR_FLEET_OFFLINE_S`: Seconds after the latest Supervisor report before Core marks a fleet record `offline`. Default: `180`.
+- `HEXE_SUPERVISOR_FLEET_HISTORICAL_S`: Seconds after the latest remote Supervisor report before Core hides a long-offline record from the default fleet list. Default: `604800` (7 days).
+- `HEXE_SUPERVISOR_FLEET_LOCAL_CACHE_S`: Seconds Core may reuse the local attached Supervisor probe while serving fleet reads. Default: `10`.
 - `HEXE_SUPERVISOR_RESOURCE_HISTORY_PATH`: Optional SQLite path for Supervisor-owned resource history. Default: `<repo>/data/supervisor_resource_history.sqlite3`.
 - `HEXE_SUPERVISOR_RESOURCE_HISTORY_RETENTION`: Optional duration for resource history retention. Supports `s`, `m`, `h`, and `d` suffixes. Default: `3d`.
 - `HEXE_SUPERVISOR_RESOURCE_HISTORY_RETENTION_SECONDS`: Legacy numeric override for resource history retention when the duration form is unset.

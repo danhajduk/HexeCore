@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, Header, HTTPException, Request
+from fastapi import APIRouter, Header, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from app.api.admin import require_admin_token
@@ -56,6 +56,14 @@ def _local_probe_cache_s() -> float:
         return max(1.0, float(raw))
     except Exception:
         return 10.0
+
+
+def _historical_after_s() -> float:
+    raw = str(os.getenv("HEXE_SUPERVISOR_FLEET_HISTORICAL_S", str(7 * 24 * 60 * 60))).strip()
+    try:
+        return max(_offline_after_s() + 1.0, float(raw))
+    except Exception:
+        return float(7 * 24 * 60 * 60)
 
 
 def _supervisor_history_timeout_s() -> float:
@@ -150,6 +158,22 @@ def _is_local_supervisor_record(record: "SupervisorFleetRecord") -> bool:
     transport = _clean_text(record.transport).lower()
     metadata = dict(record.metadata or {})
     return transport == "local" or metadata.get("attached_to_core") is True
+
+
+def _record_age_anchor(record: "SupervisorFleetRecord") -> datetime | None:
+    return _parse_iso(record.last_seen_at) or _parse_iso(record.updated_at) or _parse_iso(record.first_seen_at)
+
+
+def _is_historical_supervisor_record(record: "SupervisorFleetRecord") -> bool:
+    if _is_local_supervisor_record(record):
+        return False
+    if _freshness_state(record.last_seen_at) != "offline":
+        return False
+    anchor = _record_age_anchor(record)
+    if anchor is None:
+        return False
+    age_s = max(0.0, (datetime.now(timezone.utc) - anchor).total_seconds())
+    return age_s >= _historical_after_s()
 
 
 def _active_node_runtime_count(items: list[dict[str, Any]]) -> int:
@@ -272,6 +296,7 @@ class SupervisorFleetRecord:
         payload = self.to_dict()
         payload.pop("reporting_token_hash", None)
         payload["freshness_state"] = _freshness_state(self.last_seen_at)
+        payload["visibility_state"] = "historical" if _is_historical_supervisor_record(self) else "active"
         return payload
 
 
@@ -376,8 +401,14 @@ class SupervisorFleetStore:
         }
         self._path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 
-    def list(self) -> list[SupervisorFleetRecord]:
-        return sorted(self._records.values(), key=self._list_sort_key)
+    def list(self, *, include_historical: bool = False) -> list[SupervisorFleetRecord]:
+        records = sorted(self._records.values(), key=self._list_sort_key)
+        if include_historical:
+            return records
+        return [record for record in records if not _is_historical_supervisor_record(record)]
+
+    def historical_count(self) -> int:
+        return sum(1 for record in self._records.values() if _is_historical_supervisor_record(record))
 
     @staticmethod
     def _list_sort_key(record: SupervisorFleetRecord) -> tuple[int, str]:
@@ -739,10 +770,17 @@ def build_supervisors_router(
         return payload
 
     @router.get("/supervisors")
-    def list_supervisors(request: Request, x_admin_token: str | None = Header(default=None)) -> dict[str, Any]:
+    def list_supervisors(
+        request: Request,
+        include_historical: bool = Query(default=False),
+        x_admin_token: str | None = Header(default=None),
+    ) -> dict[str, Any]:
         require_admin_token(x_admin_token, request)
         sync_local_supervisor(request)
-        return {"items": [record.to_api_dict() for record in registry.list()]}
+        return {
+            "items": [record.to_api_dict() for record in registry.list(include_historical=include_historical)],
+            "hidden_historical_count": 0 if include_historical else registry.historical_count(),
+        }
 
     @router.post("/supervisors/enrollment-tokens")
     def create_supervisor_enrollment_token(

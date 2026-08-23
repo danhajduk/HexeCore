@@ -47,7 +47,6 @@ Standards reference:
 
 Do not edit above this line:
 #######################################################################
-[TODO] Task 965: Clean up stale Supervisor fleet records and duplicate history polling
 [STOP HERE]
 [TODO] Task 955: Split the Core node/system API router into domain routers
 [TODO] Task 956: Split the MQTT router into runtime, admin, debug, grants, and principals routers

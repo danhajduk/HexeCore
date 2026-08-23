@@ -40,7 +40,7 @@ Status: Implemented
 - Resource history storage can be inspected with `GET /api/supervisor/resources/history/maintenance`. Operators can run `POST /api/supervisor/resources/history/maintenance` with `{"action":"compact"}` to apply retention pruning, truncate the WAL, and vacuum the SQLite DB after an oversized history backlog, without stopping Supervisor health reporting.
 - Core proxies local configured Supervisor history through `GET /api/system/supervisor/resources/history` and `GET /api/system/supervisor/runtimes/{node_id}/resources/history`.
 - Core proxies fleet-scoped local or remote Supervisor history through `GET /api/system/supervisors/{supervisor_id}/resources/history` and `GET /api/system/supervisors/{supervisor_id}/runtimes/{node_id}/resources/history`, using the local Supervisor client for attached Supervisors and the registered `api_base_url` for remote Supervisors.
-- Core Settings renders local and remote Supervisor resource history in the Supervisor page so operators can correlate recent host pressure, runtime CPU/memory trends, and lifecycle markers before exits or restarts.
+- Core Settings renders local and remote Supervisor resource history in the Supervisor page so operators can correlate recent host pressure, runtime CPU/memory trends, and lifecycle markers before exits or restarts. The default fleet list hides long-offline remote Supervisor records after `HEXE_SUPERVISOR_FLEET_HISTORICAL_S`; historical records remain available through `GET /api/system/supervisors?include_historical=true`.
 - Supervisor owns a Core-hosted runtime contract for Core services, addons, and aux containers through:
   - `POST /api/supervisor/core/runtimes/register`
   - `POST /api/supervisor/core/runtimes/heartbeat`

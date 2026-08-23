@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -235,6 +236,59 @@ class TestSupervisorFleetApi(unittest.TestCase):
 
         self.assertEqual(listed.status_code, 200, listed.text)
         self.assertEqual([item["supervisor_id"] for item in listed.json()["items"]], ["zzz-local", "aaa-remote"])
+
+    def test_list_hides_long_offline_remote_supervisors_by_default(self) -> None:
+        headers = {"X-Admin-Token": "test-token"}
+        old_seen = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+        for supervisor_id in ["old-remote", "fresh-remote"]:
+            created = self.client.post(
+                "/api/system/supervisors/register",
+                headers=headers,
+                json={"supervisor_id": supervisor_id, "transport": "http"},
+            )
+            self.assertEqual(created.status_code, 200, created.text)
+            record = self.store.get(supervisor_id)
+            self.assertIsNotNone(record)
+            record.last_seen_at = old_seen if supervisor_id == "old-remote" else datetime.now(timezone.utc).isoformat()
+            record.updated_at = record.last_seen_at
+        self.store._save()
+
+        listed = self.client.get("/api/system/supervisors", headers=headers)
+        listed_with_history = self.client.get("/api/system/supervisors?include_historical=true", headers=headers)
+
+        self.assertEqual(listed.status_code, 200, listed.text)
+        self.assertEqual([item["supervisor_id"] for item in listed.json()["items"]], ["fresh-remote"])
+        self.assertEqual(listed.json()["hidden_historical_count"], 1)
+        self.assertEqual(listed_with_history.status_code, 200, listed_with_history.text)
+        items_by_id = {item["supervisor_id"]: item for item in listed_with_history.json()["items"]}
+        self.assertEqual(items_by_id["old-remote"]["visibility_state"], "historical")
+        self.assertEqual(items_by_id["fresh-remote"]["visibility_state"], "active")
+
+    def test_list_keeps_local_attached_supervisor_even_when_last_seen_is_old(self) -> None:
+        headers = {"X-Admin-Token": "test-token"}
+        created = self.client.post(
+            "/api/system/supervisors/register",
+            headers=headers,
+            json={
+                "supervisor_id": "local-core-supervisor",
+                "transport": "local",
+                "metadata": {"attached_to_core": True},
+            },
+        )
+        self.assertEqual(created.status_code, 200, created.text)
+        record = self.store.get("local-core-supervisor")
+        self.assertIsNotNone(record)
+        old_seen = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+        record.last_seen_at = old_seen
+        record.updated_at = old_seen
+        self.store._save()
+
+        listed = self.client.get("/api/system/supervisors", headers=headers)
+
+        self.assertEqual(listed.status_code, 200, listed.text)
+        self.assertEqual(listed.json()["items"][0]["supervisor_id"], "local-core-supervisor")
+        self.assertEqual(listed.json()["items"][0]["visibility_state"], "active")
+        self.assertEqual(listed.json()["hidden_historical_count"], 0)
 
     def test_local_supervisor_history_uses_configured_client(self) -> None:
         app = FastAPI()

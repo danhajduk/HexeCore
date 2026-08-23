@@ -100,6 +100,7 @@ type SupervisorFleetRecord = {
   registered_runtimes?: Array<Record<string, unknown>>;
   core_runtimes?: Array<Record<string, unknown>>;
   last_seen_at?: string | null;
+  visibility_state?: string;
 };
 
 type NodeServiceRow = {
@@ -725,15 +726,18 @@ export default function SettingsSupervisor() {
         setHostHistory(null);
       }
       const supervisorHistoryPairs = await Promise.all(
-        fleetItems.slice(0, 8).map(async (supervisor) => {
-          try {
-            const res = await fetch(supervisorHostHistoryUrl(supervisor), { cache: "no-store" });
-            if (!res.ok) return null;
-            return [supervisor.supervisor_id, (await res.json()) as SupervisorResourceHistory] as const;
-          } catch {
-            return null;
-          }
-        }),
+        fleetItems
+          .filter((supervisor) => !isLocalSupervisor(supervisor))
+          .slice(0, 8)
+          .map(async (supervisor) => {
+            try {
+              const res = await fetch(supervisorHostHistoryUrl(supervisor), { cache: "no-store" });
+              if (!res.ok) return null;
+              return [supervisor.supervisor_id, (await res.json()) as SupervisorResourceHistory] as const;
+            } catch {
+              return null;
+            }
+          }),
       );
       setSupervisorHistories(
         supervisorHistoryPairs.reduce<Record<string, SupervisorResourceHistory>>((acc, item) => {
@@ -743,12 +747,16 @@ export default function SettingsSupervisor() {
       );
       const runtimeItems = Array.isArray(supervisorPayload.runtimes) ? supervisorPayload.runtimes : [];
       const historyRuntimeItems = mergeNodeRuntimes(runtimeItems, fleetItems);
+      const seenRuntimeHistoryUrls = new Set<string>();
       const runtimePairs = await Promise.all(
         historyRuntimeItems.slice(0, 8).map(async (runtime) => {
           const nodeId = String(runtime.node_id || "").trim();
           if (!nodeId) return null;
+          const url = runtimeHistoryUrl(runtime);
+          if (seenRuntimeHistoryUrls.has(url)) return null;
+          seenRuntimeHistoryUrls.add(url);
           try {
-            const res = await fetch(runtimeHistoryUrl(runtime), { cache: "no-store" });
+            const res = await fetch(url, { cache: "no-store" });
             if (!res.ok) return null;
             return [runtimeHistoryKey(runtime), (await res.json()) as SupervisorResourceHistory] as const;
           } catch {
