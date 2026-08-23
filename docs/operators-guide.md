@@ -29,6 +29,14 @@ python tools/check_repo_health.py
 
 This verifies Core/Supervisor mirror drift, environment docs, OpenAPI snapshot drift, and targeted backend guard tests without requiring other nodes.
 
+If local ignored artifacts make the checkout hard to inspect, report them first:
+
+```bash
+python tools/report_ignored_artifacts.py
+```
+
+The report distinguishes source-owned areas from local dependency caches, build output, runtime state, logs, and private operator config. It does not delete anything unless `--delete` is provided.
+
 ## 3) Recovery Basics
 
 Status: Implemented

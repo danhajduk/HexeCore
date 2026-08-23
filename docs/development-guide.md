@@ -46,6 +46,18 @@ python tools/check_repo_health.py
 
 The command runs mirror drift, environment registry, OpenAPI snapshot checks, and targeted Core/Supervisor backend guard tests. Use `--skip-backend-tests` only when you need a quick guard-script check.
 
+## Ignored Artifact Reports
+
+Status: Implemented
+
+Use the ignored-artifact helper when the worktree contains local build, cache, or runtime folders that make source audits hard to read:
+
+```bash
+python tools/report_ignored_artifacts.py
+```
+
+The default mode only reports ignored Core/Supervisor artifacts and labels source-owned areas versus dependency caches, build output, runtime state, logs, and local private config. Re-run with `--delete` only when you intentionally want to remove delete-safe ignored artifacts.
+
 ## Documentation Maintenance Note
 
 Status: Implemented
