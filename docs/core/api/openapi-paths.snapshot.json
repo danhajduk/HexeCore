@@ -1,18 +1,6 @@
 {
-  "path_count": 244,
+  "path_count": 221,
   "paths": {
-    "/addons/proxy/{addon_id}": [
-      "get",
-      "head"
-    ],
-    "/addons/proxy/{addon_id}/": [
-      "get",
-      "head"
-    ],
-    "/addons/proxy/{addon_id}/{path}": [
-      "get",
-      "head"
-    ],
     "/api/addons": [
       "get"
     ],
@@ -79,26 +67,8 @@
     "/api/addons/registry/{addon_id}/verify": [
       "post"
     ],
-    "/api/addons/{addon_id}": [
-      "delete",
-      "get",
-      "head",
-      "options",
-      "patch",
-      "post",
-      "put"
-    ],
     "/api/addons/{addon_id}/enable": [
       "post"
-    ],
-    "/api/addons/{addon_id}/{path}": [
-      "delete",
-      "get",
-      "head",
-      "options",
-      "patch",
-      "post",
-      "put"
     ],
     "/api/admin/addons/registry": [
       "get",
@@ -180,26 +150,8 @@
     "/api/nodes/{node_id}": [
       "get"
     ],
-    "/api/nodes/{node_id}/": [
-      "delete",
-      "get",
-      "head",
-      "options",
-      "patch",
-      "post",
-      "put"
-    ],
     "/api/nodes/{node_id}/ui-manifest": [
       "get"
-    ],
-    "/api/nodes/{node_id}/{path}": [
-      "delete",
-      "get",
-      "head",
-      "options",
-      "patch",
-      "post",
-      "put"
     ],
     "/api/policy/grants": [
       "get",
@@ -732,100 +684,6 @@
     ],
     "/api/telemetry/usage/stats": [
       "get"
-    ],
-    "/nodes/proxy/no-json/{node_id}": [
-      "delete",
-      "get",
-      "head",
-      "options",
-      "patch",
-      "post",
-      "put"
-    ],
-    "/nodes/proxy/no-json/{node_id}/": [
-      "delete",
-      "get",
-      "head",
-      "options",
-      "patch",
-      "post",
-      "put"
-    ],
-    "/nodes/proxy/no-json/{node_id}/{path}": [
-      "delete",
-      "get",
-      "head",
-      "options",
-      "patch",
-      "post",
-      "put"
-    ],
-    "/nodes/proxy/ui/{node_id}": [
-      "get",
-      "head"
-    ],
-    "/nodes/proxy/ui/{node_id}/": [
-      "get",
-      "head"
-    ],
-    "/nodes/proxy/ui/{node_id}/{path}": [
-      "get",
-      "head"
-    ],
-    "/nodes/proxy/{node_id}": [
-      "delete",
-      "get",
-      "head",
-      "options",
-      "patch",
-      "post",
-      "put"
-    ],
-    "/nodes/proxy/{node_id}/": [
-      "delete",
-      "get",
-      "head",
-      "options",
-      "patch",
-      "post",
-      "put"
-    ],
-    "/nodes/proxy/{node_id}/{path}": [
-      "delete",
-      "get",
-      "head",
-      "options",
-      "patch",
-      "post",
-      "put"
-    ],
-    "/nodes/{node_id}/ui": [
-      "get",
-      "head"
-    ],
-    "/nodes/{node_id}/ui/": [
-      "get",
-      "head"
-    ],
-    "/nodes/{node_id}/ui/{path}": [
-      "get",
-      "head"
-    ],
-    "/ui/addons/{addon_id}": [
-      "get",
-      "head"
-    ],
-    "/ui/addons/{addon_id}/{path}": [
-      "get",
-      "head"
-    ],
-    "/ui/nodes/{node_id}": [
-      "get",
-      "head"
-    ],
-    "/ui/nodes/{node_id}/{path}": [
-      "get",
-      "head"
     ]
   },
   "schema_version": 1,

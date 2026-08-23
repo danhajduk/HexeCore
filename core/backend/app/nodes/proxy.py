@@ -515,7 +515,7 @@ class NodeUiProxy:
 
 
 def build_node_ui_proxy_router(proxy: NodeUiProxy) -> APIRouter:
-    router = APIRouter()
+    router = APIRouter(include_in_schema=False)
 
     @router.api_route("/nodes/proxy/ui/{node_id}/{path:path}", methods=["GET", "HEAD"])
     async def proxy_node_ui_navigation(node_id: str, path: str, request: Request):

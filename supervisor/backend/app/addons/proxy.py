@@ -505,7 +505,7 @@ class AddonProxy:
 
 
 def build_proxy_router(proxy: AddonProxy) -> APIRouter:
-    router = APIRouter()
+    router = APIRouter(include_in_schema=False)
 
     @router.api_route("/api/addons/{addon_id}/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"])
     async def proxy_api(addon_id: str, path: str, request: Request):

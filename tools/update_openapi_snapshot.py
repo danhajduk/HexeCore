@@ -45,10 +45,20 @@ def _create_app():
 
 
 def build_snapshot() -> dict[str, Any]:
+    snapshot, _duplicate_operation_warnings = build_snapshot_with_warnings()
+    return snapshot
+
+
+def build_snapshot_with_warnings() -> tuple[dict[str, Any], list[str]]:
     app = _create_app()
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
         spec = app.openapi()
+    duplicate_operation_warnings = [
+        str(item.message)
+        for item in caught
+        if "Duplicate Operation ID" in str(item.message)
+    ]
     paths = spec.get("paths", {})
     snapshot_paths: dict[str, list[str]] = {}
     for path in sorted(paths):
@@ -56,12 +66,15 @@ def build_snapshot() -> dict[str, Any]:
         if not isinstance(methods, dict):
             continue
         snapshot_paths[path] = sorted(method for method, payload in methods.items() if isinstance(payload, dict))
-    return {
-        "schema_version": 1,
-        "source": "core/backend/app/main.py:create_app().openapi()",
-        "path_count": len(snapshot_paths),
-        "paths": snapshot_paths,
-    }
+    return (
+        {
+            "schema_version": 1,
+            "source": "core/backend/app/main.py:create_app().openapi()",
+            "path_count": len(snapshot_paths),
+            "paths": snapshot_paths,
+        },
+        duplicate_operation_warnings,
+    )
 
 
 def forbidden_paths(paths: set[str]) -> list[str]:
@@ -82,10 +95,15 @@ def write_snapshot() -> None:
 
 def check_snapshot() -> list[str]:
     errors: list[str] = []
-    current = build_snapshot()
+    current, duplicate_operation_warnings = build_snapshot_with_warnings()
     expected = json.loads(SNAPSHOT_PATH.read_text(encoding="utf-8"))
     if current != expected:
         errors.append("OpenAPI path snapshot is stale; run python tools/update_openapi_snapshot.py --write")
+    if duplicate_operation_warnings:
+        errors.append(
+            "OpenAPI duplicate operation IDs are present: "
+            + "; ".join(sorted(set(duplicate_operation_warnings)))
+        )
     bad = forbidden_paths(set(current.get("paths", {})))
     if bad:
         errors.append("Forbidden job/worker API paths are present: " + ", ".join(bad))

@@ -11,3 +11,4 @@ Task 960: Move tracked store source runtime defaults out of live var - Completed
 Task 961: Add OpenAPI contract snapshot and removed-endpoint regression checks - Completed on 08/22/2026 19:45
 Task 962: Prune and classify active documentation versus archive/future material - Completed on 08/22/2026 19:48
 Task 966: Restore Store catalog artifact verification or explicitly downgrade the active security contract - Completed on 08/22/2026 20:06
+Task 967: Make OpenAPI contract checks catch duplicate operation IDs - Completed on 08/22/2026 20:08
