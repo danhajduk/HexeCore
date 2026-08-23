@@ -99,6 +99,11 @@ class TestSupervisorRuntimeResourceHistory(unittest.TestCase):
                 SupervisorCoreRuntimeRegistrationRequest(
                     runtime_id="core-api",
                     runtime_name="Hexe Core API",
+                    resource_usage={
+                        "rps": 0.57,
+                        "latency_ms_p95": 5134.0,
+                        "error_rate": 0.118,
+                    },
                     runtime_metadata={"pid": 4321},
                 )
             )
@@ -106,6 +111,9 @@ class TestSupervisorRuntimeResourceHistory(unittest.TestCase):
         sample = next(item for item in history.samples if item["scope"] == "core_runtime")
         self.assertEqual(sample["resource_id"], "core-api")
         self.assertEqual(sample["metrics"]["pid"], 4321)
+        self.assertEqual(sample["metrics"]["rps"], 0.57)
+        self.assertEqual(sample["metrics"]["latency_ms_p95"], 5134.0)
+        self.assertEqual(sample["metrics"]["error_rate"], 0.118)
         self.assertEqual(sample["metrics"]["cpu_percent"], 7.5)
         self.assertEqual(sample["metadata"]["runtime_kind"], "core_service")
 

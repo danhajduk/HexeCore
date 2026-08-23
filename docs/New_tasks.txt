@@ -48,8 +48,6 @@ Standards reference:
 Do not edit above this line:
 #######################################################################
 
-[STOP HERE]
-[TODO] Task 970: Persist Core Services and Aux Runtimes telemetry fields
 [TODO] Task 971: Surface recorded Core Services and Aux Runtimes history in API/UI/docs
 [TODO] Task 972: Diagnose and correct stale Hexe Supervisor fleet offline records
 [TODO] Task 973: Improve Supervisor Fleet offline/health UI semantics and operator diagnostics

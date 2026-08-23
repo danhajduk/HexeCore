@@ -96,6 +96,7 @@ Resource observation:
 - `resource_usage` may be enriched by Supervisor from host-local metadata before the summary is returned.
 - `runtime_metadata.services[]` or `runtime_metadata.services.{id}` entries are sampled when they include `pid`, `systemd_unit`, `systemd_service`, `container_name`, or `container_id`.
 - Supervisor-derived fields include `pid`, `cpu_percent`, `mem_percent`, `rss_bytes`, `container_name`, `container_id`, `resource_source`, and `sampled_at`.
+- Reported service telemetry fields such as `rps`, `latency_ms_avg`, `latency_ms_p95`, `error_rate`, and `inflight` are preserved in resource history samples when present.
 - When Supervisor can sample a local process or container, sampled CPU and memory are treated as authoritative over heartbeat-provided CPU and memory.
 
 ### SupervisorRuntimeRegistrationRequest
@@ -195,6 +196,7 @@ Resource observation:
 - Core runtime summaries use the same Supervisor-local resource enrichment as Node runtime summaries.
 - Core services commonly use `runtime_metadata.systemd_unit`; aux containers and addons commonly use `runtime_metadata.container_name`, `runtime_metadata.container_id`, or `runtime_metadata.containers[]`.
 - `runtime_metadata.services` can also be used when one runtime exposes multiple local process/container children.
+- Local Core fleet sync enriches the `core-api` runtime `resource_usage` with the current Core API metrics snapshot (`rps`, `latency_ms_p95`, `error_rate`, and related counters) before persisting the Supervisor Fleet heartbeat.
 
 ### SupervisorCoreRuntimeRegistrationRequest
 

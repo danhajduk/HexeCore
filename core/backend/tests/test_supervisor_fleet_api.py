@@ -196,6 +196,12 @@ class TestSupervisorFleetApi(unittest.TestCase):
         app = FastAPI()
         supervisor_client = _FakeSupervisorClient()
         app.state.supervisor_client = supervisor_client
+        app.state.latest_api_metrics = {
+            "rps": 0.57,
+            "latency_ms_p95": 5134.0,
+            "error_rate": 0.118,
+            "inflight": 1,
+        }
         app.include_router(build_supervisors_router(self.store, self.enrollment_store), prefix="/api/system")
         client = TestClient(app)
 
@@ -211,6 +217,11 @@ class TestSupervisorFleetApi(unittest.TestCase):
         self.assertEqual(items[0]["registered_runtime_count"], 1)
         self.assertEqual(items[0]["core_runtime_count"], 1)
         self.assertTrue(items[0]["metadata"]["attached_to_core"])
+        resource_usage = items[0]["core_runtimes"][0]["resource_usage"]
+        self.assertEqual(resource_usage["rps"], 0.57)
+        self.assertEqual(resource_usage["latency_ms_p95"], 5134.0)
+        self.assertEqual(resource_usage["error_rate"], 0.118)
+        self.assertEqual(resource_usage["inflight"], 1)
         self.assertEqual(len(supervisor_client.requests), 5)
 
     def test_local_supervisor_sorts_before_remote_supervisors(self) -> None:

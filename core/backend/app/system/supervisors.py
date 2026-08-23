@@ -19,6 +19,13 @@ from app.api.admin import require_admin_token
 
 SUPERVISOR_REGISTRY_SCHEMA_VERSION = "1"
 SUPERVISOR_ENROLLMENT_SCHEMA_VERSION = "1"
+SERVICE_TELEMETRY_KEYS = (
+    "rps",
+    "latency_ms_avg",
+    "latency_ms_p95",
+    "error_rate",
+    "inflight",
+)
 
 
 def _utcnow_iso() -> str:
@@ -145,6 +152,54 @@ def _dict_payload(value: object) -> dict[str, Any]:
 
 def _list_payload(value: object) -> list[dict[str, Any]]:
     return [dict(item) for item in value if isinstance(item, dict)] if isinstance(value, list) else []
+
+
+def _numeric_metrics_payload(value: object, keys: tuple[str, ...] = SERVICE_TELEMETRY_KEYS) -> dict[str, int | float]:
+    payload = dict(value) if isinstance(value, dict) else {}
+    metrics: dict[str, int | float] = {}
+    for key in keys:
+        raw = payload.get(key)
+        if isinstance(raw, bool):
+            continue
+        if isinstance(raw, int | float):
+            metrics[key] = raw
+            continue
+        try:
+            parsed = float(str(raw).strip())
+        except Exception:
+            continue
+        metrics[key] = parsed
+    return metrics
+
+
+def _current_core_api_metrics(request: Request) -> dict[str, int | float]:
+    latest = getattr(request.app.state, "latest_api_metrics", None)
+    metrics = _numeric_metrics_payload(latest)
+    if metrics:
+        return metrics
+    collector = getattr(request.app.state, "api_metrics", None)
+    snapshot = getattr(collector, "snapshot", None)
+    if not callable(snapshot):
+        return {}
+    try:
+        return _numeric_metrics_payload(snapshot(window_s=60, top_n=10))
+    except Exception:
+        return {}
+
+
+def _with_local_core_runtime_telemetry(items: list[dict[str, Any]], request: Request) -> list[dict[str, Any]]:
+    core_api_metrics = _current_core_api_metrics(request)
+    if not core_api_metrics:
+        return [dict(item) for item in items]
+    enriched: list[dict[str, Any]] = []
+    for item in items:
+        runtime = dict(item)
+        if _clean_text(runtime.get("runtime_id")) == "core-api":
+            usage = dict(runtime.get("resource_usage") or {}) if isinstance(runtime.get("resource_usage"), dict) else {}
+            usage.update(core_api_metrics)
+            runtime["resource_usage"] = usage
+        enriched.append(runtime)
+    return enriched
 
 
 def _history_params(range_value: str, step_value: str | None) -> dict[str, str]:
@@ -704,6 +759,7 @@ def build_supervisors_router(
             if isinstance(core_runtimes, dict)
             else list(existing.core_runtimes if existing else [])
         )
+        core_runtime_items = _with_local_core_runtime_telemetry(core_runtime_items, request)
         managed_node_count = _active_node_runtime_count(node_runtimes) if node_runtimes else (
             len(managed_nodes) if managed_nodes else existing.managed_node_count if existing else 0
         )

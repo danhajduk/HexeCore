@@ -22,7 +22,11 @@
         "health_status": { "type": "string", "default": "unknown" },
         "last_error": { "type": ["string", "null"] },
         "running": { "type": ["boolean", "null"], "default": true },
-        "resource_usage": { "type": "object", "default": {} },
+        "resource_usage": {
+          "type": "object",
+          "default": {},
+          "description": "Latest runtime resource and service telemetry metrics. Common keys include cpu_percent, mem_percent, rss_bytes, rps, latency_ms_avg, latency_ms_p95, error_rate, and inflight."
+        },
         "runtime_metadata": { "type": "object", "default": {} }
       }
     },
@@ -41,7 +45,11 @@
         "health_status": { "type": ["string", "null"] },
         "last_error": { "type": ["string", "null"] },
         "running": { "type": ["boolean", "null"] },
-        "resource_usage": { "type": "object", "default": {} },
+        "resource_usage": {
+          "type": "object",
+          "default": {},
+          "description": "Latest runtime resource and service telemetry metrics. Common keys include cpu_percent, mem_percent, rss_bytes, rps, latency_ms_avg, latency_ms_p95, error_rate, and inflight."
+        },
         "runtime_metadata": { "type": "object", "default": {} }
       }
     },
@@ -77,7 +85,11 @@
         "last_action_at": { "type": ["string", "null"] },
         "last_error": { "type": ["string", "null"] },
         "running": { "type": ["boolean", "null"] },
-        "resource_usage": { "type": "object", "default": {} },
+        "resource_usage": {
+          "type": "object",
+          "default": {},
+          "description": "Latest runtime resource and service telemetry metrics. Common keys include cpu_percent, mem_percent, rss_bytes, rps, latency_ms_avg, latency_ms_p95, error_rate, and inflight."
+        },
         "runtime_metadata": { "type": "object", "default": {} }
       }
     },
