@@ -1538,7 +1538,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(res.status_code, 200, res.text)
         self.assertEqual(res.json()["installed_sha256"], digest)
 
-    def test_catalog_install_ignores_sha256_mismatch(self) -> None:
+    def test_catalog_install_rejects_sha256_mismatch(self) -> None:
         artifact_bytes = b"artifact-mismatch"
         fake_catalog = self._build_catalog_client(
             artifact_bytes=artifact_bytes,
@@ -1550,31 +1550,24 @@ class TestStoreApiEndpoints(unittest.TestCase):
         app.include_router(build_store_router(self.registry, self.audit, _FakeSourcesStore(), fake_catalog), prefix="/api/store")
         client = TestClient(app)
 
-        with patch("app.store.router.resolve_manifest_compatibility", return_value=None), patch(
-            "app.store.router._atomic_install_or_update",
-            return_value=AtomicResult(
-                addon_dir=Path(self.tmp.name) / "addons" / "hello_world",
-                backup_dir=None,
-                installed_manifest={"id": "hello_world"},
-            ),
-        ):
+        with patch("app.store.router._atomic_install_or_update") as atomic_install:
             res = client.post(
                 "/api/store/install",
                 headers={"X-Admin-Token": "test-token"},
                 json={"source_id": "official", "addon_id": "hello_world", "enable": True},
             )
-        self.assertEqual(res.status_code, 200, res.text)
-        self.assertEqual(res.json()["installed_sha256"], "0" * 64)
+        self.assertEqual(res.status_code, 400, res.text)
+        self.assertEqual(res.json()["detail"]["error"]["code"], "checksum_mismatch")
+        atomic_install.assert_not_called()
 
         with patch("app.store.router._addons_root", return_value=Path(self.tmp.name) / "addons"):
             status = client.get("/api/store/status/hello_world")
         self.assertEqual(status.status_code, 200, status.text)
         status_payload = status.json()
-        self.assertEqual(status_payload["installed_from_source_id"], "official")
-        self.assertEqual(status_payload["installed_resolved_base_url"], "https://raw.githubusercontent.test/catalog")
-        self.assertEqual(status_payload["installed_release_url"], "https://example.test/hello_world-1.0.0.zip")
-        self.assertEqual(status_payload["installed_sha256"], "0" * 64)
-        self.assertIsNone(status_payload["last_install_error"])
+        self.assertIsNone(status_payload["installed_from_source_id"])
+        self.assertIsNotNone(status_payload["last_install_error"])
+        self.assertEqual(status_payload["last_install_error"]["error"], "checksum_mismatch")
+        self.assertEqual(status_payload["last_install_error"]["expected_sha256"], ["0" * 64])
 
     def test_catalog_install_no_compatible_release_includes_reason_details(self) -> None:
         artifact_bytes = b"artifact-incompatible"
@@ -2506,7 +2499,7 @@ class TestStoreApiEndpoints(unittest.TestCase):
         self.assertEqual(res.status_code, 400, res.text)
         self.assertIn("ssap_desired_invalid", res.json()["detail"])
 
-    def test_catalog_install_standalone_service_mode_ignores_sha_mismatch(self) -> None:
+    def test_catalog_install_standalone_service_mode_rejects_sha_mismatch(self) -> None:
         pkg = Path(self.tmp.name) / "bundle-standalone-sha-mismatch.zip"
         with zipfile.ZipFile(pkg, "w") as zf:
             zf.writestr("hello_world/manifest.json", '{"id":"hello_world","name":"hello_world","version":"1.0.0"}')
@@ -2535,9 +2528,9 @@ class TestStoreApiEndpoints(unittest.TestCase):
                     "enable": True,
                 },
             )
-        self.assertEqual(res.status_code, 200, res.text)
-        self.assertEqual(res.json()["installed_sha256"], "0" * 64)
-        self.assertTrue((standalone_root / "services" / "hello_world" / "desired.json").exists())
+        self.assertEqual(res.status_code, 400, res.text)
+        self.assertEqual(res.json()["detail"]["error"]["code"], "checksum_mismatch")
+        self.assertFalse((standalone_root / "services" / "hello_world" / "desired.json").exists())
 
     def test_catalog_install_standalone_service_mode_handles_artifact_404_without_desired_write(self) -> None:
         pkg = Path(self.tmp.name) / "bundle-standalone-artifact-404.zip"

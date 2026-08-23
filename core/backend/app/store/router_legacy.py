@@ -902,7 +902,10 @@ def _build_release_manifest(addon_id: str, addon_item: dict[str, Any], release_i
         data.setdefault("publisher_id", publisher_id)
         data.setdefault("checksum", checksum)
         data.setdefault("package_profile", package_profile)
-        data.setdefault("signature", {"publisher_id": publisher_id, "signature": signature_b64})
+        data.setdefault(
+            "signature",
+            {"publisher_id": publisher_id, "signature": signature_b64, "type": _release_signature_type(release_item)},
+        )
         data.setdefault("compatibility", compat)
         data.setdefault("runtime_defaults", runtime_defaults)
         data.setdefault("docker_groups", docker_groups)
@@ -924,7 +927,7 @@ def _build_release_manifest(addon_id: str, addon_item: dict[str, Any], release_i
             "runtime_defaults": runtime_defaults,
             "docker_groups": docker_groups,
             "permissions": addon_item.get("permissions") or release_item.get("permissions") or [],
-            "signature": {"publisher_id": publisher_id, "signature": signature_b64},
+            "signature": {"publisher_id": publisher_id, "signature": signature_b64, "type": _release_signature_type(release_item)},
             "compatibility": compat,
         }
     )
@@ -1549,6 +1552,20 @@ def build_store_router(
                     debug_publisher_key_id = str(release_item.get("publisher_key_id") or "").strip() or None
                     release_signature_type = _release_signature_type(release_item)
                     debug_signature_type = release_signature_type
+                    if not debug_publisher_key_id:
+                        raise HTTPException(status_code=400, detail="catalog_publisher_key_missing")
+                    publisher_key = _publisher_key_from_payload(
+                        publishers_payload,
+                        publisher_id=manifest.publisher_id,
+                        publisher_key_id=debug_publisher_key_id,
+                    )
+                    if publisher_key is None:
+                        raise HTTPException(status_code=400, detail="catalog_publisher_key_not_found_or_disabled")
+                    public_key_pem, publisher_signature_type = publisher_key
+                    if not str(release_signature_type or "").strip():
+                        release_signature_type = publisher_signature_type
+                        debug_signature_type = release_signature_type
+                    manifest.signature.type = release_signature_type
 
                     source_release_url = _release_artifact_url(release_item)
                     if not source_release_url:
@@ -1627,7 +1644,7 @@ def build_store_router(
                 addon_id=manifest.id,
                 version=manifest.version,
                 status="success",
-                message="verification_skipped",
+                message="verification_completed",
                 actor=actor,
             )
 
@@ -1655,7 +1672,6 @@ def build_store_router(
                             manifest.id,
                             manifest.version,
                             artifact_bytes,
-                            expected_sha256_candidates,
                         )
                     )
                     standalone_dir = service_addon_dir(manifest.id, create=False)

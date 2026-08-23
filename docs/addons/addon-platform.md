@@ -60,7 +60,9 @@ Status: Implemented
 Status: Implemented
 
 - `addon-manifest.schema.json` governs addon manifest structure.
-- Store lifecycle validates package layout and compatibility before install/update.
+- Store lifecycle validates package layout, artifact checksum, detached signature, and compatibility before install/update.
+- Catalog installs resolve an enabled publisher key from cached `publishers.json`; missing, revoked, invalid, mismatched checksum, and mismatched signature cases fail before lifecycle mutation.
+- Verification failures are returned as structured Store errors and recorded in `/api/store/status/{addon_id}` `last_install_error`.
 - Desired/runtime files are used for standalone state handoff.
 
 ## Distributed Addons

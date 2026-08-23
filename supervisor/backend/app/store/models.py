@@ -70,6 +70,7 @@ def _normalize_permissions(value: Any) -> Any:
 class SignatureBlock(BaseModel):
     publisher_id: str = ""
     signature: str = ""
+    type: str = "rsa-sha256"
 
 
 class RuntimePortDefault(BaseModel):
