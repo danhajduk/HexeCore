@@ -1,0 +1,1075 @@
+{
+  "dynamic_env_names": [
+    "CLOUDFLARE_ACCOUNT_ID",
+    "CLOUDFLARE_API_TOKEN",
+    "CLOUDFLARE_ZONE_ID"
+  ],
+  "notes": [
+    "Registry covers active Core runtime code and scripts. Supervisor mirror files are validated by the mirror drift guard.",
+    "Sensitive values must not be logged or exposed through public APIs."
+  ],
+  "scan_prefixes": [
+    "HEXE_",
+    "MQTT_",
+    "STORE_",
+    "SYNTHIA_",
+    "CLOUDFLARE_",
+    "PLATFORM_"
+  ],
+  "scan_roots": [
+    "core/backend/app",
+    "core/backend/hexe_supervisor",
+    "core/scripts",
+    "core/systemd",
+    "core/frontend/src",
+    "core/frontend/index.html",
+    "core/frontend/vite.config.ts"
+  ],
+  "variables": [
+    {
+      "default": null,
+      "description": "Cloudflare account ID accepted by the Edge Gateway settings flow.",
+      "name": "CLOUDFLARE_ACCOUNT_ID",
+      "owner": "Cloudflared and edge gateway",
+      "sensitive": false
+    },
+    {
+      "default": "https://api.cloudflare.com/client/v4",
+      "description": "Controls Cloudflare API access or the repo-local/native cloudflared runtime. Registry key: `CLOUDFLARE_API_BASE`.",
+      "name": "CLOUDFLARE_API_BASE",
+      "owner": "Cloudflared and edge gateway",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "Cloudflare API token used for managed tunnel and DNS provisioning.",
+      "name": "CLOUDFLARE_API_TOKEN",
+      "owner": "Cloudflared and edge gateway",
+      "sensitive": true
+    },
+    {
+      "default": null,
+      "description": "Cloudflare zone ID accepted by the Edge Gateway settings flow.",
+      "name": "CLOUDFLARE_ZONE_ID",
+      "owner": "Cloudflared and edge gateway",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "../HexeAddons",
+      "description": "Controls addon store persistence, catalog trust material, or standalone addon runtime paths. Registry key: `HEXE_ADDONS_DIR`.",
+      "name": "HEXE_ADDONS_DIR",
+      "owner": "Store and addon runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls admin login/session behavior or service-principal access. Registry key: `HEXE_ADMIN_COOKIE_SECURE`.",
+      "name": "HEXE_ADMIN_COOKIE_SECURE",
+      "owner": "Auth and service access",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Initial seeded admin password; sensitive and used only for local account bootstrap.",
+      "name": "HEXE_ADMIN_PASSWORD",
+      "owner": "Auth and service access",
+      "sensitive": true
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Secret used to sign admin browser sessions.",
+      "name": "HEXE_ADMIN_SESSION_SECRET",
+      "owner": "Auth and service access",
+      "sensitive": true
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls admin login/session behavior or service-principal access. Registry key: `HEXE_ADMIN_SESSION_TTL_SECONDS`.",
+      "name": "HEXE_ADMIN_SESSION_TTL_SECONDS",
+      "owner": "Auth and service access",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Bootstrap admin token and fallback seeded admin password when no explicit password is provided.",
+      "name": "HEXE_ADMIN_TOKEN",
+      "owner": "Auth and service access",
+      "sensitive": true
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "admin",
+      "description": "Controls admin login/session behavior or service-principal access. Registry key: `HEXE_ADMIN_USERNAME`.",
+      "name": "HEXE_ADMIN_USERNAME",
+      "owner": "Auth and service access",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls node onboarding, reauth, trust bootstrap, governance, or capability filters. Registry key: `HEXE_AI_NODE_ONBOARDING_APPROVAL_URL_BASE`.",
+      "name": "HEXE_AI_NODE_ONBOARDING_APPROVAL_URL_BASE",
+      "owner": "Node onboarding and governance",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "true",
+      "description": "Controls node onboarding, reauth, trust bootstrap, governance, or capability filters. Registry key: `HEXE_AI_NODE_ONBOARDING_ENABLED`.",
+      "name": "HEXE_AI_NODE_ONBOARDING_ENABLED",
+      "owner": "Node onboarding and governance",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "1.0",
+      "description": "Controls node onboarding, reauth, trust bootstrap, governance, or capability filters. Registry key: `HEXE_AI_NODE_ONBOARDING_PROTOCOLS`.",
+      "name": "HEXE_AI_NODE_ONBOARDING_PROTOCOLS",
+      "owner": "Node onboarding and governance",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls Core API binding, CORS, dashboard, or frontend static serving. Registry key: `HEXE_API_BASE`.",
+      "name": "HEXE_API_BASE",
+      "owner": "Backend and frontend serving",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "9001",
+      "description": "Controls Core API binding, CORS, dashboard, or frontend static serving. Registry key: `HEXE_API_PORT`.",
+      "name": "HEXE_API_PORT",
+      "owner": "Backend and frontend serving",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "127.0.0.1",
+      "description": "Controls Core API binding, CORS, dashboard, or frontend static serving. Registry key: `HEXE_BACKEND_HOST`.",
+      "name": "HEXE_BACKEND_HOST",
+      "owner": "Backend and frontend serving",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "9001",
+      "description": "Controls Core API binding, CORS, dashboard, or frontend static serving. Registry key: `HEXE_BACKEND_PORT`.",
+      "name": "HEXE_BACKEND_PORT",
+      "owner": "Backend and frontend serving",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_BLUETOOTH_ACCESS_POLICY`.",
+      "name": "HEXE_BLUETOOTH_ACCESS_POLICY",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_BLUETOOTH_POWER_RETRY_S`.",
+      "name": "HEXE_BLUETOOTH_POWER_RETRY_S",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls node onboarding, reauth, trust bootstrap, governance, or capability filters. Registry key: `HEXE_BOOTSTRAP_ADVERTISE_HOST`.",
+      "name": "HEXE_BOOTSTRAP_ADVERTISE_HOST",
+      "owner": "Node onboarding and governance",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls addon store persistence, catalog trust material, or standalone addon runtime paths. Registry key: `HEXE_CATALOG_PUBLISHERS`.",
+      "name": "HEXE_CATALOG_PUBLISHERS",
+      "owner": "Store and addon runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls Cloudflare API access or the repo-local/native cloudflared runtime. Registry key: `HEXE_CLOUDFLARED_BINARY`.",
+      "name": "HEXE_CLOUDFLARED_BINARY",
+      "owner": "Cloudflared and edge gateway",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "hexe-cloudflared",
+      "description": "Controls Cloudflare API access or the repo-local/native cloudflared runtime. Registry key: `HEXE_CLOUDFLARED_CONTAINER_NAME`.",
+      "name": "HEXE_CLOUDFLARED_CONTAINER_NAME",
+      "owner": "Cloudflared and edge gateway",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls Cloudflare API access or the repo-local/native cloudflared runtime. Registry key: `HEXE_CLOUDFLARED_DOWNLOAD_URL`.",
+      "name": "HEXE_CLOUDFLARED_DOWNLOAD_URL",
+      "owner": "Cloudflared and edge gateway",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "cloudflare/cloudflared:latest",
+      "description": "Controls Cloudflare API access or the repo-local/native cloudflared runtime. Registry key: `HEXE_CLOUDFLARED_IMAGE`.",
+      "name": "HEXE_CLOUDFLARED_IMAGE",
+      "owner": "Cloudflared and edge gateway",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls Cloudflare API access or the repo-local/native cloudflared runtime. Registry key: `HEXE_CLOUDFLARED_INSTALL_DIR`.",
+      "name": "HEXE_CLOUDFLARED_INSTALL_DIR",
+      "owner": "Cloudflared and edge gateway",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "auto",
+      "description": "Controls Cloudflare API access or the repo-local/native cloudflared runtime. Registry key: `HEXE_CLOUDFLARED_PROVIDER`.",
+      "name": "HEXE_CLOUDFLARED_PROVIDER",
+      "owner": "Cloudflared and edge gateway",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "unless-stopped",
+      "description": "Controls Cloudflare API access or the repo-local/native cloudflared runtime. Registry key: `HEXE_CLOUDFLARED_RESTART_POLICY`.",
+      "name": "HEXE_CLOUDFLARED_RESTART_POLICY",
+      "owner": "Cloudflared and edge gateway",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "hexe-cloudflared.service",
+      "description": "Controls Cloudflare API access or the repo-local/native cloudflared runtime. Registry key: `HEXE_CLOUDFLARED_SYSTEMD_UNIT`.",
+      "name": "HEXE_CLOUDFLARED_SYSTEMD_UNIT",
+      "owner": "Cloudflared and edge gateway",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "latest",
+      "description": "Controls Cloudflare API access or the repo-local/native cloudflared runtime. Registry key: `HEXE_CLOUDFLARED_VERSION`.",
+      "name": "HEXE_CLOUDFLARED_VERSION",
+      "owner": "Cloudflared and edge gateway",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "hexe-core",
+      "description": "Controls platform display names, compatibility text, or stable Core identity. Registry key: `HEXE_CORE_ID`.",
+      "name": "HEXE_CORE_ID",
+      "owner": "Platform identity and branding",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls a Core runtime setting. Registry key: `HEXE_CORE_RUNTIME_DECLARATIONS_JSON`.",
+      "name": "HEXE_CORE_RUNTIME_DECLARATIONS_JSON",
+      "owner": "Core runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "http://127.0.0.1:8000",
+      "description": "Controls addon store persistence, catalog trust material, or standalone addon runtime paths. Registry key: `HEXE_CORE_URL`.",
+      "name": "HEXE_CORE_URL",
+      "owner": "Store and addon runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "0.1.0",
+      "description": "Controls platform display names, compatibility text, or stable Core identity. Registry key: `HEXE_CORE_VERSION`.",
+      "name": "HEXE_CORE_VERSION",
+      "owner": "Platform identity and branding",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls Core API binding, CORS, dashboard, or frontend static serving. Registry key: `HEXE_CORS_ALLOW_ORIGINS`.",
+      "name": "HEXE_CORS_ALLOW_ORIGINS",
+      "owner": "Backend and frontend serving",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls admin login/session behavior or service-principal access. Registry key: `HEXE_CSRF_TRUSTED_ORIGINS`.",
+      "name": "HEXE_CSRF_TRUSTED_ORIGINS",
+      "owner": "Auth and service access",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls Core API binding, CORS, dashboard, or frontend static serving. Registry key: `HEXE_DASHBOARD_URL`.",
+      "name": "HEXE_DASHBOARD_URL",
+      "owner": "Backend and frontend serving",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls Cloudflare API access or the repo-local/native cloudflared runtime. Registry key: `HEXE_EDGE_RUNTIME_DIR`.",
+      "name": "HEXE_EDGE_RUNTIME_DIR",
+      "owner": "Cloudflared and edge gateway",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "0",
+      "description": "Controls Core API binding, CORS, dashboard, or frontend static serving. Registry key: `HEXE_ENABLE_DEV_CORS`.",
+      "name": "HEXE_ENABLE_DEV_CORS",
+      "owner": "Backend and frontend serving",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "200",
+      "description": "Controls health checks, telemetry sampling, or diagnostic retention. Registry key: `HEXE_EVENTS_MAX_RECENT`.",
+      "name": "HEXE_EVENTS_MAX_RECENT",
+      "owner": "Health, telemetry, and diagnostics",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls Core API binding, CORS, dashboard, or frontend static serving. Registry key: `HEXE_FRONTEND_DIST_DIR`.",
+      "name": "HEXE_FRONTEND_DIST_DIR",
+      "owner": "Backend and frontend serving",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "1.1.1.1",
+      "description": "Controls health checks, telemetry sampling, or diagnostic retention. Registry key: `HEXE_INTERNET_CHECK_HOST`.",
+      "name": "HEXE_INTERNET_CHECK_HOST",
+      "owner": "Health, telemetry, and diagnostics",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "53",
+      "description": "Controls health checks, telemetry sampling, or diagnostic retention. Registry key: `HEXE_INTERNET_CHECK_PORT`.",
+      "name": "HEXE_INTERNET_CHECK_PORT",
+      "owner": "Health, telemetry, and diagnostics",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls health checks, telemetry sampling, or diagnostic retention. Registry key: `HEXE_LOCAL_NETWORK_CHECK_HOST`.",
+      "name": "HEXE_LOCAL_NETWORK_CHECK_HOST",
+      "owner": "Health, telemetry, and diagnostics",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "53",
+      "description": "Controls health checks, telemetry sampling, or diagnostic retention. Registry key: `HEXE_LOCAL_NETWORK_CHECK_PORT`.",
+      "name": "HEXE_LOCAL_NETWORK_CHECK_PORT",
+      "owner": "Health, telemetry, and diagnostics",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "1884",
+      "description": "Controls MQTT broker runtime, credentials, authority state, or bootstrap ports. Registry key: `HEXE_MQTT_BOOTSTRAP_PORT`.",
+      "name": "HEXE_MQTT_BOOTSTRAP_PORT",
+      "owner": "MQTT runtime and authority",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "hexe-mqtt-broker",
+      "description": "Controls MQTT broker runtime, credentials, authority state, or bootstrap ports. Registry key: `HEXE_MQTT_DOCKER_CONTAINER`.",
+      "name": "HEXE_MQTT_DOCKER_CONTAINER",
+      "owner": "MQTT runtime and authority",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "eclipse-mosquitto:2",
+      "description": "Controls MQTT broker runtime, credentials, authority state, or bootstrap ports. Registry key: `HEXE_MQTT_DOCKER_IMAGE`.",
+      "name": "HEXE_MQTT_DOCKER_IMAGE",
+      "owner": "MQTT runtime and authority",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "no",
+      "description": "Controls MQTT broker runtime, credentials, authority state, or bootstrap ports. Registry key: `HEXE_MQTT_DOCKER_RESTART_POLICY`.",
+      "name": "HEXE_MQTT_DOCKER_RESTART_POLICY",
+      "owner": "MQTT runtime and authority",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "127.0.0.1",
+      "description": "Controls MQTT broker runtime, credentials, authority state, or bootstrap ports. Registry key: `HEXE_MQTT_HOST`.",
+      "name": "HEXE_MQTT_HOST",
+      "owner": "MQTT runtime and authority",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "1883",
+      "description": "Controls MQTT broker runtime, credentials, authority state, or bootstrap ports. Registry key: `HEXE_MQTT_PORT`.",
+      "name": "HEXE_MQTT_PORT",
+      "owner": "MQTT runtime and authority",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "docker",
+      "description": "Controls MQTT broker runtime, credentials, authority state, or bootstrap ports. Registry key: `HEXE_MQTT_RUNTIME_PROVIDER`.",
+      "name": "HEXE_MQTT_RUNTIME_PROVIDER",
+      "owner": "MQTT runtime and authority",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "300",
+      "description": "Controls MQTT broker runtime, credentials, authority state, or bootstrap ports. Registry key: `HEXE_MQTT_SESSION_IDLE_TIMEOUT_S`.",
+      "name": "HEXE_MQTT_SESSION_IDLE_TIMEOUT_S",
+      "owner": "MQTT runtime and authority",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls node onboarding, reauth, trust bootstrap, governance, or capability filters. Registry key: `HEXE_NODE_ALLOWED_PROVIDERS`.",
+      "name": "HEXE_NODE_ALLOWED_PROVIDERS",
+      "owner": "Node onboarding and governance",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls node onboarding, reauth, trust bootstrap, governance, or capability filters. Registry key: `HEXE_NODE_ALLOWED_TASK_FAMILIES`.",
+      "name": "HEXE_NODE_ALLOWED_TASK_FAMILIES",
+      "owner": "Node onboarding and governance",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "120",
+      "description": "Controls node onboarding, reauth, trust bootstrap, governance, or capability filters. Registry key: `HEXE_NODE_GOVERNANCE_REFRESH_INTERVAL_S`.",
+      "name": "HEXE_NODE_GOVERNANCE_REFRESH_INTERVAL_S",
+      "owner": "Node onboarding and governance",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls node onboarding, reauth, trust bootstrap, governance, or capability filters. Registry key: `HEXE_NODE_ONBOARDING_APPROVAL_URL_BASE`.",
+      "name": "HEXE_NODE_ONBOARDING_APPROVAL_URL_BASE",
+      "owner": "Node onboarding and governance",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "30",
+      "description": "Controls node onboarding, reauth, trust bootstrap, governance, or capability filters. Registry key: `HEXE_NODE_ONBOARDING_ARCHIVE_RETAIN_DAYS`.",
+      "name": "HEXE_NODE_ONBOARDING_ARCHIVE_RETAIN_DAYS",
+      "owner": "Node onboarding and governance",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls node onboarding, reauth, trust bootstrap, governance, or capability filters. Registry key: `HEXE_NODE_ONBOARDING_ENABLED`.",
+      "name": "HEXE_NODE_ONBOARDING_ENABLED",
+      "owner": "Node onboarding and governance",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls node onboarding, reauth, trust bootstrap, governance, or capability filters. Registry key: `HEXE_NODE_ONBOARDING_PROTOCOLS`.",
+      "name": "HEXE_NODE_ONBOARDING_PROTOCOLS",
+      "owner": "Node onboarding and governance",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "ai-node,email-node,voice-node,interaction-node",
+      "description": "Controls node onboarding, reauth, trust bootstrap, governance, or capability filters. Registry key: `HEXE_NODE_ONBOARDING_SUPPORTED_TYPES`.",
+      "name": "HEXE_NODE_ONBOARDING_SUPPORTED_TYPES",
+      "owner": "Node onboarding and governance",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls node onboarding, reauth, trust bootstrap, governance, or capability filters. Registry key: `HEXE_NODE_OPERATIONAL_MQTT_HOST`.",
+      "name": "HEXE_NODE_OPERATIONAL_MQTT_HOST",
+      "owner": "Node onboarding and governance",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls node onboarding, reauth, trust bootstrap, governance, or capability filters. Registry key: `HEXE_NODE_OPERATIONAL_MQTT_PORT`.",
+      "name": "HEXE_NODE_OPERATIONAL_MQTT_PORT",
+      "owner": "Node onboarding and governance",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls node onboarding, reauth, trust bootstrap, governance, or capability filters. Registry key: `HEXE_NODE_REAUTH_APPROVAL_URL_BASE`.",
+      "name": "HEXE_NODE_REAUTH_APPROVAL_URL_BASE",
+      "owner": "Node onboarding and governance",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "5",
+      "description": "Controls node onboarding, reauth, trust bootstrap, governance, or capability filters. Registry key: `HEXE_NODE_RUNTIME_REFRESH_INTERVAL_SECONDS`.",
+      "name": "HEXE_NODE_RUNTIME_REFRESH_INTERVAL_SECONDS",
+      "owner": "Node onboarding and governance",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "600",
+      "description": "Controls node onboarding, reauth, trust bootstrap, governance, or capability filters. Registry key: `HEXE_NODE_SERVICE_TOKEN_TTL_S`.",
+      "name": "HEXE_NODE_SERVICE_TOKEN_TTL_S",
+      "owner": "Node onboarding and governance",
+      "sensitive": true
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "1800",
+      "description": "Controls node onboarding, reauth, trust bootstrap, governance, or capability filters. Registry key: `HEXE_NODE_STATUS_INACTIVE_AFTER_S`.",
+      "name": "HEXE_NODE_STATUS_INACTIVE_AFTER_S",
+      "owner": "Node onboarding and governance",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "300",
+      "description": "Controls node onboarding, reauth, trust bootstrap, governance, or capability filters. Registry key: `HEXE_NODE_STATUS_STALE_AFTER_S`.",
+      "name": "HEXE_NODE_STATUS_STALE_AFTER_S",
+      "owner": "Node onboarding and governance",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls node onboarding, reauth, trust bootstrap, governance, or capability filters. Registry key: `HEXE_NODE_UI_MANIFEST_DEBUG_LOG`.",
+      "name": "HEXE_NODE_UI_MANIFEST_DEBUG_LOG",
+      "owner": "Node onboarding and governance",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "https://raw.githubusercontent.com/danhajduk/HexeCore/main/core",
+      "description": "Controls install, bootstrap, or update script behavior. Registry key: `HEXE_RAW_BASE_URL`.",
+      "name": "HEXE_RAW_BASE_URL",
+      "owner": "Install and update scripts",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "1",
+      "description": "Controls Core API binding, CORS, dashboard, or frontend static serving. Registry key: `HEXE_SERVE_FRONTEND`.",
+      "name": "HEXE_SERVE_FRONTEND",
+      "owner": "Backend and frontend serving",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls admin login/session behavior or service-principal access. Registry key: `HEXE_SERVICE_PRINCIPALS_JSON`.",
+      "name": "HEXE_SERVICE_PRINCIPALS_JSON",
+      "owner": "Auth and service access",
+      "sensitive": true
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Service token passed to standalone addon containers for Core callbacks.",
+      "name": "HEXE_SERVICE_TOKEN",
+      "owner": "Auth and service access",
+      "sensitive": true
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "0",
+      "description": "Controls install, bootstrap, or update script behavior. Registry key: `HEXE_SKIP_CLOUDFLARED_NATIVE_INSTALL`.",
+      "name": "HEXE_SKIP_CLOUDFLARED_NATIVE_INSTALL",
+      "owner": "Install and update scripts",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "speedtest-cli",
+      "description": "Controls health checks, telemetry sampling, or diagnostic retention. Registry key: `HEXE_SPEEDTEST_CLI_BIN`.",
+      "name": "HEXE_SPEEDTEST_CLI_BIN",
+      "owner": "Health, telemetry, and diagnostics",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "1800",
+      "description": "Controls health checks, telemetry sampling, or diagnostic retention. Registry key: `HEXE_SPEEDTEST_SAMPLE_SECONDS`.",
+      "name": "HEXE_SPEEDTEST_SAMPLE_SECONDS",
+      "owner": "Health, telemetry, and diagnostics",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "45",
+      "description": "Controls health checks, telemetry sampling, or diagnostic retention. Registry key: `HEXE_SPEEDTEST_TIMEOUT_S`.",
+      "name": "HEXE_SPEEDTEST_TIMEOUT_S",
+      "owner": "Health, telemetry, and diagnostics",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "30",
+      "description": "Controls health checks, telemetry sampling, or diagnostic retention. Registry key: `HEXE_STACK_CONNECTIVITY_TTL_S`.",
+      "name": "HEXE_STACK_CONNECTIVITY_TTL_S",
+      "owner": "Health, telemetry, and diagnostics",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_API_TIMEOUT_S`.",
+      "name": "HEXE_SUPERVISOR_API_TIMEOUT_S",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "var/supervisor/boot.log",
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_BOOT_LOG`.",
+      "name": "HEXE_SUPERVISOR_BOOT_LOG",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "2",
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_BOOT_POLL_S`.",
+      "name": "HEXE_SUPERVISOR_BOOT_POLL_S",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "60",
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_BOOT_STEP_TIMEOUT_S`.",
+      "name": "HEXE_SUPERVISOR_BOOT_STEP_TIMEOUT_S",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "no",
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_COMPOSE_RESTART_POLICY`.",
+      "name": "HEXE_SUPERVISOR_COMPOSE_RESTART_POLICY",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_CONTAINER_STATS_CACHE_S`.",
+      "name": "HEXE_SUPERVISOR_CONTAINER_STATS_CACHE_S",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_CORE_HEARTBEAT_OFFLINE_S`.",
+      "name": "HEXE_SUPERVISOR_CORE_HEARTBEAT_OFFLINE_S",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "5",
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_CORE_HEARTBEAT_S`.",
+      "name": "HEXE_SUPERVISOR_CORE_HEARTBEAT_S",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_CORE_HEARTBEAT_STALE_S`.",
+      "name": "HEXE_SUPERVISOR_CORE_HEARTBEAT_STALE_S",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "900",
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_ENROLLMENT_TTL_S`.",
+      "name": "HEXE_SUPERVISOR_ENROLLMENT_TTL_S",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_FLEET_HISTORICAL_S`.",
+      "name": "HEXE_SUPERVISOR_FLEET_HISTORICAL_S",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "10",
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_FLEET_LOCAL_CACHE_S`.",
+      "name": "HEXE_SUPERVISOR_FLEET_LOCAL_CACHE_S",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "180",
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_FLEET_OFFLINE_S`.",
+      "name": "HEXE_SUPERVISOR_FLEET_OFFLINE_S",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "60",
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_FLEET_STALE_S`.",
+      "name": "HEXE_SUPERVISOR_FLEET_STALE_S",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_HISTORY_TIMEOUT_S`.",
+      "name": "HEXE_SUPERVISOR_HISTORY_TIMEOUT_S",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_ID`.",
+      "name": "HEXE_SUPERVISOR_ID",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "1.1.1.1",
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_INTERNET_CHECK_HOST`.",
+      "name": "HEXE_SUPERVISOR_INTERNET_CHECK_HOST",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "53",
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_INTERNET_CHECK_PORT`.",
+      "name": "HEXE_SUPERVISOR_INTERNET_CHECK_PORT",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_INTERVAL_S`.",
+      "name": "HEXE_SUPERVISOR_INTERVAL_S",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls addon store persistence, catalog trust material, or standalone addon runtime paths. Registry key: `HEXE_SUPERVISOR_KEEP_VERSIONS`.",
+      "name": "HEXE_SUPERVISOR_KEEP_VERSIONS",
+      "owner": "Store and addon runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "INFO",
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_LOG_LEVEL`.",
+      "name": "HEXE_SUPERVISOR_LOG_LEVEL",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "180",
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_NODE_HEARTBEAT_OFFLINE_S`.",
+      "name": "HEXE_SUPERVISOR_NODE_HEARTBEAT_OFFLINE_S",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "60",
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_NODE_HEARTBEAT_STALE_S`.",
+      "name": "HEXE_SUPERVISOR_NODE_HEARTBEAT_STALE_S",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "30",
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_NODE_SERVICE_ACTION_TIMEOUT_S`.",
+      "name": "HEXE_SUPERVISOR_NODE_SERVICE_ACTION_TIMEOUT_S",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_RESOURCE_HISTORY_PATH`.",
+      "name": "HEXE_SUPERVISOR_RESOURCE_HISTORY_PATH",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_RESOURCE_HISTORY_PRUNE_INTERVAL`.",
+      "name": "HEXE_SUPERVISOR_RESOURCE_HISTORY_PRUNE_INTERVAL",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_RESOURCE_HISTORY_PRUNE_INTERVAL_SECONDS`.",
+      "name": "HEXE_SUPERVISOR_RESOURCE_HISTORY_PRUNE_INTERVAL_SECONDS",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_RESOURCE_HISTORY_RETENTION`.",
+      "name": "HEXE_SUPERVISOR_RESOURCE_HISTORY_RETENTION",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_RESOURCE_HISTORY_RETENTION_SECONDS`.",
+      "name": "HEXE_SUPERVISOR_RESOURCE_HISTORY_RETENTION_SECONDS",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": null,
+      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_SUMMARY_CACHE_S`.",
+      "name": "HEXE_SUPERVISOR_SUMMARY_CACHE_S",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "0",
+      "description": "Controls install, bootstrap, or update script behavior. Registry key: `HEXE_UPDATE_CLOUDFLARED_NATIVE`.",
+      "name": "HEXE_UPDATE_CLOUDFLARED_NATIVE",
+      "owner": "Install and update scripts",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "Controls MQTT broker runtime, credentials, authority state, or bootstrap ports. Registry key: `MQTT_AUTHORITY_AUDIT_DB`.",
+      "name": "MQTT_AUTHORITY_AUDIT_DB",
+      "owner": "MQTT runtime and authority",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "Controls MQTT broker runtime, credentials, authority state, or bootstrap ports. Registry key: `MQTT_CREDENTIAL_STORE_PATH`.",
+      "name": "MQTT_CREDENTIAL_STORE_PATH",
+      "owner": "MQTT runtime and authority",
+      "sensitive": true
+    },
+    {
+      "default": null,
+      "description": "Controls MQTT broker runtime, credentials, authority state, or bootstrap ports. Registry key: `MQTT_HOST`.",
+      "name": "MQTT_HOST",
+      "owner": "MQTT runtime and authority",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "Controls MQTT broker runtime, credentials, authority state, or bootstrap ports. Registry key: `MQTT_INTEGRATION_STATE_DB`.",
+      "name": "MQTT_INTEGRATION_STATE_DB",
+      "owner": "MQTT runtime and authority",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "Controls MQTT broker runtime, credentials, authority state, or bootstrap ports. Registry key: `MQTT_INTEGRATION_STATE_PATH`.",
+      "name": "MQTT_INTEGRATION_STATE_PATH",
+      "owner": "MQTT runtime and authority",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "Controls MQTT broker runtime, credentials, authority state, or bootstrap ports. Registry key: `MQTT_OBSERVABILITY_DB`.",
+      "name": "MQTT_OBSERVABILITY_DB",
+      "owner": "MQTT runtime and authority",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "MQTT password fallback read when settings storage has no saved password.",
+      "name": "MQTT_PASSWORD",
+      "owner": "MQTT runtime and authority",
+      "sensitive": true
+    },
+    {
+      "default": null,
+      "description": "Controls MQTT broker runtime, credentials, authority state, or bootstrap ports. Registry key: `MQTT_PORT`.",
+      "name": "MQTT_PORT",
+      "owner": "MQTT runtime and authority",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "MQTT username fallback read when settings storage has no saved username.",
+      "name": "MQTT_USERNAME",
+      "owner": "MQTT runtime and authority",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "Controls platform display names, compatibility text, or stable Core identity. Registry key: `PLATFORM_ADDONS_NAME`.",
+      "name": "PLATFORM_ADDONS_NAME",
+      "owner": "Platform identity and branding",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "Controls platform display names, compatibility text, or stable Core identity. Registry key: `PLATFORM_CORE_NAME`.",
+      "name": "PLATFORM_CORE_NAME",
+      "owner": "Platform identity and branding",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "Controls platform display names, compatibility text, or stable Core identity. Registry key: `PLATFORM_DOCS_NAME`.",
+      "name": "PLATFORM_DOCS_NAME",
+      "owner": "Platform identity and branding",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "Controls platform display names, compatibility text, or stable Core identity. Registry key: `PLATFORM_DOMAIN`.",
+      "name": "PLATFORM_DOMAIN",
+      "owner": "Platform identity and branding",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "Controls platform display names, compatibility text, or stable Core identity. Registry key: `PLATFORM_LEGACY_COMPATIBILITY_NOTE`.",
+      "name": "PLATFORM_LEGACY_COMPATIBILITY_NOTE",
+      "owner": "Platform identity and branding",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "Controls platform display names, compatibility text, or stable Core identity. Registry key: `PLATFORM_LEGACY_INTERNAL_NAMESPACE`.",
+      "name": "PLATFORM_LEGACY_INTERNAL_NAMESPACE",
+      "owner": "Platform identity and branding",
+      "sensitive": false
+    },
+    {
+      "default": "Hexe AI",
+      "description": "Controls platform display names, compatibility text, or stable Core identity. Registry key: `PLATFORM_NAME`.",
+      "name": "PLATFORM_NAME",
+      "owner": "Platform identity and branding",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "Controls platform display names, compatibility text, or stable Core identity. Registry key: `PLATFORM_NODES_NAME`.",
+      "name": "PLATFORM_NODES_NAME",
+      "owner": "Platform identity and branding",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "Controls platform display names, compatibility text, or stable Core identity. Registry key: `PLATFORM_SHORT`.",
+      "name": "PLATFORM_SHORT",
+      "owner": "Platform identity and branding",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "Controls platform display names, compatibility text, or stable Core identity. Registry key: `PLATFORM_SUPERVISOR_NAME`.",
+      "name": "PLATFORM_SUPERVISOR_NAME",
+      "owner": "Platform identity and branding",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "Controls addon store persistence, catalog trust material, or standalone addon runtime paths. Registry key: `STORE_AUDIT_DB`.",
+      "name": "STORE_AUDIT_DB",
+      "owner": "Store and addon runtime",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "Inline public publisher-key trust material for store catalog verification.",
+      "name": "STORE_CATALOG_PUBLIC_KEYS_JSON",
+      "owner": "Store and addon runtime",
+      "sensitive": false
+    },
+    {
+      "default": "var/store_catalog_public_keys.json",
+      "description": "Path to public publisher-key trust material for store catalog verification.",
+      "name": "STORE_CATALOG_PUBLIC_KEYS_PATH",
+      "owner": "Store and addon runtime",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "Path to persisted addon install/status metadata.",
+      "name": "STORE_INSTALL_STATE_PATH",
+      "owner": "Store and addon runtime",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "Path to store source configuration state.",
+      "name": "STORE_SOURCES_DB",
+      "owner": "Store and addon runtime",
+      "sensitive": false
+    }
+  ],
+  "version": 1
+}

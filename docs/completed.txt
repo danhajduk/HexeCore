@@ -6,3 +6,4 @@ Task 955: Split the Core node/system API router into domain routers - Completed 
 Task 956: Split the MQTT router into runtime, admin, debug, grants, and principals routers - Completed on 08/22/2026 19:21
 Task 957: Split the store router into catalog, sources, install, lifecycle, status, and audit routers - Completed on 08/22/2026 19:28
 Task 958: Add Core/Supervisor mirror drift guard - Completed on 08/22/2026 19:35
+Task 959: Centralize Core environment/configuration registry and documentation - Completed on 08/22/2026 19:40

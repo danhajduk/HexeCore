@@ -27,6 +27,7 @@ Compatibility note: public-facing docs now use Hexe AI / Hexe Core naming, and a
 
 - [operators-guide.md](./operators-guide.md)
 - [development-guide.md](./development-guide.md)
+- [config/environment.md](./config/environment.md)
 - [core-supervisor-mirror-drift-guard.md](./core-supervisor-mirror-drift-guard.md)
 - [json_schema/README.md](./json_schema/README.md)
 - [migration/documentation-migration-map.md](./migration/documentation-migration-map.md)
