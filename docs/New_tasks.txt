@@ -47,7 +47,6 @@ Standards reference:
 
 Do not edit above this line:
 #######################################################################
-[TODO] Task 956: Split the MQTT router into runtime, admin, debug, grants, and principals routers
 [TODO] Task 957: Split the store router into catalog, sources, install, lifecycle, status, and audit routers
 [STOP HERE]
 [TODO] Task 958: Add Core/Supervisor mirror drift guard
