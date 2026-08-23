@@ -1,0 +1,143 @@
+Workflow skill: implementation workflow
+
+## Codex Execution Directive
+
+You are acting as the Hexe development agent.
+
+Your job is to implement tasks listed in this file sequentially.
+
+Rules:
+
+1. Work through tasks in numerical order.
+2. Continue executing tasks until ALL tasks are completed.
+3. Do not stop after partial implementation.
+4. Do not return summaries unless every task is finished.
+5. If a task cannot be completed:
+   - document the blocker
+   - implement everything else that is possible
+   - continue to the next task.
+
+Execution behavior:
+
+- Read the repository before modifying code.
+- Follow existing architecture and coding conventions.
+- Update or create files as required.
+- Run tests or validation where possible.
+- Commit after each completed task.
+
+Completion criteria:
+
+A task is considered complete only when:
+- implementation exists in the codebase
+- it compiles or runs without breaking existing features
+- any required documentation is updated
+
+Persistence rule:
+
+Continue working autonomously until all tasks in this document are completed.
+Do not stop early.
+
+if there is missing data for the task check in the @Core-Documents folder.for core documentation
+if it is not present and should be core-owned create a ticket for the req. data in the core dodc
+if it is not present and should be node-owned create a file with the new data in the core docs
+
+Standards reference:
+- Main standard entrypoint: `/home/dan/Projects/Hexe/docs/standards/Node/README.md`
+- Detailed standards folder: `/home/dan/Projects/Hexe/docs/standards/Node/`
+
+Do not edit above this line:
+#######################################################################
+[DONE] Task 948: Audit current Cloudflared runtime ownership and native-provider support - Completed on 08/22/2026 17:48
+[DONE] Task 949: Add repo-local Cloudflared binary installation and update workflow - Completed on 08/22/2026 17:48
+[DONE] Task 950: Configure Supervisor to use the repo-local native Cloudflared provider - Completed on 08/22/2026 17:48
+[DONE] Task 951: Migrate the active Cloudflared runtime from Docker to the native binary - Completed on 08/22/2026 17:48
+[DONE] Task 952: Verify native Cloudflared startup, tunnel health, public UI routing, and restart behavior - Completed on 08/22/2026 17:48
+[DONE] Task 953: Document native Cloudflared runtime operations and Docker rollback path - Completed on 08/22/2026 17:48
+
+[TODO] Task 954: Split the Core node/system API router into domain routers
+Goal: Reduce `backend/app/api/system.py` from a single large mixed-domain router into smaller routers with no behavior changes.
+Scope:
+- Move node onboarding, reauth, registrations, trust, governance, budgets, service resolution, provider routing, telemetry, and addon-runtime endpoints into domain-specific router modules.
+- Preserve all current public endpoint paths, auth behavior, request schemas, response shapes, and legacy hidden routes where still required.
+- Keep `build_system_router` or an equivalent composition entrypoint small and explicit.
+Acceptance:
+- Existing backend tests pass for Core and Supervisor mirrors.
+- OpenAPI route list is unchanged except for intentionally documented internal implementation grouping.
+- Docs or architecture notes identify the new router ownership boundaries.
+
+[TODO] Task 955: Split the MQTT router into runtime, admin, debug, grants, and principals routers
+Goal: Reduce `backend/app/system/mqtt/router.py` into maintainable subrouters without changing MQTT behavior.
+Scope:
+- Separate setup/runtime lifecycle endpoints from debug publish/subscribe endpoints.
+- Separate principal/user management, bridge grants, runtime health, observability, and provisioning endpoints.
+- Preserve existing route paths, aliases, response shapes, and admin/session requirements.
+Acceptance:
+- MQTT backend tests pass in Core and Supervisor mirrors.
+- Live `/api/system/mqtt/status` and `/api/system/mqtt/runtime/health` still report correctly.
+- No route path regressions in generated OpenAPI.
+
+[TODO] Task 956: Split the store router into catalog, sources, install, lifecycle, status, and audit routers
+Goal: Reduce `backend/app/store/router.py` into focused units while keeping store behavior stable.
+Scope:
+- Extract catalog/source management, install/update/uninstall, standalone desired-state, status/diagnostics, and audit endpoints.
+- Keep signing, artifact verification, and catalog resolution logic behind clearly named service helpers.
+- Preserve install-session behavior and all public API paths.
+Acceptance:
+- Store backend tests pass in Core and Supervisor mirrors.
+- Existing addon install/update/uninstall flows still work against the same endpoints.
+- Router modules have clear domain ownership and limited cross-imports.
+
+[TODO] Task 957: Add Core/Supervisor mirror drift guard
+Goal: Prevent accidental drift between mirrored Core and Supervisor source trees.
+Scope:
+- Define the set of files or directories that must remain identical across `core/` and `supervisor/`.
+- Add a script that compares those mirrored paths and reports exact mismatches.
+- Add a backend or repository-level test/CI check that fails when mirrored files drift unexpectedly.
+Acceptance:
+- Running the drift check on a clean tree passes.
+- Intentional mirror exceptions are documented in one place.
+- The check covers backend, frontend, docs, scripts, and systemd mirror areas as appropriate.
+
+[TODO] Task 958: Centralize Core environment/configuration registry and documentation
+Goal: Make Core runtime configuration discoverable and keep env-var docs aligned with code.
+Scope:
+- Inventory active `HEXE_*`, `MQTT_*`, `STORE_*`, and compatibility `SYNTHIA_*` environment variables used by Core runtime code and scripts.
+- Introduce a structured config registry or generated manifest for env names, defaults, owners, sensitivity, and docs text.
+- Generate or update operator documentation from that registry where practical.
+Acceptance:
+- Config docs cover backend, supervisor, MQTT, Cloudflared, store, auth, frontend serving, and node onboarding settings.
+- Sensitive values are clearly marked and are not logged or exposed.
+- Tests or validation catch undocumented new env vars.
+
+[TODO] Task 959: Move tracked store source runtime defaults out of live `var/`
+Goal: Keep live runtime state ignored while preserving default catalog-source bootstrap behavior.
+Scope:
+- Move tracked `var/store_sources.json` defaults into a template or config defaults location outside live runtime state.
+- Update store source loading to initialize missing live state from the template/defaults.
+- Preserve current official catalog source behavior for fresh installs.
+Acceptance:
+- `core/var/` and `supervisor/var/` contain no tracked live runtime state files.
+- Fresh install/bootstrap still creates or reads the official catalog source.
+- Existing store source tests pass and include missing-state initialization coverage.
+
+[TODO] Task 960: Add OpenAPI contract snapshot and removed-endpoint regression checks
+Goal: Catch accidental API drift, especially removed job/scheduler endpoints.
+Scope:
+- Generate a deterministic OpenAPI route/path snapshot for Core.
+- Add regression checks proving removed job queue, job lease, worker, per-job budget usage-report, and scheduler jobs endpoints are absent.
+- Include a documented update workflow for intentional API changes.
+Acceptance:
+- Snapshot test passes in Core and Supervisor mirrors.
+- The test fails if `/api/system/scheduler/jobs`, job lease routes, worker routes, or per-job budget usage-report routes reappear.
+- API reference docs are updated when intentional route changes occur.
+
+[TODO] Task 961: Prune and classify active documentation versus archive/future material
+Goal: Reduce documentation drift now that Core no longer handles jobs.
+Scope:
+- Classify active docs, archive docs, migration notes, temp AI-node docs, future-dev docs, and screenshots.
+- Move or clearly mark stale scheduler/job/worker material that remains only as historical context.
+- Fix obvious typos in active doc paths and headings, including `ui-mogration` if still active.
+Acceptance:
+- Active docs no longer imply Core owns job queueing, job leasing, worker execution, or scheduler orchestration.
+- Historical docs are clearly separated from active source-of-truth docs.
+- Documentation index pages route readers to current Core, Supervisor, MQTT, Node, and Addon contracts.
