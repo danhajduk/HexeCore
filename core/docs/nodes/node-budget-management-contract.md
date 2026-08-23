@@ -15,7 +15,6 @@ Current implemented Core-side responsibilities:
 - expose node-facing budget-policy read and refresh endpoints
 - publish retained MQTT budget-policy snapshots and revocations
 - persist periodic node usage summaries by grant and period
-- preserve the existing queue-reservation and per-job usage-report compatibility path
 - persist provider/model routing metadata plus declared service/provider/model capacity metadata
 
 Current node-runtime execution responsibility:
@@ -32,7 +31,7 @@ The current control-plane model is:
 - Core owns budget policy, allocations, grant issuance, revocation, and governance versioning
 - node consumes the issued governance and budget policy, caches grants locally, enforces them at execution time, and reports usage back to Core
 
-Core remains the policy authority. The node is the intended budget enforcement point for individual executions. Core still retains a compatibility admission path for queue-based reservations so existing scheduler flows continue to work while node-local execution enforcement is adopted.
+Core remains the policy authority. The node is the intended budget enforcement point for individual executions. Core does not own queue-based budget reservations or per-job execution reconciliation.
 
 ## Implemented Routes
 
@@ -55,7 +54,6 @@ Core remains the policy authority. The node is the intended budget enforcement p
 - `POST /api/system/nodes/budgets/{node_id}/top-up`
 - `POST /api/system/nodes/budgets/{node_id}/reset`
 - `POST /api/system/nodes/budgets/{node_id}/override`
-- `POST /api/system/nodes/budgets/{node_id}/force-release`
 
 ### Node Policy Read And Refresh
 
@@ -76,14 +74,12 @@ Current behavior:
 ### Node Usage Ingestion
 
 - `POST /api/system/nodes/budgets/usage-summary`
-- `POST /api/system/nodes/budgets/usage-report`
 
 Auth: `X-Node-Trust-Token`
 
 Current behavior:
 
 - `usage-summary` is the canonical periodic grant-usage path
-- `usage-report` remains implemented for per-job reservation reconciliation compatibility
 - `usage-summary` may also carry optional `provider`, `model_id`, and `task_family` metadata for service-resolution and admin rollup views
 - when a delegating node reports usage against a provider-owned grant, Core stores that summary under the grant owner node and preserves the reporting node id in metadata
 
@@ -154,7 +150,7 @@ Implemented `budget_policy.status` values:
 
 Current budget-policy versioning rules:
 
-- `budget_policy_version` is a stable hash of the persisted declaration, config, allocations, reservations, and usage-summary bundle
+- `budget_policy_version` is a stable hash of the persisted declaration, config, allocations, and usage-summary bundle
 - a governance reissue is triggered when the effective budget policy changes materially
 - `governance_version` is echoed into both the top-level policy and each derived grant when governance embeds budget policy
 
@@ -323,18 +319,6 @@ Current behavior:
 
 This is the canonical periodic reporting shape for node budget grants in Core.
 
-### Per-Job Compatibility Path
-
-`POST /api/system/nodes/budgets/usage-report` still accepts:
-
-- `node_id`
-- `job_id`
-- `status`
-- `actual_money_spend`
-- `actual_compute_spend`
-
-This route remains the implemented compatibility path for reservation finalization and release in the queue-based scheduler flow.
-
 ### Telemetry Relationship
 
 Node budget usage summaries remain a distinct Core ingestion path. They are not currently merged into the generic `/api/telemetry/usage` subsystem.
@@ -358,16 +342,6 @@ This means the intended runtime behavior is:
 
 The Core side of that contract is implemented. The node-runtime side remains outside this repository.
 
-## Scheduler Compatibility Path
-
-Current queue-based scheduler behavior remains implemented:
-
-- queue submit may still create Core-side reservations against node/customer/provider budgets
-- queue cancel and queue completion still reconcile those reservations
-- hard-stop admission still exists as a compatibility backstop for queue-driven work
-
-This is a compatibility layer, not the long-term replacement for node-local grant enforcement.
-
 ## Audit Events
 
 Current Core audit events include:
@@ -379,17 +353,10 @@ Current Core audit events include:
 - `node_budget_customer_allocation_deleted`
 - `node_budget_provider_allocation_upserted`
 - `node_budget_provider_allocation_deleted`
-- `node_budget_usage_reported`
 - `node_budget_usage_summary_reported`
-- `node_budget_reservation_created`
-- `node_budget_reservation_denied`
-- `node_budget_reservation_leased`
-- `node_budget_reservation_finalized`
-- `node_budget_reservation_released`
 - `node_budget_topped_up`
 - `node_budget_reset`
 - `node_budget_override_set`
-- `node_budget_reservation_force_released`
 - `node_provider_capability_report_received`
 
 ## Code Anchors

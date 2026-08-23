@@ -12,7 +12,6 @@ from .model_routing_registry import ModelRoutingRegistryService
 
 NODE_BUDGET_SCHEMA_VERSION = "1"
 ALLOCATION_KINDS = {"customer", "provider"}
-RESERVATION_STATES = {"reserved", "finalized", "released"}
 GRANT_STATUSES = {"active", "revoked", "expired"}
 SUPPORTED_PERIODS = {"monthly", "daily", "manual_reset"}
 SUPPORTED_RESET_POLICIES = {"calendar", "rolling", "manual"}
@@ -147,50 +146,6 @@ class NodeBudgetAllocationRecord:
 
 
 @dataclass
-class NodeBudgetReservationRecord:
-    reservation_id: str
-    job_id: str
-    node_id: str
-    source: str
-    customer_id: str | None = None
-    provider_id: str | None = None
-    money_reserved: float | None = None
-    compute_reserved: float | None = None
-    money_actual: float | None = None
-    compute_actual: float | None = None
-    lease_id: str | None = None
-    state: str = "reserved"
-    release_reason: str | None = None
-    created_at: str = field(default_factory=_utcnow_iso)
-    updated_at: str = field(default_factory=_utcnow_iso)
-    finalized_at: str | None = None
-    released_at: str | None = None
-    schema_version: str = NODE_BUDGET_SCHEMA_VERSION
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "schema_version": self.schema_version,
-            "reservation_id": self.reservation_id,
-            "job_id": self.job_id,
-            "node_id": self.node_id,
-            "source": self.source,
-            "customer_id": self.customer_id,
-            "provider_id": self.provider_id,
-            "money_reserved": self.money_reserved,
-            "compute_reserved": self.compute_reserved,
-            "money_actual": self.money_actual,
-            "compute_actual": self.compute_actual,
-            "lease_id": self.lease_id,
-            "state": self.state,
-            "release_reason": self.release_reason,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at,
-            "finalized_at": self.finalized_at,
-            "released_at": self.released_at,
-        }
-
-
-@dataclass
 class NodeBudgetGrantRecord:
     grant_id: str
     consumer_node_id: str
@@ -270,7 +225,6 @@ class NodeBudgetStore:
         self._declarations: dict[str, NodeBudgetCapabilityRecord] = {}
         self._configs: dict[str, NodeBudgetConfigRecord] = {}
         self._allocations: dict[str, NodeBudgetAllocationRecord] = {}
-        self._reservations: dict[str, NodeBudgetReservationRecord] = {}
         self._usage_reports: dict[str, NodeBudgetUsageReportRecord] = {}
         self._load()
 
@@ -355,35 +309,6 @@ class NodeBudgetStore:
             )
             if record.node_id and record.kind in ALLOCATION_KINDS and record.subject_id:
                 self._allocations[record.key] = record
-        for item in raw.get("reservations") or []:
-            if not isinstance(item, dict):
-                continue
-            reservation_id = _clean_text(item.get("reservation_id"))
-            job_id = _clean_text(item.get("job_id"))
-            node_id = _clean_text(item.get("node_id"))
-            state = _clean_text(item.get("state"), lower=True) or "reserved"
-            if not reservation_id or not job_id or not node_id or state not in RESERVATION_STATES:
-                continue
-            self._reservations[reservation_id] = NodeBudgetReservationRecord(
-                reservation_id=reservation_id,
-                job_id=job_id,
-                node_id=node_id,
-                source=_clean_text(item.get("source")) or "scheduler.queue",
-                customer_id=_clean_text(item.get("customer_id"), lower=True) or None,
-                provider_id=_clean_text(item.get("provider_id"), lower=True) or None,
-                money_reserved=item.get("money_reserved"),
-                compute_reserved=item.get("compute_reserved"),
-                money_actual=item.get("money_actual"),
-                compute_actual=item.get("compute_actual"),
-                lease_id=_clean_text(item.get("lease_id")) or None,
-                state=state,
-                release_reason=_clean_text(item.get("release_reason")) or None,
-                created_at=_clean_text(item.get("created_at")) or _utcnow_iso(),
-                updated_at=_clean_text(item.get("updated_at")) or _utcnow_iso(),
-                finalized_at=_clean_text(item.get("finalized_at")) or None,
-                released_at=_clean_text(item.get("released_at")) or None,
-                schema_version=_clean_text(item.get("schema_version")) or NODE_BUDGET_SCHEMA_VERSION,
-            )
         for item in raw.get("usage_reports") or []:
             if not isinstance(item, dict):
                 continue
@@ -423,10 +348,6 @@ class NodeBudgetStore:
                 item.to_dict()
                 for item in sorted(self._allocations.values(), key=lambda value: (value.node_id, value.kind, value.subject_id))
             ],
-            "reservations": [
-                item.to_dict()
-                for item in sorted(self._reservations.values(), key=lambda value: (value.node_id, value.created_at, value.job_id))
-            ],
             "usage_reports": [
                 item.to_dict()
                 for item in sorted(
@@ -464,15 +385,6 @@ class NodeBudgetStore:
     def delete_config(self, node_id: str) -> NodeBudgetConfigRecord | None:
         removed = self._configs.pop(_clean_text(node_id), None)
         if removed is not None:
-            self._save()
-        return removed
-
-    def clear_reservations(self, node_id: str) -> int:
-        node_key = _clean_text(node_id)
-        before = len(self._reservations)
-        self._reservations = {key: value for key, value in self._reservations.items() if value.node_id != node_key}
-        removed = before - len(self._reservations)
-        if removed:
             self._save()
         return removed
 
@@ -538,39 +450,6 @@ class NodeBudgetStore:
             self._save()
         return removed
 
-    def get_reservation_by_job(self, job_id: str) -> NodeBudgetReservationRecord | None:
-        job_key = _clean_text(job_id)
-        if not job_key:
-            return None
-        for item in self._reservations.values():
-            if item.job_id == job_key:
-                return item
-        return None
-
-    def get_reservation(self, reservation_id: str) -> NodeBudgetReservationRecord | None:
-        return self._reservations.get(_clean_text(reservation_id))
-
-    def upsert_reservation(self, record: NodeBudgetReservationRecord) -> NodeBudgetReservationRecord:
-        existing = self._reservations.get(record.reservation_id)
-        if existing is not None:
-            record.created_at = existing.created_at
-        record.updated_at = _utcnow_iso()
-        self._reservations[record.reservation_id] = record
-        self._save()
-        return record
-
-    def list_reservations(self, node_id: str | None = None, *, state: str | None = None) -> list[NodeBudgetReservationRecord]:
-        node_key = _clean_text(node_id)
-        state_key = _clean_text(state, lower=True)
-        items = []
-        for item in sorted(self._reservations.values(), key=lambda value: (value.node_id, value.created_at, value.job_id)):
-            if node_key and item.node_id != node_key:
-                continue
-            if state_key and item.state != state_key:
-                continue
-            items.append(item)
-        return items
-
     def upsert_usage_report(self, record: NodeBudgetUsageReportRecord) -> NodeBudgetUsageReportRecord:
         record.reported_at = _utcnow_iso()
         self._usage_reports[record.key] = record
@@ -597,7 +476,6 @@ class NodeBudgetStore:
             set(self._declarations.keys())
             | set(self._configs.keys())
             | {item.node_id for item in self._allocations.values()}
-            | {item.node_id for item in self._reservations.values()}
             | {item.node_id for item in self._usage_reports.values()}
         )
         return [self.bundle(node_id) for node_id in node_ids]
@@ -1046,147 +924,13 @@ class NodeBudgetService:
             raise ValueError("budget_allocation_not_found")
         return removed.to_dict()
 
-    def reserve_scheduler_budget(
-        self,
-        *,
-        job_id: str,
-        addon_id: str,
-        cost_units: int,
-        payload: dict[str, Any] | None = None,
-        constraints: dict[str, Any] | None = None,
-    ) -> dict[str, Any] | None:
-        payload_obj = payload if isinstance(payload, dict) else {}
-        constraints_obj = constraints if isinstance(constraints, dict) else {}
-        scope = payload_obj.get("budget_scope") if isinstance(payload_obj.get("budget_scope"), dict) else {}
-        node_id = _clean_text(scope.get("node_id") or payload_obj.get("node_id") or constraints_obj.get("node_id"))
-        if not node_id:
-            return None
-        config = self._store.get_config(node_id)
-        if config is None:
-            raise ValueError("node_budget_not_configured")
-
-        existing = self._store.get_reservation_by_job(job_id)
-        if existing is not None:
-            return existing.to_dict()
-
-        money_reserved = self._estimate_money_reservation(
-            node_id=node_id,
-            payload=payload_obj,
-            constraints=constraints_obj,
-            fallback_cost_units=cost_units,
-        )
-        compute_reserved = self._estimate_compute_reservation(
-            compute_unit=config.compute_unit,
-            payload=payload_obj,
-            constraints=constraints_obj,
-            fallback_cost_units=cost_units,
-        )
-        self._enforce_scheduler_scope_limits(
-            config=config,
-            node_id=node_id,
-            customer_id=_clean_text(scope.get("customer_id") or payload_obj.get("customer_id"), lower=True) or None,
-            provider_id=_clean_text(
-                scope.get("provider") or scope.get("provider_id") or payload_obj.get("provider"),
-                lower=True,
-            )
-            or None,
-            requested_money=money_reserved,
-            requested_compute=compute_reserved,
-        )
-
-        reservation = NodeBudgetReservationRecord(
-            reservation_id=f"budget-reservation:{_clean_text(job_id)}",
-            job_id=_clean_text(job_id),
-            node_id=node_id,
-            source="scheduler.queue",
-            customer_id=_clean_text(scope.get("customer_id") or payload_obj.get("customer_id"), lower=True) or None,
-            provider_id=_clean_text(
-                scope.get("provider") or scope.get("provider_id") or payload_obj.get("provider"),
-                lower=True,
-            )
-            or None,
-            money_reserved=money_reserved,
-            compute_reserved=compute_reserved,
-        )
-        return self._store.upsert_reservation(reservation).to_dict()
-
-    def attach_scheduler_lease(self, *, job_id: str, lease_id: str | None) -> dict[str, Any] | None:
-        record = self._store.get_reservation_by_job(job_id)
-        if record is None:
-            return None
-        record.lease_id = _clean_text(lease_id) or None
-        return self._store.upsert_reservation(record).to_dict()
-
-    def finalize_scheduler_budget(
-        self,
-        *,
-        job_id: str,
-        actual_money_spend: float | None = None,
-        actual_compute_spend: float | None = None,
-    ) -> dict[str, Any] | None:
-        record = self._store.get_reservation_by_job(job_id)
-        if record is None:
-            return None
-        if record.state == "released":
-            raise ValueError("budget_reservation_already_released")
-        if record.state == "finalized":
-            return record.to_dict()
-        record.state = "finalized"
-        record.money_actual = _coerce_optional_float(actual_money_spend) if actual_money_spend is not None else record.money_reserved
-        record.compute_actual = (
-            _coerce_optional_float(actual_compute_spend) if actual_compute_spend is not None else record.compute_reserved
-        )
-        record.finalized_at = _utcnow_iso()
-        record.release_reason = None
-        return self._store.upsert_reservation(record).to_dict()
-
-    def release_scheduler_budget(self, *, job_id: str, reason: str) -> dict[str, Any] | None:
-        record = self._store.get_reservation_by_job(job_id)
-        if record is None:
-            return None
-        if record.state == "released":
-            return record.to_dict()
-        if record.state == "finalized":
-            return record.to_dict()
-        record.state = "released"
-        record.release_reason = _clean_text(reason) or "released"
-        record.released_at = _utcnow_iso()
-        return self._store.upsert_reservation(record).to_dict()
-
-    def get_reservation_by_job(self, job_id: str) -> dict[str, Any] | None:
-        record = self._store.get_reservation_by_job(job_id)
-        return record.to_dict() if record is not None else None
-
-    def report_actual_usage(
-        self,
-        *,
-        job_id: str,
-        status: str,
-        actual_money_spend: float | None = None,
-        actual_compute_spend: float | None = None,
-    ) -> dict[str, Any]:
-        status_key = _clean_text(status, lower=True)
-        if status_key in {"completed", "done", "finalized"}:
-            record = self.finalize_scheduler_budget(
-                job_id=job_id,
-                actual_money_spend=actual_money_spend,
-                actual_compute_spend=actual_compute_spend,
-            )
-        elif status_key in {"failed", "canceled", "cancelled", "released"}:
-            record = self.release_scheduler_budget(job_id=job_id, reason=status_key)
-        else:
-            raise ValueError("unsupported_usage_report_status")
-        if record is None:
-            raise ValueError("budget_reservation_not_found")
-        return record
-
     def usage_summary(self, node_id: str) -> dict[str, Any]:
         node_key = _clean_text(node_id)
         config = self._store.get_config(node_key)
         if config is None:
             raise ValueError("node_budget_not_found")
 
-        reservations = self._store.list_reservations(node_id=node_key)
+        reports = self._store.list_usage_reports(node_id=node_key)
         customer_allocations = self._store.list_allocations(node_key, kind="customer")
         provider_allocations = self._store.list_allocations(node_key, kind="provider")
 
@@ -1194,7 +938,8 @@ class NodeBudgetService:
             "node": self._scope_usage_summary(
                 money_limit=config.node_money_limit,
                 compute_limit=config.node_compute_limit,
-                reservations=reservations,
+                compute_unit=config.compute_unit,
+                reports=reports,
                 scope_kind="node",
             ),
             "customers": [],
@@ -1203,22 +948,30 @@ class NodeBudgetService:
         }
 
         for item in customer_allocations:
-            scoped_reservations = [record for record in reservations if record.customer_id == item.subject_id]
             scope_summary = self._scope_usage_summary(
                 money_limit=item.money_limit,
                 compute_limit=item.compute_limit,
-                reservations=scoped_reservations,
+                compute_unit=config.compute_unit,
+                reports=[
+                    report
+                    for report in reports
+                    if _clean_text(report.metadata.get("customer_id") or report.metadata.get("customer"), lower=True) == item.subject_id
+                ],
                 scope_kind="customer",
                 subject_id=item.subject_id,
             )
             summary["customers"].append(scope_summary)
 
         for item in provider_allocations:
-            scoped_reservations = [record for record in reservations if record.provider_id == item.subject_id]
             scope_summary = self._scope_usage_summary(
                 money_limit=item.money_limit,
                 compute_limit=item.compute_limit,
-                reservations=scoped_reservations,
+                compute_unit=config.compute_unit,
+                reports=[
+                    report
+                    for report in reports
+                    if _clean_text(report.metadata.get("provider_id") or report.metadata.get("provider"), lower=True) == item.subject_id
+                ],
                 scope_kind="provider",
                 subject_id=item.subject_id,
             )
@@ -1238,7 +991,6 @@ class NodeBudgetService:
         return {
             "node_id": node_key,
             "usage_summary": self.usage_summary(node_key),
-            "reservations": [item.to_dict() for item in self._store.list_reservations(node_id=node_key)],
             "usage_reports": [item.to_dict() for item in self._store.list_usage_reports(node_id=node_key)],
             "usage_report_rollups": self.usage_report_rollups(node_key),
             "budget_policy": self.budget_policy(node_key),
@@ -1357,7 +1109,6 @@ class NodeBudgetService:
         config = self._store.get_config(node_key)
         if config is None:
             raise ValueError("node_budget_not_found")
-        self._store.clear_reservations(node_key)
         self._store.clear_usage_reports(node_key)
         config.updated_at = _utcnow_iso()
         self._store.upsert_config(config)
@@ -1388,33 +1139,6 @@ class NodeBudgetService:
             raise ValueError("budget_override_required")
         self._store.upsert_config(config)
         return self.get_bundle(node_key)
-
-    def force_release_reservation(
-        self,
-        *,
-        node_id: str,
-        job_id: str | None = None,
-        reservation_id: str | None = None,
-        reason: str,
-    ) -> dict[str, Any]:
-        node_key = _clean_text(node_id)
-        config = self._store.get_config(node_key)
-        if config is None:
-            raise ValueError("node_budget_not_found")
-        record = None
-        if reservation_id:
-            record = self._store.get_reservation(reservation_id)
-        elif job_id:
-            record = self._store.get_reservation_by_job(job_id)
-        if record is None or record.node_id != node_key:
-            raise ValueError("budget_reservation_not_found")
-        if record.state == "finalized":
-            raise ValueError("budget_reservation_already_finalized")
-        record.state = "released"
-        record.release_reason = _clean_text(reason) or "forced_release"
-        record.released_at = _utcnow_iso()
-        self._store.upsert_reservation(record)
-        return record.to_dict()
 
     def budget_grant_topics(self, node_id: str) -> list[str]:
         node_key = _clean_text(node_id)
@@ -1542,52 +1266,25 @@ class NodeBudgetService:
             issued_at=period_start,
         )
 
-    def _committed_scope_amount(self, *, node_id: str, money: bool, customer_id: str | None = None, provider_id: str | None = None) -> float:
-        total = 0.0
-        for item in self._store.list_reservations(node_id=node_id):
-            if item.state not in {"reserved", "finalized"}:
-                continue
-            if customer_id and item.customer_id != customer_id:
-                continue
-            if provider_id and item.provider_id != provider_id:
-                continue
-            value = item.money_reserved if money else item.compute_reserved
-            if item.state == "finalized":
-                actual_value = item.money_actual if money else item.compute_actual
-                if actual_value is not None:
-                    value = actual_value
-            total += float(value or 0.0)
-        return round(total, 6)
-
     def _scope_usage_summary(
         self,
         *,
         money_limit: float | None,
         compute_limit: float | None,
-        reservations: list[NodeBudgetReservationRecord],
+        compute_unit: str,
+        reports: list[NodeBudgetUsageReportRecord],
         scope_kind: str,
         subject_id: str | None = None,
     ) -> dict[str, Any]:
-        reserved_money = round(sum(float(item.money_reserved or 0.0) for item in reservations if item.state == "reserved"), 6)
-        reserved_compute = round(sum(float(item.compute_reserved or 0.0) for item in reservations if item.state == "reserved"), 6)
-        actual_money = round(
-            sum(
-                float((item.money_actual if item.money_actual is not None else item.money_reserved) or 0.0)
-                for item in reservations
-                if item.state == "finalized"
-            ),
-            6,
-        )
-        actual_compute = round(
-            sum(
-                float((item.compute_actual if item.compute_actual is not None else item.compute_reserved) or 0.0)
-                for item in reservations
-                if item.state == "finalized"
-            ),
-            6,
-        )
-        released_money = round(sum(float(item.money_reserved or 0.0) for item in reservations if item.state == "released"), 6)
-        released_compute = round(sum(float(item.compute_reserved or 0.0) for item in reservations if item.state == "released"), 6)
+        reserved_money = 0.0
+        reserved_compute = 0.0
+        actual_money = round(sum(float(item.used_cost_cents or 0) for item in reports) / 100.0, 6)
+        if compute_unit == "tokens":
+            actual_compute = round(sum(float(item.used_tokens or 0) for item in reports), 6)
+        elif compute_unit == "requests":
+            actual_compute = round(sum(float(item.used_requests or 0) for item in reports), 6)
+        else:
+            actual_compute = 0.0
         remaining_money = None if money_limit is None else round(float(money_limit) - reserved_money - actual_money, 6)
         remaining_compute = None if compute_limit is None else round(float(compute_limit) - reserved_compute - actual_compute, 6)
         summary = {
@@ -1599,8 +1296,6 @@ class NodeBudgetService:
             "reserved_compute": reserved_compute,
             "actual_money": actual_money,
             "actual_compute": actual_compute,
-            "released_money": released_money,
-            "released_compute": released_compute,
             "remaining_money": remaining_money,
             "remaining_compute": remaining_compute,
             "alerts": [],
@@ -1657,122 +1352,6 @@ class NodeBudgetService:
         _append("compute", compute_used, compute_limit)
         return alerts
 
-    def _estimate_money_reservation(
-        self,
-        *,
-        node_id: str,
-        payload: dict[str, Any],
-        constraints: dict[str, Any],
-        fallback_cost_units: int,
-    ) -> float | None:
-        scope = payload.get("budget_scope") if isinstance(payload.get("budget_scope"), dict) else {}
-        direct = (
-            scope.get("money_estimate")
-            or scope.get("money_reserved")
-            or payload.get("estimated_cost")
-            or payload.get("cost_estimate")
-            or constraints.get("estimated_cost")
-        )
-        direct_value = _coerce_optional_float(direct)
-        if direct_value is not None:
-            return direct_value
-
-        provider = _clean_text(scope.get("provider") or scope.get("provider_id") or payload.get("provider"), lower=True)
-        model_id = _clean_text(scope.get("model_id") or payload.get("model_id") or payload.get("model") or constraints.get("model_id"))
-        if not (self._model_routing_registry and provider and model_id):
-            return None
-        model = self._model_routing_registry.find_model(node_id=node_id, provider=provider, model_id=model_id)
-        if model is None:
-            return None
-
-        pricing = dict(model.pricing or {})
-        input_tokens = self._estimate_token_value(payload=payload, constraints=constraints, keys=["input_tokens", "prompt_tokens", "estimated_input_tokens"])
-        output_tokens = self._estimate_token_value(
-            payload=payload,
-            constraints=constraints,
-            keys=["output_tokens", "completion_tokens", "estimated_output_tokens", "max_output_tokens"],
-        )
-        request_count = self._estimate_request_count(payload=payload, constraints=constraints)
-
-        total = 0.0
-        if input_tokens is not None:
-            total += (input_tokens / 1000.0) * float(pricing.get("input_per_1k") or pricing.get("prompt_per_1k") or 0.0)
-        if output_tokens is not None:
-            total += (output_tokens / 1000.0) * float(pricing.get("output_per_1k") or pricing.get("completion_per_1k") or 0.0)
-        total += request_count * float(pricing.get("per_request") or pricing.get("request") or 0.0)
-
-        if total <= 0:
-            return None
-        return round(total, 6)
-
-    def _estimate_compute_reservation(
-        self,
-        *,
-        compute_unit: str,
-        payload: dict[str, Any],
-        constraints: dict[str, Any],
-        fallback_cost_units: int,
-    ) -> float | None:
-        scope = payload.get("budget_scope") if isinstance(payload.get("budget_scope"), dict) else {}
-        direct = scope.get("compute_units") or payload.get("compute_units") or constraints.get("compute_units")
-        direct_value = _coerce_optional_float(direct)
-        if direct_value is not None:
-            return direct_value
-
-        if compute_unit == "cost_units":
-            return float(fallback_cost_units)
-        if compute_unit == "requests":
-            return float(self._estimate_request_count(payload=payload, constraints=constraints))
-        if compute_unit == "tokens":
-            total_tokens = self._estimate_token_value(
-                payload=payload,
-                constraints=constraints,
-                keys=[
-                    "total_tokens",
-                    "estimated_total_tokens",
-                ],
-            )
-            if total_tokens is not None:
-                return total_tokens
-            input_tokens = self._estimate_token_value(payload=payload, constraints=constraints, keys=["input_tokens", "prompt_tokens", "estimated_input_tokens"])
-            output_tokens = self._estimate_token_value(
-                payload=payload,
-                constraints=constraints,
-                keys=["output_tokens", "completion_tokens", "estimated_output_tokens", "max_output_tokens"],
-            )
-            if input_tokens is not None or output_tokens is not None:
-                return float(input_tokens or 0.0) + float(output_tokens or 0.0)
-            return None
-        if compute_unit in {"cpu_seconds", "gpu_seconds"}:
-            duration = self._estimate_token_value(
-                payload=payload,
-                constraints=constraints,
-                keys=["expected_duration_sec", "estimated_duration_sec", "max_runtime_sec"],
-            )
-            return duration
-        return None
-
-    def _estimate_token_value(self, *, payload: dict[str, Any], constraints: dict[str, Any], keys: list[str]) -> float | None:
-        scope = payload.get("budget_scope") if isinstance(payload.get("budget_scope"), dict) else {}
-        for key in keys:
-            if key in scope:
-                value = _coerce_optional_float(scope.get(key))
-                if value is not None:
-                    return value
-            if key in payload:
-                value = _coerce_optional_float(payload.get(key))
-                if value is not None:
-                    return value
-            if key in constraints:
-                value = _coerce_optional_float(constraints.get(key))
-                if value is not None:
-                    return value
-        return None
-
-    def _estimate_request_count(self, *, payload: dict[str, Any], constraints: dict[str, Any]) -> float:
-        count = self._estimate_token_value(payload=payload, constraints=constraints, keys=["request_count", "estimated_requests"])
-        return float(count if count is not None else 1.0)
-
     def _next_reset_at(self, config: NodeBudgetConfigRecord) -> str | None:
         if config.period == "manual_reset" or config.reset_policy == "manual":
             return None
@@ -1792,60 +1371,6 @@ class NodeBudgetService:
             month = 1 if now.month == 12 else now.month + 1
             return datetime(year, month, 1, tzinfo=timezone.utc).isoformat()
         return (created_at + timedelta(days=30)).isoformat()
-
-    def _enforce_scheduler_scope_limits(
-        self,
-        *,
-        config: NodeBudgetConfigRecord,
-        node_id: str,
-        customer_id: str | None,
-        provider_id: str | None,
-        requested_money: float | None,
-        requested_compute: float | None,
-    ) -> None:
-        if config.enforcement_mode != "hard_stop":
-            return
-
-        requested_money_value = float(requested_money or 0.0)
-        requested_compute_value = float(requested_compute or 0.0)
-
-        if config.node_money_limit is not None:
-            committed = self._committed_scope_amount(node_id=node_id, money=True)
-            if committed + requested_money_value > float(config.node_money_limit) + 1e-9:
-                raise ValueError("node_money_budget_exceeded")
-        if config.node_compute_limit is not None:
-            committed = self._committed_scope_amount(node_id=node_id, money=False)
-            if committed + requested_compute_value > float(config.node_compute_limit) + 1e-9:
-                raise ValueError("node_compute_budget_exceeded")
-
-        customer_allocations = {item.subject_id: item for item in self._store.list_allocations(node_id, kind="customer")}
-        provider_allocations = {item.subject_id: item for item in self._store.list_allocations(node_id, kind="provider")}
-
-        customer_record = customer_allocations.get(customer_id or "")
-        if customer_id and customer_record is None and customer_allocations and not config.shared_customer_pool:
-            raise ValueError("customer_budget_allocation_required")
-        if customer_record is not None and not config.shared_customer_pool:
-            if customer_record.money_limit is not None:
-                committed = self._committed_scope_amount(node_id=node_id, money=True, customer_id=customer_record.subject_id)
-                if committed + requested_money_value > float(customer_record.money_limit) + 1e-9:
-                    raise ValueError("customer_money_budget_exceeded")
-            if customer_record.compute_limit is not None:
-                committed = self._committed_scope_amount(node_id=node_id, money=False, customer_id=customer_record.subject_id)
-                if committed + requested_compute_value > float(customer_record.compute_limit) + 1e-9:
-                    raise ValueError("customer_compute_budget_exceeded")
-
-        provider_record = provider_allocations.get(provider_id or "")
-        if provider_id and provider_record is None and provider_allocations and not config.shared_provider_pool:
-            raise ValueError("provider_budget_allocation_required")
-        if provider_record is not None and not config.shared_provider_pool:
-            if provider_record.money_limit is not None:
-                committed = self._committed_scope_amount(node_id=node_id, money=True, provider_id=provider_record.subject_id)
-                if committed + requested_money_value > float(provider_record.money_limit) + 1e-9:
-                    raise ValueError("provider_money_budget_exceeded")
-            if provider_record.compute_limit is not None:
-                committed = self._committed_scope_amount(node_id=node_id, money=False, provider_id=provider_record.subject_id)
-                if committed + requested_compute_value > float(provider_record.compute_limit) + 1e-9:
-                    raise ValueError("provider_compute_budget_exceeded")
 
     def _normalize_allocations(
         self,

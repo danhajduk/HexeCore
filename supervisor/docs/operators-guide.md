@@ -48,12 +48,12 @@ Quick flow:
 3. Inspect debug effective-access/config if permission/topic failures are suspected.
 4. Retry targeted runtime action (`reload`/`rebuild`) once root cause is corrected.
 
-## 6) Scheduler and Jobs
+## 6) Core Internal Scheduler
 
 Status: Implemented
 
-- Verify scheduler status and queue depth through `/api/system/scheduler/status`.
-- Review history stats and cleanup endpoints for retention issues.
+- Verify Core-owned recurring maintenance tasks through `/api/system/scheduler/internal`.
+- Core does not expose job queue, lease, worker, or job-history endpoints.
 
 ## 7) Archived Legacy Runbooks
 

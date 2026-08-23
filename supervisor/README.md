@@ -28,7 +28,7 @@ Core currently spans:
 - `backend/app/system/`
 - `frontend/`
 
-Hexe Core owns API hosting, UI hosting, embedded addon lifecycle authority, scheduler orchestration and workload admission, MQTT authority, and trusted-node governance flows.
+Hexe Core owns API hosting, UI hosting, embedded addon lifecycle authority, internal maintenance scheduling, MQTT authority, and trusted-node governance flows.
 
 ### Supervisor
 

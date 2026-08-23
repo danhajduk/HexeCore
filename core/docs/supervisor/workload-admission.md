@@ -2,20 +2,19 @@
 
 Status: Implemented
 
-This document defines the Supervisor-aware workload admission context used by Core scheduler flows during the migration.
+This document defines the Supervisor-aware host readiness context exposed to Core.
 
 ## Source Of Truth
 
 - `backend/app/supervisor/models.py`
 - `backend/app/supervisor/service.py`
 - `backend/app/supervisor/router.py`
-- `backend/app/system/scheduler/router.py`
 
 ## Purpose
 
-- Give Core scheduler logic a host-runtime readiness view from Supervisor.
+- Give Core a host-runtime readiness view from Supervisor.
 - Reuse Supervisor resource state and managed-node health instead of duplicating host-local checks in Core.
-- Keep scheduler ownership in Core while making admission decisions aware of Supervisor runtime state.
+- Keep host-local runtime ownership in Supervisor.
 
 ## API Surface
 
@@ -32,18 +31,16 @@ Current response fields:
 - `managed_node_count`
 - `healthy_managed_node_count`
 
-## Current Scheduling Integration
+## Current Integration
 
 Status: Implemented
 
-- Scheduler queue dispatch computes its usual Core busy/capacity view.
-- When a Supervisor service is available, dispatch also reads Supervisor admission context.
-- Available dispatch capacity is capped by `available_capacity_units` from Supervisor admission.
-- If `execution_host_ready` is false, queued jobs are deferred instead of being admitted.
-- Jobs with `constraints.target_runtime=supervisor` or `constraints.execution_target=host_local|supervisor` are additionally deferred when Supervisor-managed execution targets are unhealthy.
+- Core can inspect Supervisor admission context before asking Supervisor to realize host-local runtime intent.
+- `execution_host_ready` and `available_capacity_units` summarize whether the host can accept more local runtime work.
+- Managed runtime counts and health are Supervisor-owned observations.
 
 ## Boundary
 
-- Core still owns queueing, policy, and orchestration.
+- Core does not own job queueing, job leasing, or worker execution.
 - Supervisor supplies host-runtime readiness and execution-target health.
-- This is an additive migration step, not the final distributed execution contract.
+- Nodes remain the canonical external execution layer.

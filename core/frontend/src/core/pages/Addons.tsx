@@ -190,8 +190,6 @@ type NodeBudgetManualDraft = {
   topUpCompute: string;
   overrideMode: string;
   overrideOvercommit: boolean;
-  forceReleaseJobId: string;
-  forceReleaseReason: string;
 };
 
 type RoutingModelMetadata = {
@@ -336,8 +334,6 @@ function buildBudgetManualDraft(bundle?: NodeBudgetBundle | null): NodeBudgetMan
     topUpCompute: "",
     overrideMode: String(bundle?.node_budget?.enforcement_mode || "hard_stop"),
     overrideOvercommit: Boolean(bundle?.node_budget?.overcommit_enabled),
-    forceReleaseJobId: "",
-    forceReleaseReason: "forced_release",
   };
 }
 
@@ -1338,21 +1334,6 @@ export default function Addons() {
                                 />
                                 <span>Override overcommit</span>
                               </label>
-                              <label className="budget-field">
-                                <span className="inventory-label">Force Release Job</span>
-                                <input
-                                  value={budgetManualDraft.forceReleaseJobId}
-                                  onChange={(e) => updateBudgetManualDraft(item.node_id, { forceReleaseJobId: e.target.value })}
-                                  placeholder="job-123"
-                                />
-                              </label>
-                              <label className="budget-field">
-                                <span className="inventory-label">Release Reason</span>
-                                <input
-                                  value={budgetManualDraft.forceReleaseReason}
-                                  onChange={(e) => updateBudgetManualDraft(item.node_id, { forceReleaseReason: e.target.value })}
-                                />
-                              </label>
                             </div>
                             <div className="addon-actions">
                               <a
@@ -1414,24 +1395,6 @@ export default function Addons() {
                                 onClick={() => void runBudgetAction(item.node_id, "reset", {}, "Budget usage reset.")}
                               >
                                 Reset Usage
-                              </button>
-                              <button
-                                className="addon-btn addon-btn-danger"
-                                type="button"
-                                disabled={budgetBusyNode === item.node_id || !budgetManualDraft.forceReleaseJobId.trim()}
-                                onClick={() =>
-                                  void runBudgetAction(
-                                    item.node_id,
-                                    "force-release",
-                                    {
-                                      job_id: budgetManualDraft.forceReleaseJobId.trim(),
-                                      reason: budgetManualDraft.forceReleaseReason.trim() || "forced_release",
-                                    },
-                                    "Reservation released.",
-                                  )
-                                }
-                              >
-                                Force Release
                               </button>
                             </div>
                           </>

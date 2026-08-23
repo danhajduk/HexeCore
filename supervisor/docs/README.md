@@ -45,7 +45,7 @@ Responsibilities:
 -   runtime state authority
 -   addon registry and lifecycle management
 -   node onboarding and governance
--   scheduler orchestration
+-   internal maintenance scheduling
 -   MQTT control-plane services
 -   telemetry and health aggregation
 
@@ -77,36 +77,6 @@ Embedded MQTT support provides:
 -   telemetry collection
 
 Core acts as the **authority for MQTT topic structure and policy**.
-
-------------------------------------------------------------------------
-
-### Scheduler
-
-Located under:
-
-    backend/app/system/scheduler/
-
-Responsibilities:
-
--   job queue management
--   capacity-aware dispatch
--   leases and execution tracking
--   completion history
--   scheduling policies
-
-------------------------------------------------------------------------
-
-### Workers
-
-Worker helpers located under:
-
-    backend/app/system/worker/
-
-Responsibilities:
-
--   Supervisor-owned host-local task execution helpers during migration
--   runtime worker coordination
--   scheduled job execution helpers
 
 ------------------------------------------------------------------------
 
@@ -182,7 +152,7 @@ High-level layout of this repository:
     backend/                 FastAPI backend and platform services
     frontend/                React admin UI
     backend/hexe_supervisor/  Standalone runtime supervision components
-    backend/app/system/      Scheduler, workers, MQTT services
+    backend/app/system/      MQTT, settings, onboarding, telemetry, and system services
     scripts/                 Bootstrap and development helpers
     systemd/user/            User service templates
     docs/                    Platform documentation

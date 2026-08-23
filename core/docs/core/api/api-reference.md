@@ -65,7 +65,7 @@ Status: Implemented
   - `GET /api/system/nodes/budgets/{node_id}/providers` (admin session/token required)
   - `PUT /api/system/nodes/budgets/{node_id}/providers/{provider_id}` (admin session/token required)
   - `DELETE /api/system/nodes/budgets/{node_id}/providers/{provider_id}` (admin session/token required)
-  - `GET /api/system/nodes/budgets/{node_id}/usage` (admin session/token required; reservations, usage summary, remaining budget, next reset)
+  - `GET /api/system/nodes/budgets/{node_id}/usage` (admin session/token required; usage summary, remaining budget, next reset)
   - `GET /api/system/nodes/budgets/{node_id}/usage-reports` (admin session/token required; periodic grant usage summaries)
   - `GET /api/system/nodes/budgets/export` (admin session/token required; budget usage export in JSON or CSV)
   - `GET /api/system/nodes/budgets/policy/current?node_id=...` (trusted node token required via `X-Node-Trust-Token`; current effective budget policy and grants; returns `409 node_governance_outdated` when governance freshness is outdated)
@@ -73,9 +73,7 @@ Status: Implemented
   - `POST /api/system/nodes/budgets/{node_id}/top-up` (admin session/token required)
   - `POST /api/system/nodes/budgets/{node_id}/reset` (admin session/token required)
   - `POST /api/system/nodes/budgets/{node_id}/override` (admin session/token required)
-  - `POST /api/system/nodes/budgets/{node_id}/force-release` (admin session/token required)
   - `POST /api/system/nodes/budgets/usage-summary` (trusted node token required via `X-Node-Trust-Token`; periodic usage summary by grant/period with optional provider/model/task-family metadata)
-  - `POST /api/system/nodes/budgets/usage-report` (trusted node token required via `X-Node-Trust-Token`; actual budget usage finalization/release report)
   - `POST /api/system/nodes/services/resolve` (trusted node token required via `X-Node-Trust-Token`; node-aware task-family to service/provider resolution using governance and budget policy; blocked while governance freshness is outdated)
   - `POST /api/system/nodes/services/authorize` (trusted node token required via `X-Node-Trust-Token`; short-lived service token issuance gated by resolution and effective budget; blocked while governance freshness is outdated)
   - `POST /api/system/nodes/capabilities/declaration` (trusted node token required via `X-Node-Trust-Token`)
@@ -192,13 +190,12 @@ Service token issuance modes:
 - admin token or admin session may issue service tokens
 - service principals may also issue constrained service tokens using `X-Service-Principal-Id` and `X-Service-Principal-Secret`
 
-## Runtime, Scheduler, Health APIs
+## Runtime And Health APIs
 
 Status: Implemented
 
-- Scheduler queue/lease/history routes under `/api/system/scheduler/*`.
-- Queue job submissions may include `payload.budget_scope` to create persisted node/customer/provider budget reservations when node budgeting is configured.
-- Budget-aware queue submission now supports Core-side money/compute estimation from payload fields and stored routing-metadata pricing when explicit reservation values are omitted.
+- Core internal scheduler status is exposed at `/api/system/scheduler/internal`.
+- Core does not expose job queue, lease, worker, or job-history endpoints.
 - Stack/system health and metrics endpoints under `/api/system/*` and `/api/system-stats/*`.
 - Store lifecycle and status routes under `/api/store/*`.
 

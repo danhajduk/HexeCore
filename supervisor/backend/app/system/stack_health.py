@@ -206,21 +206,6 @@ def _sample_speed() -> dict[str, Any]:
 
 
 def _parse_speed_payload(payload: dict[str, Any]) -> dict[str, float | None] | None:
-    # speedtest-cli schema (download/upload in bits per second)
-    if "download" in payload or "upload" in payload:
-        try:
-            download_bps = float(payload.get("download") or 0.0)
-            upload_bps = float(payload.get("upload") or 0.0)
-            latency_raw = payload.get("ping")
-            latency_ms = round(float(latency_raw), 1) if latency_raw is not None else None
-            return {
-                "download_mbps": round(max(download_bps, 0.0) / 1_000_000.0, 2),
-                "upload_mbps": round(max(upload_bps, 0.0) / 1_000_000.0, 2),
-                "latency_ms": latency_ms,
-            }
-        except Exception:
-            return None
-
     # Ookla schema (download/upload bandwidth in bytes per second)
     try:
         download = payload.get("download")
@@ -238,6 +223,22 @@ def _parse_speed_payload(payload: dict[str, Any]) -> dict[str, float | None] | N
             }
     except Exception:
         return None
+
+    # speedtest-cli schema (download/upload in bits per second)
+    if "download" in payload or "upload" in payload:
+        try:
+            download_bps = float(payload.get("download") or 0.0)
+            upload_bps = float(payload.get("upload") or 0.0)
+            latency_raw = payload.get("ping")
+            latency_ms = round(float(latency_raw), 1) if latency_raw is not None else None
+            return {
+                "download_mbps": round(max(download_bps, 0.0) / 1_000_000.0, 2),
+                "upload_mbps": round(max(upload_bps, 0.0) / 1_000_000.0, 2),
+                "latency_ms": latency_ms,
+            }
+        except Exception:
+            return None
+
     return None
 
 
@@ -377,19 +378,9 @@ def _derive_overall_status(payload: dict[str, Any]) -> dict[str, Any]:
         ):
             reasons.append("MQTT bootstrap publish pending")
 
-    scheduler_state = subsystems.get("scheduler", {}).get("state")
-    if scheduler_state in {"degraded", "unknown"}:
-        reasons.append("Scheduler unavailable")
-
     ai_state = str(subsystems.get("ai", {}).get("state") or "").strip().lower()
     if ai_state in {"offline", "disconnected"}:
         reasons.append("AI offline")
-
-    worker_state = subsystems.get("workers", {}).get("state")
-    if worker_state == "idle":
-        reason = "No workers active"
-        reasons.append(reason)
-        non_degrading_reasons.add(reason)
 
     unhealthy_addons = int(subsystems.get("addons", {}).get("unhealthy_count") or 0)
     if unhealthy_addons > 0:
@@ -556,10 +547,6 @@ def build_stack_health_router() -> APIRouter:
             except Exception:
                 pass
 
-        scheduler_state = "disabled"
-        active_leases = 0
-        queued_jobs = 0
-
         installed_count = 0
         unhealthy_count = 0
         if registry is not None:
@@ -634,15 +621,6 @@ def build_stack_health_router() -> APIRouter:
                     "state": mqtt_state,
                     "last_message_at": mqtt_last_message_at,
                     "infrastructure": mqtt_infrastructure,
-                },
-                "scheduler": {
-                    "state": scheduler_state,
-                    "active_leases": active_leases,
-                    "queued_jobs": queued_jobs,
-                },
-                "workers": {
-                    "state": "disabled",
-                    "active_count": 0,
                 },
                 "addons": {
                     "state": "degraded" if unhealthy_count > 0 else "healthy",

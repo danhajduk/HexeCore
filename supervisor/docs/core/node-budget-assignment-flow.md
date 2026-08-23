@@ -848,7 +848,7 @@ Instead:
 - execution happens outside Core’s hot path
 - accounting is reconciled later through usage summaries keyed by `grant_id`
 
-Queue-based reservation logic does exist elsewhere in the budgeting subsystem, but that is a separate scheduler compatibility path and not the node service resolution/authorization flow documented here.
+Core no longer keeps a queue-based reservation path in the budgeting subsystem; accounting is reconciled through periodic usage summaries.
 
 ## See Also
 

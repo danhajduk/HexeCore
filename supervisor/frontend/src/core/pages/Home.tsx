@@ -2,8 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   BrainCircuit,
-  Clock3,
-  Cog,
   Cpu,
   Globe,
   Network,
@@ -55,8 +53,6 @@ type StackSummary = {
     supervisor: { state: string };
     ai: { state: string; trusted_nodes?: number; total_nodes?: number };
     mqtt: { state: string; last_message_at?: string | null };
-    scheduler: { state: string; active_leases: number; queued_jobs: number };
-    workers: { state: string; active_count: number };
     addons: { state: string; installed_count: number; unhealthy_count: number };
   };
   connectivity: {
@@ -106,8 +102,6 @@ export const HOME_STATUS_TILE_TITLES = [
   "Core",
   "Supervisor",
   "MQTT",
-  "Scheduler",
-  "Workers",
   "Addons",
   "Network",
   "Internet",
@@ -198,19 +192,6 @@ function networkErrorsValue(metrics: StackSummary["samples"]["network_metrics"] 
   const dropIn = Number(metrics.dropin ?? 0);
   const dropOut = Number(metrics.dropout ?? 0);
   return `err ${errIn}/${errOut} drop ${dropIn}/${dropOut}`;
-}
-
-function schedulerLoadValue(stats: SystemStats | null): string {
-  const busy = Number(stats?.busy_rating ?? 0);
-  return `${Math.max(0, busy).toFixed(1)}/10`;
-}
-
-function schedulerLoadTone(stats: SystemStats | null): "ok" | "warn" | "bad" | "neutral" {
-  if (!stats) return "neutral";
-  const busy = Math.max(0, Number(stats.busy_rating ?? 0));
-  if (busy >= 8) return "bad";
-  if (busy >= 6) return "warn";
-  return "ok";
 }
 
 function displayState(value: string): string {
@@ -379,7 +360,7 @@ export default function Home() {
         <div>
           <h1 className="home-title">Home Dashboard</h1>
           <p className="home-subtitle">
-            Operational overview for {branding.coreName}, {branding.addonsName}, workers, connectivity, and recent platform activity.
+            Operational overview for {branding.coreName}, {branding.addonsName}, connectivity, and recent platform activity.
           </p>
         </div>
         <div className="home-head-meta">
@@ -450,11 +431,6 @@ export default function Home() {
               icon={ShieldCheck}
             />
             <StatusMini
-              title="Scheduler"
-              tone={pillTone(stack?.subsystems.scheduler.state || "unknown")}
-              icon={Clock3}
-            />
-            <StatusMini
               title="MQTT"
               tone={pillTone(stack?.subsystems.mqtt.state || "unknown")}
               icon={Waypoints}
@@ -463,11 +439,6 @@ export default function Home() {
               title={branding.nodesName}
               tone={pillTone(stack?.subsystems.ai?.state || "unknown")}
               icon={BrainCircuit}
-            />
-            <StatusMini
-              title="Workers"
-              tone={pillTone(stack?.subsystems.workers.state || "unknown")}
-              icon={Cog}
             />
             <StatusMini
               title={branding.addonsName}

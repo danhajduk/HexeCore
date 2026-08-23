@@ -19,8 +19,6 @@ type StackSummary = {
   subsystems?: {
     core?: { state?: string };
     supervisor?: { state?: string };
-    scheduler?: { state?: string; active_leases?: number; queued_jobs?: number };
-    workers?: { state?: string; active_count?: number };
   };
   connectivity?: {
     network?: { state?: string };
@@ -308,7 +306,7 @@ export default function Settings() {
       <section className="settings-section">
         <div className="settings-section-head">
           <h2>Platform</h2>
-          <p>Runtime and control-plane status for Core services and scheduler activity.</p>
+          <p>Runtime and control-plane status for Core services.</p>
         </div>
         <div className="settings-card">
           <div className="settings-kv-grid">
@@ -323,19 +321,6 @@ export default function Settings() {
             <div className="settings-kv-item">
               <div className="settings-label-text">Core backend</div>
               <span className="settings-pill">{displayState(stack?.subsystems?.core?.state)}</span>
-            </div>
-            <div className="settings-kv-item">
-              <div className="settings-label-text">Scheduler</div>
-              <span className="settings-pill">{displayState(stack?.subsystems?.scheduler?.state)}</span>
-              <div className="settings-help">
-                Active leases {Number(stack?.subsystems?.scheduler?.active_leases ?? 0)} • Queued jobs{" "}
-                {Number(stack?.subsystems?.scheduler?.queued_jobs ?? 0)}
-              </div>
-            </div>
-            <div className="settings-kv-item">
-              <div className="settings-label-text">Workers</div>
-              <span className="settings-pill">{displayState(stack?.subsystems?.workers?.state)}</span>
-              <div className="settings-help">Active workers {Number(stack?.subsystems?.workers?.active_count ?? 0)}</div>
             </div>
           </div>
           <div className="settings-row-actions">

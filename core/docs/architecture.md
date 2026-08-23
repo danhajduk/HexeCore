@@ -22,7 +22,7 @@ Current Core responsibilities include:
 - API hosting
 - UI hosting
 - embedded addon lifecycle authority
-- scheduler orchestration and workload admission
+- internal recurring Core maintenance tasks
 - MQTT authority and runtime coordination
 - trusted-node trust and governance authority
 
@@ -73,12 +73,10 @@ Status: Implemented
 
 Status: Implemented
 
-- Scheduler queueing, admission, and lease orchestration remain Core responsibilities.
-- The scheduler does not own host-local runtime execution as a platform boundary.
-- Current worker runners are execution clients that consume Core-issued leases.
-- Host-local worker/process execution management now aligns to the Supervisor boundary, even where compatibility code still lives under `backend/app/system/worker/`.
-- Supervisor now provides the admission context Core uses for host readiness and managed execution-target availability.
-- Supervisor is the target host-local runtime authority, and Nodes are the canonical external execution layer.
+- Core does not own job queueing, job leasing, or worker execution.
+- Supervisor is the host-local runtime authority for services Core asks it to realize.
+- Nodes are the canonical external execution layer for external compute and integrations.
+- Core retains trust, governance, MQTT authority, and operator-facing control-plane APIs.
 
 ## Cross-Domain Flow
 
@@ -101,7 +99,7 @@ Status: Implemented
 Major active Core subsystems remain:
 
 - addons and store
-- scheduler and workers
+- internal scheduler for Core-owned recurring maintenance
 - MQTT platform services
 - auth, users, policy, telemetry, audit, and settings
 

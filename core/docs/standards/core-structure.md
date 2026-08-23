@@ -19,7 +19,7 @@ It acts as:
 -   Global settings manager
 -   Telemetry aggregator
 -   MQTT authority for platform messaging, notifications, and broker policy
--   Scheduler and workload admission authority
+    -   Internal maintenance scheduling authority
 
 Core must NOT: - Relay sensor events - Relay AI inference traffic - Sit
 in high-frequency data paths
@@ -80,7 +80,7 @@ MQTT remains Core-owned even when the broker is external. Core is responsible fo
 External functionality may run on separate machines, but the canonical runtime categories are now split between Supervisor and Nodes.
 
 Core responsibilities: - Service discovery - Policy distribution - Token
-issuing - workload admission - UI/governance surfaces
+issuing - internal maintenance scheduling - UI/governance surfaces
 
 Supervisor responsibilities: - host-local process/runtime control -
 resource reporting - lifecycle actions

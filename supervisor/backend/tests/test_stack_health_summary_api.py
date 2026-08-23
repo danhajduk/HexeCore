@@ -13,17 +13,6 @@ from app.system.mqtt.integration_models import MqttIntegrationState
 from app.system.stack_health import build_stack_health_router
 
 
-class _FakeSnapshot:
-    def __init__(self, active_leases: int, queue_depths: dict[str, int]) -> None:
-        self.active_leases = active_leases
-        self.queue_depths = queue_depths
-
-
-class _FakeScheduler:
-    async def snapshot(self) -> _FakeSnapshot:
-        return _FakeSnapshot(active_leases=2, queue_depths={"default": 1})
-
-
 class _FakeMqtt:
     async def status(self) -> dict[str, object]:
         return {
@@ -193,7 +182,6 @@ class TestStackHealthSummaryApi(unittest.TestCase):
     def test_stack_summary_returns_dashboard_contract(self) -> None:
         app = FastAPI()
         app.include_router(build_stack_health_router(), prefix="/api/system")
-        app.state.scheduler_engine = _FakeScheduler()
         app.state.mqtt_manager = _FakeMqtt()
         app.state.mqtt_runtime_boundary = _FakeMqttRuntime()
         app.state.mqtt_integration_state_store = _FakeMqttStateStore()
@@ -219,8 +207,8 @@ class TestStackHealthSummaryApi(unittest.TestCase):
         self.assertTrue(payload["subsystems"]["mqtt"]["infrastructure"]["authority"]["healthy"])
         self.assertEqual(payload["subsystems"]["mqtt"]["infrastructure"]["reconciliation"]["status"], "ok")
         self.assertTrue(payload["subsystems"]["mqtt"]["infrastructure"]["bootstrap_publish"]["published"])
-        self.assertEqual(payload["subsystems"]["scheduler"]["state"], "running")
-        self.assertEqual(payload["subsystems"]["workers"]["active_count"], 2)
+        self.assertNotIn("scheduler", payload["subsystems"])
+        self.assertNotIn("workers", payload["subsystems"])
         self.assertEqual(payload["subsystems"]["addons"]["installed_count"], 2)
         self.assertEqual(payload["subsystems"]["addons"]["unhealthy_count"], 1)
         self.assertEqual(payload["subsystems"]["ai"]["state"], "connected")
@@ -235,7 +223,6 @@ class TestStackHealthSummaryApi(unittest.TestCase):
     def test_stack_summary_accepts_legacy_ai_node_type_label(self) -> None:
         app = FastAPI()
         app.include_router(build_stack_health_router(), prefix="/api/system")
-        app.state.scheduler_engine = _FakeScheduler()
         app.state.mqtt_manager = _FakeMqtt()
         app.state.mqtt_runtime_boundary = _FakeMqttRuntime()
         app.state.mqtt_integration_state_store = _FakeMqttStateStore()
@@ -255,26 +242,6 @@ class TestStackHealthSummaryApi(unittest.TestCase):
         self.assertEqual(payload["subsystems"]["ai"]["trusted_nodes"], 1)
         self.assertEqual(payload["subsystems"]["ai"]["total_nodes"], 1)
 
-    def test_no_workers_active_reason_does_not_degrade_overall_status(self) -> None:
-        payload = stack_health._derive_overall_status(
-            {
-                "subsystems": {
-                    "core": {"state": "healthy"},
-                    "supervisor": {"state": "healthy"},
-                    "workers": {"state": "idle"},
-                    "mqtt": {"state": "connected"},
-                    "scheduler": {"state": "running"},
-                    "addons": {"unhealthy_count": 0},
-                },
-                "connectivity": {
-                    "network": {"state": "reachable"},
-                    "internet": {"state": "reachable"},
-                },
-            }
-        )
-        self.assertEqual(payload["overall"], "ok")
-        self.assertIn("No workers active", payload["reasons"])
-
     def test_ai_offline_degrades_overall_status(self) -> None:
         payload = stack_health._derive_overall_status(
             {
@@ -282,9 +249,7 @@ class TestStackHealthSummaryApi(unittest.TestCase):
                     "core": {"state": "healthy"},
                     "supervisor": {"state": "healthy"},
                     "ai": {"state": "offline"},
-                    "workers": {"state": "active"},
                     "mqtt": {"state": "connected"},
-                    "scheduler": {"state": "running"},
                     "addons": {"unhealthy_count": 0},
                 },
                 "connectivity": {
@@ -302,7 +267,6 @@ class TestStackHealthSummaryApi(unittest.TestCase):
                 "subsystems": {
                     "core": {"state": "healthy"},
                     "supervisor": {"state": "healthy"},
-                    "workers": {"state": "active"},
                     "mqtt": {
                         "state": "connected",
                         "infrastructure": {
@@ -317,7 +281,6 @@ class TestStackHealthSummaryApi(unittest.TestCase):
                             "bootstrap_publish": {"published": True, "attempts": 1},
                         },
                     },
-                    "scheduler": {"state": "running"},
                     "addons": {"unhealthy_count": 0},
                 },
                 "connectivity": {
@@ -345,7 +308,6 @@ class TestStackHealthSummaryApi(unittest.TestCase):
         }
         app = FastAPI()
         app.include_router(build_stack_health_router(), prefix="/api/system")
-        app.state.scheduler_engine = _FakeScheduler()
         app.state.mqtt_manager = _FakeMqtt()
         app.state.addon_registry = _FakeRegistry()
         app.state.latest_stats = _FakeStats(
@@ -399,7 +361,6 @@ class TestStackHealthSummaryApi(unittest.TestCase):
 
         app = FastAPI()
         app.include_router(build_stack_health_router(), prefix="/api/system")
-        app.state.scheduler_engine = _FakeScheduler()
         app.state.mqtt_manager = _FakeMqtt()
         app.state.addon_registry = _FakeRegistry()
         app.state.latest_stats = _FakeStats(total_rate=_FakeRate(rx_Bps=1_250_000.0, tx_Bps=625_000.0))
@@ -463,7 +424,6 @@ class TestStackHealthSummaryApi(unittest.TestCase):
 
         app = FastAPI()
         app.include_router(build_stack_health_router(), prefix="/api/system")
-        app.state.scheduler_engine = _FakeScheduler()
         app.state.mqtt_manager = _FakeMqtt()
         app.state.addon_registry = _FakeRegistry()
         app.state.latest_stats = _FakeStats()
@@ -488,7 +448,6 @@ class TestStackHealthSummaryApi(unittest.TestCase):
 
         app = FastAPI()
         app.include_router(build_stack_health_router(), prefix="/api/system")
-        app.state.scheduler_engine = _FakeScheduler()
         app.state.mqtt_manager = _FakeMqtt()
         app.state.addon_registry = _FakeRegistry()
         app.state.latest_stats = _FakeStats()

@@ -17,8 +17,6 @@ describe("home status tiles", () => {
       "Core",
       "Supervisor",
       "MQTT",
-      "Scheduler",
-      "Workers",
       "Addons",
       "Network",
       "Internet",

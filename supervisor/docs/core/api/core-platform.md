@@ -23,7 +23,6 @@ Status: Implemented
 - Setup summary and health/degraded API surfaces are exposed under `/api/system/mqtt/*`.
 - Background supervision loop updates degraded/ready state and publishes audit/observability events.
 - Core now allows the HTTP API to finish startup before the heavier MQTT authority warm-up sequence completes; MQTT reconcile and bootstrap publication continue in background startup warm-up tasks.
-- Scheduler queue rehydration is also backgrounded so persisted jobs repopulate after the API becomes reachable instead of blocking startup readiness.
 
 ## Authority Boundaries
 
@@ -42,12 +41,12 @@ Status: Partially implemented
 - Core owns desired behavior and invokes runtime boundaries (`ensure_running`, `start`, `stop`, `rebuild`).
 - Standalone runtime service and supervisor-related contracts remain active, with behavior segmented in runtime docs.
 
-## Scheduler Integration
+## Internal Scheduler
 
 Status: Implemented
 
-- Core wires scheduler engine/store/history and exposes lease and queue APIs.
-- Cleanup and metrics loops are hosted in Core startup background tasks.
+- Core hosts an internal recurring scheduler for Core-owned maintenance tasks.
+- Core does not expose job queue, lease, worker, or job-history APIs.
 
 ## Known Legacy Context
 

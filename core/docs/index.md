@@ -20,8 +20,6 @@ Compatibility note: public-facing docs now use Hexe AI / Hexe Core naming, and a
 
 - [core/api/README.md](./core/api/README.md)
 - [core/frontend/README.md](./core/frontend/README.md)
-- [core/scheduler/README.md](./core/scheduler/README.md)
-- [workers/README.md](./workers/README.md)
 - [addons/README.md](./addons/README.md)
 - [mqtt/README.md](./mqtt/README.md)
 

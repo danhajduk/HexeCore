@@ -369,47 +369,6 @@ class TestNodeBudgetApi(unittest.TestCase):
         self.assertEqual(configured.status_code, 400, configured.text)
         self.assertEqual(configured.json()["detail"]["error"], "provider_budget_subject_not_supported")
 
-    def test_trusted_node_can_report_actual_budget_usage(self) -> None:
-        node_id, trust_token = self._trusted_node()
-        declared = self.client.post(
-            "/api/system/nodes/budgets/declaration",
-            headers={"X-Node-Trust-Token": trust_token},
-            json={"node_id": node_id},
-        )
-        self.assertEqual(declared.status_code, 200, declared.text)
-        configured = self.client.put(
-            f"/api/system/nodes/budgets/{node_id}",
-            headers={"X-Admin-Token": "test-token"},
-            json={"node_budget": {"node_money_limit": 10.0, "node_compute_limit": 100.0}},
-        )
-        self.assertEqual(configured.status_code, 200, configured.text)
-
-        reservation = self.budget_service.reserve_scheduler_budget(
-            job_id="job-usage-1",
-            addon_id="vision",
-            cost_units=6,
-            payload={"budget_scope": {"node_id": node_id, "money_estimate": 2.0}},
-            constraints={},
-        )
-        self.assertIsNotNone(reservation)
-
-        reported = self.client.post(
-            "/api/system/nodes/budgets/usage-report",
-            headers={"X-Node-Trust-Token": trust_token},
-            json={
-                "node_id": node_id,
-                "job_id": "job-usage-1",
-                "status": "completed",
-                "actual_money_spend": 1.5,
-                "actual_compute_spend": 4.0,
-            },
-        )
-        self.assertEqual(reported.status_code, 200, reported.text)
-        payload = reported.json()
-        self.assertEqual(payload["reservation"]["state"], "finalized")
-        self.assertEqual(payload["reservation"]["money_actual"], 1.5)
-        self.assertEqual(payload["budget"]["usage_summary"]["node"]["actual_money"], 1.5)
-
     def test_trusted_node_can_poll_budget_policy_and_report_periodic_usage_summary(self) -> None:
         node_id, trust_token = self._trusted_node()
         declared = self.client.post(
@@ -535,24 +494,15 @@ class TestNodeBudgetApi(unittest.TestCase):
         self.assertEqual(provider.status_code, 200, provider.text)
         self.assertEqual(provider.json()["allocation"]["subject_id"], "openai")
 
-        reservation = self.budget_service.reserve_scheduler_budget(
-            job_id="job-usage-2",
-            addon_id="vision",
-            cost_units=5,
-            payload={"budget_scope": {"node_id": node_id, "customer_id": "cust-x", "provider": "openai", "money_estimate": 2.0}},
-            constraints={},
-        )
-        self.assertIsNotNone(reservation)
-
         usage = self.client.get(
             f"/api/system/nodes/budgets/{node_id}/usage",
             headers={"X-Admin-Token": "test-token"},
         )
         self.assertEqual(usage.status_code, 200, usage.text)
         usage_payload = usage.json()["usage"]
-        self.assertEqual(usage_payload["usage_summary"]["node"]["reserved_money"], 2.0)
+        self.assertEqual(usage_payload["usage_summary"]["node"]["reserved_money"], 0.0)
         self.assertIsNotNone(usage_payload["next_reset_at"])
-        self.assertEqual(len(usage_payload["reservations"]), 1)
+        self.assertNotIn("reservations", usage_payload)
 
         deleted_customer = self.client.delete(
             f"/api/system/nodes/budgets/{node_id}/customers/cust-x",
@@ -578,7 +528,7 @@ class TestNodeBudgetApi(unittest.TestCase):
         self.assertIn("node_budget_provider_allocation_upserted", event_types)
         self.assertIn("node_budget_deleted", event_types)
 
-    def test_admin_can_top_up_override_force_release_and_reset_budget(self) -> None:
+    def test_admin_can_top_up_override_and_reset_budget(self) -> None:
         node_id, trust_token = self._trusted_node()
         declared = self.client.post(
             "/api/system/nodes/budgets/declaration",
@@ -611,30 +561,6 @@ class TestNodeBudgetApi(unittest.TestCase):
         self.assertEqual(override.json()["budget"]["node_budget"]["enforcement_mode"], "warn")
         self.assertTrue(override.json()["budget"]["node_budget"]["overcommit_enabled"])
 
-        self.budget_service.reserve_scheduler_budget(
-            job_id="job-manual-1",
-            addon_id="vision",
-            cost_units=5,
-            payload={"budget_scope": {"node_id": node_id, "money_estimate": 3.0, "compute_units": 10.0}},
-            constraints={},
-        )
-
-        forced = self.client.post(
-            f"/api/system/nodes/budgets/{node_id}/force-release",
-            headers={"X-Admin-Token": "test-token"},
-            json={"job_id": "job-manual-1", "reason": "operator_release"},
-        )
-        self.assertEqual(forced.status_code, 200, forced.text)
-        self.assertEqual(forced.json()["reservation"]["state"], "released")
-        self.assertEqual(forced.json()["reservation"]["release_reason"], "operator_release")
-
-        self.budget_service.reserve_scheduler_budget(
-            job_id="job-manual-2",
-            addon_id="vision",
-            cost_units=4,
-            payload={"budget_scope": {"node_id": node_id, "money_estimate": 1.0, "compute_units": 5.0}},
-            constraints={},
-        )
         reset = self.client.post(
             f"/api/system/nodes/budgets/{node_id}/reset",
             headers={"X-Admin-Token": "test-token"},
@@ -645,7 +571,6 @@ class TestNodeBudgetApi(unittest.TestCase):
         event_types = [item["event_type"] for item in self._audit_events()]
         self.assertIn("node_budget_topped_up", event_types)
         self.assertIn("node_budget_override_set", event_types)
-        self.assertIn("node_budget_reservation_force_released", event_types)
         self.assertIn("node_budget_reset", event_types)
 
     def test_admin_can_export_budget_usage_as_json_and_csv(self) -> None:
@@ -662,14 +587,6 @@ class TestNodeBudgetApi(unittest.TestCase):
             json={"node_budget": {"node_money_limit": 10.0, "node_compute_limit": 100.0}},
         )
         self.assertEqual(configured.status_code, 200, configured.text)
-        self.budget_service.reserve_scheduler_budget(
-            job_id="job-export-1",
-            addon_id="vision",
-            cost_units=6,
-            payload={"budget_scope": {"node_id": node_id, "money_estimate": 2.0}},
-            constraints={},
-        )
-
         json_export = self.client.get(
             f"/api/system/nodes/budgets/export?node_id={node_id}",
             headers={"X-Admin-Token": "test-token"},

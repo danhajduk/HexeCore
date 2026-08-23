@@ -285,7 +285,7 @@ Current implementation now supports tagging summaries with:
 
 When a delegating node reports usage against a provider-owned grant, Core attributes that usage to the grant owner node and records the reporting node in metadata.
 
-Admin usage-report reads can filter by provider and task family and now include rollups by:
+Admin usage report reads can filter by provider and task family and now include rollups by:
 
 - service
 - provider

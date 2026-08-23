@@ -12,27 +12,7 @@ def build_architecture_router() -> APIRouter:
             "target_architecture": "core-supervisor-nodes",
             "status": "foundation",
             "workload_boundary": {
-                "scheduler": {
-                    "owner_domain": "core",
-                    "role": "admission_and_orchestration",
-                    "docs_path": "docs/core/scheduler",
-                    "notes": [
-                        "Core admits work, manages queue state, and coordinates lease/orchestration decisions.",
-                        "The scheduler does not define host-local runtime ownership for execution.",
-                    ],
-                },
                 "execution_surfaces": [
-                    {
-                        "id": "workers",
-                        "owner_domain": "supervisor",
-                        "status": "compatibility_runtime_helper",
-                        "docs_path": "docs/supervisor",
-                        "current_module_paths": ["backend/app/system/worker", "backend/app/system/runtime"],
-                        "notes": [
-                            "Current worker runners execute leased work outside the Core scheduler admission loop.",
-                            "Host-local worker/process execution management is being moved behind Supervisor ownership.",
-                        ],
-                    },
                     {
                         "id": "supervisor",
                         "status": "host_runtime_authority",
@@ -52,17 +32,11 @@ def build_architecture_router() -> APIRouter:
                 ],
                 "node_execution_contract": {
                     "canonical_domain": "nodes",
-                    "docs_path": "docs/nodes/scheduled-work-execution-contract.md",
-                    "routes": [
-                        "/api/system/scheduler/leases/request",
-                        "/api/system/scheduler/leases/{lease_id}/heartbeat",
-                        "/api/system/scheduler/leases/{lease_id}/report",
-                        "/api/system/scheduler/leases/{lease_id}/complete",
-                        "/api/system/scheduler/leases/{lease_id}/revoke",
-                    ],
+                    "docs_path": "docs/nodes",
+                    "routes": [],
                     "notes": [
-                        "The current scheduled-work execution contract reuses the existing scheduler lease protocol.",
-                        "Nodes and other execution clients claim work, heartbeat leases, report progress, and complete or fail leased jobs through the same Core-owned scheduler APIs.",
+                        "Core does not own a job queue or lease execution API.",
+                        "External functionality should execute inside trusted nodes or Supervisor-owned host runtimes.",
                     ],
                 },
             },

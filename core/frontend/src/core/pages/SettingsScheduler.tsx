@@ -179,7 +179,7 @@ export default function SettingsScheduler() {
       <section className="settings-section">
         <div className="settings-section-head">
           <h2>Scheduled Tasks</h2>
-          <p>Scheduler-driven background jobs with current cadence and latest execution state.</p>
+          <p>Core-owned recurring maintenance tasks with current cadence and latest execution state.</p>
         </div>
         <div className="settings-card">
           <div className="settings-row">

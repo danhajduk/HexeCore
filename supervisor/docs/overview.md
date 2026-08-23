@@ -15,7 +15,7 @@ Core is the control plane. It currently owns:
 - API hosting
 - operator UI hosting
 - embedded addon lifecycle authority
-- scheduler orchestration and workload admission
+- internal maintenance scheduling
 - MQTT authority and messaging policy
 - trusted-node trust, governance, and telemetry authority
 

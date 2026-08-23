@@ -20,7 +20,7 @@ Core is currently implemented across:
 - API hosting
 - operator UI hosting
 - embedded addon lifecycle authority
-- scheduler orchestration and workload admission
+- internal maintenance scheduling
 - MQTT authority and messaging policy
 - trusted-node trust, governance, and telemetry authority
 - production operator UI hosting
@@ -36,15 +36,13 @@ Core is currently implemented across:
 
 - [./api/README.md](./api/README.md)
 - [./frontend/README.md](./frontend/README.md)
-- [./scheduler/README.md](./scheduler/README.md)
 - [./node-budget-assignment-flow.md](./node-budget-assignment-flow.md)
-- [../workers/README.md](../workers/README.md)
 - [../addons/README.md](../addons/README.md)
 - [../mqtt/README.md](../mqtt/README.md)
 
 ## Migration Structure
 
-The folders `docs/core/api/`, `docs/core/frontend/`, and `docs/core/scheduler/` now hold the re-homed Core API, frontend, and scheduler docs.
+The folders `docs/core/api/` and `docs/core/frontend/` hold the re-homed Core API and frontend docs.
 
 ## Workload Rule
 
