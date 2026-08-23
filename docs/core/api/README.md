@@ -11,6 +11,7 @@ This folder is the canonical home for Hexe Core API and backend control-plane do
 - [data-and-state.md](./data-and-state.md)
 - [node-ui-card-response-contracts.md](./node-ui-card-response-contracts.md)
 - [node-ui-manifest-contract.md](./node-ui-manifest-contract.md)
+- [router-ownership.md](./router-ownership.md)
 - [telemetry-and-usage.md](./telemetry-and-usage.md)
 
 ## Status

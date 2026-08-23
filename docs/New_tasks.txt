@@ -47,10 +47,9 @@ Standards reference:
 
 Do not edit above this line:
 #######################################################################
-[STOP HERE]
-[TODO] Task 955: Split the Core node/system API router into domain routers
 [TODO] Task 956: Split the MQTT router into runtime, admin, debug, grants, and principals routers
 [TODO] Task 957: Split the store router into catalog, sources, install, lifecycle, status, and audit routers
+[STOP HERE]
 [TODO] Task 958: Add Core/Supervisor mirror drift guard
 [TODO] Task 959: Centralize Core environment/configuration registry and documentation
 [TODO] Task 960: Move tracked store source runtime defaults out of live var
