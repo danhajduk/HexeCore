@@ -21,6 +21,14 @@ Primary checks:
 - `GET /api/system/mqtt/runtime/health`
 - `GET /api/system-stats/health`
 
+Repository health check from the Core checkout:
+
+```bash
+python tools/check_repo_health.py
+```
+
+This verifies Core/Supervisor mirror drift, environment docs, OpenAPI snapshot drift, and targeted backend guard tests without requiring other nodes.
+
 ## 3) Recovery Basics
 
 Status: Implemented

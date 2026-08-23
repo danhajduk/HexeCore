@@ -48,7 +48,6 @@ Standards reference:
 Do not edit above this line:
 #######################################################################
 
-[TODO] Task 968: Add a single Core/Supervisor repo health entrypoint
 [TODO] Task 969: Add an ignored-artifact report or cleanup helper for Core/Supervisor worktrees
 [STOP HERE]
 [TODO] Task 970: Persist Core Services and Aux Runtimes telemetry fields

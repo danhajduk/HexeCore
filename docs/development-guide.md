@@ -34,6 +34,18 @@ Status: Implemented
 - Validate runtime/state claims from active service/store modules and schema files.
 - Run `python3 scripts/validate_hexe_branding.py` before branding-sensitive changes. Any old-brand reference in active code or docs must either be removed or listed in the validator with a compatibility reason and path scope.
 
+## Repo Health
+
+Status: Implemented
+
+Run the Core/Supervisor health entrypoint from the repository root before or after guardrail-sensitive changes:
+
+```bash
+python tools/check_repo_health.py
+```
+
+The command runs mirror drift, environment registry, OpenAPI snapshot checks, and targeted Core/Supervisor backend guard tests. Use `--skip-backend-tests` only when you need a quick guard-script check.
+
 ## Documentation Maintenance Note
 
 Status: Implemented
