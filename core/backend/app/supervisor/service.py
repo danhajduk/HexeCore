@@ -1070,6 +1070,15 @@ class SupervisorDomainService:
             ),
         }
 
+    def resource_history_status(self) -> dict[str, Any]:
+        return self._resource_history_store.status()
+
+    def maintain_resource_history(self, *, action: str = "compact") -> dict[str, Any]:
+        try:
+            return self._resource_history_store.maintain(action=action)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     def runtime_resource_history(self, node_id: str, *, range_value: str = "24h", step_value: str | None = "60s") -> dict[str, Any]:
         clean_node_id = str(node_id or "").strip()
         if not clean_node_id:

@@ -46,6 +46,12 @@ Core talks to a remote Supervisor over the following environment-backed client s
 - `HEXE_SUPERVISOR_RESOURCE_HISTORY_PRUNE_INTERVAL`: Optional duration between history retention pruning passes. Supports `s`, `m`, `h`, and `d` suffixes. Default: `5m`.
 - `HEXE_SUPERVISOR_RESOURCE_HISTORY_PRUNE_INTERVAL_SECONDS`: Legacy numeric override for the prune interval when the duration form is unset.
 
+Resource history maintenance:
+
+- `GET /api/supervisor/resources/history/maintenance` reports the SQLite path, DB/WAL/SHM sizes, row counts, retention, prune interval, free pages, and oldest/newest sample/event timestamps.
+- `POST /api/supervisor/resources/history/maintenance` accepts `{"action":"prune"}`, `{"action":"checkpoint"}`, `{"action":"vacuum"}`, or `{"action":"compact"}`. `compact` is the normal operator action after a large history backlog: it applies retention pruning, truncates the WAL, and vacuums the DB while keeping the Supervisor process online.
+- Use `checkpoint` when the WAL file is large but table counts are expected, `vacuum` after large deletes when free pages remain high, and `compact` when high Supervisor history latency was caused by an oversized `supervisor_resource_history.sqlite3`.
+
 ## Notes
 
 - The Unix socket path is consistent across hosts to keep local Supervisor access predictable.

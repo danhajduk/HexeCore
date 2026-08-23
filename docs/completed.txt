@@ -1,2 +1,3 @@
 Task 954: Consolidate Core and Supervisor docs into root docs - Completed on 08/22/2026 18:33
 Task 963: Reduce Supervisor resource history latency and polling load - Completed on 08/22/2026 18:42
+Task 964: Add Supervisor resource history maintenance controls - Completed on 08/22/2026 18:50

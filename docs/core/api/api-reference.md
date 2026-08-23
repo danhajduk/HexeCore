@@ -95,6 +95,8 @@ Status: Implemented
   - `GET /api/nodes/{node_id}`
   - `GET /api/nodes/{node_id}/ui-manifest` (admin session/token required; Core fetches `GET /api/node/ui-manifest` from trusted nodes, validates it, and returns an operator-readable fetch state)
 - Supervisor fleet:
+  - `GET /api/supervisor/resources/history/maintenance` (local Supervisor resource history storage status, including DB path, size, counts, retention, and prune interval)
+  - `POST /api/supervisor/resources/history/maintenance` (local Supervisor resource history maintenance; JSON body `{"action":"prune|checkpoint|vacuum|compact"}`)
   - `GET /api/system/supervisor/resources/history` (admin session/token required; local configured Supervisor host resource history)
   - `GET /api/system/supervisor/runtimes/{node_id}/resources/history` (admin session/token required; local configured Supervisor runtime resource history)
   - `GET /api/system/supervisors` (admin session/token required)
