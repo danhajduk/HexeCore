@@ -306,6 +306,39 @@ class TestSupervisorFleetApi(unittest.TestCase):
         self.assertEqual(listed.json()["items"][0]["visibility_state"], "active")
         self.assertEqual(listed.json()["hidden_historical_count"], 0)
 
+    def test_list_hides_superseded_old_local_supervisor_records(self) -> None:
+        headers = {"X-Admin-Token": "test-token"}
+        old_seen = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+        current_seen = datetime.now(timezone.utc).isoformat()
+        for supervisor_id, seen in [("Hexe", old_seen), ("hxe-supervisor", current_seen)]:
+            created = self.client.post(
+                "/api/system/supervisors/register",
+                headers=headers,
+                json={
+                    "supervisor_id": supervisor_id,
+                    "host_id": "Hexe",
+                    "hostname": "Hexe",
+                    "transport": "local",
+                    "metadata": {"attached_to_core": True},
+                },
+            )
+            self.assertEqual(created.status_code, 200, created.text)
+            record = self.store.get(supervisor_id)
+            self.assertIsNotNone(record)
+            record.last_seen_at = seen
+            record.updated_at = seen
+        self.store._save()
+
+        listed = self.client.get("/api/system/supervisors", headers=headers)
+        listed_with_history = self.client.get("/api/system/supervisors?include_historical=true", headers=headers)
+
+        self.assertEqual(listed.status_code, 200, listed.text)
+        self.assertEqual([item["supervisor_id"] for item in listed.json()["items"]], ["hxe-supervisor"])
+        self.assertEqual(listed.json()["hidden_historical_count"], 1)
+        items_by_id = {item["supervisor_id"]: item for item in listed_with_history.json()["items"]}
+        self.assertEqual(items_by_id["Hexe"]["visibility_state"], "historical")
+        self.assertEqual(items_by_id["hxe-supervisor"]["visibility_state"], "active")
+
     def test_local_supervisor_history_uses_configured_client(self) -> None:
         app = FastAPI()
         supervisor_client = _FakeSupervisorClient()

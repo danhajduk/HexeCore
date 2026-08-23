@@ -219,8 +219,41 @@ def _record_age_anchor(record: "SupervisorFleetRecord") -> datetime | None:
     return _parse_iso(record.last_seen_at) or _parse_iso(record.updated_at) or _parse_iso(record.first_seen_at)
 
 
-def _is_historical_supervisor_record(record: "SupervisorFleetRecord") -> bool:
-    if _is_local_supervisor_record(record):
+def _local_supervisor_host_key(record: "SupervisorFleetRecord") -> str:
+    return (_clean_text(record.hostname) or _clean_text(record.host_id)).lower()
+
+
+def _is_superseded_local_supervisor_record(record: "SupervisorFleetRecord", records: list["SupervisorFleetRecord"] | None) -> bool:
+    if not records or not _is_local_supervisor_record(record):
+        return False
+    if _freshness_state(record.last_seen_at) != "offline":
+        return False
+    host_key = _local_supervisor_host_key(record)
+    if not host_key:
+        return False
+    anchor = _record_age_anchor(record)
+    if anchor is None:
+        return False
+    for other in records:
+        if other.supervisor_id == record.supervisor_id:
+            continue
+        if not _is_local_supervisor_record(other):
+            continue
+        if _local_supervisor_host_key(other) != host_key:
+            continue
+        if _freshness_state(other.last_seen_at) in {"offline", "error"}:
+            continue
+        other_anchor = _record_age_anchor(other)
+        if other_anchor is not None and other_anchor > anchor:
+            return True
+    return False
+
+
+def _is_historical_supervisor_record(
+    record: "SupervisorFleetRecord",
+    records: list["SupervisorFleetRecord"] | None = None,
+) -> bool:
+    if _is_local_supervisor_record(record) and not _is_superseded_local_supervisor_record(record, records):
         return False
     if _freshness_state(record.last_seen_at) != "offline":
         return False
@@ -347,11 +380,11 @@ class SupervisorFleetRecord:
             "reporting_token_hash": self.reporting_token_hash,
         }
 
-    def to_api_dict(self) -> dict[str, Any]:
+    def to_api_dict(self, *, visibility_state: str | None = None) -> dict[str, Any]:
         payload = self.to_dict()
         payload.pop("reporting_token_hash", None)
         payload["freshness_state"] = _freshness_state(self.last_seen_at)
-        payload["visibility_state"] = "historical" if _is_historical_supervisor_record(self) else "active"
+        payload["visibility_state"] = visibility_state or ("historical" if _is_historical_supervisor_record(self) else "active")
         return payload
 
 
@@ -460,10 +493,17 @@ class SupervisorFleetStore:
         records = sorted(self._records.values(), key=self._list_sort_key)
         if include_historical:
             return records
-        return [record for record in records if not _is_historical_supervisor_record(record)]
+        return [record for record in records if not self.is_historical(record)]
 
     def historical_count(self) -> int:
-        return sum(1 for record in self._records.values() if _is_historical_supervisor_record(record))
+        return sum(1 for record in self._records.values() if self.is_historical(record))
+
+    def is_historical(self, record: SupervisorFleetRecord) -> bool:
+        return _is_historical_supervisor_record(record, records=list(self._records.values()))
+
+    def api_dict(self, record: SupervisorFleetRecord) -> dict[str, Any]:
+        visibility_state = "historical" if self.is_historical(record) else "active"
+        return record.to_api_dict(visibility_state=visibility_state)
 
     @staticmethod
     def _list_sort_key(record: SupervisorFleetRecord) -> tuple[int, str]:
@@ -834,7 +874,7 @@ def build_supervisors_router(
         require_admin_token(x_admin_token, request)
         sync_local_supervisor(request)
         return {
-            "items": [record.to_api_dict() for record in registry.list(include_historical=include_historical)],
+            "items": [registry.api_dict(record) for record in registry.list(include_historical=include_historical)],
             "hidden_historical_count": 0 if include_historical else registry.historical_count(),
         }
 
@@ -868,7 +908,7 @@ def build_supervisors_router(
         record = registry.set_reporting_token(record.supervisor_id, reporting_token)
         return {
             "ok": True,
-            "supervisor": record.to_api_dict(),
+            "supervisor": registry.api_dict(record),
             "reporting_token": reporting_token,
             "token_type": "supervisor-reporting",
         }
@@ -884,7 +924,7 @@ def build_supervisors_router(
         record = registry.get(supervisor_id)
         if record is None:
             raise HTTPException(status_code=404, detail="supervisor_not_found")
-        return {"supervisor": record.to_api_dict()}
+        return {"supervisor": registry.api_dict(record)}
 
     @router.get("/supervisors/{supervisor_id}/resources/history")
     def get_supervisor_resource_history(
@@ -965,7 +1005,7 @@ def build_supervisors_router(
             x_supervisor_token=x_supervisor_token,
         )
         record = registry.register(body)
-        return {"ok": True, "supervisor": record.to_api_dict()}
+        return {"ok": True, "supervisor": registry.api_dict(record)}
 
     @router.post("/supervisors/heartbeat")
     def heartbeat_supervisor(
@@ -981,7 +1021,7 @@ def build_supervisors_router(
             x_supervisor_token=x_supervisor_token,
         )
         record = registry.heartbeat(body)
-        return {"ok": True, "supervisor": record.to_api_dict()}
+        return {"ok": True, "supervisor": registry.api_dict(record)}
 
     @router.post("/supervisors/local/core-runtimes")
     def report_local_core_runtimes(
@@ -997,7 +1037,7 @@ def build_supervisors_router(
             x_supervisor_token=x_supervisor_token,
         )
         record = registry.update_core_runtimes(body.supervisor_id, body.core_runtimes)
-        return {"ok": True, "supervisor": record.to_api_dict()}
+        return {"ok": True, "supervisor": registry.api_dict(record)}
 
     @router.delete("/supervisors/{supervisor_id}")
     def delete_supervisor(
