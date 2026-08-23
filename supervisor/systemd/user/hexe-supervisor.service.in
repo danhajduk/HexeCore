@@ -9,6 +9,9 @@ WorkingDirectory=@INSTALL_DIR@/backend
 Environment=HEXE_ADDONS_DIR=%h/Projects/HexeAddons
 Environment=HEXE_CATALOG_PUBLISHERS=@INSTALL_DIR@/runtime/store/cache/official/publishers.json
 Environment=HEXE_SUPERVISOR_INTERVAL_S=5
+Environment=HEXE_CLOUDFLARED_PROVIDER=binary
+Environment=HEXE_CLOUDFLARED_BINARY=@INSTALL_DIR@/.runtime/bin/cloudflared
+Environment=PATH=@INSTALL_DIR@/.runtime/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Environment=PYTHONUNBUFFERED=1
 
 ExecStart=@INSTALL_DIR@/backend/.venv/bin/python -m hexe_supervisor.main

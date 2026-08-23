@@ -1610,8 +1610,15 @@ class SupervisorDomainService:
     def _docker_available(self) -> bool:
         return shutil.which("docker") is not None
 
+    def _cloudflared_binary_path(self) -> str | None:
+        configured = str(getenv("HEXE_CLOUDFLARED_BINARY", "") or "").strip()
+        if configured:
+            path = Path(configured).expanduser()
+            return str(path) if path.is_file() and os.access(path, os.X_OK) else None
+        return shutil.which("cloudflared")
+
     def _cloudflared_binary_available(self) -> bool:
-        return shutil.which("cloudflared") is not None
+        return self._cloudflared_binary_path() is not None
 
     def _write_runtime_payload(self, payload: dict[str, Any]) -> None:
         runtime_path = self._cloudflared_runtime_root() / "runtime.json"
@@ -1807,13 +1814,14 @@ class SupervisorDomainService:
                     }
                 )
             else:
-                if not self._cloudflared_binary_available():
+                binary_path = self._cloudflared_binary_path()
+                if not binary_path:
                     raise RuntimeError("cloudflared_binary_not_found")
                 log_path = self._cloudflared_log_path()
                 log_path.touch(mode=0o600, exist_ok=True)
                 with log_path.open("ab") as handle:
                     proc = subprocess.Popen(
-                        ["cloudflared", "tunnel", "--no-autoupdate", "run", "--token", tunnel_token],
+                        [binary_path, "tunnel", "--no-autoupdate", "run", "--token", tunnel_token],
                         stdout=handle,
                         stderr=subprocess.STDOUT,
                         start_new_session=True,

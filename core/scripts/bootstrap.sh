@@ -70,6 +70,7 @@ ensure_deps() {
   need_cmd node || missing+=("nodejs")
   need_cmd npm || missing+=("npm")
   need_cmd systemctl || missing+=("systemd")
+  need_cmd curl || missing+=("curl")
 
   python3 -c "import venv" >/dev/null 2>&1 || missing+=("python3-venv")
   need_cmd pip3 || missing+=("python3-pip")
@@ -136,6 +137,13 @@ deactivate
 
 echo "[bootstrap] Production frontend build"
 "$INSTALL_DIR/scripts/build-frontend.sh"
+
+if [[ "${HEXE_SKIP_CLOUDFLARED_NATIVE_INSTALL:-0}" != "1" ]]; then
+  echo "[bootstrap] Repo-local Cloudflared native binary"
+  "$INSTALL_DIR/scripts/install-cloudflared-native.sh"
+else
+  echo "[bootstrap] Skipping Cloudflared native binary install"
+fi
 
 echo "[bootstrap] Ensure update script exists + executable"
 if [[ ! -f "$INSTALL_DIR/scripts/update.sh" ]]; then

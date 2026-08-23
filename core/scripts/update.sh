@@ -77,6 +77,15 @@ deactivate
 echo "[update] production frontend build"
 "$REPO_DIR/scripts/build-frontend.sh"
 
+if [[ "${HEXE_SKIP_CLOUDFLARED_NATIVE_INSTALL:-0}" == "1" ]]; then
+  echo "[update] Skipping Cloudflared native binary install"
+elif [[ ! -x "$REPO_DIR/.runtime/bin/cloudflared" || "${HEXE_UPDATE_CLOUDFLARED_NATIVE:-0}" == "1" ]]; then
+  echo "[update] Repo-local Cloudflared native binary"
+  "$REPO_DIR/scripts/install-cloudflared-native.sh"
+else
+  echo "[update] Repo-local Cloudflared native binary already installed"
+fi
+
 if [[ "$SERVICE_UPDATE" == "true" ]]; then
   echo "[update] reinstalling systemd user units"
   UNIT_SRC_DIR="$REPO_DIR/systemd/user"

@@ -117,6 +117,43 @@ class TestSupervisorServiceLifecycle(unittest.TestCase):
                 self.assertIn("--network host", docker_run)
                 self.assertIn("cloudflare/cloudflared:latest", docker_run)
 
+    def test_apply_cloudflared_config_starts_repo_local_binary_runtime(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            binary = Path(tmpdir) / ".runtime" / "bin" / "cloudflared"
+            binary.parent.mkdir(parents=True)
+            binary.write_text("#!/bin/sh\n", encoding="utf-8")
+            binary.chmod(0o755)
+            with patch.dict(
+                os.environ,
+                {
+                    "HEXE_EDGE_RUNTIME_DIR": tmpdir,
+                    "HEXE_CLOUDFLARED_PROVIDER": "binary",
+                    "HEXE_CLOUDFLARED_BINARY": str(binary),
+                },
+                clear=False,
+            ):
+                service = SupervisorDomainService(self._runtime_service(Path(tmpdir) / "services"))
+                proc = type("Proc", (), {"pid": 12345})()
+                with patch.object(service, "_remove_cloudflared_container", return_value=None), patch(
+                    "app.supervisor.service.subprocess.Popen", return_value=proc
+                ) as popen_mock, patch("app.supervisor.service.os.kill", return_value=None):
+                    result = service.apply_cloudflared_config(
+                        {
+                            "tunnel": "tunnel-123",
+                            "tunnel-token": "token-123",
+                            "desired_enabled": True,
+                        }
+                    )
+                    runtime = service.get_runtime_state("cloudflared")
+                self.assertTrue(result["ok"])
+                self.assertEqual(result["runtime_state"], "running")
+                self.assertEqual(runtime["provider"], "binary")
+                self.assertEqual(runtime["state"], "running")
+                self.assertEqual(runtime["pid"], 12345)
+                args = popen_mock.call_args.args[0]
+                self.assertEqual(args[0], str(binary))
+                self.assertEqual(args[1:4], ["tunnel", "--no-autoupdate", "run"])
+
     def test_apply_cloudflared_config_disabled_provider_keeps_runtime_off(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             with patch.dict(

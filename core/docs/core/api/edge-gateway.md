@@ -123,10 +123,14 @@ Settings notes:
 
 Runtime notes:
 
-- Supervisor defaults to `HEXE_CLOUDFLARED_PROVIDER=auto`
-- `auto` prefers Docker and falls back to a native `cloudflared` binary if available
+- Supervisor systemd units default to `HEXE_CLOUDFLARED_PROVIDER=binary`
+- repo-local native installs place `cloudflared` at `.runtime/bin/cloudflared`
+- `HEXE_CLOUDFLARED_BINARY` can point Supervisor at an explicit executable
+- `auto` is still supported; it prefers Docker and falls back to a native `cloudflared` binary if available
 - tests and non-runtime environments can set `HEXE_CLOUDFLARED_PROVIDER=disabled`
 - the Docker runtime uses host networking so the tunnel can reach Core services at `127.0.0.1`
+- run `scripts/install-cloudflared-native.sh` to install or refresh the repo-local binary
+- set `HEXE_CLOUDFLARED_PROVIDER=docker` in the Supervisor environment and reprovision to roll back to Docker
 
 ## Status And Observability
 
