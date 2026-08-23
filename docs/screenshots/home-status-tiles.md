@@ -1,12 +1,12 @@
 # Home Status Tiles Screenshot Reference
 
-Status: Reference
+Status: Historical reference
 Last updated: 2026-03-11
 
 Capture target:
 
 - Home dashboard status tile row in Core UI after task 476-480 changes.
-- Include all nine tiles:
+- Historical capture expected nine tiles:
   - Core
   - Supervisor
   - MQTT
@@ -27,3 +27,5 @@ Expected visual contract:
 Suggested filename for captured artifact (if exported):
 
 - `home-status-tiles-2026-03-11.png`
+
+Current active UI contracts live in [Frontend and UI](../core/frontend/frontend-and-ui.md).

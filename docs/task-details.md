@@ -282,7 +282,7 @@ Scope and boundaries:
 
 - Work in the Core repository only.
 - Do not implement node-side repository changes from this queue.
-- Preserve node-side requirements under `docs/nodes/ui-mogration/`.
+- Preserve node-side requirements under `docs/nodes/ui-migration/`.
 - Existing node-hosted operational UIs must remain usable until Core-rendered UI reaches feature parity.
 - Use existing Core conventions for backend, frontend, scripts, systemd units, tests, and docs.
 - Make minimal, production-ready changes in small reviewable units.
@@ -291,8 +291,8 @@ Scope and boundaries:
 Reference docs and code to inspect before implementation:
 
 - `docs/nodes/future-dev/core-rendered-node-ui-migration.md`
-- `docs/nodes/ui-mogration/README.md`
-- `docs/nodes/ui-mogration/node-requirements.md`
+- `docs/nodes/ui-migration/README.md`
+- `docs/nodes/ui-migration/node-requirements.md`
 - `docs/core/frontend/frontend-and-ui.md`
 - `docs/core/frontend/proxied-ui-contract.md`
 - `docs/core/api/proxied-ui-metadata.md`
@@ -328,7 +328,7 @@ Preserved task details:
 - Task 944 builds Core-controlled action execution for manifest-declared node actions. It must support method, endpoint, request metadata, confirmation metadata, success state, error state, and audit logging. Node endpoints remain authoritative for authorization and validation, and destructive or sensitive actions require confirmation metadata.
 - Task 945 adds a static Voice-like or Email-like pilot fixture with overview, health, warnings, runtime, one domain page, one action, and one refresh policy. Completion requires integration tests for manifest fetch, validation, rendering, card data loading, refresh, and action execution using fake node endpoints, without requiring a real node repository.
 - Task 946 adds a feature gate for Core-rendered node UI and a fallback path to the current proxied node UI. Completion requires operators to opt into Core-rendered node UI per environment or node and disabling the feature to return operators to the existing proxied UI path.
-- Task 947 updates verified docs after implementation only. It must update Core frontend/API docs and node migration handoff docs to reflect implemented behavior, link canonical Core contracts from `docs/nodes/ui-mogration/node-requirements.md`, and avoid documenting planned behavior as implemented.
+- Task 947 updates verified docs after implementation only. It must update Core frontend/API docs and node migration handoff docs to reflect implemented behavior, link canonical Core contracts from `docs/nodes/ui-migration/node-requirements.md`, and avoid documenting planned behavior as implemented.
 
 Definition of done preserved from the original planning block:
 
@@ -424,7 +424,7 @@ Original task details:
 - Goal: Reduce documentation drift now that Core no longer handles jobs.
 - Scope: Classify active docs, archive docs, migration notes, temp AI-node docs, future-dev docs, and screenshots.
 - Scope: Move or clearly mark stale scheduler/job/worker material that remains only as historical context.
-- Scope: Fix obvious typos in active doc paths and headings, including `ui-mogration` if still active.
+- Scope: Fix obvious typos in active doc paths and headings, including `ui-migration` if still active.
 - Acceptance: Active docs no longer imply Core owns job queueing, job leasing, worker execution, or scheduler orchestration.
 - Acceptance: Historical docs are clearly separated from active source-of-truth docs.
 - Acceptance: Documentation index pages route readers to current Core, Supervisor, MQTT, Node, and Addon contracts.

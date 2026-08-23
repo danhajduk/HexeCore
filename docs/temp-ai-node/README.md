@@ -4,10 +4,10 @@ This folder is the temporary home for AI-node-specific documentation that is nar
 
 ## Status
 
-Status: Partially implemented
+Status: Reference
 
 - The general trusted-node model remains documented under `docs/nodes/`.
-- AI-node-specific compatibility views, migration notes, and mismatch reports now live here while the wider node model is consolidated.
+- AI-node-specific compatibility views, migration notes, and mismatch reports live here as reference context while the wider node model is consolidated.
 - Canonical onboarding, registration, trust activation, and capability activation terminology now lives under `docs/nodes/`.
 
 ## Included Docs

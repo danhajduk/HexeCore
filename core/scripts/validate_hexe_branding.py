@@ -135,6 +135,7 @@ ALLOWED_LEGACY_REFERENCES = [
         "External repository names remain until those upstream repositories are renamed or replaced.",
         (
             path_pattern(r"^backend/app/store/sources\.py$"),
+            path_pattern(r"^backend/app/store/default_sources\.json$"),
             path_pattern(r"^docs/standards/"),
         ),
     ),

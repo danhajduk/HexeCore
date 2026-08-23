@@ -249,4 +249,4 @@ Provider cards should keep the card body compact. Use `facts` and `quotas` for s
 
 - [Core-Owned Node UI Manifest Contract](./node-ui-manifest-contract.md)
 - [Frontend and UI](../frontend/frontend-and-ui.md)
-- [Node Requirements For Core-Rendered UI](../../nodes/ui-mogration/node-requirements.md)
+- [Node Requirements For Core-Rendered UI](../../nodes/ui-migration/node-requirements.md)

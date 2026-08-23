@@ -46,6 +46,7 @@ The folders `docs/core/api/` and `docs/core/frontend/` hold the re-homed Core AP
 
 ## Workload Rule
 
-- Keep scheduler ownership in Core for admission, policy, and orchestration.
-- Do not describe Core as the long-term execution runtime boundary when the behavior is actually worker-, Supervisor-, or Node-side.
+- Keep internal recurring maintenance scheduling in Core.
+- Do not describe Core as owning job queueing, job leasing, worker execution, or per-job usage-report APIs.
+- Do not describe Core as the long-term execution runtime boundary when the behavior is actually Supervisor- or Node-side.
 - Treat host-local worker/process execution management as Supervisor-owned, even when compatibility helpers still live in Core-era module paths.

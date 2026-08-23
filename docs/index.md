@@ -9,6 +9,7 @@ Compatibility note: public-facing docs now use Hexe AI / Hexe Core naming, and a
 - [../README.md](../README.md)
 - [overview.md](./overview.md)
 - [architecture.md](./architecture.md)
+- [documentation-map.md](./documentation-map.md)
 
 ## Domain Entry Points
 

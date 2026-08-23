@@ -58,7 +58,7 @@ Current top-level routes:
 Operator UI
   |
 Core
-  |- API, scheduler, MQTT, addons, trust, governance
+  |- API, internal maintenance scheduler, MQTT, addons, trust, governance
   |- Supervisor handoff and runtime visibility
   \- Node orchestration authority
 
@@ -78,8 +78,8 @@ Nodes
 
 ## Workload Boundary
 
-- Core scheduler logic admits and orchestrates work.
-- Execution currently happens through leased worker/runtime clients outside the Core admission loop where implemented.
+- Core owns internal recurring maintenance scheduling and policy/control-plane surfaces.
+- Core does not own job queueing, job leasing, worker execution, or per-job usage-report APIs.
 - Supervisor now provides host/runtime admission context back into Core scheduling.
 - Supervisor and Nodes are the target runtime boundaries for host-local and external execution.
 

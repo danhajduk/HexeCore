@@ -312,4 +312,4 @@ Legacy per-surface manifest:
 
 - [Frontend and UI](../frontend/frontend-and-ui.md)
 - [Proxied UI Contract](../frontend/proxied-ui-contract.md)
-- [Node Requirements For Core-Rendered UI](../../nodes/ui-mogration/node-requirements.md)
+- [Node Requirements For Core-Rendered UI](../../nodes/ui-migration/node-requirements.md)

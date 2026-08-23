@@ -29,7 +29,7 @@ Status: Implemented
 
 - Public route: `/`.
 - Onboarding approval route: `/onboarding/nodes/approve?sid=...&state=...` (login-gated within page flow).
-- Admin-gated routes: `/store`, `/addons`, `/settings`, `/settings/jobs`, `/settings/metrics`, `/settings/statistics`, and addon routes.
+- Admin-gated routes: `/store`, `/addons`, `/settings`, `/settings/scheduler`, `/settings/supervisor`, and addon routes.
 - Node routes: `/nodes/:nodeId` for registry details, `/nodes/:nodeId/UI` for the Core-proxied node UI iframe when the node registration exposes `ui_enabled=true` and a canonical `ui_base_url`, and `/nodes/:nodeId/rendered-ui` for the manifest-advertised Core-rendered node UI shell.
 - Addon frame routes: `/addons/:addonId` and `/addons/:addonId/:section`.
 - Canonical backend proxy paths:
@@ -84,12 +84,10 @@ Status: Implemented
   - `Core` -> `Cpu`
   - `Supervisor` -> `ShieldCheck`
   - `MQTT` -> `Waypoints`
-  - `Scheduler` -> `Clock3`
-  - `Workers` -> `Cog`
   - `Addons` -> `Puzzle`
   - `Network` -> `Network`
   - `Internet` -> `Globe`
-  - `AI Node` -> `BrainCircuit`
+  - `Nodes` -> `BrainCircuit`
 - Tile contract:
   - width `96px`
   - height `72px`

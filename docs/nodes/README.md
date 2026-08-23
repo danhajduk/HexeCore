@@ -59,7 +59,7 @@ Compatibility note: Hexe Nodes is the current display label, and active MQTT nam
 - Nodes now expose a canonical capability taxonomy with stable categories for task families, provider access, and provider models.
 - Capability activation semantics are standardized through taxonomy stages from `not_declared` through `operational`.
 
-## Included Docs
+## Active Node Contracts
 
 - [json/README.md](./json/README.md)
 - [capability-taxonomy.md](./capability-taxonomy.md)
@@ -70,12 +70,15 @@ Compatibility note: Hexe Nodes is the current display label, and active MQTT nam
 - [node-notification-mqtt-contract.md](./node-notification-mqtt-contract.md)
 - [node-phase2-lifecycle-contract.md](./node-phase2-lifecycle-contract.md)
 - [node-lifecycle.md](./node-lifecycle.md)
-- [ui-mogration/node-requirements.md](./ui-mogration/node-requirements.md)
-- [future-dev/core-rendered-node-ui-migration.md](./future-dev/core-rendered-node-ui-migration.md)
+- [ui-migration/node-requirements.md](./ui-migration/node-requirements.md)
+
+## Planning And Reference
+
+- [future-dev/core-rendered-node-ui-migration.md](./future-dev/core-rendered-node-ui-migration.md) - future planning and migration detail
+- [../temp-ai-node/README.md](../temp-ai-node/README.md) - temporary AI-node mapping and historical gap reports
 
 ## See Also
 
 - [../architecture.md](../architecture.md)
 - [../core/api/api-reference.md](../core/api/api-reference.md)
 - [../mqtt/README.md](../mqtt/README.md)
-- [../temp-ai-node/README.md](../temp-ai-node/README.md)
