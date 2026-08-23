@@ -1,0 +1,833 @@
+{
+  "path_count": 244,
+  "paths": {
+    "/addons/proxy/{addon_id}": [
+      "get",
+      "head"
+    ],
+    "/addons/proxy/{addon_id}/": [
+      "get",
+      "head"
+    ],
+    "/addons/proxy/{addon_id}/{path}": [
+      "get",
+      "head"
+    ],
+    "/api/addons": [
+      "get"
+    ],
+    "/api/addons/errors": [
+      "get"
+    ],
+    "/api/addons/install/start": [
+      "post"
+    ],
+    "/api/addons/install/{session_id}": [
+      "get"
+    ],
+    "/api/addons/install/{session_id}/configure": [
+      "post"
+    ],
+    "/api/addons/install/{session_id}/deployment/select": [
+      "post"
+    ],
+    "/api/addons/install/{session_id}/permissions/approve": [
+      "post"
+    ],
+    "/api/addons/install/{session_id}/verify": [
+      "post"
+    ],
+    "/api/addons/mqtt": [
+      "get"
+    ],
+    "/api/addons/mqtt/api/addon/capabilities": [
+      "get"
+    ],
+    "/api/addons/mqtt/api/addon/config": [
+      "post"
+    ],
+    "/api/addons/mqtt/api/addon/config/effective": [
+      "get"
+    ],
+    "/api/addons/mqtt/api/addon/health": [
+      "get"
+    ],
+    "/api/addons/mqtt/api/addon/meta": [
+      "get"
+    ],
+    "/api/addons/mqtt/topics": [
+      "get"
+    ],
+    "/api/addons/mqtt/users": [
+      "get"
+    ],
+    "/api/addons/mqtt/{path}": [
+      "get"
+    ],
+    "/api/addons/registry": [
+      "get"
+    ],
+    "/api/addons/registry/{addon_id}": [
+      "get"
+    ],
+    "/api/addons/registry/{addon_id}/configure": [
+      "post"
+    ],
+    "/api/addons/registry/{addon_id}/register": [
+      "post"
+    ],
+    "/api/addons/registry/{addon_id}/verify": [
+      "post"
+    ],
+    "/api/addons/{addon_id}": [
+      "delete",
+      "get",
+      "head",
+      "options",
+      "patch",
+      "post",
+      "put"
+    ],
+    "/api/addons/{addon_id}/enable": [
+      "post"
+    ],
+    "/api/addons/{addon_id}/{path}": [
+      "delete",
+      "get",
+      "head",
+      "options",
+      "patch",
+      "post",
+      "put"
+    ],
+    "/api/admin/addons/registry": [
+      "get",
+      "post"
+    ],
+    "/api/admin/addons/registry/{addon_id}": [
+      "delete"
+    ],
+    "/api/admin/reload": [
+      "post"
+    ],
+    "/api/admin/reload/status": [
+      "get"
+    ],
+    "/api/admin/session/login": [
+      "post"
+    ],
+    "/api/admin/session/login-user": [
+      "post"
+    ],
+    "/api/admin/session/logout": [
+      "post"
+    ],
+    "/api/admin/session/status": [
+      "get"
+    ],
+    "/api/admin/users": [
+      "get",
+      "post"
+    ],
+    "/api/admin/users/{username}": [
+      "delete"
+    ],
+    "/api/architecture": [
+      "get"
+    ],
+    "/api/auth/service-token": [
+      "post"
+    ],
+    "/api/auth/service-token/rotate": [
+      "post"
+    ],
+    "/api/edge/cloudflare": [
+      "get"
+    ],
+    "/api/edge/cloudflare/provision": [
+      "post"
+    ],
+    "/api/edge/cloudflare/settings": [
+      "get",
+      "put"
+    ],
+    "/api/edge/cloudflare/test": [
+      "post"
+    ],
+    "/api/edge/public-identity": [
+      "get"
+    ],
+    "/api/edge/publications": [
+      "get",
+      "post"
+    ],
+    "/api/edge/publications/{publication_id}": [
+      "delete",
+      "patch"
+    ],
+    "/api/edge/reconcile": [
+      "post"
+    ],
+    "/api/edge/status": [
+      "get"
+    ],
+    "/api/health": [
+      "get"
+    ],
+    "/api/nodes": [
+      "get"
+    ],
+    "/api/nodes/{node_id}": [
+      "get"
+    ],
+    "/api/nodes/{node_id}/": [
+      "delete",
+      "get",
+      "head",
+      "options",
+      "patch",
+      "post",
+      "put"
+    ],
+    "/api/nodes/{node_id}/ui-manifest": [
+      "get"
+    ],
+    "/api/nodes/{node_id}/{path}": [
+      "delete",
+      "get",
+      "head",
+      "options",
+      "patch",
+      "post",
+      "put"
+    ],
+    "/api/policy/grants": [
+      "get",
+      "post"
+    ],
+    "/api/policy/revocations": [
+      "get",
+      "post"
+    ],
+    "/api/services/register": [
+      "post"
+    ],
+    "/api/services/resolve": [
+      "get"
+    ],
+    "/api/store/admin/audit": [
+      "get"
+    ],
+    "/api/store/catalog": [
+      "get"
+    ],
+    "/api/store/install": [
+      "post"
+    ],
+    "/api/store/schema": [
+      "get"
+    ],
+    "/api/store/sources": [
+      "get",
+      "post"
+    ],
+    "/api/store/sources/{source_id}": [
+      "delete"
+    ],
+    "/api/store/sources/{source_id}/refresh": [
+      "post"
+    ],
+    "/api/store/sources/{source_id}/validate": [
+      "get"
+    ],
+    "/api/store/standalone/update": [
+      "post"
+    ],
+    "/api/store/status/summary": [
+      "get"
+    ],
+    "/api/store/status/{addon_id}": [
+      "get"
+    ],
+    "/api/store/status/{addon_id}/diagnostics": [
+      "get"
+    ],
+    "/api/store/uninstall": [
+      "post"
+    ],
+    "/api/store/update": [
+      "post"
+    ],
+    "/api/system-stats/current": [
+      "get"
+    ],
+    "/api/system-stats/health": [
+      "get"
+    ],
+    "/api/system-stats/history": [
+      "get"
+    ],
+    "/api/system/addons/runtime": [
+      "get"
+    ],
+    "/api/system/addons/runtime/{addon_id}": [
+      "get"
+    ],
+    "/api/system/debug/publish": [
+      "post"
+    ],
+    "/api/system/debug/subscribe": [
+      "post"
+    ],
+    "/api/system/debug/subscribe/{subscription_id}/messages": [
+      "get"
+    ],
+    "/api/system/debug/unsubscribe": [
+      "post"
+    ],
+    "/api/system/events": [
+      "get"
+    ],
+    "/api/system/mqtt/audit": [
+      "get"
+    ],
+    "/api/system/mqtt/bootstrap/publish": [
+      "post"
+    ],
+    "/api/system/mqtt/debug/acl": [
+      "get"
+    ],
+    "/api/system/mqtt/debug/authority": [
+      "get"
+    ],
+    "/api/system/mqtt/debug/config": [
+      "get"
+    ],
+    "/api/system/mqtt/debug/effective-access-normalized/{principal_id}": [
+      "get"
+    ],
+    "/api/system/mqtt/debug/effective-access/{principal_id}": [
+      "get"
+    ],
+    "/api/system/mqtt/debug/notifications/test-flow": [
+      "post"
+    ],
+    "/api/system/mqtt/debug/topic-validate": [
+      "post"
+    ],
+    "/api/system/mqtt/generic-users": [
+      "post"
+    ],
+    "/api/system/mqtt/generic-users/{principal_id}/effective-access": [
+      "get"
+    ],
+    "/api/system/mqtt/generic-users/{principal_id}/grants": [
+      "patch"
+    ],
+    "/api/system/mqtt/generic-users/{principal_id}/revoke": [
+      "post"
+    ],
+    "/api/system/mqtt/generic-users/{principal_id}/rotate-credentials": [
+      "post"
+    ],
+    "/api/system/mqtt/grants": [
+      "get"
+    ],
+    "/api/system/mqtt/grants/{addon_id}": [
+      "get"
+    ],
+    "/api/system/mqtt/health": [
+      "get"
+    ],
+    "/api/system/mqtt/node-bridge-grants": [
+      "get"
+    ],
+    "/api/system/mqtt/node-bridge-grants/request": [
+      "post"
+    ],
+    "/api/system/mqtt/node-bridge-grants/{grant_id}": [
+      "get"
+    ],
+    "/api/system/mqtt/node-bridge-grants/{grant_id}/approve": [
+      "post"
+    ],
+    "/api/system/mqtt/node-bridge-grants/{grant_id}/credential/claim": [
+      "post"
+    ],
+    "/api/system/mqtt/node-bridge-grants/{grant_id}/provision": [
+      "post"
+    ],
+    "/api/system/mqtt/node-bridge-grants/{grant_id}/revoke": [
+      "post"
+    ],
+    "/api/system/mqtt/node-domain-events/decisions": [
+      "get"
+    ],
+    "/api/system/mqtt/noisy-clients": [
+      "get"
+    ],
+    "/api/system/mqtt/noisy-clients/{principal_id}/actions/{action}": [
+      "post"
+    ],
+    "/api/system/mqtt/observability": [
+      "get"
+    ],
+    "/api/system/mqtt/principals": [
+      "get"
+    ],
+    "/api/system/mqtt/principals/{principal_id}": [
+      "delete",
+      "get"
+    ],
+    "/api/system/mqtt/principals/{principal_id}/actions/{action}": [
+      "post"
+    ],
+    "/api/system/mqtt/principals/{principal_id}/activate": [
+      "post"
+    ],
+    "/api/system/mqtt/principals/{principal_id}/disable": [
+      "post"
+    ],
+    "/api/system/mqtt/principals/{principal_id}/last-seen": [
+      "get"
+    ],
+    "/api/system/mqtt/principals/{principal_id}/permissions": [
+      "get"
+    ],
+    "/api/system/mqtt/principals/{principal_id}/revoke": [
+      "post"
+    ],
+    "/api/system/mqtt/principals/{principal_id}/rotate-password": [
+      "post"
+    ],
+    "/api/system/mqtt/registrations/approve": [
+      "post"
+    ],
+    "/api/system/mqtt/registrations/{addon_id}/provision": [
+      "post"
+    ],
+    "/api/system/mqtt/registrations/{addon_id}/revoke": [
+      "post"
+    ],
+    "/api/system/mqtt/reload": [
+      "post"
+    ],
+    "/api/system/mqtt/restart": [
+      "post"
+    ],
+    "/api/system/mqtt/runtime/config": [
+      "get"
+    ],
+    "/api/system/mqtt/runtime/health": [
+      "get"
+    ],
+    "/api/system/mqtt/runtime/init": [
+      "post"
+    ],
+    "/api/system/mqtt/runtime/rebuild": [
+      "post"
+    ],
+    "/api/system/mqtt/runtime/sessions": [
+      "get"
+    ],
+    "/api/system/mqtt/runtime/start": [
+      "post"
+    ],
+    "/api/system/mqtt/runtime/stats/history": [
+      "get"
+    ],
+    "/api/system/mqtt/runtime/stop": [
+      "post"
+    ],
+    "/api/system/mqtt/runtime/topics": [
+      "get"
+    ],
+    "/api/system/mqtt/setup-state": [
+      "post"
+    ],
+    "/api/system/mqtt/setup-summary": [
+      "get"
+    ],
+    "/api/system/mqtt/setup/apply": [
+      "post"
+    ],
+    "/api/system/mqtt/setup/test-connection": [
+      "post"
+    ],
+    "/api/system/mqtt/status": [
+      "get"
+    ],
+    "/api/system/mqtt/test": [
+      "post"
+    ],
+    "/api/system/mqtt/users": [
+      "post"
+    ],
+    "/api/system/mqtt/users/export": [
+      "get"
+    ],
+    "/api/system/mqtt/users/import": [
+      "post"
+    ],
+    "/api/system/mqtt/users/{principal_id}": [
+      "delete",
+      "patch"
+    ],
+    "/api/system/mqtt/users/{principal_id}/rotate": [
+      "post"
+    ],
+    "/api/system/nodes/budgets": [
+      "get"
+    ],
+    "/api/system/nodes/budgets/declaration": [
+      "post"
+    ],
+    "/api/system/nodes/budgets/export": [
+      "get"
+    ],
+    "/api/system/nodes/budgets/policy/current": [
+      "get"
+    ],
+    "/api/system/nodes/budgets/policy/refresh": [
+      "post"
+    ],
+    "/api/system/nodes/budgets/usage-summary": [
+      "post"
+    ],
+    "/api/system/nodes/budgets/{node_id}": [
+      "delete",
+      "get",
+      "put"
+    ],
+    "/api/system/nodes/budgets/{node_id}/customers": [
+      "get"
+    ],
+    "/api/system/nodes/budgets/{node_id}/customers/{customer_id}": [
+      "delete",
+      "put"
+    ],
+    "/api/system/nodes/budgets/{node_id}/override": [
+      "post"
+    ],
+    "/api/system/nodes/budgets/{node_id}/providers": [
+      "get"
+    ],
+    "/api/system/nodes/budgets/{node_id}/providers/{provider_id}": [
+      "delete",
+      "put"
+    ],
+    "/api/system/nodes/budgets/{node_id}/reset": [
+      "post"
+    ],
+    "/api/system/nodes/budgets/{node_id}/top-up": [
+      "post"
+    ],
+    "/api/system/nodes/budgets/{node_id}/usage": [
+      "get"
+    ],
+    "/api/system/nodes/budgets/{node_id}/usage-reports": [
+      "get"
+    ],
+    "/api/system/nodes/capabilities/declaration": [
+      "post"
+    ],
+    "/api/system/nodes/capabilities/profiles": [
+      "get"
+    ],
+    "/api/system/nodes/capabilities/profiles/{profile_id}": [
+      "get"
+    ],
+    "/api/system/nodes/governance/current": [
+      "get"
+    ],
+    "/api/system/nodes/governance/refresh": [
+      "post"
+    ],
+    "/api/system/nodes/onboarding/sessions": [
+      "get",
+      "post"
+    ],
+    "/api/system/nodes/onboarding/sessions/cancel-active": [
+      "post"
+    ],
+    "/api/system/nodes/onboarding/sessions/{session_id}": [
+      "get"
+    ],
+    "/api/system/nodes/onboarding/sessions/{session_id}/approve": [
+      "post"
+    ],
+    "/api/system/nodes/onboarding/sessions/{session_id}/finalize": [
+      "get"
+    ],
+    "/api/system/nodes/onboarding/sessions/{session_id}/reject": [
+      "post"
+    ],
+    "/api/system/nodes/operational-status/{node_id}": [
+      "get"
+    ],
+    "/api/system/nodes/providers/capabilities/report": [
+      "post"
+    ],
+    "/api/system/nodes/providers/model-policy": [
+      "get"
+    ],
+    "/api/system/nodes/providers/model-policy/{provider}": [
+      "delete",
+      "put"
+    ],
+    "/api/system/nodes/providers/routing-metadata": [
+      "get"
+    ],
+    "/api/system/nodes/reauth/sessions": [
+      "post"
+    ],
+    "/api/system/nodes/reauth/sessions/{session_id}": [
+      "get"
+    ],
+    "/api/system/nodes/reauth/sessions/{session_id}/approve": [
+      "post"
+    ],
+    "/api/system/nodes/reauth/sessions/{session_id}/finalize": [
+      "get"
+    ],
+    "/api/system/nodes/reauth/sessions/{session_id}/reject": [
+      "post"
+    ],
+    "/api/system/nodes/registrations": [
+      "get"
+    ],
+    "/api/system/nodes/registrations/{node_id}": [
+      "delete",
+      "get"
+    ],
+    "/api/system/nodes/registrations/{node_id}/metadata": [
+      "put"
+    ],
+    "/api/system/nodes/registrations/{node_id}/revoke": [
+      "post"
+    ],
+    "/api/system/nodes/registry": [
+      "get"
+    ],
+    "/api/system/nodes/services/authorize": [
+      "post"
+    ],
+    "/api/system/nodes/services/resolve": [
+      "post"
+    ],
+    "/api/system/nodes/telemetry": [
+      "post"
+    ],
+    "/api/system/nodes/trust-status/{node_id}": [
+      "get"
+    ],
+    "/api/system/platform": [
+      "get"
+    ],
+    "/api/system/principals/{principal_id}": [
+      "delete",
+      "get"
+    ],
+    "/api/system/principals/{principal_id}/activate": [
+      "post"
+    ],
+    "/api/system/principals/{principal_id}/disable": [
+      "post"
+    ],
+    "/api/system/principals/{principal_id}/last_seen": [
+      "get"
+    ],
+    "/api/system/principals/{principal_id}/permissions": [
+      "get"
+    ],
+    "/api/system/principals/{principal_id}/revoke": [
+      "post"
+    ],
+    "/api/system/principals/{principal_id}/rotate_password": [
+      "post"
+    ],
+    "/api/system/repo/status": [
+      "get"
+    ],
+    "/api/system/runtime/block": [
+      "post"
+    ],
+    "/api/system/runtime/config": [
+      "get"
+    ],
+    "/api/system/runtime/disconnect": [
+      "post"
+    ],
+    "/api/system/runtime/health": [
+      "get"
+    ],
+    "/api/system/runtime/sessions": [
+      "get"
+    ],
+    "/api/system/runtime/stats/history": [
+      "get"
+    ],
+    "/api/system/runtime/throttle": [
+      "post"
+    ],
+    "/api/system/runtime/topics": [
+      "get"
+    ],
+    "/api/system/scheduler/internal": [
+      "get"
+    ],
+    "/api/system/settings": [
+      "get"
+    ],
+    "/api/system/settings/{key}": [
+      "get",
+      "put"
+    ],
+    "/api/system/stack/summary": [
+      "get"
+    ],
+    "/api/system/stats/current": [
+      "get"
+    ],
+    "/api/system/supervisor/resources/history": [
+      "get"
+    ],
+    "/api/system/supervisor/runtimes/{node_id}/resources/history": [
+      "get"
+    ],
+    "/api/system/supervisor/summary": [
+      "get"
+    ],
+    "/api/system/supervisors": [
+      "get"
+    ],
+    "/api/system/supervisors/enroll": [
+      "post"
+    ],
+    "/api/system/supervisors/enrollment-tokens": [
+      "post"
+    ],
+    "/api/system/supervisors/heartbeat": [
+      "post"
+    ],
+    "/api/system/supervisors/local/core-runtimes": [
+      "post"
+    ],
+    "/api/system/supervisors/register": [
+      "post"
+    ],
+    "/api/system/supervisors/{supervisor_id}": [
+      "delete",
+      "get"
+    ],
+    "/api/system/supervisors/{supervisor_id}/resources/history": [
+      "get"
+    ],
+    "/api/system/supervisors/{supervisor_id}/runtimes/{node_id}/resources/history": [
+      "get"
+    ],
+    "/api/telemetry/usage": [
+      "get",
+      "post"
+    ],
+    "/api/telemetry/usage/stats": [
+      "get"
+    ],
+    "/nodes/proxy/no-json/{node_id}": [
+      "delete",
+      "get",
+      "head",
+      "options",
+      "patch",
+      "post",
+      "put"
+    ],
+    "/nodes/proxy/no-json/{node_id}/": [
+      "delete",
+      "get",
+      "head",
+      "options",
+      "patch",
+      "post",
+      "put"
+    ],
+    "/nodes/proxy/no-json/{node_id}/{path}": [
+      "delete",
+      "get",
+      "head",
+      "options",
+      "patch",
+      "post",
+      "put"
+    ],
+    "/nodes/proxy/ui/{node_id}": [
+      "get",
+      "head"
+    ],
+    "/nodes/proxy/ui/{node_id}/": [
+      "get",
+      "head"
+    ],
+    "/nodes/proxy/ui/{node_id}/{path}": [
+      "get",
+      "head"
+    ],
+    "/nodes/proxy/{node_id}": [
+      "delete",
+      "get",
+      "head",
+      "options",
+      "patch",
+      "post",
+      "put"
+    ],
+    "/nodes/proxy/{node_id}/": [
+      "delete",
+      "get",
+      "head",
+      "options",
+      "patch",
+      "post",
+      "put"
+    ],
+    "/nodes/proxy/{node_id}/{path}": [
+      "delete",
+      "get",
+      "head",
+      "options",
+      "patch",
+      "post",
+      "put"
+    ],
+    "/nodes/{node_id}/ui": [
+      "get",
+      "head"
+    ],
+    "/nodes/{node_id}/ui/": [
+      "get",
+      "head"
+    ],
+    "/nodes/{node_id}/ui/{path}": [
+      "get",
+      "head"
+    ],
+    "/ui/addons/{addon_id}": [
+      "get",
+      "head"
+    ],
+    "/ui/addons/{addon_id}/{path}": [
+      "get",
+      "head"
+    ],
+    "/ui/nodes/{node_id}": [
+      "get",
+      "head"
+    ],
+    "/ui/nodes/{node_id}/{path}": [
+      "get",
+      "head"
+    ]
+  },
+  "schema_version": 1,
+  "source": "core/backend/app/main.py:create_app().openapi()"
+}

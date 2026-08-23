@@ -8,3 +8,4 @@ Task 957: Split the store router into catalog, sources, install, lifecycle, stat
 Task 958: Add Core/Supervisor mirror drift guard - Completed on 08/22/2026 19:35
 Task 959: Centralize Core environment/configuration registry and documentation - Completed on 08/22/2026 19:40
 Task 960: Move tracked store source runtime defaults out of live var - Completed on 08/22/2026 19:41
+Task 961: Add OpenAPI contract snapshot and removed-endpoint regression checks - Completed on 08/22/2026 19:45
