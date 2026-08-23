@@ -2,17 +2,17 @@
 
 Hexe Core is the control-plane service for the Hexe AI platform. This repository now documents the migration foundation for the `Core -> Supervisor -> Nodes` structure while preserving the current runtime and API surface.
 
-Compatibility note: Phase 0 is a cosmetic rebrand only. Internal identifiers such as `synthia/...` MQTT topics, `/api/...` paths, Python module names, and systemd unit filenames remain unchanged during this phase.
+Compatibility note: active MQTT topic roots now use `hexe/...`. API route paths, Python modules, and systemd unit filenames still retain existing internal identifiers during the compatibility window.
 
 ## Start Here
 
-- [core/docs/index.md](core/docs/index.md)
-- [core/docs/overview.md](core/docs/overview.md)
-- [core/docs/architecture.md](core/docs/architecture.md)
-- [core/docs/core/README.md](core/docs/core/README.md)
-- [core/docs/supervisor/README.md](core/docs/supervisor/README.md)
-- [core/docs/nodes/README.md](core/docs/nodes/README.md)
-- [core/docs/mqtt/README.md](core/docs/mqtt/README.md)
+- [docs/index.md](docs/index.md)
+- [docs/overview.md](docs/overview.md)
+- [docs/architecture.md](docs/architecture.md)
+- [docs/core/README.md](docs/core/README.md)
+- [docs/supervisor/README.md](docs/supervisor/README.md)
+- [docs/nodes/README.md](docs/nodes/README.md)
+- [docs/mqtt/README.md](docs/mqtt/README.md)
 
 ## Domain Summary
 
@@ -92,13 +92,13 @@ These routes reuse the existing canonical node registration payload shape.
 
 ## Repository Layout
 
-- `core/`: Core control-plane application, operator UI, documentation, scripts, and service templates
+- `core/`: Core control-plane application, operator UI, scripts, and service templates
 - `supervisor/`: Supervisor checkout content preserved as a first-class top-level directory
+- `docs/`: canonical repository documentation
 - `core/backend/app/`: FastAPI app, Core control-plane services, and migration domain routers
 - `core/backend/synthia_supervisor/`: standalone runtime supervision and desired/runtime reconciliation
 - `core/frontend/`: React operator UI
-- `core/docs/`: canonical repository documentation
-- `core/docs/standards/Node/tomplate/`: starter modular template for creating a new Hexe node
+- `docs/standards/Node/tomplate/`: starter modular template for creating a new Hexe node
 - `core/scripts/`: development and bootstrap helpers
 - `core/systemd/`: service templates and runtime integration
 

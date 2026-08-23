@@ -7,30 +7,33 @@ import re
 import sys
 
 
-ROOT = Path(__file__).resolve().parents[1]
+SERVICE_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = SERVICE_ROOT.parent
+DOCS_ROOT = REPO_ROOT / "docs"
 
 SCAN_PATHS = [
-    ROOT / "README.md",
-    ROOT / "Agents.lock",
-    ROOT / "SkillGraph.md",
-    ROOT / "backend" / "app",
-    ROOT / "frontend" / "src",
-    ROOT / "frontend" / "index.html",
-    ROOT / "frontend" / "package.json",
-    ROOT / "frontend" / "public" / "styles",
-    ROOT / "systemd",
-    ROOT / "scripts",
-    ROOT / "docs" / "README.md",
-    ROOT / "docs" / "development-guide.md",
-    ROOT / "docs" / "index.md",
-    ROOT / "docs" / "overview.md",
-    ROOT / "docs" / "architecture.md",
-    ROOT / "docs" / "core",
-    ROOT / "docs" / "json_schema",
-    ROOT / "docs" / "mqtt",
-    ROOT / "docs" / "nodes",
-    ROOT / "docs" / "standards",
-    ROOT / "docs" / "supervisor",
+    REPO_ROOT / "README.md",
+    SERVICE_ROOT / "README.md",
+    SERVICE_ROOT / "Agents.lock",
+    SERVICE_ROOT / "SkillGraph.md",
+    SERVICE_ROOT / "backend" / "app",
+    SERVICE_ROOT / "frontend" / "src",
+    SERVICE_ROOT / "frontend" / "index.html",
+    SERVICE_ROOT / "frontend" / "package.json",
+    SERVICE_ROOT / "frontend" / "public" / "styles",
+    SERVICE_ROOT / "systemd",
+    SERVICE_ROOT / "scripts",
+    DOCS_ROOT / "README.md",
+    DOCS_ROOT / "development-guide.md",
+    DOCS_ROOT / "index.md",
+    DOCS_ROOT / "overview.md",
+    DOCS_ROOT / "architecture.md",
+    DOCS_ROOT / "core",
+    DOCS_ROOT / "json_schema",
+    DOCS_ROOT / "mqtt",
+    DOCS_ROOT / "nodes",
+    DOCS_ROOT / "standards",
+    DOCS_ROOT / "supervisor",
 ]
 
 SKIP_PATH_PARTS = {
@@ -152,8 +155,15 @@ NEEDLES = [
 ]
 
 
+def relative_scan_path(path: Path) -> str:
+    try:
+        return path.relative_to(SERVICE_ROOT).as_posix()
+    except ValueError:
+        return path.relative_to(REPO_ROOT).as_posix()
+
+
 def should_skip(path: Path) -> bool:
-    rel = path.relative_to(ROOT).as_posix()
+    rel = relative_scan_path(path)
     return any(part in rel for part in SKIP_PATH_PARTS)
 
 
@@ -182,7 +192,7 @@ def main() -> int:
                 continue
             if path == Path(__file__).resolve():
                 continue
-            rel = path.relative_to(ROOT).as_posix()
+            rel = relative_scan_path(path)
             try:
                 text = path.read_text(encoding="utf-8")
             except Exception:

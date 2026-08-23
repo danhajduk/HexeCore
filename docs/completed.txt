@@ -1,0 +1,1 @@
+Task 954: Consolidate Core and Supervisor docs into root docs - Completed on 08/22/2026 18:33
