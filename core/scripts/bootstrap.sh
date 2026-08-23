@@ -96,6 +96,22 @@ install_user_unit_from_template() {
   sed "s|@INSTALL_DIR@|$INSTALL_DIR|g" "$template" > "$out"
 }
 
+ensure_cloudflared_native_binary() {
+  if [[ "${HEXE_SKIP_CLOUDFLARED_NATIVE_INSTALL:-0}" == "1" ]]; then
+    echo "[bootstrap] Skipping Cloudflared native binary install"
+    return 0
+  fi
+
+  local binary="$INSTALL_DIR/.runtime/bin/cloudflared"
+  if [[ -x "$binary" && "${HEXE_UPDATE_CLOUDFLARED_NATIVE:-0}" != "1" ]]; then
+    echo "[bootstrap] Repo-local Cloudflared native binary already installed"
+    return 0
+  fi
+
+  echo "[bootstrap] Installing repo-local Cloudflared native binary"
+  "$INSTALL_DIR/scripts/install-cloudflared-native.sh"
+}
+
 echo "[bootstrap] mode=$MODE dir=$INSTALL_DIR"
 echo "[bootstrap] target platform=$PLATFORM_NAME"
 ensure_deps
@@ -138,12 +154,7 @@ deactivate
 echo "[bootstrap] Production frontend build"
 "$INSTALL_DIR/scripts/build-frontend.sh"
 
-if [[ "${HEXE_SKIP_CLOUDFLARED_NATIVE_INSTALL:-0}" != "1" ]]; then
-  echo "[bootstrap] Repo-local Cloudflared native binary"
-  "$INSTALL_DIR/scripts/install-cloudflared-native.sh"
-else
-  echo "[bootstrap] Skipping Cloudflared native binary install"
-fi
+ensure_cloudflared_native_binary
 
 echo "[bootstrap] Ensure update script exists + executable"
 if [[ ! -f "$INSTALL_DIR/scripts/update.sh" ]]; then

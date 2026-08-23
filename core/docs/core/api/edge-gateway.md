@@ -132,7 +132,8 @@ Runtime notes:
 - `auto` is still supported; it prefers Docker and falls back to a native `cloudflared` binary if available
 - tests and non-runtime environments can set `HEXE_CLOUDFLARED_PROVIDER=disabled`
 - the Docker runtime uses host networking so the tunnel can reach Core services at `127.0.0.1`
-- run `scripts/install-cloudflared-native.sh` to install or refresh the repo-local binary
+- install/bootstrap/update flows ensure `.runtime/bin/cloudflared` exists unless `HEXE_SKIP_CLOUDFLARED_NATIVE_INSTALL=1`
+- run `scripts/install-cloudflared-native.sh` directly to install or refresh the repo-local binary
 - set `HEXE_CLOUDFLARED_PROVIDER=docker` in the Supervisor environment and reprovision to roll back to Docker; Supervisor disables the native user unit before starting the container
 
 ## Status And Observability

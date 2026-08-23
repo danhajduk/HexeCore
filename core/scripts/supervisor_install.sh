@@ -390,6 +390,7 @@ ensure_repo_layout() {
   local missing=()
   [[ -f "$APP_DIR/backend/requirements.txt" ]] || missing+=("backend/requirements.txt")
   [[ -d "$APP_DIR/backend/hexe_supervisor" ]] || missing+=("backend/hexe_supervisor")
+  [[ -f "$APP_DIR/scripts/install-cloudflared-native.sh" ]] || missing+=("scripts/install-cloudflared-native.sh")
   [[ -f "$APP_DIR/systemd/user/hexe-supervisor.service.in" ]] || missing+=("systemd/user/hexe-supervisor.service.in")
   [[ -f "$APP_DIR/systemd/user/hexe-supervisor-api.service.in" ]] || missing+=("systemd/user/hexe-supervisor-api.service.in")
 
@@ -409,6 +410,22 @@ install_backend_runtime() {
   python -m pip install --upgrade pip
   pip install -r requirements.txt
   deactivate
+}
+
+install_cloudflared_native_binary() {
+  if [[ "${HEXE_SKIP_CLOUDFLARED_NATIVE_INSTALL:-0}" == "1" ]]; then
+    echo "[supervisor-install] Skipping Cloudflared native binary install"
+    return 0
+  fi
+
+  local binary="$APP_DIR/.runtime/bin/cloudflared"
+  if [[ -x "$binary" && "${HEXE_UPDATE_CLOUDFLARED_NATIVE:-0}" != "1" ]]; then
+    echo "[supervisor-install] Repo-local Cloudflared native binary already installed"
+    return 0
+  fi
+
+  echo "[supervisor-install] Installing repo-local Cloudflared native binary"
+  "$APP_DIR/scripts/install-cloudflared-native.sh"
 }
 
 install_tmpfiles_rule() {
@@ -597,6 +614,7 @@ resolve_app_dir
 echo "[supervisor-install] app_dir=$APP_DIR"
 ensure_repo_layout
 install_backend_runtime
+install_cloudflared_native_binary
 install_tmpfiles_rule
 exchange_enrollment_token
 write_supervisor_env
