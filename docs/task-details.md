@@ -447,3 +447,99 @@ Original task details:
 - Goal: Prevent stale Supervisor fleet records and duplicate UI history requests from confusing operators.
 - Scope: Review stale/offline fleet record retention, identify duplicate local/remote history calls on the Supervisor page, and ensure old supervisors are clearly hidden, pruned, or marked as historical.
 - Acceptance: The Supervisor page no longer shows long-dead records as peers by default, and each visible supervisor/runtime history is fetched once per refresh cycle.
+
+## Task 966
+Original task details:
+- Audit finding addressed: Store verification is documented as enforced, but `core/backend/app/store/signing.py` currently disables checksum and signature checks.
+- Inspect the active addon/store standards and the current store install/update flow before editing.
+- Prefer implementing real artifact SHA-256 and detached signature verification in Core and the Supervisor mirror.
+- If full verification cannot be completed safely in one task, update the active docs and operator-facing status so they no longer claim enforced verification, and create a follow-up task with the exact blocker.
+- Ensure invalid checksum, invalid signature, missing publisher key, and valid artifact paths have focused tests.
+- Preserve Core/Supervisor mirror alignment.
+- Verification: Run targeted store signing/install tests for Core and Supervisor.
+- Verification: Run `python tools/check_mirror_drift.py`.
+
+## Task 967
+Original task details:
+- Audit finding addressed: FastAPI emits duplicate OpenAPI operation-id warnings for addon/node proxy routes, while the snapshot tool suppresses warnings.
+- Inspect proxy route registration in `core/backend/app/addons/proxy.py` and `core/backend/app/nodes/proxy.py`.
+- Add explicit unique operation IDs or exclude catch-all proxy routes from OpenAPI where that is the cleaner contract.
+- Update `tools/update_openapi_snapshot.py` so duplicate OpenAPI operation-id warnings fail the check instead of being hidden.
+- Mirror changes into Supervisor.
+- Verification: Run `python tools/update_openapi_snapshot.py --check`.
+- Verification: Run Core and Supervisor OpenAPI snapshot tests.
+- Verification: Run `python tools/check_mirror_drift.py`.
+
+## Task 968
+Original task details:
+- Audit finding addressed: mirror, env registry, and OpenAPI guards exist, but there is no single operator/developer command that runs the Core/Supervisor health checks together.
+- Add a lightweight repo-level health script or documented command that runs:
+  - `python tools/check_mirror_drift.py`
+  - `python tools/check_env_registry.py --check-docs`
+  - `python tools/update_openapi_snapshot.py --check`
+  - targeted Core/Supervisor backend tests where practical
+- Document the command in the active developer/operator entrypoint.
+- Keep the command safe for local development and avoid requiring unrelated nodes.
+- Verification: Run the new health entrypoint.
+- Verification: Run any touched documentation or script checks.
+
+## Task 969
+Original task details:
+- Audit finding addressed: ignored local runtime/build folders can remain in the repo tree and confuse source audits even though tracked source is clean.
+- Add a dry-run-first helper that reports ignored local artifacts such as `node_modules`, `dist`, `.venv`, `.pytest_cache`, `logs`, `data`, `runtime`, `temp`, and `var` under Core/Supervisor.
+- Do not delete anything by default.
+- Make the helper explain which directories are source-owned versus runtime/build/cache artifacts.
+- Document the helper in the active development or operator docs.
+- Verification: Run the helper in report/dry-run mode.
+- Verification: Confirm `git status --short` remains clean except for intentional task changes.
+- Queue stop marker: `[STOP HERE]` follows Task 969 so the audit/guardrail cleanup batch can be reviewed before telemetry/history and Supervisor Fleet behavior work begins.
+
+## Task 970
+Original task details:
+- User-observed gap addressed: The Supervisor UI shows Core Services & Aux Runtimes values, but Core/Supervisor must record those values as structured telemetry instead of treating them as display-only snapshots.
+- Inspect the current Core Services & Aux Runtimes data source, API response models, and Supervisor resource history storage before editing.
+- Record these fields per service/runtime sample: `name`, `id`, `kind`, `mode`, `state`, `health`, `desired`, `rps`, `p95_ms`, `err_percent`, `cpu_percent`, `mem_percent`, `reported_at`, and source host/supervisor identity.
+- Preserve distinction between Core services and aux runtimes such as `cloudflared`.
+- Store `unknown` and missing metric values explicitly enough that operators can tell "not reported" from zero.
+- Add retention or pruning behavior consistent with existing Supervisor resource history controls.
+- Preserve Core/Supervisor mirror alignment.
+- Verification: Add or update backend tests that create service/runtime samples and verify the persisted fields.
+- Verification: Run targeted Supervisor/Core resource-history tests.
+- Verification: Run `python tools/check_mirror_drift.py`.
+
+## Task 971
+Original task details:
+- User-observed gap addressed: Operators need to confirm that the table values are being recorded and can be inspected over time.
+- Expose the recorded Core Services & Aux Runtimes samples through a documented API or extend the existing resource history API if that is the local pattern.
+- Update the Supervisor UI so current table rows can be traced to recorded samples, with clear handling for unknown state/health and missing RPS/P95/ERR metrics.
+- Add a lightweight history/detail view or diagnostics affordance for service/runtime rows where appropriate.
+- Update active Supervisor/Core documentation to describe the recorded fields and retention behavior.
+- Preserve Core/Supervisor mirror alignment.
+- Verification: Run targeted backend API tests for the recorded-history endpoint or extended payload.
+- Verification: Run targeted frontend tests/build checks for the Supervisor page.
+- Verification: Run `python tools/update_openapi_snapshot.py --check` if API paths or methods change.
+- Verification: Run `python tools/check_mirror_drift.py`.
+
+## Task 972
+Original task details:
+- User-observed gap addressed: The Supervisor Fleet table can show the primary `Hexe` supervisor as `Offline` while still reporting `Health=Ok`, nodes, runtimes, CPU, memory, and an old `Last seen` timestamp.
+- Inspect the Supervisor fleet heartbeat ingestion, freshness classification, stale-record retention, and local supervisor identity matching.
+- Determine whether the `Hexe` row is a legacy duplicate, stale local identity, missed heartbeat, or display merge issue.
+- Ensure stale/offline records do not keep misleading live-looking resource counts unless they are clearly marked as last-known values.
+- Add or update backend tests covering stale supervisor records, duplicate supervisor identities, and offline freshness transitions.
+- Preserve Core/Supervisor mirror alignment.
+- Verification: Run targeted Supervisor fleet/heartbeat/resource summary tests.
+- Verification: Run `python tools/check_mirror_drift.py`.
+
+## Task 973
+Original task details:
+- User-observed gap addressed: Operators need the Supervisor Fleet view to explain why `Hexe` is offline and whether displayed metrics are current or last-known.
+- Update the Supervisor Fleet UI so freshness, health, last-seen age, and last-known resource metrics cannot imply a stale host is currently healthy.
+- Add a row-level diagnostic affordance or detail payload showing heartbeat source, supervisor id, host id, freshness threshold, last heartbeat age, and reason for offline classification.
+- Clearly distinguish `Online`, `Stale`, `Offline`, and `Unknown` states in labels and tones.
+- Update active Supervisor docs with the fleet freshness and health semantics.
+- Preserve Core/Supervisor mirror alignment.
+- Verification: Run targeted frontend tests/build checks for the Supervisor Fleet view.
+- Verification: Run targeted backend tests for any new diagnostic payload.
+- Verification: Run `python tools/update_openapi_snapshot.py --check` if API paths or methods change.
+- Verification: Run `python tools/check_mirror_drift.py`.
