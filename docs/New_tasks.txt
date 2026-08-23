@@ -48,7 +48,6 @@ Standards reference:
 Do not edit above this line:
 #######################################################################
 [STOP HERE]
-[TODO] Task 958: Add Core/Supervisor mirror drift guard
 [TODO] Task 959: Centralize Core environment/configuration registry and documentation
 [TODO] Task 960: Move tracked store source runtime defaults out of live var
 [TODO] Task 961: Add OpenAPI contract snapshot and removed-endpoint regression checks

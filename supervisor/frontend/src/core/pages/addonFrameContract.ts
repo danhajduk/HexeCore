@@ -43,6 +43,9 @@ export function resolveAddonUiEmbedState(
     (runtimeState === "" || runtimeState === "unknown");
   const reason =
     typeof payload.ui_reason === "string" && payload.ui_reason.trim() ? payload.ui_reason.trim() : "unknown";
+  if (reason === "embedded_local" || embeddedLocal) {
+    frameSrc = new URL(`/api/addons/${encodeURIComponent(addonId)}`, fallbackSrc).toString();
+  }
   if (!reachable && embeddedLocal) {
     return { frameSrc, reachable: true, reason: "embedded_local" };
   }

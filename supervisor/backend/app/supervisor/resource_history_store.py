@@ -310,9 +310,87 @@ class SupervisorResourceHistoryStore:
             self._conn.commit()
             self._last_prune_ts = float(now_ts if now_ts is not None else _utcnow_ts())
 
+    def status(self) -> dict[str, Any]:
+        with self._lock:
+            sample_count = int(self._conn.execute("SELECT COUNT(*) FROM supervisor_resource_samples").fetchone()[0])
+            event_count = int(self._conn.execute("SELECT COUNT(*) FROM supervisor_resource_events").fetchone()[0])
+            sample_bounds = self._conn.execute(
+                "SELECT MIN(sampled_at), MAX(sampled_at) FROM supervisor_resource_samples"
+            ).fetchone()
+            event_bounds = self._conn.execute(
+                "SELECT MIN(occurred_at), MAX(occurred_at) FROM supervisor_resource_events"
+            ).fetchone()
+            page_size = int(self._conn.execute("PRAGMA page_size").fetchone()[0])
+            page_count = int(self._conn.execute("PRAGMA page_count").fetchone()[0])
+            freelist_count = int(self._conn.execute("PRAGMA freelist_count").fetchone()[0])
+        size_bytes = self._file_size(self._path)
+        wal_size_bytes = self._file_size(self._wal_path())
+        shm_size_bytes = self._file_size(self._shm_path())
+        return {
+            "path": str(self._path),
+            "exists": self._path.exists(),
+            "size_bytes": size_bytes,
+            "wal_size_bytes": wal_size_bytes,
+            "shm_size_bytes": shm_size_bytes,
+            "total_size_bytes": size_bytes + wal_size_bytes + shm_size_bytes,
+            "page_size_bytes": page_size,
+            "page_count": page_count,
+            "freelist_count": freelist_count,
+            "free_bytes": page_size * freelist_count,
+            "retention_seconds": int(self.retention_seconds),
+            "prune_interval_seconds": int(self.prune_interval_seconds),
+            "last_prune_at": _iso_from_ts(self._last_prune_ts) if self._last_prune_ts > 0 else None,
+            "sample_count": sample_count,
+            "event_count": event_count,
+            "oldest_sample_at": self._iso_or_none(sample_bounds[0]),
+            "newest_sample_at": self._iso_or_none(sample_bounds[1]),
+            "oldest_event_at": self._iso_or_none(event_bounds[0]),
+            "newest_event_at": self._iso_or_none(event_bounds[1]),
+        }
+
+    def maintain(self, *, action: str = "compact", now_ts: float | None = None) -> dict[str, Any]:
+        clean_action = str(action or "compact").strip().lower()
+        allowed_actions = {"prune", "checkpoint", "vacuum", "compact"}
+        if clean_action not in allowed_actions:
+            raise ValueError("unsupported_resource_history_maintenance_action")
+        before = self.status()
+        with self._lock:
+            if clean_action in {"prune", "compact"}:
+                self.prune_if_due(now_ts=now_ts, force=True)
+            if clean_action in {"checkpoint", "compact"}:
+                self._conn.execute("PRAGMA wal_checkpoint(TRUNCATE);").fetchall()
+            if clean_action in {"vacuum", "compact"}:
+                self._conn.commit()
+                self._conn.execute("VACUUM;")
+                self._conn.commit()
+                self._conn.execute("PRAGMA wal_checkpoint(TRUNCATE);").fetchall()
+        return {
+            "ok": True,
+            "action": clean_action,
+            "before": before,
+            "after": self.status(),
+        }
+
     def close(self) -> None:
         with self._lock:
             self._conn.close()
+
+    def _wal_path(self) -> Path:
+        return self._path.with_name(f"{self._path.name}-wal")
+
+    def _shm_path(self) -> Path:
+        return self._path.with_name(f"{self._path.name}-shm")
+
+    def _file_size(self, path: Path) -> int:
+        try:
+            return path.stat().st_size
+        except OSError:
+            return 0
+
+    def _iso_or_none(self, value: object) -> str | None:
+        if value is None:
+            return None
+        return _iso_from_ts(float(value))
 
     def _sample_rows(self, scope: str, resource_id: str, start_ts: float, end_ts: float) -> list[tuple[str]]:
         return self._conn.execute(

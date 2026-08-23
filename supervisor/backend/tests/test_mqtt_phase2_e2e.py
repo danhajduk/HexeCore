@@ -205,8 +205,8 @@ class TestMqttPhase2E2E(unittest.TestCase):
         )
         self.assertEqual(generic_effective.status_code, 200, generic_effective.text)
         effective_payload = generic_effective.json()["effective_access"]
-        self.assertEqual(effective_payload["publish_scopes"], ["#"])
-        self.assertEqual(effective_payload["subscribe_scopes"], ["#"])
+        self.assertEqual(effective_payload["publish_scopes"], ["#", "hexe-notify/#"])
+        self.assertEqual(effective_payload["subscribe_scopes"], ["#", "hexe-notify/#"])
         self.assertTrue(effective_payload["generic_non_reserved_only"])
 
         watch = self.client.post(

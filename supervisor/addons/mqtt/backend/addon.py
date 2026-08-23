@@ -412,6 +412,21 @@ def addon_ui_root() -> str:
       color: #7dd3fc;
       background: #082f49;
     }
+    .badge.ok {
+      border-color: #166534;
+      color: #86efac;
+      background: #052e16;
+    }
+    .badge.warn {
+      border-color: #92400e;
+      color: #fcd34d;
+      background: #451a03;
+    }
+    .badge.bad {
+      border-color: #991b1b;
+      color: #fca5a5;
+      background: #450a0a;
+    }
     .group-title {
       margin: 12px 0 6px;
       font-size: 13px;
@@ -489,6 +504,7 @@ def addon_ui_root() -> str:
         <button class="tab" data-section="setup">Setup</button>
         <button class="tab" data-section="overview">Overview</button>
         <button class="tab" data-section="principals">Principals</button>
+        <button class="tab" data-section="bridge-grants">Bridge Grants</button>
         <button class="tab" data-section="users">Generic Users</button>
         <button class="tab" data-section="runtime">Runtime</button>
         <button class="tab" data-section="topics">Topics</button>
@@ -597,7 +613,7 @@ def addon_ui_root() -> str:
     const preflight = document.getElementById("preflight");
     const actionStatus = document.getElementById("action-status");
     const runtimeStatus = document.getElementById("runtime-status");
-    const sections = ["setup", "overview", "principals", "users", "runtime", "topics", "audit", "noisy-clients"];
+    const sections = ["setup", "overview", "principals", "bridge-grants", "users", "runtime", "topics", "audit", "noisy-clients"];
     const state = {
       currentSection: "overview",
       gateActive: false,
@@ -976,6 +992,89 @@ def addon_ui_root() -> str:
         }
         await loadStatus();
         setStatus(`${act} completed for ${id}.`, "ok");
+      } catch (error) {
+        setStatus(`${act} failed for ${id}: ${error && error.message ? error.message : String(error)}`, "error");
+      }
+    }
+
+    function addonIdFromPrincipal(item) {
+      const linked = String(item && item.linked_addon_id ? item.linked_addon_id : "").trim();
+      if (linked) return linked;
+      const principalId = String(item && item.principal_id ? item.principal_id : "").trim();
+      if (principalId.startsWith("addon:")) return principalId.slice("addon:".length);
+      return "";
+    }
+
+    function defaultAddonRegistrationBody(addonId) {
+      return {
+        addon_id: addonId,
+        access_mode: "gateway",
+        publish_topics: [`hexe/addons/${addonId}/event/#`, `hexe/addons/${addonId}/state/#`],
+        subscribe_topics: [`hexe/addons/${addonId}/command/#`, "hexe/bootstrap/core"],
+        capabilities: { ha_discovery: "disabled" },
+      };
+    }
+
+    async function runAddonRegistrationAction(action, addonId) {
+      const id = String(addonId || "").trim();
+      const act = String(action || "").trim().toLowerCase();
+      if (!id || !act) return;
+      let url = "";
+      let body = null;
+      if (act === "approve") {
+        url = "/api/system/mqtt/registrations/approve";
+        body = defaultAddonRegistrationBody(id);
+      } else if (act === "provision") {
+        url = `/api/system/mqtt/registrations/${encodeURIComponent(id)}/provision`;
+      } else if (act === "revoke") {
+        if (!window.confirm(`Revoke MQTT grant for ${id}?`)) return;
+        url = `/api/system/mqtt/registrations/${encodeURIComponent(id)}/revoke`;
+      } else {
+        return;
+      }
+      setStatus(`Running ${act} for addon ${id}...`, "");
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          credentials: "include",
+          headers: body ? { "Content-Type": "application/json" } : undefined,
+          body: body ? JSON.stringify(body) : undefined,
+        });
+        const payload = await response.json();
+        if (!response.ok || (payload && payload.ok === false)) {
+          throw new Error(payload && (payload.detail || payload.error) ? (payload.detail || payload.error) : `${act}_failed`);
+        }
+        state.sectionCache = {};
+        await loadStatus();
+        setStatus(`${act} completed for addon ${id}.`, "ok");
+      } catch (error) {
+        setStatus(`${act} failed for addon ${id}: ${error && error.message ? error.message : String(error)}`, "error");
+      }
+    }
+
+    async function runNodeBridgeGrantAction(action, grantId) {
+      const id = String(grantId || "").trim();
+      const act = String(action || "").trim().toLowerCase();
+      if (!id || !act) return;
+      if (act === "revoke" && !window.confirm(`Revoke bridge grant ${id}?`)) return;
+      setStatus(`Running ${act} for bridge grant ${id}...`, "");
+      try {
+        const response = await fetch(`/api/system/mqtt/node-bridge-grants/${encodeURIComponent(id)}/${encodeURIComponent(act)}`, {
+          method: "POST",
+          credentials: "include",
+        });
+        const payload = await response.json();
+        if (!response.ok || (payload && payload.ok === false)) {
+          throw new Error(payload && (payload.detail || payload.error) ? (payload.detail || payload.error) : `${act}_failed`);
+        }
+        state.sectionCache = {};
+        await loadStatus();
+        const credential = payload && payload.credential ? payload.credential : null;
+        if (credential && credential.username && credential.password) {
+          setStatus(`${act} completed for ${id}. Username: ${credential.username} Password: ${credential.password}`, "ok");
+        } else {
+          setStatus(`${act} completed for ${id}.`, "ok");
+        }
       } catch (error) {
         setStatus(`${act} failed for ${id}: ${error && error.message ? error.message : String(error)}`, "error");
       }
@@ -1489,13 +1588,26 @@ def addon_ui_root() -> str:
           const users = await fetchJson("/api/addons/mqtt/users?format=json");
           return Array.isArray(users.items) ? users.items : [];
         }
-        const principals = await fetchJson("/api/system/mqtt/principals");
+        const [principals, grants] = await Promise.all([
+          fetchJson("/api/system/mqtt/principals"),
+          fetchJson("/api/system/mqtt/grants"),
+        ]);
+        const grantsByAddon = {};
+        (Array.isArray(grants.items) ? grants.items : []).forEach((grant) => {
+          const addonId = String(grant && grant.addon_id ? grant.addon_id : "").trim();
+          if (addonId) grantsByAddon[addonId] = grant;
+        });
+        state.sectionCache.mqttGrantsByAddon = grantsByAddon;
         const items = Array.isArray(principals.items) ? principals.items : [];
         return items;
       }
       if (section === "noisy-clients") {
         const noisy = await fetchJson("/api/system/mqtt/noisy-clients");
         return Array.isArray(noisy.items) ? noisy.items : [];
+      }
+      if (section === "bridge-grants") {
+        const grants = await fetchJson("/api/system/mqtt/node-bridge-grants");
+        return Array.isArray(grants.items) ? grants.items : [];
       }
       if (section === "topics") {
         const topics = await fetchJson("/api/system/runtime/topics?limit=1000");
@@ -1617,6 +1729,7 @@ def addon_ui_root() -> str:
 
       sectionTitle.textContent =
         section === "principals" ? "Principals" :
+        section === "bridge-grants" ? "Bridge Grants" :
         section === "users" ? "Generic Users" :
         section === "topics" ? "Topic Explorer" :
         section === "audit" ? "Audit" : "Noisy Clients";
@@ -1624,7 +1737,7 @@ def addon_ui_root() -> str:
       try {
         const items = await loadSectionPayload(section);
         state.sectionCache[section] = items;
-        if (!Array.isArray(items) || items.length === 0) {
+        if (!Array.isArray(items) || (items.length === 0 && section !== "principals")) {
           sectionContent.innerHTML = "<div class='empty'>No items.</div>";
           return;
         }
@@ -1637,6 +1750,8 @@ def addon_ui_root() -> str:
             `<select data-filter='principals-type'><option value='' ${state.filters.principals.type === "" ? "selected" : ""}>All types</option><option value='system' ${state.filters.principals.type === "system" ? "selected" : ""}>System</option><option value='addon' ${state.filters.principals.type === "addon" ? "selected" : ""}>Addon</option><option value='node' ${state.filters.principals.type === "node" ? "selected" : ""}>Node</option><option value='generic' ${state.filters.principals.type === "generic" ? "selected" : ""}>Generic</option></select>` +
             `<select data-filter='principals-status'><option value='' ${state.filters.principals.status === "" ? "selected" : ""}>All status</option><option value='pending' ${state.filters.principals.status === "pending" ? "selected" : ""}>Pending</option><option value='active' ${state.filters.principals.status === "active" ? "selected" : ""}>Active</option><option value='probation' ${state.filters.principals.status === "probation" ? "selected" : ""}>Probation</option><option value='revoked' ${state.filters.principals.status === "revoked" ? "selected" : ""}>Revoked</option><option value='expired' ${state.filters.principals.status === "expired" ? "selected" : ""}>Expired</option></select>` +
             `<span class='toolbar-spacer'></span>` +
+            `<button class='mini primary' data-registration-action='approve' data-addon-id='mqtt'>Approve MQTT Addon</button>` +
+            `<button class='mini' data-registration-action='provision' data-addon-id='mqtt'>Provision MQTT Addon</button>` +
             `<button class='mini primary' data-ui-action='open-add-user'>Add User</button>` +
             `</div>`;
           visible = filteredPrincipals(items);
@@ -1714,6 +1829,14 @@ def addon_ui_root() -> str:
                   const allowedSubscribeTopics = escapeHtml(
                     Array.isArray(item.allowed_subscribe_topics) ? item.allowed_subscribe_topics.join(",") : ""
                   );
+                  const addonId = addonIdFromPrincipal(item);
+                  const grant = addonId && state.sectionCache.mqttGrantsByAddon ? state.sectionCache.mqttGrantsByAddon[addonId] : null;
+                  const grantStatusRaw = grant && grant.status ? String(grant.status) : "";
+                  const grantStatus = escapeHtml(grantStatusRaw || "none");
+                  const grantTone = grantStatusRaw === "active" ? "ok" : (grantStatusRaw === "approved" || grantStatusRaw === "error" ? "warn" : "bad");
+                  const grantBadge = key === "addon"
+                    ? `<span class='badge ${grantTone}'>Grant ${grantStatus}</span>`
+                    : "";
                   const managed = String(item.managed_by || "").toLowerCase() === "core";
                   const managedBadge = managed ? `<span class='badge core'>Core Managed</span>` : "";
                   const updated = escapeHtml(formatLocalTimestamp(item.updated_at || item.ts || item.reason || "-"));
@@ -1737,13 +1860,46 @@ def addon_ui_root() -> str:
                       `<button class='mini' data-principal-action='probation' data-principal-id='${principalId}'>Disable</button>` +
                       `<button class='mini' data-principal-action='revoke' data-principal-id='${principalId}'>Revoke</button>`
                     : "";
-                  return `<tr><td class='led-cell'>${led}</td><td>${principalId}</td><td>${principalType}${managedBadge}</td><td>${status}</td><td>${topicPrefix}</td><td>${updated}</td><td><div class='row-actions'>${readonly}${systemLocked ? destructive : (key === "generic" ? genericActions : principalActions)}</div></td></tr>`;
+                  const registrationActions = key === "addon" && addonId
+                    ? `<button class='mini primary' data-registration-action='approve' data-addon-id='${escapeHtml(addonId)}'>Approve MQTT</button>` +
+                      `<button class='mini' data-registration-action='provision' data-addon-id='${escapeHtml(addonId)}' ${grantStatusRaw === "active" ? "disabled" : ""}>Provision</button>` +
+                      `<button class='mini' data-registration-action='revoke' data-addon-id='${escapeHtml(addonId)}' ${grant ? "" : "disabled"}>Revoke Grant</button>`
+                    : "";
+                  return `<tr><td class='led-cell'>${led}</td><td>${principalId}</td><td>${principalType}${managedBadge}${grantBadge}</td><td>${status}</td><td>${topicPrefix}</td><td>${updated}</td><td><div class='row-actions'>${readonly}${registrationActions}${systemLocked ? destructive : (key === "generic" ? genericActions : principalActions)}</div></td></tr>`;
                 })
                 .join("");
               return `<div class='group-title'>${escapeHtml(principalGroupLabel(key))}</div><table class='table'><thead><tr><th class='led-cell'>State</th><th>Principal</th><th>Type</th><th>Status</th><th>Topic Prefix</th><th>Updated</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
             })
             .join("");
           sectionContent.innerHTML = toolbar + chunks + createUserModalMarkup();
+          return;
+        }
+
+        if (section === "bridge-grants") {
+          const rows = visible
+            .slice(0, 50)
+            .map((item) => {
+              const grantId = escapeHtml(String(item.grant_id || "-"));
+              const nodeId = escapeHtml(String(item.node_id || "-"));
+              const bridgeId = escapeHtml(String(item.bridge_id || "-"));
+              const bridgeType = escapeHtml(String(item.bridge_type || "-"));
+              const statusRaw = String(item.status || "-");
+              const status = escapeHtml(statusRaw);
+              const statusClass = statusRaw === "active" ? "ok" : (statusRaw === "approved" || statusRaw === "requested" ? "warn" : "bad");
+              const publishTopics = escapeHtml(Array.isArray(item.requested_publish_topics) ? item.requested_publish_topics.join(", ") : "");
+              const subscribeTopics = escapeHtml(Array.isArray(item.requested_subscribe_topics) ? item.requested_subscribe_topics.join(", ") : "");
+              const principalId = escapeHtml(String(item.bridge_principal_id || item.requester_principal_id || "-"));
+              const requestedAt = escapeHtml(formatLocalTimestamp(item.requested_at || item.updated_at || "-"));
+              const actions =
+                `<button class='mini primary' data-bridge-grant-action='approve' data-grant-id='${grantId}' ${statusRaw === "active" ? "disabled" : ""}>Approve</button>` +
+                `<button class='mini' data-bridge-grant-action='provision' data-grant-id='${grantId}' ${statusRaw !== "approved" && statusRaw !== "active" ? "disabled" : ""}>Provision</button>` +
+                `<button class='mini' data-bridge-grant-action='revoke' data-grant-id='${grantId}' ${statusRaw === "revoked" ? "disabled" : ""}>Revoke</button>`;
+              return `<tr><td>${grantId}</td><td>${nodeId}</td><td>${bridgeId}</td><td>${bridgeType}</td><td><span class='badge ${statusClass}'>${status}</span></td><td>${publishTopics}</td><td>${subscribeTopics}</td><td>${principalId}</td><td>${requestedAt}</td><td><div class='row-actions'>${actions}</div></td></tr>`;
+            })
+            .join("");
+          sectionContent.innerHTML =
+            toolbar +
+            `<table class='table'><thead><tr><th>Grant</th><th>Node</th><th>Bridge</th><th>Type</th><th>Status</th><th>Publish Topics</th><th>Subscribe Topics</th><th>Principal</th><th>Requested</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
           return;
         }
 
@@ -1867,7 +2023,7 @@ def addon_ui_root() -> str:
       }
       const desiredOrder = state.gateActive
         ? ["setup"]
-        : ["overview", "principals", "users", "runtime", "topics", "audit", "noisy-clients", "setup"];
+        : ["overview", "principals", "bridge-grants", "users", "runtime", "topics", "audit", "noisy-clients", "setup"];
       const buttonBySection = {};
       tabs.querySelectorAll(".tab").forEach((node) => {
         const section = String(node.getAttribute("data-section") || "");
@@ -2150,6 +2306,20 @@ def addon_ui_root() -> str:
         const action = principalAction.getAttribute("data-principal-action");
         const principalId = principalAction.getAttribute("data-principal-id");
         if (action && principalId) void runPrincipalAction(action, principalId);
+        return;
+      }
+      const registrationAction = event.target.closest("[data-registration-action]");
+      if (registrationAction) {
+        const action = registrationAction.getAttribute("data-registration-action");
+        const addonId = registrationAction.getAttribute("data-addon-id");
+        if (action && addonId) void runAddonRegistrationAction(action, addonId);
+        return;
+      }
+      const bridgeGrantAction = event.target.closest("[data-bridge-grant-action]");
+      if (bridgeGrantAction) {
+        const action = bridgeGrantAction.getAttribute("data-bridge-grant-action");
+        const grantId = bridgeGrantAction.getAttribute("data-grant-id");
+        if (action && grantId) void runNodeBridgeGrantAction(action, grantId);
         return;
       }
       const noisyAction = event.target.closest("[data-noisy-action]");

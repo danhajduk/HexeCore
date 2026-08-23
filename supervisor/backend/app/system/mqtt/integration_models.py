@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 MQTT_SETUP_STATES = Literal["unconfigured", "configuring", "ready", "error", "degraded"]
 MQTT_ACCESS_MODES = Literal["gateway", "direct", "both"]
 MQTT_GRANT_STATUSES = Literal["approved", "active", "provisioned", "revoked", "error"]
+MQTT_NODE_BRIDGE_GRANT_STATUSES = Literal["requested", "approved", "active", "provisioned", "rejected", "revoked", "error"]
 MQTT_HA_DISCOVERY_MODES = Literal["disabled", "gateway_managed", "addon_managed"]
 MQTT_PRINCIPAL_TYPES = Literal["synthia_addon", "synthia_node", "generic_user", "system"]
 MQTT_PRINCIPAL_STATUSES = Literal["pending", "active", "probation", "revoked", "expired"]
@@ -61,6 +62,30 @@ class MqttAddonGrant(BaseModel):
     revocation_pending: bool = False
     last_provisioned_at: str | None = None
     last_revoked_at: str | None = None
+    updated_at: str = Field(default_factory=_utcnow_iso)
+
+
+class MqttNodeBridgeGrant(BaseModel):
+    grant_id: str = Field(..., min_length=1)
+    node_id: str = Field(..., min_length=1)
+    bridge_id: str = Field(..., min_length=1)
+    bridge_type: str = Field(..., min_length=1)
+    status: MQTT_NODE_BRIDGE_GRANT_STATUSES = "requested"
+    requested_publish_topics: list[str] = Field(default_factory=list)
+    requested_subscribe_topics: list[str] = Field(default_factory=list)
+    approved_publish_topics: list[str] = Field(default_factory=list)
+    approved_subscribe_topics: list[str] = Field(default_factory=list)
+    requester_principal_id: str = Field(..., min_length=1)
+    bridge_principal_id: str | None = None
+    last_error: str | None = None
+    requested_at: str = Field(default_factory=_utcnow_iso)
+    approved_at: str | None = None
+    last_provisioned_at: str | None = None
+    last_revoked_at: str | None = None
+    credential_claimed_at: str | None = None
+    credential_claimed_by_node_id: str | None = None
+    last_credential_delivery_at: str | None = None
+    delivery_status: str | None = None
     updated_at: str = Field(default_factory=_utcnow_iso)
 
 
@@ -120,6 +145,7 @@ class MqttIntegrationState(BaseModel):
     authority_mode: str = "embedded_platform"
     authority_ready: bool = False
     active_grants: dict[str, MqttAddonGrant] = Field(default_factory=dict)
+    node_bridge_grants: dict[str, MqttNodeBridgeGrant] = Field(default_factory=dict)
     principals: dict[str, MqttPrincipal] = Field(default_factory=dict)
     updated_at: str = Field(default_factory=_utcnow_iso)
 

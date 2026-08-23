@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import type { RouteObject } from "react-router-dom";
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation, useParams } from "react-router-dom";
 import Home from "../pages/Home";
 import Addons from "../pages/Addons";
 import AddonFrame from "../pages/AddonFrame";
@@ -16,12 +16,19 @@ import SettingsScheduler from "../pages/SettingsScheduler";
 import AddonStorePage from "../../pages/AddonStorePage";
 import OnboardingNodeApproval from "../pages/OnboardingNodeApproval";
 import NodeReauthApproval from "../pages/NodeReauthApproval";
+import SupervisorEnrollment from "../pages/SupervisorEnrollment";
 import { getAddonRoutes } from "./loadAddons";
 
 function ProtectedRedirect() {
   const location = useLocation();
   const next = `${location.pathname}${location.search}${location.hash}`;
   return <Navigate to={`/?next=${encodeURIComponent(next)}`} replace />;
+}
+
+function AddonProxyPathRedirect() {
+  const params = useParams<{ addonId: string }>();
+  const addonId = String(params.addonId || "").trim();
+  return <Navigate to={addonId ? `/addons/${encodeURIComponent(addonId)}` : "/addons"} replace />;
 }
 
 export function buildRoutes(isAdmin: boolean, ready: boolean): RouteObject[] {
@@ -42,11 +49,15 @@ export function buildRoutes(isAdmin: boolean, ready: boolean): RouteObject[] {
     { path: "/nodes/:nodeId/rendered-ui", element: protectedRoute(<RenderedNodeUiPage />) },
     { path: "/nodes/:nodeId/UI", element: protectedRoute(<NodeFrame />) },
     { path: "/nodes/:nodeId", element: protectedRoute(<NodeDetails />) },
+    { path: "/addons/proxy/:addonId", element: protectedRoute(<AddonProxyPathRedirect />) },
+    { path: "/addons/proxy/:addonId/*", element: protectedRoute(<AddonProxyPathRedirect />) },
     { path: "/addons/:addonId/:section", element: protectedRoute(<AddonFrame />) },
     { path: "/addons/:addonId", element: protectedRoute(<AddonFrame />) },
     { path: "/onboarding/registrations/approve", element: <OnboardingNodeApproval /> },
     { path: "/onboarding/nodes/approve", element: <OnboardingNodeApproval /> },
     { path: "/reauth/nodes/approve", element: <NodeReauthApproval /> },
+    { path: "/system/supervisors/enrollment", element: <SupervisorEnrollment /> },
+    { path: "/supervisors/enrollment", element: <SupervisorEnrollment /> },
     { path: "/settings", element: protectedRoute(<Settings />) },
     { path: "/settings/edge", element: protectedRoute(<EdgeGateway />) },
     { path: "/settings/supervisor", element: protectedRoute(<SettingsSupervisor />) },

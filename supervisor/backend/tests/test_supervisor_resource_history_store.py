@@ -118,6 +118,53 @@ class TestSupervisorResourceHistoryStore(unittest.TestCase):
 
         self.assertEqual([item["resource_id"] for item in samples], ["node-1/api", "node-1/worker"])
 
+    def test_status_reports_counts_sizes_and_retention_controls(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            now = time.time()
+            store = self._store(Path(tmpdir) / "history.sqlite3", retention_seconds=3600)
+            try:
+                store.insert_sample(scope="host", sampled_at=now - 10, metrics={"cpu_percent_total": 12})
+                store.record_event(scope="host", event_type="note", occurred_at=now - 5)
+
+                status = store.status()
+            finally:
+                store.close()
+
+        self.assertTrue(status["exists"])
+        self.assertEqual(status["sample_count"], 1)
+        self.assertEqual(status["event_count"], 1)
+        self.assertGreater(status["total_size_bytes"], 0)
+        self.assertEqual(status["retention_seconds"], 3600)
+        self.assertIn("prune_interval_seconds", status)
+
+    def test_compact_maintenance_prunes_and_reports_before_after(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            now = time.time()
+            store = self._store(Path(tmpdir) / "history.sqlite3", retention_seconds=3600)
+            try:
+                store.insert_sample(scope="host", sampled_at=now - 20, metrics={"cpu_percent_total": 99})
+                store.insert_sample(scope="host", sampled_at=now - 5, metrics={"cpu_percent_total": 12})
+                store.retention_seconds = 10
+
+                result = store.maintain(action="compact", now_ts=now)
+            finally:
+                store.close()
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["action"], "compact")
+        self.assertEqual(result["before"]["sample_count"], 2)
+        self.assertEqual(result["after"]["sample_count"], 1)
+        self.assertEqual(result["after"]["wal_size_bytes"], 0)
+
+    def test_maintenance_rejects_unknown_actions(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = self._store(Path(tmpdir) / "history.sqlite3", retention_seconds=60)
+            try:
+                with self.assertRaises(ValueError):
+                    store.maintain(action="delete-everything")
+            finally:
+                store.close()
+
 
 if __name__ == "__main__":
     unittest.main()

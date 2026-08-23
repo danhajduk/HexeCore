@@ -90,6 +90,24 @@ class _FakeSupervisorService:
             "events": [],
         }
 
+    def resource_history_status(self) -> dict[str, object]:
+        return {
+            "path": "/tmp/supervisor_resource_history.sqlite3",
+            "sample_count": 1,
+            "event_count": 0,
+            "total_size_bytes": 4096,
+            "retention_seconds": 259200,
+            "prune_interval_seconds": 300,
+        }
+
+    def maintain_resource_history(self, *, action: str = "compact") -> dict[str, object]:
+        return {
+            "ok": True,
+            "action": action,
+            "before": self.resource_history_status(),
+            "after": self.resource_history_status(),
+        }
+
     def runtime_summary(self) -> SupervisorRuntimeSummary:
         return SupervisorRuntimeSummary(
             host=self._host(),
@@ -233,6 +251,15 @@ class TestSupervisorRouterContract(unittest.TestCase):
         history = client.get("/api/supervisor/resources/history?range=24h&step=60s")
         self.assertEqual(history.status_code, 200)
         self.assertEqual(history.json()["scope"], "host")
+        maintenance = client.get("/api/supervisor/resources/history/maintenance")
+        self.assertEqual(maintenance.status_code, 200)
+        self.assertEqual(maintenance.json()["sample_count"], 1)
+        compact = client.post("/api/supervisor/resources/history/maintenance", json={"action": "compact"})
+        self.assertEqual(compact.status_code, 200)
+        self.assertEqual(compact.json()["action"], "compact")
+        default_compact = client.post("/api/supervisor/resources/history/maintenance")
+        self.assertEqual(default_compact.status_code, 200)
+        self.assertEqual(default_compact.json()["action"], "compact")
         self.assertEqual(client.get("/api/supervisor/runtime").status_code, 200)
         self.assertTrue(client.get("/api/supervisor/runtime/cloudflared").json()["exists"])
         self.assertFalse(client.get("/api/supervisor/runtime/unknown").json()["exists"])

@@ -46,6 +46,15 @@ def build_supervisor_router(service: SupervisorDomainService | None = None) -> A
     def get_supervisor_resource_history(range: str = "24h", step: str | None = "60s") -> dict[str, Any]:  # noqa: A002
         return supervisor.resource_history(range_value=range, step_value=step)
 
+    @router.get("/supervisor/resources/history/maintenance")
+    def get_supervisor_resource_history_maintenance() -> dict[str, Any]:
+        return supervisor.resource_history_status()
+
+    @router.post("/supervisor/resources/history/maintenance")
+    def maintain_supervisor_resource_history(body: dict[str, Any] | None = Body(default=None)) -> dict[str, Any]:
+        payload = body or {}
+        return supervisor.maintain_resource_history(action=str(payload.get("action") or "compact"))
+
     @router.get("/supervisor/runtime")
     def get_supervisor_runtime() -> SupervisorRuntimeSummary:
         return supervisor.runtime_summary()
