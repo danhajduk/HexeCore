@@ -153,6 +153,8 @@ class TestSupervisorServiceLifecycle(unittest.TestCase):
                 args = popen_mock.call_args.args[0]
                 self.assertEqual(args[0], str(binary))
                 self.assertEqual(args[1:4], ["tunnel", "--no-autoupdate", "run"])
+                self.assertEqual(popen_mock.call_args.kwargs["env"]["TUNNEL_TOKEN"], "token-123")
+                self.assertNotIn("token-123", args)
 
     def test_apply_cloudflared_config_disabled_provider_keeps_runtime_off(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

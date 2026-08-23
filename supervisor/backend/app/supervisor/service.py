@@ -1820,8 +1820,11 @@ class SupervisorDomainService:
                 log_path = self._cloudflared_log_path()
                 log_path.touch(mode=0o600, exist_ok=True)
                 with log_path.open("ab") as handle:
+                    env = dict(os.environ)
+                    env["TUNNEL_TOKEN"] = tunnel_token
                     proc = subprocess.Popen(
-                        [binary_path, "tunnel", "--no-autoupdate", "run", "--token", tunnel_token],
+                        [binary_path, "tunnel", "--no-autoupdate", "run"],
+                        env=env,
                         stdout=handle,
                         stderr=subprocess.STDOUT,
                         start_new_session=True,
