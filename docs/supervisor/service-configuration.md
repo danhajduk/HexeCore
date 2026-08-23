@@ -43,6 +43,8 @@ Core talks to a remote Supervisor over the following environment-backed client s
 - `HEXE_SUPERVISOR_RESOURCE_HISTORY_PATH`: Optional SQLite path for Supervisor-owned resource history. Default: `<repo>/data/supervisor_resource_history.sqlite3`.
 - `HEXE_SUPERVISOR_RESOURCE_HISTORY_RETENTION`: Optional duration for resource history retention. Supports `s`, `m`, `h`, and `d` suffixes. Default: `3d`.
 - `HEXE_SUPERVISOR_RESOURCE_HISTORY_RETENTION_SECONDS`: Legacy numeric override for resource history retention when the duration form is unset.
+- `HEXE_SUPERVISOR_RESOURCE_HISTORY_PRUNE_INTERVAL`: Optional duration between history retention pruning passes. Supports `s`, `m`, `h`, and `d` suffixes. Default: `5m`.
+- `HEXE_SUPERVISOR_RESOURCE_HISTORY_PRUNE_INTERVAL_SECONDS`: Legacy numeric override for the prune interval when the duration form is unset.
 
 ## Notes
 

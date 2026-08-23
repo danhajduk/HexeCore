@@ -14,6 +14,7 @@ from app.core.env import getenv
 
 SUPERVISOR_RESOURCE_HISTORY_SCHEMA_VERSION = "1"
 DEFAULT_RESOURCE_HISTORY_RETENTION_SECONDS = 3 * 24 * 60 * 60
+DEFAULT_RESOURCE_HISTORY_PRUNE_INTERVAL_SECONDS = 5 * 60
 
 DDL = """
 CREATE TABLE IF NOT EXISTS supervisor_resource_samples (
@@ -28,6 +29,9 @@ CREATE TABLE IF NOT EXISTS supervisor_resource_samples (
 CREATE INDEX IF NOT EXISTS idx_supervisor_resource_samples_lookup
   ON supervisor_resource_samples(scope, resource_id, sampled_at);
 
+CREATE INDEX IF NOT EXISTS idx_supervisor_resource_samples_sampled_at
+  ON supervisor_resource_samples(sampled_at);
+
 CREATE TABLE IF NOT EXISTS supervisor_resource_events (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   scope TEXT NOT NULL,
@@ -40,6 +44,9 @@ CREATE TABLE IF NOT EXISTS supervisor_resource_events (
 
 CREATE INDEX IF NOT EXISTS idx_supervisor_resource_events_lookup
   ON supervisor_resource_events(scope, resource_id, occurred_at);
+
+CREATE INDEX IF NOT EXISTS idx_supervisor_resource_events_occurred_at
+  ON supervisor_resource_events(occurred_at);
 """
 
 
@@ -133,11 +140,19 @@ class SupervisorResourceHistoryStore:
         raw_retention = getenv("HEXE_SUPERVISOR_RESOURCE_HISTORY_RETENTION") or getenv(
             "HEXE_SUPERVISOR_RESOURCE_HISTORY_RETENTION_SECONDS"
         )
+        raw_prune_interval = getenv("HEXE_SUPERVISOR_RESOURCE_HISTORY_PRUNE_INTERVAL") or getenv(
+            "HEXE_SUPERVISOR_RESOURCE_HISTORY_PRUNE_INTERVAL_SECONDS"
+        )
         self.retention_seconds = int(
             retention_seconds
             if retention_seconds is not None
             else parse_duration_seconds(raw_retention, default_seconds=DEFAULT_RESOURCE_HISTORY_RETENTION_SECONDS)
         )
+        self.prune_interval_seconds = parse_duration_seconds(
+            raw_prune_interval,
+            default_seconds=DEFAULT_RESOURCE_HISTORY_PRUNE_INTERVAL_SECONDS,
+        )
+        self._last_prune_ts = 0.0
         self._lock = RLock()
         self._path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(self._path), check_same_thread=False)
@@ -180,7 +195,7 @@ class SupervisorResourceHistoryStore:
                 (clean_scope, clean_resource_id, ts, sampled_at_iso, json.dumps(payload, separators=(",", ":"), sort_keys=True)),
             )
             self._conn.commit()
-            self.prune()
+            self.prune_if_due()
         return payload
 
     def record_event(
@@ -223,7 +238,7 @@ class SupervisorResourceHistoryStore:
                 ),
             )
             self._conn.commit()
-            self.prune()
+            self.prune_if_due()
         return event_payload
 
     def samples(
@@ -281,12 +296,19 @@ class SupervisorResourceHistoryStore:
             rows = self._event_rows(clean_scope, clean_resource_id, start_ts, end_ts)
         return [self._load_payload(row[0]) for row in rows]
 
+    def prune_if_due(self, *, now_ts: float | None = None, force: bool = False) -> None:
+        now = float(now_ts if now_ts is not None else _utcnow_ts())
+        if not force and (now - self._last_prune_ts) < float(self.prune_interval_seconds):
+            return
+        self.prune(now_ts=now)
+
     def prune(self, *, now_ts: float | None = None) -> None:
         cutoff = float(now_ts if now_ts is not None else _utcnow_ts()) - float(self.retention_seconds)
         with self._lock:
             self._conn.execute("DELETE FROM supervisor_resource_samples WHERE sampled_at < ?", (cutoff,))
             self._conn.execute("DELETE FROM supervisor_resource_events WHERE occurred_at < ?", (cutoff,))
             self._conn.commit()
+            self._last_prune_ts = float(now_ts if now_ts is not None else _utcnow_ts())
 
     def close(self) -> None:
         with self._lock:

@@ -3,6 +3,9 @@ import { Bluetooth, Globe2, Network, Wifi, type LucideIcon } from "lucide-react"
 import "./settings.css";
 import "./home.css";
 
+const SUPERVISOR_REFRESH_INTERVAL_MS = 30000;
+const SUPERVISOR_HISTORY_QUERY = "range=6h&step=5m";
+
 type SupervisorHostResources = {
   uptime_s?: number;
   load_1m?: number;
@@ -656,8 +659,8 @@ function runtimeHistoryKey(runtime: Record<string, unknown>): string {
 }
 
 function supervisorHostHistoryUrl(supervisor: SupervisorFleetRecord): string {
-  if (isLocalSupervisor(supervisor)) return "/api/system/supervisor/resources/history?range=24h&step=60s";
-  return `/api/system/supervisors/${encodeURIComponent(supervisor.supervisor_id)}/resources/history?range=24h&step=60s`;
+  if (isLocalSupervisor(supervisor)) return `/api/system/supervisor/resources/history?${SUPERVISOR_HISTORY_QUERY}`;
+  return `/api/system/supervisors/${encodeURIComponent(supervisor.supervisor_id)}/resources/history?${SUPERVISOR_HISTORY_QUERY}`;
 }
 
 function runtimeHistoryUrl(runtime: Record<string, unknown>): string {
@@ -665,9 +668,9 @@ function runtimeHistoryUrl(runtime: Record<string, unknown>): string {
   const supervisorId = String(runtime.__supervisor_id || "").trim();
   const transport = String(runtime.__supervisor_transport || "local").toLowerCase();
   if (supervisorId && transport !== "local") {
-    return `/api/system/supervisors/${encodeURIComponent(supervisorId)}/runtimes/${encodeURIComponent(nodeId)}/resources/history?range=24h&step=60s`;
+    return `/api/system/supervisors/${encodeURIComponent(supervisorId)}/runtimes/${encodeURIComponent(nodeId)}/resources/history?${SUPERVISOR_HISTORY_QUERY}`;
   }
-  return `/api/system/supervisor/runtimes/${encodeURIComponent(nodeId)}/resources/history?range=24h&step=60s`;
+  return `/api/system/supervisor/runtimes/${encodeURIComponent(nodeId)}/resources/history?${SUPERVISOR_HISTORY_QUERY}`;
 }
 
 function supervisorNodeCount(supervisor: SupervisorFleetRecord): number | null {
@@ -716,7 +719,7 @@ export default function SettingsSupervisor() {
       if (statsRes.ok) setStats((await statsRes.json()) as SystemStats);
       if (stackRes.ok) setStack((await stackRes.json()) as StackSummary);
       try {
-        const hostHistoryRes = await fetch("/api/system/supervisor/resources/history?range=24h&step=60s", { cache: "no-store" });
+        const hostHistoryRes = await fetch(`/api/system/supervisor/resources/history?${SUPERVISOR_HISTORY_QUERY}`, { cache: "no-store" });
         setHostHistory(hostHistoryRes.ok ? ((await hostHistoryRes.json()) as SupervisorResourceHistory) : null);
       } catch {
         setHostHistory(null);
@@ -777,7 +780,7 @@ export default function SettingsSupervisor() {
     void loadSummary();
     const id = window.setInterval(() => {
       void loadSummary();
-    }, 10000);
+    }, SUPERVISOR_REFRESH_INTERVAL_MS);
     return () => window.clearInterval(id);
   }, []);
 

@@ -1,3 +1,5 @@
+[TODO] Task 964: Add Supervisor resource history maintenance controls
+[TODO] Task 965: Clean up stale Supervisor fleet records and duplicate history polling
 [TODO] Task 955: Split the Core node/system API router into domain routers
 [TODO] Task 956: Split the MQTT router into runtime, admin, debug, grants, and principals routers
 [TODO] Task 957: Split the store router into catalog, sources, install, lifecycle, status, and audit routers

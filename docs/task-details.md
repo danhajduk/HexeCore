@@ -428,3 +428,22 @@ Original task details:
 - Acceptance: Active docs no longer imply Core owns job queueing, job leasing, worker execution, or scheduler orchestration.
 - Acceptance: Historical docs are clearly separated from active source-of-truth docs.
 - Acceptance: Documentation index pages route readers to current Core, Supervisor, MQTT, Node, and Addon contracts.
+
+## Task 963
+Original task details:
+- Goal: Reduce CPU and latency on the Settings / Supervisor page while preserving host and runtime observability.
+- Issue: Supervisor resource history SQLite grew large enough that synchronous prune/query work and 10-second UI polling caused high `hexe-supervisor-api.service` CPU.
+- Scope: Add timestamp indexes for resource history pruning, throttle prune frequency, and reduce Supervisor UI history polling/window size.
+- Acceptance: Resource history store tests pass, frontend builds, Supervisor history endpoints respond faster after restart, and the hot Supervisor API CPU drops under normal dashboard viewing.
+
+## Task 964
+Original task details:
+- Goal: Add explicit operational maintenance controls for Supervisor resource history storage.
+- Scope: Provide a safe checkpoint/vacuum or rotation workflow for `supervisor_resource_history.sqlite3`, document retention/prune interval env vars, and expose DB size/count visibility where useful.
+- Acceptance: Operators can compact or rotate the history DB without losing current service health, and maintenance docs explain when to use it.
+
+## Task 965
+Original task details:
+- Goal: Prevent stale Supervisor fleet records and duplicate UI history requests from confusing operators.
+- Scope: Review stale/offline fleet record retention, identify duplicate local/remote history calls on the Supervisor page, and ensure old supervisors are clearly hidden, pruned, or marked as historical.
+- Acceptance: The Supervisor page no longer shows long-dead records as peers by default, and each visible supervisor/runtime history is fetched once per refresh cycle.

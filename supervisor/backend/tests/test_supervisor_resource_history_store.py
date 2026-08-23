@@ -24,6 +24,24 @@ class TestSupervisorResourceHistoryStore(unittest.TestCase):
         self.assertEqual(parse_duration_seconds("3d"), DEFAULT_RESOURCE_HISTORY_RETENTION_SECONDS)
         self.assertEqual(parse_duration_seconds("nonsense", default_seconds=42), 42)
 
+    def test_prune_queries_use_timestamp_indexes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = self._store(Path(tmpdir) / "history.sqlite3", retention_seconds=10)
+            try:
+                sample_plan = " ".join(
+                    str(row[-1])
+                    for row in store._conn.execute("EXPLAIN QUERY PLAN DELETE FROM supervisor_resource_samples WHERE sampled_at < 1")
+                )
+                event_plan = " ".join(
+                    str(row[-1])
+                    for row in store._conn.execute("EXPLAIN QUERY PLAN DELETE FROM supervisor_resource_events WHERE occurred_at < 1")
+                )
+            finally:
+                store.close()
+
+        self.assertIn("idx_supervisor_resource_samples_sampled_at", sample_plan)
+        self.assertIn("idx_supervisor_resource_events_occurred_at", event_plan)
+
     def test_insert_sample_prunes_entries_outside_retention_window(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             now = time.time()
