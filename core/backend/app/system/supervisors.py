@@ -929,6 +929,28 @@ def build_supervisors_router(
             step_value=step,
         )
 
+    @router.get("/supervisors/{supervisor_id}/core/runtimes/{runtime_id}/resources/history")
+    def get_supervisor_core_runtime_resource_history(
+        supervisor_id: str,
+        runtime_id: str,
+        request: Request,
+        range: str = "24h",  # noqa: A002
+        step: str | None = "60s",
+        x_admin_token: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        require_admin_token(x_admin_token, request)
+        sync_local_supervisor(request)
+        record = registry.get(supervisor_id)
+        if record is None:
+            raise HTTPException(status_code=404, detail="supervisor_not_found")
+        return request_supervisor_history(
+            record,
+            request,
+            f"/api/supervisor/core/runtimes/{runtime_id}/resources/history",
+            range_value=range,
+            step_value=step,
+        )
+
     @router.post("/supervisors/register")
     def register_supervisor(
         body: SupervisorRegistrationRequest,

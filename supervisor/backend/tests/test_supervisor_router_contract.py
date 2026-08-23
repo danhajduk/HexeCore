@@ -214,6 +214,18 @@ class _FakeSupervisorService:
     def get_core_runtime(self, runtime_id: str) -> SupervisorCoreRuntimeSummary:
         return self._core_runtime()
 
+    def core_runtime_resource_history(self, runtime_id: str, *, range_value: str = "24h", step_value: str | None = "60s") -> dict[str, object]:
+        return {
+            "scope": "core_runtime",
+            "resource_id": runtime_id,
+            "range": range_value,
+            "step": step_value,
+            "samples": [{"sampled_at": "2026-03-16T00:00:00Z", "metrics": {"rps": 0.57}}],
+            "events": [],
+            "service_samples": [],
+            "container_samples": [],
+        }
+
     def register_core_runtime(self, body) -> SupervisorCoreRuntimeSummary:
         return self._core_runtime()
 
@@ -278,6 +290,9 @@ class TestSupervisorRouterContract(unittest.TestCase):
         self.assertEqual(client.post("/api/supervisor/runtimes/node-1/start").json()["action"], "start")
         self.assertEqual(client.get("/api/supervisor/core/runtimes").json()["items"][0]["runtime_id"], "core-api")
         self.assertEqual(client.get("/api/supervisor/core/runtimes/core-api").json()["runtime"]["runtime_name"], "Hexe Core API")
+        core_runtime_history = client.get("/api/supervisor/core/runtimes/core-api/resources/history?range=1h")
+        self.assertEqual(core_runtime_history.status_code, 200)
+        self.assertEqual(core_runtime_history.json()["resource_id"], "core-api")
         self.assertEqual(client.post("/api/supervisor/core/runtimes/register", json={"runtime_id": "core-api", "runtime_name": "Hexe Core API"}).json()["runtime_id"], "core-api")
         self.assertEqual(client.post("/api/supervisor/core/runtimes/heartbeat", json={"runtime_id": "core-api"}).json()["runtime_id"], "core-api")
         self.assertEqual(client.post("/api/supervisor/core/runtimes/core-api/start").json()["action"], "start")

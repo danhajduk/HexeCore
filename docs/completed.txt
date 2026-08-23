@@ -15,3 +15,4 @@ Task 967: Make OpenAPI contract checks catch duplicate operation IDs - Completed
 Task 968: Add a single Core/Supervisor repo health entrypoint - Completed on 08/22/2026 20:10
 Task 969: Add an ignored-artifact report or cleanup helper for Core/Supervisor worktrees - Completed on 08/22/2026 20:12
 Task 970: Persist Core Services and Aux Runtimes telemetry fields - Completed on 08/22/2026 20:18
+Task 971: Surface recorded Core Services and Aux Runtimes history in API/UI/docs - Completed on 08/22/2026 20:24

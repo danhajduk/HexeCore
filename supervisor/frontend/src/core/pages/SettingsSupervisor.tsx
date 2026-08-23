@@ -236,19 +236,42 @@ function runtimeResourceMetric(runtime: Record<string, unknown>, key: string): u
   return undefined;
 }
 
-function coreRuntimeRps(runtime: Record<string, unknown>, stats: SystemStats | null): string {
-  if (String(runtime.runtime_id || "") === "core-api") return formatRps(stats?.api?.rps);
-  return formatRps(runtimeResourceMetric(runtime, "rps"));
+function runtimeMetricWithHistory(
+  runtime: Record<string, unknown>,
+  key: string,
+  history?: SupervisorResourceHistory | null,
+): unknown {
+  return runtimeResourceMetric(runtime, key) ?? historyMetric(history, key);
 }
 
-function coreRuntimeP95(runtime: Record<string, unknown>, stats: SystemStats | null): string {
-  if (String(runtime.runtime_id || "") === "core-api") return formatMs(stats?.api?.latency_ms_p95);
-  return formatMs(runtimeResourceMetric(runtime, "latency_ms_p95"));
+function coreRuntimeRps(
+  runtime: Record<string, unknown>,
+  stats: SystemStats | null,
+  history?: SupervisorResourceHistory | null,
+): string {
+  return formatRps(runtimeMetricWithHistory(runtime, "rps", history) ?? (String(runtime.runtime_id || "") === "core-api" ? stats?.api?.rps : undefined));
 }
 
-function coreRuntimeErr(runtime: Record<string, unknown>, stats: SystemStats | null): string {
-  if (String(runtime.runtime_id || "") === "core-api") return formatPct(stats?.api?.error_rate);
-  return formatPct(runtimeResourceMetric(runtime, "error_rate"));
+function coreRuntimeP95(
+  runtime: Record<string, unknown>,
+  stats: SystemStats | null,
+  history?: SupervisorResourceHistory | null,
+): string {
+  return formatMs(
+    runtimeMetricWithHistory(runtime, "latency_ms_p95", history) ??
+      (String(runtime.runtime_id || "") === "core-api" ? stats?.api?.latency_ms_p95 : undefined),
+  );
+}
+
+function coreRuntimeErr(
+  runtime: Record<string, unknown>,
+  stats: SystemStats | null,
+  history?: SupervisorResourceHistory | null,
+): string {
+  return formatPct(
+    runtimeMetricWithHistory(runtime, "error_rate", history) ??
+      (String(runtime.runtime_id || "") === "core-api" ? stats?.api?.error_rate : undefined),
+  );
 }
 
 function networkTransportTone(resources: SupervisorHostResources): "ok" | "warn" | "bad" | "neutral" {
@@ -653,10 +676,40 @@ function runtimeSupervisorLabel(runtime: Record<string, unknown>): string {
   return name ? `${scope} · ${name}` : scope;
 }
 
+function coreRuntimeRows(
+  summaryCoreRuntimes: Array<Record<string, unknown>>,
+  supervisors: SupervisorFleetRecord[],
+): Array<Record<string, unknown>> {
+  const rows: Array<Record<string, unknown>> = summaryCoreRuntimes.map((runtime) => ({
+    ...runtime,
+    __supervisor_id: "local",
+    __supervisor_name: "Local Supervisor",
+    __supervisor_transport: "local",
+  }));
+  for (const supervisor of supervisors) {
+    for (const runtime of supervisor.core_runtimes || []) {
+      if (!runtime || typeof runtime !== "object") continue;
+      rows.push({
+        ...runtime,
+        __supervisor_id: supervisor.supervisor_id,
+        __supervisor_name: supervisor.supervisor_name || supervisor.supervisor_id,
+        __supervisor_transport: supervisor.transport || "remote",
+      });
+    }
+  }
+  return rows;
+}
+
 function runtimeHistoryKey(runtime: Record<string, unknown>): string {
   const supervisorId = String(runtime.__supervisor_id || "local").trim() || "local";
   const nodeId = String(runtime.node_id || "").trim();
   return `${supervisorId}:${nodeId}`;
+}
+
+function coreRuntimeHistoryKey(runtime: Record<string, unknown>): string {
+  const supervisorId = String(runtime.__supervisor_id || "local").trim() || "local";
+  const runtimeId = String(runtime.runtime_id || "").trim();
+  return `${supervisorId}:${runtimeId}`;
 }
 
 function supervisorHostHistoryUrl(supervisor: SupervisorFleetRecord): string {
@@ -672,6 +725,16 @@ function runtimeHistoryUrl(runtime: Record<string, unknown>): string {
     return `/api/system/supervisors/${encodeURIComponent(supervisorId)}/runtimes/${encodeURIComponent(nodeId)}/resources/history?${SUPERVISOR_HISTORY_QUERY}`;
   }
   return `/api/system/supervisor/runtimes/${encodeURIComponent(nodeId)}/resources/history?${SUPERVISOR_HISTORY_QUERY}`;
+}
+
+function coreRuntimeHistoryUrl(runtime: Record<string, unknown>): string {
+  const runtimeId = String(runtime.runtime_id || "").trim();
+  const supervisorId = String(runtime.__supervisor_id || "").trim();
+  const transport = String(runtime.__supervisor_transport || "local").toLowerCase();
+  if (supervisorId && transport !== "local") {
+    return `/api/system/supervisors/${encodeURIComponent(supervisorId)}/core/runtimes/${encodeURIComponent(runtimeId)}/resources/history?${SUPERVISOR_HISTORY_QUERY}`;
+  }
+  return `/api/system/supervisor/core/runtimes/${encodeURIComponent(runtimeId)}/resources/history?${SUPERVISOR_HISTORY_QUERY}`;
 }
 
 function supervisorNodeCount(supervisor: SupervisorFleetRecord): number | null {
@@ -695,6 +758,7 @@ export default function SettingsSupervisor() {
   const [hostHistory, setHostHistory] = useState<SupervisorResourceHistory | null>(null);
   const [supervisorHistories, setSupervisorHistories] = useState<Record<string, SupervisorResourceHistory>>({});
   const [runtimeHistories, setRuntimeHistories] = useState<Record<string, SupervisorResourceHistory>>({});
+  const [coreRuntimeHistories, setCoreRuntimeHistories] = useState<Record<string, SupervisorResourceHistory>>({});
 
   async function loadSummary() {
     setErr(null);
@@ -770,6 +834,38 @@ export default function SettingsSupervisor() {
           return acc;
         }, {}),
       );
+      const coreRuntimesRaw = supervisorPayload.core_runtimes as unknown;
+      const coreRuntimesFromItems =
+        coreRuntimesRaw &&
+        typeof coreRuntimesRaw === "object" &&
+        Array.isArray((coreRuntimesRaw as { items?: unknown }).items)
+          ? ((coreRuntimesRaw as { items?: unknown }).items as Array<Record<string, unknown>>)
+          : [];
+      const localCoreRuntimes = Array.isArray(coreRuntimesRaw) ? coreRuntimesRaw : coreRuntimesFromItems;
+      const historyCoreRuntimeItems = coreRuntimeRows(localCoreRuntimes, fleetItems);
+      const seenCoreRuntimeHistoryUrls = new Set<string>();
+      const coreRuntimePairs = await Promise.all(
+        historyCoreRuntimeItems.slice(0, 12).map(async (runtime) => {
+          const runtimeId = String(runtime.runtime_id || "").trim();
+          if (!runtimeId) return null;
+          const url = coreRuntimeHistoryUrl(runtime);
+          if (seenCoreRuntimeHistoryUrls.has(url)) return null;
+          seenCoreRuntimeHistoryUrls.add(url);
+          try {
+            const res = await fetch(url, { cache: "no-store" });
+            if (!res.ok) return null;
+            return [coreRuntimeHistoryKey(runtime), (await res.json()) as SupervisorResourceHistory] as const;
+          } catch {
+            return null;
+          }
+        }),
+      );
+      setCoreRuntimeHistories(
+        coreRuntimePairs.reduce<Record<string, SupervisorResourceHistory>>((acc, item) => {
+          if (item) acc[item[0]] = item[1];
+          return acc;
+        }, {}),
+      );
     } catch (e: any) {
       setErr(e?.message ?? String(e));
       setSummary(null);
@@ -779,6 +875,7 @@ export default function SettingsSupervisor() {
       setHostHistory(null);
       setSupervisorHistories({});
       setRuntimeHistories({});
+      setCoreRuntimeHistories({});
     } finally {
       setLoading(false);
     }
@@ -800,6 +897,7 @@ export default function SettingsSupervisor() {
       ? ((coreRuntimesRaw as { items?: unknown }).items as Array<Record<string, unknown>>)
       : [];
   const coreRuntimes = Array.isArray(coreRuntimesRaw) ? coreRuntimesRaw : coreRuntimesFromItems;
+  const allCoreRuntimeRows = coreRuntimeRows(coreRuntimes, supervisors);
   const summaryNodeRuntimes = Array.isArray(summary?.runtimes) ? summary?.runtimes : [];
   const nodeRuntimes = mergeNodeRuntimes(summaryNodeRuntimes, supervisors);
   const coreServices = coreRuntimes.filter(
@@ -1011,8 +1109,10 @@ export default function SettingsSupervisor() {
         hostHistory={hostHistory}
         supervisorHistories={supervisorHistories}
         runtimeHistories={runtimeHistories}
+        coreRuntimeHistories={coreRuntimeHistories}
         supervisors={supervisors}
         nodeRuntimes={nodeRuntimes}
+        coreRuntimes={allCoreRuntimeRows}
       />
 
       <section className="settings-section">
@@ -1042,7 +1142,9 @@ export default function SettingsSupervisor() {
                 </tr>
               </thead>
               <tbody>
-                {coreServices.map((runtime) => (
+                {coreServices.map((runtime) => {
+                  const history = coreRuntimeHistories[coreRuntimeHistoryKey(runtime)] || coreRuntimeHistories[`local:${String(runtime.runtime_id || "")}`];
+                  return (
                   <tr key={String(runtime.runtime_id || runtime.runtime_name)}>
                     <td>
                       <StatusLed tone={statusTone(runtime.health_status || runtime.runtime_state)} />
@@ -1054,13 +1156,14 @@ export default function SettingsSupervisor() {
                     <td>{displayState(runtime.runtime_state)}</td>
                     <td>{displayState(runtime.health_status)}</td>
                     <td>{displayState(runtime.desired_state)}</td>
-                    <td>{coreRuntimeRps(runtime, stats)}</td>
-                    <td>{coreRuntimeP95(runtime, stats)}</td>
-                    <td>{coreRuntimeErr(runtime, stats)}</td>
-                    <td>{formatPctValue(runtimeResourceMetric(runtime, "cpu_percent"))}</td>
-                    <td>{formatPctValue(runtimeResourceMetric(runtime, "mem_percent"))}</td>
+                    <td>{coreRuntimeRps(runtime, stats, history)}</td>
+                    <td>{coreRuntimeP95(runtime, stats, history)}</td>
+                    <td>{coreRuntimeErr(runtime, stats, history)}</td>
+                    <td>{formatPctValue(runtimeMetricWithHistory(runtime, "cpu_percent", history))}</td>
+                    <td>{formatPctValue(runtimeMetricWithHistory(runtime, "mem_percent", history))}</td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -1276,7 +1379,9 @@ export default function SettingsSupervisor() {
                 </tr>
               </thead>
               <tbody>
-                {addonRuntimes.map((runtime) => (
+                {addonRuntimes.map((runtime) => {
+                  const history = coreRuntimeHistories[coreRuntimeHistoryKey(runtime)] || coreRuntimeHistories[`local:${String(runtime.runtime_id || "")}`];
+                  return (
                   <tr key={String(runtime.runtime_id || runtime.runtime_name)}>
                     <td>
                       <StatusLed tone={statusTone(runtime.health_status || runtime.runtime_state)} />
@@ -1287,13 +1392,14 @@ export default function SettingsSupervisor() {
                     <td>{displayState(runtime.runtime_state)}</td>
                     <td>{displayState(runtime.health_status)}</td>
                     <td>{displayState(runtime.desired_state)}</td>
-                    <td>{formatRps((runtime as { resource_usage?: { rps?: number } }).resource_usage?.rps)}</td>
-                    <td>{formatMs((runtime as { resource_usage?: { latency_ms_p95?: number } }).resource_usage?.latency_ms_p95)}</td>
-                    <td>{formatPct((runtime as { resource_usage?: { error_rate?: number } }).resource_usage?.error_rate)}</td>
-                    <td>{formatPctValue((runtime as { resource_usage?: { cpu_percent?: number } }).resource_usage?.cpu_percent)}</td>
-                    <td>{formatPctValue((runtime as { resource_usage?: { mem_percent?: number } }).resource_usage?.mem_percent)}</td>
+                    <td>{formatRps(runtimeMetricWithHistory(runtime, "rps", history))}</td>
+                    <td>{formatMs(runtimeMetricWithHistory(runtime, "latency_ms_p95", history))}</td>
+                    <td>{formatPct(runtimeMetricWithHistory(runtime, "error_rate", history))}</td>
+                    <td>{formatPctValue(runtimeMetricWithHistory(runtime, "cpu_percent", history))}</td>
+                    <td>{formatPctValue(runtimeMetricWithHistory(runtime, "mem_percent", history))}</td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -1379,20 +1485,37 @@ function ResourceHistoryPanel({
   hostHistory,
   supervisorHistories,
   runtimeHistories,
+  coreRuntimeHistories,
   supervisors,
   nodeRuntimes,
+  coreRuntimes,
 }: {
   hostHistory: SupervisorResourceHistory | null;
   supervisorHistories: Record<string, SupervisorResourceHistory>;
   runtimeHistories: Record<string, SupervisorResourceHistory>;
+  coreRuntimeHistories: Record<string, SupervisorResourceHistory>;
   supervisors: SupervisorFleetRecord[];
   nodeRuntimes: Array<Record<string, unknown>>;
+  coreRuntimes: Array<Record<string, unknown>>;
 }) {
   const runtimeRows = nodeRuntimes.reduce<
     Array<{ nodeId: string; runtime: Record<string, unknown>; history?: SupervisorResourceHistory }>
   >((acc, runtime) => {
     const nodeId = String(runtime.node_id || "").trim();
     if (nodeId) acc.push({ nodeId, runtime, history: runtimeHistories[runtimeHistoryKey(runtime)] || runtimeHistories[nodeId] });
+    return acc;
+  }, []);
+  const coreRuntimeRows = coreRuntimes.reduce<
+    Array<{ runtimeId: string; runtime: Record<string, unknown>; history?: SupervisorResourceHistory }>
+  >((acc, runtime) => {
+    const runtimeId = String(runtime.runtime_id || "").trim();
+    if (runtimeId) {
+      acc.push({
+        runtimeId,
+        runtime,
+        history: coreRuntimeHistories[coreRuntimeHistoryKey(runtime)] || coreRuntimeHistories[`local:${runtimeId}`],
+      });
+    }
     return acc;
   }, []);
   const hostRows =
@@ -1408,11 +1531,15 @@ function ResourceHistoryPanel({
   const runtimeEvents = runtimeRows.flatMap((row) =>
     (row.history?.events || []).map((event) => ({ ...event, resource_id: row.nodeId })),
   );
-  const events = [...hostEvents, ...runtimeEvents]
+  const coreRuntimeEvents = coreRuntimeRows.flatMap((row) =>
+    (row.history?.events || []).map((event) => ({ ...event, resource_id: row.runtimeId })),
+  );
+  const events = [...hostEvents, ...runtimeEvents, ...coreRuntimeEvents]
     .sort((a, b) => String(b.occurred_at || "").localeCompare(String(a.occurred_at || "")))
     .slice(0, 6);
   const hasHostHistory = hostRows.some((row) => Boolean(row.history));
   const hasRuntimeHistory = runtimeRows.some((row) => Boolean(row.history));
+  const hasCoreRuntimeHistory = coreRuntimeRows.some((row) => Boolean(row.history));
 
   return (
     <section className="settings-section">
@@ -1420,7 +1547,7 @@ function ResourceHistoryPanel({
         <h2>Resource History</h2>
       </div>
       <div className="settings-card settings-history-card">
-        {!hasHostHistory && !hasRuntimeHistory ? (
+        {!hasHostHistory && !hasRuntimeHistory && !hasCoreRuntimeHistory ? (
           <div className="settings-help">No resource history samples recorded yet.</div>
         ) : (
           <>
@@ -1460,6 +1587,29 @@ function ResourceHistoryPanel({
                           <span>{formatPctValue(historyMetric(row.history, "mem_percent"))}</span>
                         </div>
                         <HistorySparkline values={historySeries(row.history, "cpu_percent", 12)} label={`${row.nodeId} cpu`} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="settings-history-panel">
+                <div className="settings-subtable-label">Core & Aux</div>
+                {coreRuntimeRows.length === 0 ? (
+                  <div className="settings-help">No Core runtime history recorded yet.</div>
+                ) : (
+                  <div className="settings-history-runtime-list">
+                    {coreRuntimeRows.slice(0, 6).map((row) => (
+                      <div className="settings-history-runtime" key={`core-history:${coreRuntimeHistoryKey(row.runtime)}`}>
+                        <div>
+                          <strong>{String(row.runtime.runtime_name || row.runtimeId)}</strong>
+                          <div className="settings-muted settings-mono">{row.runtimeId}</div>
+                        </div>
+                        <div className="settings-history-runtime-metrics">
+                          <span>{formatRps(historyMetric(row.history, "rps"))}</span>
+                          <span>{formatMs(historyMetric(row.history, "latency_ms_p95"))}</span>
+                          <span>{formatPct(historyMetric(row.history, "error_rate"))}</span>
+                        </div>
+                        <HistorySparkline values={historySeries(row.history, "cpu_percent", 12)} label={`${row.runtimeId} cpu`} />
                       </div>
                     ))}
                   </div>

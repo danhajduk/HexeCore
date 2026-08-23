@@ -37,6 +37,11 @@ class _FakeSupervisorClient:
                 "resource_id": "local-node",
                 "samples": [],
             },
+            "/api/supervisor/core/runtimes/core-api/resources/history": {
+                "scope": "core_runtime",
+                "resource_id": "core-api",
+                "samples": [{"metrics": {"rps": 0.57}}],
+            },
         }
         return payloads.get(path)
 
@@ -317,13 +322,20 @@ class TestSupervisorFleetApi(unittest.TestCase):
             "/api/system/supervisors/local-core-supervisor/runtimes/local-node/resources/history?range=1h",
             headers=headers,
         )
+        core_runtime_history = client.get(
+            "/api/system/supervisors/local-core-supervisor/core/runtimes/core-api/resources/history?range=1h",
+            headers=headers,
+        )
 
         self.assertEqual(host_history.status_code, 200, host_history.text)
         self.assertEqual(runtime_history.status_code, 200, runtime_history.text)
+        self.assertEqual(core_runtime_history.status_code, 200, core_runtime_history.text)
         self.assertEqual(host_history.json()["scope"], "host")
         self.assertEqual(runtime_history.json()["resource_id"], "local-node")
+        self.assertEqual(core_runtime_history.json()["resource_id"], "core-api")
         self.assertIn(("GET", "/api/supervisor/resources/history"), supervisor_client.requests)
         self.assertIn(("GET", "/api/supervisor/runtimes/local-node/resources/history"), supervisor_client.requests)
+        self.assertIn(("GET", "/api/supervisor/core/runtimes/core-api/resources/history"), supervisor_client.requests)
 
     def test_remote_supervisor_history_uses_registered_api_base_url(self) -> None:
         headers = {"X-Admin-Token": "test-token"}
@@ -348,11 +360,18 @@ class TestSupervisorFleetApi(unittest.TestCase):
                 "/api/system/supervisors/host-remote/resources/history?range=24h&step=60s",
                 headers=headers,
             )
+            core_response = self.client.get(
+                "/api/system/supervisors/host-remote/core/runtimes/core-api/resources/history?range=24h",
+                headers=headers,
+            )
 
         self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(core_response.status_code, 200, core_response.text)
         self.assertEqual(response.json()["scope"], "host")
         self.assertEqual(calls[0][0], "http://remote-supervisor:57665/api/supervisor/resources/history")
         self.assertEqual(calls[0][1], {"range": "24h", "step": "60s"})
+        self.assertEqual(calls[1][0], "http://remote-supervisor:57665/api/supervisor/core/runtimes/core-api/resources/history")
+        self.assertEqual(calls[1][1], {"range": "24h", "step": "60s"})
 
 
 if __name__ == "__main__":

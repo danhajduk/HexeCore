@@ -13,6 +13,7 @@ from app.supervisor import (
 )
 from app.supervisor.core_runtime_store import SupervisorCoreRuntimeStore
 from app.supervisor.resource_monitor import SupervisorResourceMonitor
+from app.supervisor.resource_history_store import SupervisorResourceHistoryStore
 from app.supervisor.runtime_store import SupervisorRuntimeNodesStore
 
 
@@ -116,6 +117,39 @@ class TestSupervisorRuntimeResourceHistory(unittest.TestCase):
         self.assertEqual(sample["metrics"]["error_rate"], 0.118)
         self.assertEqual(sample["metrics"]["cpu_percent"], 7.5)
         self.assertEqual(sample["metadata"]["runtime_kind"], "core_service")
+
+    def test_core_runtime_history_returns_aggregate_and_child_samples(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            history_store = SupervisorResourceHistoryStore(path=root / "history.sqlite3", retention_seconds=3600)
+            service = SupervisorDomainService(
+                runtime_nodes_store=SupervisorRuntimeNodesStore(path=root / "runtime_nodes.json"),
+                core_runtime_store=SupervisorCoreRuntimeStore(path=root / "core_runtimes.json"),
+                resource_monitor=SupervisorResourceMonitor(
+                    process_factory=lambda pid: _FakeProcess(pid),
+                    docker_available=lambda: False,
+                    systemctl_available=lambda: False,
+                    gpu_available=lambda: False,
+                ),
+                resource_history_store=history_store,
+            )
+            service.register_core_runtime(
+                SupervisorCoreRuntimeRegistrationRequest(
+                    runtime_id="addon:mqtt",
+                    runtime_name="MQTT",
+                    runtime_kind="addon",
+                    runtime_metadata={"services": [{"service_id": "broker", "pid": 1234}]},
+                )
+            )
+            try:
+                payload = service.core_runtime_resource_history("addon:mqtt", range_value="1h", step_value=None)
+            finally:
+                history_store.close()
+
+        self.assertEqual(payload["scope"], "core_runtime")
+        self.assertEqual(payload["resource_id"], "addon:mqtt")
+        self.assertEqual(payload["samples"][0]["metrics"]["cpu_percent"], 7.5)
+        self.assertEqual(payload["service_samples"][0]["resource_id"], "addon:mqtt/broker")
 
     def test_registered_runtime_action_records_lifecycle_marker(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

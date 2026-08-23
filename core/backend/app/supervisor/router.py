@@ -169,6 +169,10 @@ def build_supervisor_router(service: SupervisorDomainService | None = None) -> A
     def get_core_runtime(runtime_id: str) -> dict[str, SupervisorCoreRuntimeSummary]:
         return {"runtime": supervisor.get_core_runtime(runtime_id)}
 
+    @router.get("/supervisor/core/runtimes/{runtime_id}/resources/history")
+    def get_supervisor_core_runtime_resource_history(runtime_id: str, range: str = "24h", step: str | None = "60s") -> dict[str, Any]:  # noqa: A002
+        return supervisor.core_runtime_resource_history(runtime_id, range_value=range, step_value=step)
+
     @router.post("/supervisor/core/runtimes/{runtime_id}/start")
     def start_core_runtime(runtime_id: str) -> SupervisorCoreRuntimeActionResult:
         return supervisor.start_core_runtime(runtime_id)

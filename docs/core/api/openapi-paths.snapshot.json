@@ -1,5 +1,5 @@
 {
-  "path_count": 221,
+  "path_count": 223,
   "paths": {
     "/api/addons": [
       "get"
@@ -641,6 +641,9 @@
     "/api/system/stats/current": [
       "get"
     ],
+    "/api/system/supervisor/core/runtimes/{runtime_id}/resources/history": [
+      "get"
+    ],
     "/api/system/supervisor/resources/history": [
       "get"
     ],
@@ -670,6 +673,9 @@
     ],
     "/api/system/supervisors/{supervisor_id}": [
       "delete",
+      "get"
+    ],
+    "/api/system/supervisors/{supervisor_id}/core/runtimes/{runtime_id}/resources/history": [
       "get"
     ],
     "/api/system/supervisors/{supervisor_id}/resources/history": [

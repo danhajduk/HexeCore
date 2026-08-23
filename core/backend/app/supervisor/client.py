@@ -135,6 +135,18 @@ class SupervisorApiClient:
             params["step"] = step_value
         return self._request_json("GET", f"/api/supervisor/runtimes/{node_id}/resources/history", params=params)
 
+    def core_runtime_resource_history(
+        self,
+        runtime_id: str,
+        *,
+        range_value: str = "24h",
+        step_value: str | None = "60s",
+    ) -> dict[str, Any] | None:
+        params: dict[str, Any] = {"range": range_value}
+        if step_value:
+            params["step"] = step_value
+        return self._request_json("GET", f"/api/supervisor/core/runtimes/{runtime_id}/resources/history", params=params)
+
     def admission_summary(
         self,
         *,

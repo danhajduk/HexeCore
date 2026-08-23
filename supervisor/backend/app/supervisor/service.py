@@ -1121,6 +1121,49 @@ class SupervisorDomainService:
             ),
         }
 
+    def core_runtime_resource_history(
+        self,
+        runtime_id: str,
+        *,
+        range_value: str = "24h",
+        step_value: str | None = "60s",
+    ) -> dict[str, Any]:
+        clean_runtime_id = str(runtime_id or "").strip()
+        if not clean_runtime_id:
+            raise HTTPException(status_code=400, detail="runtime_id_required")
+        if self._core_runtime_store.get(clean_runtime_id) is None:
+            raise HTTPException(status_code=404, detail="core_runtime_not_registered")
+        child_prefix = f"{clean_runtime_id}/"
+        return {
+            "scope": "core_runtime",
+            "resource_id": clean_runtime_id,
+            "range": range_value,
+            "step": step_value,
+            "samples": self._resource_history_store.samples(
+                scope="core_runtime",
+                resource_id=clean_runtime_id,
+                range_value=range_value,
+                step_value=step_value,
+            ),
+            "events": self._resource_history_store.events(
+                scope="core_runtime",
+                resource_id=clean_runtime_id,
+                range_value=range_value,
+            ),
+            "service_samples": self._resource_history_store.samples_with_resource_prefix(
+                scope="core_runtime_service",
+                resource_id_prefix=child_prefix,
+                range_value=range_value,
+                step_value=step_value,
+            ),
+            "container_samples": self._resource_history_store.samples_with_resource_prefix(
+                scope="core_runtime_container",
+                resource_id_prefix=child_prefix,
+                range_value=range_value,
+                step_value=step_value,
+            ),
+        }
+
     def runtime_summary(self) -> SupervisorRuntimeSummary:
         managed_nodes = self._managed_nodes()
         return SupervisorRuntimeSummary(

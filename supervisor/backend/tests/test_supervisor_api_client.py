@@ -76,6 +76,10 @@ class TestSupervisorApiClient(unittest.TestCase):
                 params = dict(request.url.params)
                 assert params.get("range") == "1h"
                 return httpx.Response(200, json={"scope": "runtime", "resource_id": "node-1", "samples": []})
+            if request.url.path == "/api/supervisor/core/runtimes/core-api/resources/history":
+                params = dict(request.url.params)
+                assert params.get("range") == "1h"
+                return httpx.Response(200, json={"scope": "core_runtime", "resource_id": "core-api", "samples": []})
             if request.url.path == "/api/supervisor/runtime/cloudflared":
                 return httpx.Response(200, json={"exists": True})
             if request.url.path == "/api/supervisor/runtime/cloudflared/apply":
@@ -154,6 +158,9 @@ class TestSupervisorApiClient(unittest.TestCase):
 
         runtime_history = client.runtime_resource_history("node-1", range_value="1h", step_value=None)
         self.assertEqual(runtime_history["resource_id"], "node-1")
+
+        core_runtime_history = client.core_runtime_resource_history("core-api", range_value="1h", step_value=None)
+        self.assertEqual(core_runtime_history["resource_id"], "core-api")
 
         runtime_state = client.get_runtime_state("cloudflared")
         self.assertTrue(runtime_state["exists"])

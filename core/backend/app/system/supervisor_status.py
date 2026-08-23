@@ -99,4 +99,21 @@ def build_supervisor_status_router() -> APIRouter:
             raise HTTPException(status_code=502, detail="supervisor_unavailable")
         return payload
 
+    @router.get("/supervisor/core/runtimes/{runtime_id}/resources/history")
+    def supervisor_core_runtime_resource_history(
+        runtime_id: str,
+        request: Request,
+        range: str = "24h",  # noqa: A002
+        step: str | None = "60s",
+        x_admin_token: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        require_admin_token(x_admin_token, request)
+        client: SupervisorApiClient | None = getattr(request.app.state, "supervisor_client", None)
+        if client is None:
+            raise HTTPException(status_code=503, detail="supervisor_client_unavailable")
+        payload = client.core_runtime_resource_history(runtime_id, range_value=range, step_value=step)
+        if payload is None:
+            raise HTTPException(status_code=502, detail="supervisor_unavailable")
+        return payload
+
     return router
