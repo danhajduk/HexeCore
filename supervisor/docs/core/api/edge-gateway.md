@@ -49,7 +49,7 @@ Supervisor:
 
 - owns host-local `cloudflared` runtime state
 - stores rendered runtime config on disk with the live tunnel token redacted
-- realizes the connector process locally, using Docker by default in V1
+- realizes the connector process locally, using a repo-local native binary by default
 - reports real runtime status back to Core instead of a config-only placeholder
 - does not perform multi-tenant Cloudflare selection in V1
 
@@ -126,11 +126,14 @@ Runtime notes:
 - Supervisor systemd units default to `HEXE_CLOUDFLARED_PROVIDER=binary`
 - repo-local native installs place `cloudflared` at `.runtime/bin/cloudflared`
 - `HEXE_CLOUDFLARED_BINARY` can point Supervisor at an explicit executable
+- native runtime creates `hexe-cloudflared.service` as a user systemd unit that executes the repo-local binary
+- native runtime writes the tunnel token to `var/edge/cloudflared/cloudflared.env` with mode `0600`; the token is not placed in process arguments or the generated unit file
+- `systemctl --user restart hexe-supervisor-api.service` does not stop the tunnel because `cloudflared` is owned by its own user unit
 - `auto` is still supported; it prefers Docker and falls back to a native `cloudflared` binary if available
 - tests and non-runtime environments can set `HEXE_CLOUDFLARED_PROVIDER=disabled`
 - the Docker runtime uses host networking so the tunnel can reach Core services at `127.0.0.1`
 - run `scripts/install-cloudflared-native.sh` to install or refresh the repo-local binary
-- set `HEXE_CLOUDFLARED_PROVIDER=docker` in the Supervisor environment and reprovision to roll back to Docker
+- set `HEXE_CLOUDFLARED_PROVIDER=docker` in the Supervisor environment and reprovision to roll back to Docker; Supervisor disables the native user unit before starting the container
 
 ## Status And Observability
 

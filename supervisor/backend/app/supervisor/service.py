@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import socket
 import json
+import shlex
 import shutil
 import subprocess
 import time
@@ -1607,8 +1608,24 @@ class SupervisorDomainService:
     def _cloudflared_pid_path(self) -> Path:
         return self._cloudflared_runtime_root() / "cloudflared.pid"
 
+    def _cloudflared_env_path(self) -> Path:
+        return self._cloudflared_runtime_root() / "cloudflared.env"
+
+    def _cloudflared_systemd_unit_name(self) -> str:
+        return str(getenv("HEXE_CLOUDFLARED_SYSTEMD_UNIT", "hexe-cloudflared.service")).strip() or "hexe-cloudflared.service"
+
+    def _cloudflared_systemd_unit_path(self) -> Path:
+        unit_name = self._cloudflared_systemd_unit_name()
+        return Path.home() / ".config" / "systemd" / "user" / unit_name
+
     def _docker_available(self) -> bool:
         return shutil.which("docker") is not None
+
+    def _systemctl_user_available(self) -> bool:
+        return shutil.which("systemctl") is not None
+
+    def _systemctl_user_cmd(self, args: list[str]) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(["systemctl", "--user", *args], capture_output=True, text=True)
 
     def _cloudflared_binary_path(self) -> str | None:
         configured = str(getenv("HEXE_CLOUDFLARED_BINARY", "") or "").strip()
@@ -1618,7 +1635,62 @@ class SupervisorDomainService:
         return shutil.which("cloudflared")
 
     def _cloudflared_binary_available(self) -> bool:
-        return self._cloudflared_binary_path() is not None
+        return self._cloudflared_binary_path() is not None and self._systemctl_user_available()
+
+    def _write_cloudflared_env_file(self, tunnel_token: str) -> Path:
+        if any(ch in tunnel_token for ch in "\r\n\0"):
+            raise RuntimeError("cloudflare_tunnel_token_invalid")
+        env_path = self._cloudflared_env_path()
+        env_path.parent.mkdir(parents=True, exist_ok=True)
+        env_path.write_text(f"TUNNEL_TOKEN={shlex.quote(tunnel_token)}\n", encoding="utf-8")
+        env_path.chmod(0o600)
+        return env_path
+
+    def _write_cloudflared_systemd_unit(self, *, binary_path: str, log_path: Path, env_path: Path) -> Path:
+        runtime_root = self._cloudflared_runtime_root()
+        runtime_root.mkdir(parents=True, exist_ok=True)
+        log_path.touch(mode=0o600, exist_ok=True)
+        unit_path = self._cloudflared_systemd_unit_path()
+        unit_path.parent.mkdir(parents=True, exist_ok=True)
+        unit_path.write_text(
+            "\n".join(
+                [
+                    "[Unit]",
+                    "Description=Hexe native Cloudflared tunnel",
+                    "After=network-online.target",
+                    "Wants=network-online.target",
+                    "",
+                    "[Service]",
+                    "Type=simple",
+                    f"WorkingDirectory={shlex.quote(str(runtime_root))}",
+                    f"EnvironmentFile={shlex.quote(str(env_path))}",
+                    f"ExecStart={shlex.quote(binary_path)} tunnel --no-autoupdate run",
+                    "Restart=always",
+                    "RestartSec=5",
+                    f"StandardOutput=append:{log_path}",
+                    f"StandardError=append:{log_path}",
+                    "",
+                    "[Install]",
+                    "WantedBy=default.target",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        return unit_path
+
+    def _cloudflared_systemd_active(self) -> bool:
+        result = self._systemctl_user_cmd(["is-active", "--quiet", self._cloudflared_systemd_unit_name()])
+        return result.returncode == 0
+
+    def _cloudflared_systemd_main_pid(self) -> int:
+        result = self._systemctl_user_cmd(["show", self._cloudflared_systemd_unit_name(), "--property", "MainPID", "--value"])
+        if result.returncode != 0:
+            return 0
+        try:
+            return int(str(result.stdout or "").strip() or "0")
+        except Exception:
+            return 0
 
     def _write_runtime_payload(self, payload: dict[str, Any]) -> None:
         runtime_path = self._cloudflared_runtime_root() / "runtime.json"
@@ -1657,21 +1729,23 @@ class SupervisorDomainService:
             self._docker_cmd(["rm", "-f", self._cloudflared_container_name()])
 
     def _stop_cloudflared_native(self) -> None:
+        if self._systemctl_user_available():
+            self._systemctl_user_cmd(["disable", "--now", self._cloudflared_systemd_unit_name()])
         pid_path = self._cloudflared_pid_path()
-        if not pid_path.exists():
-            return
-        try:
-            pid = int(pid_path.read_text(encoding="utf-8").strip())
-        except Exception:
-            pid_path.unlink(missing_ok=True)
-            return
-        try:
-            os.kill(pid, 15)
-        except ProcessLookupError:
-            pass
-        except Exception:
-            pass
+        if pid_path.exists():
+            try:
+                pid = int(pid_path.read_text(encoding="utf-8").strip())
+            except Exception:
+                pid = 0
+            if pid > 0:
+                try:
+                    os.kill(pid, 15)
+                except ProcessLookupError:
+                    pass
+                except Exception:
+                    pass
         pid_path.unlink(missing_ok=True)
+        self._cloudflared_env_path().unlink(missing_ok=True)
 
     def _ensure_cloudflared_stopped(self) -> None:
         self._remove_cloudflared_container()
@@ -1701,23 +1775,21 @@ class SupervisorDomainService:
             else:
                 payload.update({"state": "stopped", "healthy": False, "last_error": str(payload.get("last_error") or "runtime_not_started")})
         elif provider == "binary":
-            pid_path = self._cloudflared_pid_path()
-            try:
-                pid = int(pid_path.read_text(encoding="utf-8").strip()) if pid_path.exists() else 0
-            except Exception:
-                pid = 0
-            running = False
+            running = self._cloudflared_systemd_active() if self._systemctl_user_available() else False
+            pid = self._cloudflared_systemd_main_pid() if running else 0
             if pid > 0:
-                try:
-                    os.kill(pid, 0)
-                    running = True
-                except Exception:
-                    running = False
+                self._cloudflared_pid_path().write_text(f"{pid}\n", encoding="utf-8")
+                payload["pid"] = pid
+            else:
+                self._cloudflared_pid_path().unlink(missing_ok=True)
+                payload.pop("pid", None)
             payload.update(
                 {
                     "state": "running" if running else "stopped",
                     "healthy": running,
                     "last_error": None if running else str(payload.get("last_error") or "runtime_not_started"),
+                    "systemd_unit": self._cloudflared_systemd_unit_name(),
+                    "systemd_unit_path": str(self._cloudflared_systemd_unit_path()),
                 }
             )
         payload["exists"] = True
@@ -1817,26 +1889,29 @@ class SupervisorDomainService:
                 binary_path = self._cloudflared_binary_path()
                 if not binary_path:
                     raise RuntimeError("cloudflared_binary_not_found")
+                if not self._systemctl_user_available():
+                    raise RuntimeError("systemctl_user_not_available")
                 log_path = self._cloudflared_log_path()
-                log_path.touch(mode=0o600, exist_ok=True)
-                with log_path.open("ab") as handle:
-                    env = dict(os.environ)
-                    env["TUNNEL_TOKEN"] = tunnel_token
-                    proc = subprocess.Popen(
-                        [binary_path, "tunnel", "--no-autoupdate", "run"],
-                        env=env,
-                        stdout=handle,
-                        stderr=subprocess.STDOUT,
-                        start_new_session=True,
-                    )
-                self._cloudflared_pid_path().write_text(f"{proc.pid}\n", encoding="utf-8")
+                env_path = self._write_cloudflared_env_file(tunnel_token)
+                unit_path = self._write_cloudflared_systemd_unit(binary_path=binary_path, log_path=log_path, env_path=env_path)
+                reload_result = self._systemctl_user_cmd(["daemon-reload"])
+                if reload_result.returncode != 0:
+                    raise RuntimeError(str(reload_result.stderr or reload_result.stdout or "cloudflared_systemd_reload_failed").strip())
+                start_result = self._systemctl_user_cmd(["enable", "--now", self._cloudflared_systemd_unit_name()])
+                if start_result.returncode != 0:
+                    raise RuntimeError(str(start_result.stderr or start_result.stdout or "cloudflared_systemd_start_failed").strip())
+                pid = self._cloudflared_systemd_main_pid()
+                if pid > 0:
+                    self._cloudflared_pid_path().write_text(f"{pid}\n", encoding="utf-8")
                 runtime_payload.update(
                     {
                         "state": "running",
                         "healthy": True,
                         "last_error": None,
                         "last_started_at": self._now_iso(),
-                        "pid": proc.pid,
+                        "pid": pid or None,
+                        "systemd_unit": self._cloudflared_systemd_unit_name(),
+                        "systemd_unit_path": str(unit_path),
                     }
                 )
         except Exception as exc:

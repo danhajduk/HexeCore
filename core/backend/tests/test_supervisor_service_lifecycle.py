@@ -93,9 +93,9 @@ class TestSupervisorServiceLifecycle(unittest.TestCase):
                     subprocess.CompletedProcess(["docker"], 0, stdout="container-123\n", stderr=""),
                     subprocess.CompletedProcess(["docker"], 0, stdout="true\n", stderr=""),
                 ]
-                with patch("app.supervisor.service.shutil.which", return_value="/usr/bin/docker"), patch(
-                    "app.supervisor.service.subprocess.run", side_effect=completed
-                ) as run_mock:
+                with patch.object(service, "_systemctl_user_available", return_value=False), patch(
+                    "app.supervisor.service.shutil.which", return_value="/usr/bin/docker"
+                ), patch("app.supervisor.service.subprocess.run", side_effect=completed) as run_mock:
                     result = service.apply_cloudflared_config(
                         {
                             "tunnel": "tunnel-123",
@@ -133,10 +133,20 @@ class TestSupervisorServiceLifecycle(unittest.TestCase):
                 clear=False,
             ):
                 service = SupervisorDomainService(self._runtime_service(Path(tmpdir) / "services"))
-                proc = type("Proc", (), {"pid": 12345})()
-                with patch.object(service, "_remove_cloudflared_container", return_value=None), patch(
-                    "app.supervisor.service.subprocess.Popen", return_value=proc
-                ) as popen_mock, patch("app.supervisor.service.os.kill", return_value=None):
+                unit_path = Path(tmpdir) / "hexe-cloudflared.service"
+
+                def systemctl_result(args: list[str]) -> subprocess.CompletedProcess[str]:
+                    if args[:1] == ["show"]:
+                        return subprocess.CompletedProcess(["systemctl"], 0, stdout="12345\n", stderr="")
+                    return subprocess.CompletedProcess(["systemctl"], 0, stdout="", stderr="")
+
+                with patch.object(service, "_remove_cloudflared_container", return_value=None), patch.object(
+                    service, "_systemctl_user_available", return_value=True
+                ), patch.object(service, "_systemctl_user_cmd", side_effect=systemctl_result) as systemctl_mock, patch.object(
+                    service, "_cloudflared_systemd_unit_path", return_value=unit_path
+                ), patch(
+                    "app.supervisor.service.os.kill", return_value=None
+                ):
                     result = service.apply_cloudflared_config(
                         {
                             "tunnel": "tunnel-123",
@@ -150,11 +160,15 @@ class TestSupervisorServiceLifecycle(unittest.TestCase):
                 self.assertEqual(runtime["provider"], "binary")
                 self.assertEqual(runtime["state"], "running")
                 self.assertEqual(runtime["pid"], 12345)
-                args = popen_mock.call_args.args[0]
-                self.assertEqual(args[0], str(binary))
-                self.assertEqual(args[1:4], ["tunnel", "--no-autoupdate", "run"])
-                self.assertEqual(popen_mock.call_args.kwargs["env"]["TUNNEL_TOKEN"], "token-123")
-                self.assertNotIn("token-123", args)
+                self.assertEqual(runtime["systemd_unit"], "hexe-cloudflared.service")
+                unit = unit_path.read_text(encoding="utf-8")
+                self.assertIn(f"ExecStart={binary} tunnel --no-autoupdate run", unit)
+                self.assertNotIn("token-123", unit)
+                env_file = Path(tmpdir) / "cloudflared.env"
+                self.assertEqual(env_file.read_text(encoding="utf-8").strip(), "TUNNEL_TOKEN=token-123")
+                calls = [call.args[0] for call in systemctl_mock.call_args_list]
+                self.assertIn(["daemon-reload"], calls)
+                self.assertIn(["enable", "--now", "hexe-cloudflared.service"], calls)
 
     def test_apply_cloudflared_config_disabled_provider_keeps_runtime_off(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
