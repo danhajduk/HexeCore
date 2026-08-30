@@ -65,6 +65,15 @@ Bluetooth broker routes:
 
 Bluetooth presence reporting does not grant node access. Nodes must request a Core hardware lease first; see [node-hardware-access.md](../core/node-hardware-access.md).
 
+Bluetooth/BLE deployment checklist:
+
+- Set `HEXE_BLUETOOTH_ACCESS_POLICY` on the Supervisor host. Keep `disabled` until a trusted node is expected to use Bluetooth.
+- Set the same `HEXE_HARDWARE_LEASE_SECRET` on Core and on any Supervisor that may validate leases locally.
+- Prefer Core-backed validation by configuring Supervisor reporting with `HEXE_SUPERVISOR_CORE_URL` and `HEXE_SUPERVISOR_CORE_TOKEN`, or by setting `HEXE_HARDWARE_LEASE_VALIDATE_URL` explicitly.
+- Ensure the Supervisor service user can run `bluetoothctl` and observe `/sys/class/bluetooth`.
+- Use `ble.status` before `ble.scan` when debugging adapter presence or power state.
+- Treat `revocation_check=local_token_only` as a fallback mode: token expiry is enforced locally, but Core-side release/revocation is only observed when Core validation is available.
+
 ## Notes
 
 - The Unix socket path is consistent across hosts to keep local Supervisor access predictable.

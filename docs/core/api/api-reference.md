@@ -86,6 +86,12 @@ Status: Implemented
   - `POST /api/system/nodes/governance/refresh` (trusted node token required; version-aware governance refresh across capability, routing-policy, and budget-policy changes; also clears `outdated` state when successful)
   - `GET /api/system/nodes/operational-status/{node_id}` (node trust token or admin session/token; lightweight lifecycle/capability/governance status, including governance freshness and outdated flags)
   - `POST /api/system/nodes/telemetry` (trusted node token required; runtime lifecycle/governance signal ingestion)
+  - `POST /api/system/nodes/hardware/access-requests` (trusted node token required via `X-Node-Trust-Token`; request Core-governed host hardware access such as Bluetooth BLE status or scan)
+  - `GET /api/system/nodes/{node_id}/hardware/access-requests` (trusted node token required via `X-Node-Trust-Token`; list the node's hardware requests and lease state without returning lease tokens)
+  - `POST /api/system/nodes/hardware/leases/{lease_id}/release` (trusted node token required via `X-Node-Trust-Token`; release a granted hardware lease)
+  - `GET /api/system/hardware/access-requests` (admin session/token required; list hardware access requests, with optional `status` filter)
+  - `POST /api/system/hardware/access-requests/{request_id}/decision` (admin session/token required; approve or deny a pending hardware request created under `ask` policy)
+  - `POST /api/system/hardware/leases/validate` (admin session/token or Supervisor reporting token required; validates signed hardware lease tokens against persisted Core lease state)
   - `GET /api/system/nodes/capabilities/profiles` (admin session/token required)
   - `GET /api/system/nodes/capabilities/profiles/{profile_id}` (admin session/token required)
   - `POST /api/services/register`
@@ -109,6 +115,11 @@ Status: Implemented
   - `POST /api/system/supervisors/register` (`X-Admin-Token` or issued `X-Supervisor-Token` required)
   - `POST /api/system/supervisors/heartbeat` (`X-Admin-Token` or issued `X-Supervisor-Token` required)
   - `DELETE /api/system/supervisors/{supervisor_id}` (admin session/token required)
+- Standalone Supervisor Bluetooth broker:
+  - `POST /api/supervisor/hardware/bluetooth/ble/status` (Core-issued hardware lease token required in JSON body; returns adapter state)
+  - `POST /api/supervisor/hardware/bluetooth/ble/scan` (Core-issued hardware lease token required in JSON body; performs bounded BLE scan through Supervisor-managed `bluetoothctl`)
+
+Bluetooth hardware access is documented in [Node Hardware Access](../node-hardware-access.md). Core governs request/lease state; Supervisor enforces leases locally. Nodes do not receive raw host Bluetooth device or DBus access.
 
 Platform metadata currently includes:
 

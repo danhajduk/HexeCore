@@ -34,8 +34,66 @@ This document defines the current Supervisor domain models exposed by the migrat
 - `root_disk_total_bytes`
 - `root_disk_free_bytes`
 - `root_disk_percent`
+- `gpu_count`
+- `gpu_utilization_percent`
+- `gpu_memory_percent`
+- `gpu_devices`
+- `cuda_available`
+- `cuda_version`
+- `bluetooth_present`
+- `bluetooth_powered`
+- `bluetooth_ensure_powered`
+- `bluetooth_power_error`
+- `bluetooth_adapters`
+- `network_rx_Bps`
+- `network_tx_Bps`
+- `network_bytes_recv`
+- `network_bytes_sent`
+- `network_errin`
+- `network_errout`
+- `network_dropin`
+- `network_dropout`
+- `network_primary_interface`
+- `network_primary_type`
+- `network_link_speed_mbps`
+- `wifi_signal_percent`
+- `internet_reachable`
+- `internet_check_error`
 
-Current implementation reuses the existing Core stats collector as a compatibility source while the host-local logic is moved behind Supervisor boundaries in later tasks.
+Supervisor samples host-local CPU, memory, disk, network, GPU, Bluetooth, and internet reachability fields. Bluetooth fields describe adapter presence and power state only; they do not grant node access to Bluetooth hardware.
+
+### SupervisorBluetoothLeaseRequest
+
+Status: Implemented
+
+Accepted by:
+
+- `POST /api/supervisor/hardware/bluetooth/ble/status`
+
+Fields include:
+
+- `node_id`
+- `lease_token`
+- `adapter`
+
+The `lease_token` must be a Core-issued hardware lease for the same node, Supervisor, resource, adapter when scoped, and BLE operation.
+
+### SupervisorBluetoothBleScanRequest
+
+Status: Implemented
+
+Accepted by:
+
+- `POST /api/supervisor/hardware/bluetooth/ble/scan`
+
+Fields include:
+
+- `node_id`
+- `lease_token`
+- `adapter`
+- `scan_seconds`
+
+`scan_seconds` is bounded from 1 to 30 seconds. The scan route validates the lease before running a bounded BLE scan through Supervisor-managed `bluetoothctl`.
 
 ### ManagedNodeSummary
 
