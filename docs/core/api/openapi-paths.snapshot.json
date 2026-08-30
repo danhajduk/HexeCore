@@ -1,5 +1,5 @@
 {
-  "path_count": 223,
+  "path_count": 229,
   "paths": {
     "/api/addons": [
       "get"
@@ -239,6 +239,15 @@
     ],
     "/api/system/events": [
       "get"
+    ],
+    "/api/system/hardware/access-requests": [
+      "get"
+    ],
+    "/api/system/hardware/access-requests/{request_id}/decision": [
+      "post"
+    ],
+    "/api/system/hardware/leases/validate": [
+      "post"
     ],
     "/api/system/mqtt/audit": [
       "get"
@@ -495,6 +504,12 @@
     "/api/system/nodes/governance/refresh": [
       "post"
     ],
+    "/api/system/nodes/hardware/access-requests": [
+      "post"
+    ],
+    "/api/system/nodes/hardware/leases/{lease_id}/release": [
+      "post"
+    ],
     "/api/system/nodes/onboarding/sessions": [
       "get",
       "post"
@@ -571,6 +586,9 @@
       "post"
     ],
     "/api/system/nodes/trust-status/{node_id}": [
+      "get"
+    ],
+    "/api/system/nodes/{node_id}/hardware/access-requests": [
       "get"
     ],
     "/api/system/platform": [

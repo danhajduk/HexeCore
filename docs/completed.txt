@@ -22,3 +22,6 @@ Task 974: Split node-provided capabilities from node-requested service dependenc
 Task 975: Derive governance routing permissions from requested service dependencies - Completed on 08/29/2026 17:23
 Task 976: Update persisted data migration and operational compatibility for capability dependency split - Completed on 08/29/2026 17:28
 Task 977: Update Core documentation for provider versus requester capability semantics - Completed on 08/29/2026 17:30
+Task 985: Add Core-governed node hardware access request and lease protocol - Completed on 08/30/2026 08:43
+Task 986: Implement Supervisor Bluetooth access broker and local enforcement path - Completed on 08/30/2026 08:43
+Task 987: Document and verify the node Bluetooth access flow end to end - Completed on 08/30/2026 08:43

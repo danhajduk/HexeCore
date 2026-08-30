@@ -50,6 +50,16 @@ class HostResourceSummary(BaseModel):
     internet_check_error: str | None = None
 
 
+class SupervisorBluetoothLeaseRequest(BaseModel):
+    node_id: str = Field(..., min_length=1)
+    lease_token: str = Field(..., min_length=1)
+    adapter: str | None = None
+
+
+class SupervisorBluetoothBleScanRequest(SupervisorBluetoothLeaseRequest):
+    scan_seconds: int = Field(default=5, ge=1, le=30)
+
+
 class ManagedNodeSummary(BaseModel):
     node_id: str
     runtime_kind: str = "standalone_addon"

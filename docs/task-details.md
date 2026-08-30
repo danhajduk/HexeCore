@@ -620,3 +620,176 @@ Original task details:
 - Verification: Run documentation/schema checks available in the repo.
 - Verification: Run `python tools/check_repo_health.py --skip-backend-tests` if the full health check is too expensive.
 - Verification: Run `python tools/check_mirror_drift.py`.
+
+## Task 978
+Original task details:
+- Source finding: Provider/model governance filters are documented more strongly than code enforces.
+- Goal: Decide and implement the intended enforcement semantics for `routing_policy_constraints.allowed_providers` and `routing_policy_constraints.allowed_models` during node service resolution and authorization.
+- Current code evidence: `core/backend/app/system/onboarding/governance.py` emits `allowed_providers`, `allowed_models`, and `allowed_task_families`; `core/backend/app/system/services/node_resolution.py` enforces `allowed_task_families` directly and filters provider/model only through request preference and candidate model availability.
+- Documentation evidence: `docs/core/node-service-resolution-and-budgeting.md` says governance allowed providers and models filter candidates, while `docs/core/node-budget-assignment-flow.md` says only `allowed_task_families` is enforced directly in `resolve_for_node(...)`.
+- [STOP] Before changing behavior, confirm whether provider/model fields are mandatory enforcement gates or advisory policy carried in governance.
+- If enforcement is confirmed, update `NodeServiceResolutionService` so candidates outside `allowed_providers` or provider-specific `allowed_models` are rejected.
+- If advisory semantics are chosen, update docs to clearly say these fields are not resolver gates and identify where they are enforced, if anywhere.
+- Preserve the provider/requester split: requester authorization uses `requested_task_families[]`; provider candidate matching uses provider-side capabilities such as `provided_task_families[]`.
+- Preserve delegated provider-owned budget checks.
+- Apply mirrored implementation/test changes to both Core and Supervisor trees if code changes touch mirrored files.
+- Acceptance: A requester cannot resolve or authorize a candidate whose provider is excluded by active governance policy when provider enforcement is enabled.
+- Acceptance: A requester cannot resolve or authorize a candidate whose selected model is excluded by active provider model policy when model enforcement is enabled.
+- Acceptance: Existing Voice-to-AI `task.chat` delegated resolution still works when the AI provider/model is allowed.
+- Acceptance: Docs describe the implemented semantics without contradiction.
+- Verification: Run focused node service resolution tests, provider model policy tests, and governance tests.
+- Verification: Run `python tools/update_openapi_snapshot.py --check` if API behavior or schema exposure changes.
+- Verification: Run `python tools/check_mirror_drift.py`.
+
+## Task 979
+Original task details:
+- Source finding: Supervisor route ownership is unclear.
+- Goal: Clarify the implementation and documentation boundary between Core-hosted Supervisor fleet/status routes and the standalone Supervisor API routes.
+- Code evidence: `core/backend/app/supervisor/server.py` creates the standalone Supervisor FastAPI app and mounts `build_supervisor_router(...)` under `/api`; `core/systemd/user/hexe-supervisor-api.service.in` launches `python -m app.supervisor.server`; Core `create_app()` mounts `/api/system/supervisor*` and `/api/system/supervisors*` routes but does not expose `/api/supervisor/health` in the Core OpenAPI snapshot.
+- Documentation evidence: `docs/architecture.md` says the migration foundation routes are mounted in `backend/app/main.py`; `docs/supervisor/README.md` says Supervisor API routes are served by the standalone Supervisor service rather than Core.
+- Update `docs/architecture.md`, `docs/supervisor/README.md`, and related API docs so they distinguish route host/process ownership.
+- If code still exposes an obsolete or misleading Core route wrapper, either remove it safely or document why it remains.
+- Acceptance: Docs clearly separate `/api/supervisor/*` standalone Supervisor API routes from `/api/system/supervisor*` and `/api/system/supervisors*` Core routes.
+- Acceptance: OpenAPI snapshot expectations match the documented Core route surface.
+- Verification: Run `python tools/update_openapi_snapshot.py --check`.
+- Verification: Run Supervisor API focused tests if route behavior changes.
+- Verification: Run `python tools/check_mirror_drift.py`.
+
+## Task 980
+Original task details:
+- Source finding: Stale paths and broken documentation links remain in active docs.
+- Goal: Repair stale repo paths and broken internal documentation links in active source-of-truth docs.
+- Evidence from audit: A Markdown link scan found 146 missing internal or absolute doc links; examples include old `/home/dan/Projects/Hexe/...` anchors and stale `core/backend/synthia_supervisor/` references in `README.md`.
+- Preserve historical migration documents when references are explicitly historical.
+- Convert active personal absolute paths to repo-relative links.
+- Update stale package/path names where the current repository uses `hexe_supervisor` instead of `synthia_supervisor`.
+- Add or document a targeted link validation command so future docs changes can catch broken links.
+- Acceptance: Active docs no longer send readers to missing local absolute paths for current code.
+- Acceptance: Historical/archive references remain clearly marked as historical if retained.
+- Acceptance: Link validation for active docs has an executable command or script.
+- Verification: Run the new or selected Markdown link validation.
+- Verification: Run `python tools/check_repo_health.py --skip-backend-tests` if appropriate.
+
+## Task 981
+Original task details:
+- Source finding: The hand-written API reference is incomplete beside the generated route snapshot.
+- Goal: Make API reference coverage match the generated OpenAPI path snapshot while keeping dynamic proxy routes documented separately.
+- Evidence from audit: `docs/core/api/openapi-paths.snapshot.json` contains 223 generated paths; exact comparison against `docs/core/api/api-reference.md` found 119 snapshot paths not listed exactly.
+- Keep `docs/core/api/openapi-paths.snapshot.json` as the deterministic machine route contract.
+- Add a generated or semi-generated route appendix from the snapshot, or update the API reference so generated routes are discoverable without manual drift.
+- Add a separate section for runtime proxy surfaces intentionally excluded from OpenAPI, including node UI/API proxy paths and addon proxy catch-alls.
+- Do not treat dynamic proxy catch-alls as stable generated-client operations unless the implementation changes to support that.
+- Acceptance: Every generated OpenAPI path is either listed directly or covered by a generated appendix.
+- Acceptance: Dynamic proxy route documentation explains why those routes are not in the snapshot.
+- Verification: Run `python tools/update_openapi_snapshot.py --check`.
+- Verification: Run route/link documentation validation added by this task or Task 980.
+
+## Task 982
+Original task details:
+- Source finding: Environment docs miss variables read through helper functions and shell helper wrappers.
+- Goal: Extend environment registry validation so helper-read variables are scanned and documented.
+- Evidence from audit: `tools/check_env_registry.py` passes today but supplemental scanning found helper-read variables missing from `docs/config/core-env-registry.json`, including `HEXE_NODE_PROXY_TIMEOUT_SECONDS`, `HEXE_NODE_UI_HEALTH_TIMEOUT_SECONDS`, `HEXE_SUPERVISOR_CORE_TOKEN`, `HEXE_SUPERVISOR_REPORT_TIMEOUT_S`, `STORE_CATALOG_TIMEOUT_S`, and related Supervisor/addon proxy/runtime variables.
+- Update `tools/check_env_registry.py` to scan helper patterns such as `_env_*("NAME")`, `hexe_env NAME`, and `write_env_if_set "NAME"`.
+- Add registry entries for active env vars discovered by the improved scanner.
+- Regenerate `docs/config/environment.md` from the registry.
+- Mark sensitive token/secret values correctly.
+- [STOP] After this task, review the expanded registry before broad doc consolidation so stale or intentionally private variables are not documented incorrectly.
+- Acceptance: `python tools/check_env_registry.py --check-docs` passes with the expanded scan.
+- Acceptance: New registry entries have owners, defaults, descriptions, and sensitivity flags.
+- Verification: Run `python tools/check_env_registry.py --write-docs`.
+- Verification: Run `python tools/check_env_registry.py --check-docs`.
+
+## Task 983
+Original task details:
+- Source finding: Duplicate `supervisor/docs/` remains even though root `docs/` is the canonical documentation tree.
+- Goal: Consolidate or pointerize duplicate Supervisor documentation so future edits happen in root `docs/`.
+- Evidence: `docs/documentation-map.md` says root `docs/` is canonical; `supervisor/docs/` still contains task files, archive docs, reports, and completed/Reasoning files.
+- Preserve any supervisor-only content that is not already represented under root `docs/`.
+- Replace duplicate active docs with a pointer to the root documentation tree, or archive them if the repository convention supports it.
+- Do not delete user-owned operational notes without confirming ownership.
+- Update links that still point to `supervisor/docs/` as an active source.
+- Acceptance: Root `docs/` remains the single active source of truth.
+- Acceptance: `supervisor/docs/` is either removed, reduced to pointers, or clearly classified as archive-only.
+- Acceptance: No active task workflow state is stranded under `supervisor/docs/`.
+- Verification: Run Markdown link validation.
+- Verification: Run `python tools/check_mirror_drift.py` if mirrored files are affected.
+
+## Task 984
+Original task details:
+- Source finding: Schema docs point at wrong locations.
+- Goal: Repair schema documentation links and ownership descriptions.
+- Evidence: `docs/core/api/data-and-state.md` links `./desired.schema.json`, `./runtime.schema.json`, and `./addon-manifest.schema.json`, but current schema catalogs live under `docs/json_schema/` and historical standalone-addon schemas live under `docs/addons/standalone-archive/`.
+- Update schema links so current Core-owned schemas point to `docs/json_schema/`.
+- Keep historical SSAP schema links under `docs/addons/standalone-archive/` clearly marked as historical when applicable.
+- Ensure `docs/json_schema/README.md` and `docs/core/api/data-and-state.md` agree on schema ownership.
+- Acceptance: Schema links resolve and make current-vs-historical ownership clear.
+- Acceptance: Core-owned schema references do not point at missing files.
+- Verification: Run Markdown link validation.
+- Verification: Run `python tools/update_openapi_snapshot.py --check` if route/schema docs mention generated API shape.
+
+## Task 985
+Original task details:
+- Source finding: Bluetooth hardware is detected and advertised by Supervisor, but nodes do not have an implemented Core-governed request path for Bluetooth access.
+- Goal: Add a Core-owned hardware access request and lease protocol so nodes can request host hardware such as Bluetooth without directly claiming or probing host devices.
+- Current code evidence: `core/backend/app/supervisor/service.py` reports `bluetooth_present`, `bluetooth_powered`, `bluetooth_ensure_powered`, `bluetooth_power_error`, and `bluetooth_adapters`; `core/backend/app/supervisor/server.py` and `core/backend/app/system/supervisors.py` advertise `bluetooth` and `bluetooth_governance` when hardware is present.
+- Current configuration evidence: `HEXE_BLUETOOTH_ACCESS_POLICY` supports `disabled`, `ask`, `trusted_only`, and `allowed`; `core/scripts/hexe.env.example` says Bluetooth access remains disabled until Core policy grants it.
+- Missing behavior: There is no node-facing endpoint, grant/lease model, approval lifecycle, audit trail, or enforcement token that lets a node request and receive governed Bluetooth access.
+- [STOP] Before implementation, confirm the intended policy semantics for `disabled`, `ask`, `trusted_only`, and `allowed`, including whether `ask` requires operator UI approval or a pending request state only.
+- Add Core data models for hardware resources, access requests, decisions, leases, expiry, revocation, and audit metadata.
+- Add node-authenticated Core API routes for requesting hardware access, listing request/lease status, and releasing or canceling leases.
+- Add admin/operator API routes for reviewing pending hardware access requests when policy requires approval.
+- Ensure Core selects only Supervisor-reported resources and denies requests when no online Supervisor reports the requested hardware capability.
+- Tie requester eligibility to node trust, identity, capability/dependency declarations, and existing governance patterns rather than allowing arbitrary node claims.
+- Keep Bluetooth as the first resource type, but structure the protocol so later hardware classes such as USB, GPU, camera, or audio devices can reuse it.
+- Do not grant OS/device access directly from Core; Core should issue policy decisions and leases that Supervisor enforces locally.
+- Preserve Core/Supervisor mirror alignment.
+- Acceptance: A node can submit a Bluetooth access request through Core and receive a deterministic `denied`, `pending`, or `granted` response based on policy and Supervisor resource state.
+- Acceptance: Requests fail closed when Bluetooth is absent, the reporting Supervisor is stale/offline, the node is not authorized, or policy is `disabled`.
+- Acceptance: Granted responses include a short-lived lease identity, target Supervisor/resource identity, expiry, and enough information for the node to call the Supervisor enforcement path without exposing unrelated host hardware.
+- Acceptance: Request, grant, release, expiry, and denial events are auditable.
+- Verification: Add focused Core API/model tests for disabled, ask/pending, trusted-only, allowed, stale Supervisor, absent Bluetooth, and lease expiry cases.
+- Verification: Run `python tools/update_openapi_snapshot.py --check` if API paths or schemas change.
+- Verification: Run `python tools/check_mirror_drift.py`.
+
+## Task 986
+Original task details:
+- Source finding: Supervisor can detect and optionally power Bluetooth adapters, but it does not currently enforce a Core-issued lease or expose a safe node access broker for Bluetooth operations.
+- Goal: Implement the Supervisor-side Bluetooth access broker and local enforcement path for Core-issued hardware leases.
+- Current code evidence: `core/backend/app/supervisor/service.py` reads `/sys/class/bluetooth`, uses `hciconfig` for adapter details, and may run `bluetoothctl power on`; it only returns resource summaries today.
+- Missing behavior: There is no Supervisor endpoint or local service that validates Core-issued leases, scopes Bluetooth operations to an authorized node, or prevents direct unaudited host access.
+- [STOP] Before enabling access, choose and document the enforcement mechanism: BlueZ/DBus proxy, Supervisor-mediated command API, container/device permission handoff, or another explicit local mechanism.
+- Prefer a Supervisor-mediated API for initial Bluetooth access unless there is a stronger local pattern already present, because it keeps audit, authorization, and host permissions under Supervisor control.
+- Add Supervisor APIs that validate Core lease material and expose only the Bluetooth operations required by the requesting node.
+- Ensure Supervisor refuses expired, revoked, malformed, wrong-node, wrong-resource, or wrong-Supervisor leases.
+- Keep adapter power management separate from access authorization: detecting or powering Bluetooth must not imply a node has access.
+- Add local audit events for lease validation, operation attempts, denials, and release/expiry handling.
+- Avoid broad host exposure such as giving nodes unrestricted `/var/run/dbus`, `/sys/class/bluetooth`, privileged containers, or raw host Bluetooth command execution unless the confirmed enforcement mechanism explicitly requires and constrains it.
+- Preserve existing host resource reporting behavior and current Supervisor UI display.
+- Preserve Core/Supervisor mirror alignment.
+- Acceptance: Supervisor can validate a Core-issued Bluetooth lease and deny all operations without a valid lease.
+- Acceptance: A node with a valid lease can perform only the approved Bluetooth operation surface.
+- Acceptance: Expired or revoked leases stop working without requiring a Supervisor restart.
+- Acceptance: Bluetooth reporting still works when access policy is disabled.
+- Verification: Add focused Supervisor tests for lease validation, denied access, valid access, expiry/revocation, and adapter-unavailable cases.
+- Verification: Run targeted Supervisor resource and API tests.
+- Verification: Run `python tools/check_mirror_drift.py`.
+
+## Task 987
+Original task details:
+- Source finding: Current docs/config explain Bluetooth reporting policy, but they do not show how a node requests access because the request flow is not implemented.
+- Goal: Document and verify the complete node Bluetooth access flow after Tasks 985 and 986 provide the Core and Supervisor implementation.
+- Update node capability/service-resolution docs to distinguish provider capabilities, requester dependencies, and host hardware access requests.
+- Update Supervisor docs to describe hardware reporting versus hardware access enforcement, including the fact that `bluetooth_present=true` is not permission to use Bluetooth.
+- Update API reference/OpenAPI docs for Core hardware request routes and Supervisor broker routes.
+- Add a node-author example showing the expected request sequence: discover eligible Supervisor/resource through Core, request Bluetooth access, handle `denied`/`pending`/`granted`, use the Supervisor broker with the lease, then release or allow expiry.
+- Add UI/operator docs for reviewing `ask` policy requests if operator approval is implemented.
+- Update environment registry/docs so `HEXE_BLUETOOTH_ACCESS_POLICY`, `HEXE_BLUETOOTH_ENSURE_POWERED`, and `HEXE_BLUETOOTH_POWER_RETRY_S` are all documented with accurate ownership, defaults, and security implications.
+- Add or update frontend display only if the current Supervisor/Fleet UI needs to show pending/granted/denied hardware requests, not merely static Bluetooth presence.
+- Acceptance: Docs tell node authors exactly how to request Bluetooth access without requiring direct host-device access.
+- Acceptance: Operator docs explain who owns policy, approval, lease revocation, and local enforcement.
+- Acceptance: API docs and examples match the implemented request/lease/enforcement behavior.
+- Acceptance: Environment docs no longer describe Bluetooth variables as generic host checks only.
+- Verification: Run documentation link validation.
+- Verification: Run `python tools/update_openapi_snapshot.py --check`.
+- Verification: Run `python tools/check_env_registry.py --check-docs`.
+- Verification: Run `python tools/check_mirror_drift.py`.

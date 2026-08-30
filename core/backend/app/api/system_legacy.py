@@ -19,6 +19,14 @@ from pydantic import BaseModel, ConfigDict, Field
 from ..nodes import NodeServiceAuthorizeRequest, TaskExecutionResolutionRequest
 from ..addons.registry import AddonRegistry, list_addons
 from ..system.audit import AuditLogStore
+from ..system.hardware import (
+    HardwareAccessDecisionBody,
+    HardwareAccessRequestBody,
+    HardwareAccessService,
+    HardwareAccessStore,
+    HardwareLeaseReleaseBody,
+    HardwareLeaseValidationBody,
+)
 from ..system.auth.tokens import sign_hs256
 from ..system.onboarding import (
     ALLOWED_NODE_TELEMETRY_EVENTS,
@@ -534,6 +542,8 @@ def build_system_router(
     node_budget_service: NodeBudgetService | None = None,
     provider_model_policy_service=None,
     model_routing_registry_service: ModelRoutingRegistryService | None = None,
+    supervisor_fleet_store=None,
+    hardware_access_service: HardwareAccessService | None = None,
     audit_store: AuditLogStore | None = None,
 ) -> APIRouter:
     router = APIRouter()
@@ -547,6 +557,7 @@ def build_system_router(
         if service_catalog_store is not None
         else None
     )
+    hardware_access = hardware_access_service or HardwareAccessService(HardwareAccessStore(), supervisor_fleet_store)
 
     async def _reconcile_mqtt_authority(reason: str) -> None:
         if mqtt_runtime_reconciler is None:
@@ -623,6 +634,23 @@ def build_system_router(
                 issued_timestamp=bundle.issued_timestamp,
             )
         return bundle
+
+    def _authenticate_trusted_node(node_id: str, node_token: str) -> None:
+        node_key = str(node_id or "").strip()
+        token = str(node_token or "").strip()
+        if not node_key:
+            raise HTTPException(status_code=400, detail={"error": "node_id_required", "message": "node_id is required"})
+        if not token:
+            raise HTTPException(status_code=401, detail="node_trust_token_required")
+        if node_registrations_store is None:
+            raise HTTPException(status_code=503, detail="node_registrations_unavailable")
+        if node_trust_issuance is None:
+            raise HTTPException(status_code=503, detail="trust_issuance_unavailable")
+        if node_trust_issuance.authenticate_node(node_key, token) is None:
+            raise HTTPException(status_code=403, detail={"error": "untrusted_node", "message": "node not trusted"})
+        registration = node_registrations_store.get(node_key)
+        if registration is None or str(registration.trust_status or "").strip().lower() != "trusted":
+            raise HTTPException(status_code=403, detail={"error": "untrusted_node", "message": "node not registered"})
 
     async def _issue_service_token_for_node(*, node_id: str, audience: str, scopes: list[str]) -> tuple[str, dict[str, object]]:
         if service_token_key_store is None:
@@ -2184,6 +2212,124 @@ def build_system_router(
             "claims": claims,
             "resolution": candidate.model_dump(mode="json"),
         }
+
+    @router.post("/system/nodes/hardware/access-requests")
+    def request_node_hardware_access(
+        body: HardwareAccessRequestBody,
+        request: Request,
+        x_node_trust_token: str | None = Header(default=None),
+    ):
+        _authenticate_trusted_node(body.node_id, str(x_node_trust_token or ""))
+        record, lease_token = hardware_access.request_access(body)
+        _record_audit(
+            audit_store,
+            event_type="node_hardware_access_requested",
+            actor_role="node",
+            actor_id=body.node_id,
+            details={
+                "request_id": record.request_id,
+                "lease_id": record.lease_id,
+                "resource_type": record.resource_type,
+                "operation": record.operation,
+                "supervisor_id": record.supervisor_id,
+                "status": record.status,
+                "policy": record.policy,
+                "source_ip": str(request.client.host if request.client else "unknown"),
+            },
+        )
+        return {"ok": True, "access_request": record.to_api_dict(include_token=lease_token or None)}
+
+    @router.get("/system/nodes/{node_id}/hardware/access-requests")
+    def list_node_hardware_access_requests(
+        node_id: str,
+        x_node_trust_token: str | None = Header(default=None),
+    ):
+        _authenticate_trusted_node(node_id, str(x_node_trust_token or ""))
+        return {"ok": True, "items": [record.to_api_dict() for record in hardware_access.list_for_node(node_id)]}
+
+    @router.post("/system/nodes/hardware/leases/{lease_id}/release")
+    def release_node_hardware_lease(
+        lease_id: str,
+        body: HardwareLeaseReleaseBody,
+        request: Request,
+        x_node_trust_token: str | None = Header(default=None),
+    ):
+        _authenticate_trusted_node(body.node_id, str(x_node_trust_token or ""))
+        try:
+            record = hardware_access.release(lease_id, node_id=body.node_id)
+        except KeyError:
+            raise HTTPException(status_code=404, detail={"error": "hardware_access_lease_not_found"})
+        _record_audit(
+            audit_store,
+            event_type="node_hardware_access_released",
+            actor_role="node",
+            actor_id=body.node_id,
+            details={
+                "request_id": record.request_id,
+                "lease_id": record.lease_id,
+                "resource_type": record.resource_type,
+                "operation": record.operation,
+                "source_ip": str(request.client.host if request.client else "unknown"),
+            },
+        )
+        return {"ok": True, "access_request": record.to_api_dict()}
+
+    @router.get("/system/hardware/access-requests")
+    def list_hardware_access_requests(
+        request: Request,
+        status: str | None = Query(default=None),
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        return {"ok": True, "items": [record.to_api_dict() for record in hardware_access.list_requests(status=status)]}
+
+    @router.post("/system/hardware/access-requests/{request_id}/decision")
+    def decide_hardware_access_request(
+        request_id: str,
+        body: HardwareAccessDecisionBody,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        try:
+            record, lease_token = hardware_access.decide(request_id, body, actor_id="admin")
+        except KeyError:
+            raise HTTPException(status_code=404, detail={"error": "hardware_access_request_not_found"})
+        except ValueError:
+            raise HTTPException(status_code=409, detail={"error": "hardware_access_request_not_pending"})
+        _record_audit(
+            audit_store,
+            event_type="node_hardware_access_decided",
+            actor_role="admin",
+            actor_id="admin",
+            details={
+                "request_id": record.request_id,
+                "lease_id": record.lease_id,
+                "resource_type": record.resource_type,
+                "operation": record.operation,
+                "supervisor_id": record.supervisor_id,
+                "status": record.status,
+                "policy": record.policy,
+            },
+        )
+        return {"ok": True, "access_request": record.to_api_dict(include_token=lease_token or None)}
+
+    @router.post("/system/hardware/leases/validate")
+    def validate_hardware_lease(
+        body: HardwareLeaseValidationBody,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+        x_supervisor_id: str | None = Header(default=None),
+        x_supervisor_token: str | None = Header(default=None),
+    ):
+        supervisor_id = str(x_supervisor_id or body.supervisor_id or "").strip()
+        if x_admin_token:
+            require_admin_token(x_admin_token, request)
+        elif supervisor_fleet_store is None or not hasattr(supervisor_fleet_store, "verify_reporting_token"):
+            raise HTTPException(status_code=503, detail="supervisor_fleet_unavailable")
+        elif not supervisor_id or not supervisor_fleet_store.verify_reporting_token(supervisor_id, x_supervisor_token):
+            raise HTTPException(status_code=401, detail="invalid_supervisor_token")
+        return hardware_access.validate_lease(body)
 
     @router.post("/system/nodes/providers/capabilities/report")
     def report_provider_capabilities(

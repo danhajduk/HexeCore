@@ -1238,6 +1238,7 @@ def create_app() -> FastAPI:
             node_budget_service=node_budget_service,
             provider_model_policy_service=provider_model_policy_service,
             model_routing_registry_service=model_routing_registry_service,
+            supervisor_fleet_store=supervisor_fleet_store,
             audit_store=audit_store,
         ),
         prefix="/api",

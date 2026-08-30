@@ -16,6 +16,8 @@ from fastapi import HTTPException
 
 from app.system.onboarding import NodeRegistrationsStore
 from app.core.env import getenv
+from app.system.auth.tokens import ServiceTokenError, validate_claims, verify_hs256
+from app.system.hardware import HARDWARE_LEASE_AUDIENCE, hardware_lease_secret
 from app.system.runtime import StandaloneRuntimeService
 from app.system.stats.models import SystemStats, SystemStatsSnapshot
 from app.system.stats.service import collect_process_stats, collect_system_snapshot, collect_system_stats
@@ -27,6 +29,8 @@ from .models import (
     ManagedNodeSummary,
     ProcessResourceSummary,
     SupervisorAdmissionContextSummary,
+    SupervisorBluetoothBleScanRequest,
+    SupervisorBluetoothLeaseRequest,
     SupervisorCoreRuntimeActionResult,
     SupervisorCoreRuntimeHeartbeatRequest,
     SupervisorCoreRuntimeRegistrationRequest,
@@ -88,7 +92,7 @@ class SupervisorDomainService:
 
     def _supervisor_id(self) -> str:
         configured = str(getenv("HEXE_SUPERVISOR_ID") or "").strip()
-        return configured or self._host_identity().host_id
+        return configured or f"{self._host_identity().hostname}-supervisor"
 
     def _env_bool(self, name: str, default: bool) -> bool:
         raw = str(getenv(name, "")).strip().lower()
@@ -97,7 +101,10 @@ class SupervisorDomainService:
         return raw in {"1", "true", "yes", "on"}
 
     def _bluetooth_ensure_powered_enabled(self) -> bool:
-        return self._env_bool("HEXE_BLUETOOTH_ENSURE_POWERED", True)
+        raw = str(getenv("HEXE_BLUETOOTH_ENSURE_POWERED", "")).strip().lower()
+        if not raw:
+            return True
+        return raw in {"1", "true", "yes", "on"}
 
     def _collect_bluetooth_adapters(self) -> list[dict[str, Any]]:
         adapters: dict[str, dict[str, Any]] = {}
@@ -185,6 +192,184 @@ class SupervisorDomainService:
             "bluetooth_ensure_powered": self._bluetooth_ensure_powered_enabled(),
             "bluetooth_power_error": None if powered else self._bluetooth_power_error,
             "bluetooth_adapters": adapter_list,
+        }
+
+    def _hardware_validation_url(self) -> str | None:
+        configured = str(getenv("HEXE_HARDWARE_LEASE_VALIDATE_URL") or "").strip()
+        if configured:
+            return configured
+        core_url = str(getenv("HEXE_SUPERVISOR_CORE_URL") or "").strip().rstrip("/")
+        if core_url:
+            return f"{core_url}/api/system/hardware/leases/validate"
+        return None
+
+    def _hardware_validation_headers(self) -> dict[str, str]:
+        token = str(getenv("HEXE_SUPERVISOR_CORE_TOKEN") or getenv("HEXE_ADMIN_TOKEN") or "").strip()
+        kind = str(getenv("HEXE_SUPERVISOR_CORE_TOKEN_KIND") or "").strip().lower()
+        if not kind:
+            kind = "supervisor" if token.startswith("hexe_sup_report_") else "admin"
+        if kind == "supervisor":
+            return {"X-Supervisor-Id": self._supervisor_id(), "X-Supervisor-Token": token}
+        return {"X-Admin-Token": token}
+
+    def _validate_bluetooth_lease(self, body: SupervisorBluetoothLeaseRequest, *, operation: str) -> dict[str, Any]:
+        payload = {
+            "node_id": str(body.node_id or "").strip(),
+            "lease_token": str(body.lease_token or "").strip(),
+            "resource_type": "bluetooth",
+            "operation": operation,
+            "supervisor_id": self._supervisor_id(),
+            "adapter": str(body.adapter or "").strip() or None,
+        }
+        validation_url = self._hardware_validation_url()
+        if validation_url:
+            try:
+                response = httpx.post(
+                    validation_url,
+                    json=payload,
+                    headers=self._hardware_validation_headers(),
+                    timeout=5.0,
+                )
+            except httpx.HTTPError as exc:
+                raise HTTPException(status_code=502, detail={"error": "hardware_lease_validation_unavailable", "message": str(exc)}) from None
+            if response.status_code >= 400:
+                raise HTTPException(status_code=502, detail={"error": "hardware_lease_validation_failed", "status_code": response.status_code})
+            try:
+                result = response.json()
+            except ValueError:
+                raise HTTPException(status_code=502, detail={"error": "hardware_lease_validation_invalid_json"}) from None
+            if not isinstance(result, dict) or not bool(result.get("valid")):
+                error = str(result.get("error") if isinstance(result, dict) else "hardware_lease_invalid")
+                raise HTTPException(status_code=403, detail={"error": error or "hardware_lease_invalid"})
+            result["revocation_check"] = "core"
+            return result
+
+        secret = hardware_lease_secret()
+        if not secret:
+            raise HTTPException(status_code=503, detail={"error": "hardware_lease_secret_unconfigured"})
+        try:
+            _header, claims_payload = verify_hs256(body.lease_token, [{"kid": "hardware-v1", "secret": secret}])
+            claims = validate_claims(
+                claims_payload,
+                audience=HARDWARE_LEASE_AUDIENCE,
+                required_scopes=[f"hardware.bluetooth.{operation}"],
+            )
+        except ServiceTokenError as exc:
+            raise HTTPException(status_code=403, detail={"error": str(exc)}) from None
+        if str(claims_payload.get("node_id") or claims.sub).strip() != payload["node_id"]:
+            raise HTTPException(status_code=403, detail={"error": "hardware_access_node_mismatch"})
+        if str(claims_payload.get("resource_type") or "").strip() != "bluetooth":
+            raise HTTPException(status_code=403, detail={"error": "hardware_access_resource_mismatch"})
+        if str(claims_payload.get("operation") or "").strip() != operation:
+            raise HTTPException(status_code=403, detail={"error": "hardware_access_operation_mismatch"})
+        token_supervisor_id = str(claims_payload.get("supervisor_id") or "").strip()
+        if token_supervisor_id and token_supervisor_id != self._supervisor_id():
+            raise HTTPException(status_code=403, detail={"error": "hardware_access_supervisor_mismatch"})
+        token_adapter = str(claims_payload.get("adapter") or "").strip()
+        requested_adapter = str(body.adapter or "").strip()
+        if token_adapter and requested_adapter and token_adapter != requested_adapter:
+            raise HTTPException(status_code=403, detail={"error": "hardware_access_adapter_mismatch"})
+        return {"ok": True, "valid": True, "claims": claims.to_dict(), "revocation_check": "local_token_only"}
+
+    @staticmethod
+    def _parse_bluetoothctl_devices(output: str) -> list[dict[str, Any]]:
+        devices: dict[str, dict[str, Any]] = {}
+        for line in (output or "").splitlines():
+            text = line.strip()
+            if not text:
+                continue
+            if text.startswith("["):
+                parts = text.split("Device ", 1)
+                if len(parts) == 2:
+                    text = "Device " + parts[1]
+            if not text.startswith("Device "):
+                continue
+            parts = text.split(maxsplit=2)
+            if len(parts) < 2:
+                continue
+            address = parts[1].strip()
+            name = parts[2].strip() if len(parts) > 2 else None
+            if ":" not in address:
+                continue
+            devices[address] = {"address": address, "name": name, "transport": "ble"}
+        return list(devices.values())
+
+    def _bluetooth_adapter_for_request(self, adapter: str | None = None) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+        summary = self._bluetooth_summary()
+        adapters = list(summary.get("bluetooth_adapters") or [])
+        if not adapters:
+            raise HTTPException(status_code=404, detail={"error": "bluetooth_unavailable"})
+        requested_adapter = str(adapter or "").strip()
+        if requested_adapter:
+            matched = next((item for item in adapters if str(item.get("adapter") or "").strip() == requested_adapter), None)
+            if matched is None:
+                raise HTTPException(status_code=404, detail={"error": "bluetooth_adapter_not_found"})
+            return matched, adapters
+        selected = next((item for item in adapters if bool(item.get("powered"))), adapters[0])
+        return selected, adapters
+
+    def bluetooth_ble_status(self, body: SupervisorBluetoothLeaseRequest) -> dict[str, Any]:
+        validation = self._validate_bluetooth_lease(body, operation="ble.status")
+        adapter, adapters = self._bluetooth_adapter_for_request(body.adapter)
+        return {
+            "ok": True,
+            "operation": "ble.status",
+            "node_id": body.node_id,
+            "supervisor_id": self._supervisor_id(),
+            "adapter": adapter,
+            "adapters": adapters,
+            "revocation_check": validation.get("revocation_check"),
+        }
+
+    def bluetooth_ble_scan(self, body: SupervisorBluetoothBleScanRequest) -> dict[str, Any]:
+        validation = self._validate_bluetooth_lease(body, operation="ble.scan")
+        adapter, adapters = self._bluetooth_adapter_for_request(body.adapter)
+        if not shutil.which("bluetoothctl"):
+            return {
+                "ok": False,
+                "operation": "ble.scan",
+                "error": "bluetoothctl_unavailable",
+                "node_id": body.node_id,
+                "supervisor_id": self._supervisor_id(),
+                "adapter": adapter,
+                "adapters": adapters,
+                "devices": [],
+                "revocation_check": validation.get("revocation_check"),
+            }
+        scan_seconds = max(1, min(int(body.scan_seconds or 5), 30))
+        scan_output = ""
+        try:
+            scan = subprocess.run(
+                ["bluetoothctl", "--timeout", str(scan_seconds), "scan", "on"],
+                capture_output=True,
+                text=True,
+                timeout=scan_seconds + 3.0,
+                check=False,
+            )
+            scan_output = (scan.stdout or "") + "\n" + (scan.stderr or "")
+        except Exception as exc:
+            scan_output = str(exc)
+        try:
+            devices = subprocess.run(
+                ["bluetoothctl", "devices"],
+                capture_output=True,
+                text=True,
+                timeout=5.0,
+                check=False,
+            )
+            devices_output = (devices.stdout or "") + "\n" + (devices.stderr or "")
+        except Exception:
+            devices_output = ""
+        return {
+            "ok": True,
+            "operation": "ble.scan",
+            "node_id": body.node_id,
+            "supervisor_id": self._supervisor_id(),
+            "adapter": adapter,
+            "adapters": adapters,
+            "scan_seconds": scan_seconds,
+            "devices": self._parse_bluetoothctl_devices(scan_output + "\n" + devices_output),
+            "revocation_check": validation.get("revocation_check"),
         }
 
     def _network_transport_summary(self) -> dict[str, Any]:

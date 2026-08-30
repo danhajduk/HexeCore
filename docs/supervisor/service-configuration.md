@@ -39,6 +39,8 @@ Core talks to a remote Supervisor over the following environment-backed client s
 - `HEXE_BLUETOOTH_ACCESS_POLICY`: Bluetooth governance policy advertised by Supervisor when BT hardware is present. Supported values: `disabled`, `ask`, `trusted_only`, `allowed`. Default: `disabled`.
 - `HEXE_BLUETOOTH_ENSURE_POWERED`: When true, Supervisor attempts to keep detected Bluetooth adapters powered. Default: `true`.
 - `HEXE_BLUETOOTH_POWER_RETRY_S`: Minimum seconds between Bluetooth power-on retries after a failed attempt. Default: `60`.
+- `HEXE_HARDWARE_LEASE_SECRET`: shared secret used to validate Core-issued hardware lease tokens. Required for local token validation and must match Core.
+- `HEXE_HARDWARE_LEASE_VALIDATE_URL`: optional explicit Core lease validation URL for Supervisor hardware brokers. Defaults to `HEXE_SUPERVISOR_CORE_URL` plus `/api/system/hardware/leases/validate` when Core reporting is configured.
 - `HEXE_SUPERVISOR_INTERNET_CHECK_HOST` / `HEXE_SUPERVISOR_INTERNET_CHECK_PORT`: Host and port used by each Supervisor to report local Internet reachability. Defaults: `1.1.1.1` and `53`.
 - `HEXE_SUPERVISOR_FLEET_STALE_S`: Seconds after the latest Supervisor report before Core marks a fleet record `stale`. Default: `60`.
 - `HEXE_SUPERVISOR_FLEET_OFFLINE_S`: Seconds after the latest Supervisor report before Core marks a fleet record `offline`. Default: `180`.
@@ -55,6 +57,13 @@ Resource history maintenance:
 - `GET /api/supervisor/resources/history/maintenance` reports the SQLite path, DB/WAL/SHM sizes, row counts, retention, prune interval, free pages, and oldest/newest sample/event timestamps.
 - `POST /api/supervisor/resources/history/maintenance` accepts `{"action":"prune"}`, `{"action":"checkpoint"}`, `{"action":"vacuum"}`, or `{"action":"compact"}`. `compact` is the normal operator action after a large history backlog: it applies retention pruning, truncates the WAL, and vacuums the DB while keeping the Supervisor process online.
 - Use `checkpoint` when the WAL file is large but table counts are expected, `vacuum` after large deletes when free pages remain high, and `compact` when high Supervisor history latency was caused by an oversized `supervisor_resource_history.sqlite3`.
+
+Bluetooth broker routes:
+
+- `POST /api/supervisor/hardware/bluetooth/ble/status` validates a Core-issued hardware lease and returns adapter state.
+- `POST /api/supervisor/hardware/bluetooth/ble/scan` validates a Core-issued hardware lease and runs a bounded BLE scan through Supervisor-managed `bluetoothctl`.
+
+Bluetooth presence reporting does not grant node access. Nodes must request a Core hardware lease first; see [node-hardware-access.md](../core/node-hardware-access.md).
 
 ## Notes
 

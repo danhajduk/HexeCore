@@ -105,6 +105,9 @@ Sensitive values are marked in the registry and must not be logged or exposed th
 | `HEXE_AI_NODE_ONBOARDING_ENABLED` | `true` | no | Controls node onboarding, reauth, trust bootstrap, governance, or capability filters. Registry key: `HEXE_AI_NODE_ONBOARDING_ENABLED`. |
 | `HEXE_AI_NODE_ONBOARDING_PROTOCOLS` | `1.0` | no | Controls node onboarding, reauth, trust bootstrap, governance, or capability filters. Registry key: `HEXE_AI_NODE_ONBOARDING_PROTOCOLS`. |
 | `HEXE_BOOTSTRAP_ADVERTISE_HOST` | `unset` | no | Controls node onboarding, reauth, trust bootstrap, governance, or capability filters. Registry key: `HEXE_BOOTSTRAP_ADVERTISE_HOST`. |
+| `HEXE_HARDWARE_ACCESS_DB` | `data/hardware_access.json` | no | Core persistence path for node hardware access requests, decisions, leases, releases, and audit metadata. |
+| `HEXE_HARDWARE_LEASE_SECRET` | `unset` | yes | Shared secret used by Core to sign hardware access lease tokens and by Supervisor to validate them when Core lease validation is unavailable. |
+| `HEXE_HARDWARE_LEASE_TTL_S` | `600` | no | Default lifetime in seconds for Core-issued hardware access leases. |
 | `HEXE_NODE_ALLOWED_PROVIDERS` | `unset` | no | Controls node onboarding, reauth, trust bootstrap, governance, or capability filters. Registry key: `HEXE_NODE_ALLOWED_PROVIDERS`. |
 | `HEXE_NODE_ALLOWED_TASK_FAMILIES` | `unset` | no | Controls node onboarding, reauth, trust bootstrap, governance, or capability filters. Registry key: `HEXE_NODE_ALLOWED_TASK_FAMILIES`. |
 | `HEXE_NODE_GOVERNANCE_REFRESH_INTERVAL_S` | `120` | no | Controls node onboarding, reauth, trust bootstrap, governance, or capability filters. Registry key: `HEXE_NODE_GOVERNANCE_REFRESH_INTERVAL_S`. |
@@ -154,8 +157,10 @@ Sensitive values are marked in the registry and must not be logged or exposed th
 
 | Name | Default | Sensitive | Description |
 | --- | --- | --- | --- |
-| `HEXE_BLUETOOTH_ACCESS_POLICY` | `unset` | no | Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_BLUETOOTH_ACCESS_POLICY`. |
-| `HEXE_BLUETOOTH_POWER_RETRY_S` | `unset` | no | Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_BLUETOOTH_POWER_RETRY_S`. |
+| `HEXE_BLUETOOTH_ACCESS_POLICY` | `disabled` | no | Bluetooth access policy advertised by Supervisor and enforced by Core hardware access requests. Supported values: disabled, ask, trusted_only, allowed. |
+| `HEXE_BLUETOOTH_ENSURE_POWERED` | `true` | no | When true, Supervisor attempts to keep detected Bluetooth adapters powered for host resource reporting and brokered Bluetooth access. |
+| `HEXE_BLUETOOTH_POWER_RETRY_S` | `60` | no | Minimum seconds between Supervisor Bluetooth power-on retry attempts after a failed attempt. |
+| `HEXE_HARDWARE_LEASE_VALIDATE_URL` | `unset` | no | Optional Core lease validation URL used by Supervisor hardware brokers. Defaults to HEXE_SUPERVISOR_CORE_URL plus /api/system/hardware/leases/validate. |
 | `HEXE_SUPERVISOR_API_TIMEOUT_S` | `unset` | no | Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_API_TIMEOUT_S`. |
 | `HEXE_SUPERVISOR_BOOT_LOG` | `var/supervisor/boot.log` | no | Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_BOOT_LOG`. |
 | `HEXE_SUPERVISOR_BOOT_POLL_S` | `2` | no | Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_BOOT_POLL_S`. |
@@ -165,6 +170,9 @@ Sensitive values are marked in the registry and must not be logged or exposed th
 | `HEXE_SUPERVISOR_CORE_HEARTBEAT_OFFLINE_S` | `unset` | no | Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_CORE_HEARTBEAT_OFFLINE_S`. |
 | `HEXE_SUPERVISOR_CORE_HEARTBEAT_S` | `5` | no | Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_CORE_HEARTBEAT_S`. |
 | `HEXE_SUPERVISOR_CORE_HEARTBEAT_STALE_S` | `unset` | no | Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_CORE_HEARTBEAT_STALE_S`. |
+| `HEXE_SUPERVISOR_CORE_TOKEN` | `unset` | yes | Supervisor reporting token used for remote heartbeat, registration, and Core hardware lease validation calls. |
+| `HEXE_SUPERVISOR_CORE_TOKEN_KIND` | `unset` | no | Header selector for Supervisor-to-Core authentication. Supported values are supervisor and admin. |
+| `HEXE_SUPERVISOR_CORE_URL` | `unset` | no | Core API base URL used by remote Supervisor reporting and hardware lease validation. |
 | `HEXE_SUPERVISOR_ENROLLMENT_TTL_S` | `900` | no | Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_ENROLLMENT_TTL_S`. |
 | `HEXE_SUPERVISOR_FLEET_HISTORICAL_S` | `unset` | no | Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_FLEET_HISTORICAL_S`. |
 | `HEXE_SUPERVISOR_FLEET_LOCAL_CACHE_S` | `10` | no | Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_FLEET_LOCAL_CACHE_S`. |

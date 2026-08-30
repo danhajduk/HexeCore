@@ -9,6 +9,7 @@ from .addons_runtime import build_addons_runtime_router
 from .budgets import build_node_budgets_router
 from .capabilities import build_node_capabilities_router
 from .governance import build_node_governance_router
+from .hardware import build_node_hardware_router
 from .onboarding import build_node_onboarding_router
 from .providers import build_node_providers_router
 from .reauth import build_node_reauth_router
@@ -28,6 +29,7 @@ DOMAIN_ROUTERS: tuple[tuple[str, DomainBuilder], ...] = (
     ("node_capabilities", build_node_capabilities_router),
     ("node_budgets", build_node_budgets_router),
     ("node_services", build_node_services_router),
+    ("node_hardware", build_node_hardware_router),
     ("node_providers", build_node_providers_router),
     ("node_governance", build_node_governance_router),
     ("node_telemetry", build_node_telemetry_router),
@@ -41,7 +43,7 @@ def compose_system_domain_router(source_router: APIRouter) -> APIRouter:
     for _name, builder in DOMAIN_ROUTERS:
         domain_router = builder(source_router)
         assigned_paths.extend(route_paths(domain_router))
-        router.include_router(domain_router)
+        router.routes.extend(domain_router.routes)
 
     assigned_counts = Counter(assigned_paths)
     duplicate_paths = sorted(path for path, count in assigned_counts.items() if count > 1)

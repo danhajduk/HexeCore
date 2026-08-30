@@ -74,6 +74,11 @@ Node remains:
 
 Core does not proxy execution requests in the hot path.
 
+Host hardware is a separate contract from delegated task execution. A node that
+needs Bluetooth requests a Core-governed hardware lease instead of declaring
+Bluetooth as a provider-side task capability. See
+[node-hardware-access.md](./node-hardware-access.md).
+
 ## Existing Building Blocks Reused
 
 - generic service catalog storage: [backend/app/system/services/store.py](/home/dan/Projects/Hexe/backend/app/system/services/store.py)

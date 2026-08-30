@@ -168,17 +168,53 @@
     },
     {
       "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
-      "default": null,
-      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_BLUETOOTH_ACCESS_POLICY`.",
+      "default": "disabled",
+      "description": "Bluetooth access policy advertised by Supervisor and enforced by Core hardware access requests. Supported values: disabled, ask, trusted_only, allowed.",
       "name": "HEXE_BLUETOOTH_ACCESS_POLICY",
       "owner": "Supervisor runtime",
       "sensitive": false
     },
     {
       "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
-      "default": null,
-      "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_BLUETOOTH_POWER_RETRY_S`.",
+      "default": "true",
+      "description": "When true, Supervisor attempts to keep detected Bluetooth adapters powered for host resource reporting and brokered Bluetooth access.",
+      "name": "HEXE_BLUETOOTH_ENSURE_POWERED",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
+      "default": "60",
+      "description": "Minimum seconds between Supervisor Bluetooth power-on retry attempts after a failed attempt.",
       "name": "HEXE_BLUETOOTH_POWER_RETRY_S",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "default": "data/hardware_access.json",
+      "description": "Core persistence path for node hardware access requests, decisions, leases, releases, and audit metadata.",
+      "name": "HEXE_HARDWARE_ACCESS_DB",
+      "owner": "Node onboarding and governance",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "Shared secret used by Core to sign hardware access lease tokens and by Supervisor to validate them when Core lease validation is unavailable.",
+      "name": "HEXE_HARDWARE_LEASE_SECRET",
+      "owner": "Node onboarding and governance",
+      "sensitive": true
+    },
+    {
+      "default": "600",
+      "description": "Default lifetime in seconds for Core-issued hardware access leases.",
+      "name": "HEXE_HARDWARE_LEASE_TTL_S",
+      "owner": "Node onboarding and governance",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "Optional Core lease validation URL used by Supervisor hardware brokers. Defaults to HEXE_SUPERVISOR_CORE_URL plus /api/system/hardware/leases/validate.",
+      "name": "HEXE_HARDWARE_LEASE_VALIDATE_URL",
       "owner": "Supervisor runtime",
       "sensitive": false
     },
@@ -699,6 +735,27 @@
       "default": null,
       "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_CONTAINER_STATS_CACHE_S`.",
       "name": "HEXE_SUPERVISOR_CONTAINER_STATS_CACHE_S",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "Core API base URL used by remote Supervisor reporting and hardware lease validation.",
+      "name": "HEXE_SUPERVISOR_CORE_URL",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "Supervisor reporting token used for remote heartbeat, registration, and Core hardware lease validation calls.",
+      "name": "HEXE_SUPERVISOR_CORE_TOKEN",
+      "owner": "Supervisor runtime",
+      "sensitive": true
+    },
+    {
+      "default": null,
+      "description": "Header selector for Supervisor-to-Core authentication. Supported values are supervisor and admin.",
+      "name": "HEXE_SUPERVISOR_CORE_TOKEN_KIND",
       "owner": "Supervisor runtime",
       "sensitive": false
     },

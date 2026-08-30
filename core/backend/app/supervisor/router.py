@@ -8,6 +8,8 @@ from .models import (
     HostResourceSummary,
     ManagedNodeSummary,
     SupervisorAdmissionContextSummary,
+    SupervisorBluetoothBleScanRequest,
+    SupervisorBluetoothLeaseRequest,
     SupervisorCoreRuntimeActionResult,
     SupervisorCoreRuntimeHeartbeatRequest,
     SupervisorCoreRuntimeRegistrationRequest,
@@ -41,6 +43,14 @@ def build_supervisor_router(service: SupervisorDomainService | None = None) -> A
     @router.get("/supervisor/resources")
     def get_supervisor_resources() -> HostResourceSummary:
         return supervisor.resources_summary()
+
+    @router.post("/supervisor/hardware/bluetooth/ble/status")
+    def get_supervisor_bluetooth_ble_status(body: SupervisorBluetoothLeaseRequest) -> dict[str, Any]:
+        return supervisor.bluetooth_ble_status(body)
+
+    @router.post("/supervisor/hardware/bluetooth/ble/scan")
+    def scan_supervisor_bluetooth_ble(body: SupervisorBluetoothBleScanRequest) -> dict[str, Any]:
+        return supervisor.bluetooth_ble_scan(body)
 
     @router.get("/supervisor/resources/history")
     def get_supervisor_resource_history(range: str = "24h", step: str | None = "60s") -> dict[str, Any]:  # noqa: A002

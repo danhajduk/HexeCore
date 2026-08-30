@@ -129,7 +129,7 @@ def validate_registry() -> list[str]:
             errors.append(f"{name}: description is required")
         if not isinstance(sensitivity, bool):
             errors.append(f"{name}: sensitive must be true or false")
-        if any(marker in name for marker in SENSITIVE_MARKERS) and sensitivity is not True:
+        if any(marker in name for marker in SENSITIVE_MARKERS) and not name.endswith("_TOKEN_KIND") and sensitivity is not True:
             errors.append(f"{name}: name looks sensitive but sensitive=false")
     return errors
 
