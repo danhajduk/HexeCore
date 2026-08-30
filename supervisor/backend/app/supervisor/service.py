@@ -31,6 +31,7 @@ from .models import (
     SupervisorAdmissionContextSummary,
     SupervisorBluetoothBleScanRequest,
     SupervisorBluetoothLeaseRequest,
+    SupervisorBluetoothProvisionWifiRequest,
     SupervisorCoreRuntimeActionResult,
     SupervisorCoreRuntimeHeartbeatRequest,
     SupervisorCoreRuntimeRegistrationRequest,
@@ -56,6 +57,23 @@ from .runtime_nodes import merge_runtime_identity
 from .runtime_store import SupervisorRuntimeNodeRecord, SupervisorRuntimeNodesStore
 
 
+class DisabledBleProvisioningBackend:
+    def provision_wifi(
+        self,
+        *,
+        body: SupervisorBluetoothProvisionWifiRequest,
+        adapter: dict[str, Any],
+        validation: dict[str, Any],
+    ) -> dict[str, Any]:
+        return {
+            "ok": False,
+            "status": "failed",
+            "ack": False,
+            "error": "gatt_backend_unavailable",
+            "message": "No Supervisor BLE provisioning backend is configured.",
+        }
+
+
 class SupervisorDomainService:
     def __init__(
         self,
@@ -65,6 +83,7 @@ class SupervisorDomainService:
         node_registrations_store: NodeRegistrationsStore | None = None,
         resource_monitor: SupervisorResourceMonitor | None = None,
         resource_history_store: SupervisorResourceHistoryStore | None = None,
+        ble_provisioning_backend: object | None = None,
     ) -> None:
         self._runtime_service = runtime_service or StandaloneRuntimeService()
         self._runtime_nodes_store = runtime_nodes_store or SupervisorRuntimeNodesStore()
@@ -72,6 +91,8 @@ class SupervisorDomainService:
         self._node_registrations_store = node_registrations_store
         self._resource_monitor = resource_monitor or SupervisorResourceMonitor()
         self._resource_history_store = resource_history_store or SupervisorResourceHistoryStore()
+        self._ble_provisioning_backend = ble_provisioning_backend or DisabledBleProvisioningBackend()
+        self._ble_provisioning_events: list[dict[str, Any]] = []
         self._boot_loop_status: dict[str, Any] = {
             "state": "idle",
             "updated_at": self._now_iso(),
@@ -221,6 +242,9 @@ class SupervisorDomainService:
             "supervisor_id": self._supervisor_id(),
             "adapter": str(body.adapter or "").strip() or None,
         }
+        requested_provisioning = self._provisioning_context_for_request(body)
+        if operation == "ble.provision_wifi":
+            payload["provisioning"] = requested_provisioning
         validation_url = self._hardware_validation_url()
         if validation_url:
             try:
@@ -269,7 +293,58 @@ class SupervisorDomainService:
         requested_adapter = str(body.adapter or "").strip()
         if token_adapter and requested_adapter and token_adapter != requested_adapter:
             raise HTTPException(status_code=403, detail={"error": "hardware_access_adapter_mismatch"})
+        if operation == "ble.provision_wifi":
+            token_provisioning = claims_payload.get("provisioning") if isinstance(claims_payload.get("provisioning"), dict) else None
+            if not token_provisioning or not requested_provisioning:
+                raise HTTPException(status_code=403, detail={"error": "hardware_access_provisioning_context_required"})
+            for key in ("contract_version", "onboarding_session_id", "target_node_id", "node_profile_id", "payload_schema_id"):
+                if str(token_provisioning.get(key) or "").strip() != str(requested_provisioning.get(key) or "").strip():
+                    raise HTTPException(status_code=403, detail={"error": f"hardware_access_provisioning_{key}_mismatch"})
+            if str(token_provisioning.get("pairing_nonce") or "").strip() and str(token_provisioning.get("pairing_nonce") or "").strip() != str(
+                requested_provisioning.get("pairing_nonce") or ""
+            ).strip():
+                raise HTTPException(status_code=403, detail={"error": "hardware_access_provisioning_pairing_nonce_mismatch"})
+            if str(token_provisioning.get("claim_code_ref") or "").strip() and str(token_provisioning.get("claim_code_ref") or "").strip() != str(
+                requested_provisioning.get("claim_code_ref") or ""
+            ).strip():
+                raise HTTPException(status_code=403, detail={"error": "hardware_access_provisioning_claim_code_ref_mismatch"})
         return {"ok": True, "valid": True, "claims": claims.to_dict(), "revocation_check": "local_token_only"}
+
+    @staticmethod
+    def _provisioning_context_for_request(body: SupervisorBluetoothLeaseRequest) -> dict[str, Any] | None:
+        required = ("contract_version", "onboarding_session_id", "target_node_id", "node_profile_id", "payload_schema_id")
+        if not all(hasattr(body, key) for key in required):
+            return None
+        return {
+            "contract_version": str(getattr(body, "contract_version") or "").strip(),
+            "onboarding_session_id": str(getattr(body, "onboarding_session_id") or "").strip(),
+            "target_node_id": str(getattr(body, "target_node_id") or "").strip(),
+            "node_profile_id": str(getattr(body, "node_profile_id") or "").strip(),
+            "payload_schema_id": str(getattr(body, "payload_schema_id") or "").strip(),
+            "pairing_nonce": str(getattr(body, "pairing_nonce", None) or "").strip() or None,
+            "claim_code_ref": str(getattr(body, "claim_code_ref", None) or "").strip() or None,
+        }
+
+    @staticmethod
+    def _redacted_voice_payload(body: SupervisorBluetoothProvisionWifiRequest) -> dict[str, Any]:
+        payload = body.credential_payload.model_dump(mode="json")
+        if payload.get("wifi_password") is not None:
+            payload["wifi_password"] = "[REDACTED]"
+        return payload
+
+    def _record_ble_provisioning_event(self, event: str, body: SupervisorBluetoothProvisionWifiRequest, **details: Any) -> None:
+        self._ble_provisioning_events.append(
+            {
+                "event": event,
+                "at": self._now_iso(),
+                "node_id": body.node_id,
+                "target_node_id": body.target_node_id,
+                "onboarding_session_id": body.onboarding_session_id,
+                "node_profile_id": body.node_profile_id,
+                "payload_schema_id": body.payload_schema_id,
+                **details,
+            }
+        )
 
     @staticmethod
     def _parse_bluetoothctl_devices(output: str) -> list[dict[str, Any]]:
@@ -369,6 +444,41 @@ class SupervisorDomainService:
             "adapters": adapters,
             "scan_seconds": scan_seconds,
             "devices": self._parse_bluetoothctl_devices(scan_output + "\n" + devices_output),
+            "revocation_check": validation.get("revocation_check"),
+        }
+
+    def bluetooth_ble_provision_wifi(self, body: SupervisorBluetoothProvisionWifiRequest) -> dict[str, Any]:
+        validation = self._validate_bluetooth_lease(body, operation="ble.provision_wifi")
+        adapter, adapters = self._bluetooth_adapter_for_request(body.adapter)
+        provisioning = self._provisioning_context_for_request(body) or {}
+        self._record_ble_provisioning_event("provision_wifi_attempted", body, adapter=adapter.get("adapter"))
+        try:
+            result = self._ble_provisioning_backend.provision_wifi(body=body, adapter=adapter, validation=validation)
+        except Exception as exc:
+            result = {"ok": False, "status": "failed", "ack": False, "error": "gatt_backend_failed", "message": str(exc)}
+        ok = bool(result.get("ok")) if isinstance(result, dict) else False
+        status = str(result.get("status") or ("completed" if ok else "failed")) if isinstance(result, dict) else "failed"
+        error = str(result.get("error") or "") if isinstance(result, dict) else "gatt_backend_failed"
+        self._record_ble_provisioning_event(
+            "provision_wifi_completed" if ok else "provision_wifi_rejected",
+            body,
+            status=status,
+            error=error or None,
+        )
+        return {
+            "ok": ok,
+            "operation": "ble.provision_wifi",
+            "node_id": body.node_id,
+            "supervisor_id": self._supervisor_id(),
+            "adapter": adapter,
+            "adapters": adapters,
+            "target_address": body.target_address,
+            "provisioning": provisioning,
+            "credential_payload": self._redacted_voice_payload(body),
+            "status": status,
+            "ack": bool(result.get("ack", ok)) if isinstance(result, dict) else False,
+            "error": (error or None),
+            "message": result.get("message") if isinstance(result, dict) else None,
             "revocation_check": validation.get("revocation_check"),
         }
 

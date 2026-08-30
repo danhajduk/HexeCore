@@ -62,6 +62,7 @@ Bluetooth broker routes:
 
 - `POST /api/supervisor/hardware/bluetooth/ble/status` validates a Core-issued hardware lease and returns adapter state.
 - `POST /api/supervisor/hardware/bluetooth/ble/scan` validates a Core-issued hardware lease and runs a bounded BLE scan through Supervisor-managed `bluetoothctl`.
+- `POST /api/supervisor/hardware/bluetooth/ble/provision-wifi` validates a Core-issued `ble.provision_wifi` lease, checks the Voice node provisioning payload, and delegates to a Supervisor BLE GATT backend. If no backend is configured, it fails closed with `gatt_backend_unavailable`.
 
 Bluetooth presence reporting does not grant node access. Nodes must request a Core hardware lease first; see [node-hardware-access.md](../core/node-hardware-access.md).
 
@@ -72,6 +73,7 @@ Bluetooth/BLE deployment checklist:
 - Prefer Core-backed validation by configuring Supervisor reporting with `HEXE_SUPERVISOR_CORE_URL` and `HEXE_SUPERVISOR_CORE_TOKEN`, or by setting `HEXE_HARDWARE_LEASE_VALIDATE_URL` explicitly.
 - Ensure the Supervisor service user can run `bluetoothctl` and observe `/sys/class/bluetooth`.
 - Use `ble.status` before `ble.scan` when debugging adapter presence or power state.
+- Configure a real BLE provisioning backend before using `ble.provision_wifi` with physical nodes; the API route and lease checks are active even when the GATT backend is unavailable.
 - Treat `revocation_check=local_token_only` as a fallback mode: token expiry is enforced locally, but Core-side release/revocation is only observed when Core validation is available.
 
 ## Notes

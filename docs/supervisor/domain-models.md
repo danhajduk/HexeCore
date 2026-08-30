@@ -95,6 +95,32 @@ Fields include:
 
 `scan_seconds` is bounded from 1 to 30 seconds. The scan route validates the lease before running a bounded BLE scan through Supervisor-managed `bluetoothctl`.
 
+### SupervisorBluetoothProvisionWifiRequest
+
+Status: Implemented
+
+Accepted by:
+
+- `POST /api/supervisor/hardware/bluetooth/ble/provision-wifi`
+
+Fields include:
+
+- `node_id`
+- `lease_token`
+- `adapter`
+- `contract_version`
+- `onboarding_session_id`
+- `target_node_id`
+- `node_profile_id`
+- `payload_schema_id`
+- `pairing_nonce`
+- `claim_code_ref`
+- `target_address`
+- `credential_payload`
+- `timeout_s`
+
+The route validates a Core-issued `hardware.bluetooth.ble.provision_wifi` lease, enforces the Voice node Wi-Fi/backend payload schema, redacts `wifi_password` from responses, and delegates the actual GATT write to the configured Supervisor BLE provisioning backend. Without a backend, it fails closed with `gatt_backend_unavailable`.
+
 ### ManagedNodeSummary
 
 - `node_id`

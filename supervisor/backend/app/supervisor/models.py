@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from app.system.hardware import BLE_PROVISIONING_CONTRACT_VERSION, VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID
 
 
 class HostIdentitySummary(BaseModel):
@@ -58,6 +62,40 @@ class SupervisorBluetoothLeaseRequest(BaseModel):
 
 class SupervisorBluetoothBleScanRequest(SupervisorBluetoothLeaseRequest):
     scan_seconds: int = Field(default=5, ge=1, le=30)
+
+
+class SupervisorVoiceWifiProvisioningPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    wifi_ssid: str = Field(..., min_length=1, max_length=32)
+    wifi_password: str | None = Field(default=None, min_length=8, max_length=63)
+    backend_host: str = Field(..., min_length=1, max_length=253)
+    http_port: int = Field(..., ge=1, le=65535)
+    ws_port: int = Field(..., ge=1, le=65535)
+    use_tls: bool = True
+    endpoint_name: str | None = Field(default=None, min_length=1, max_length=64)
+    display_name: str | None = Field(default=None, min_length=1, max_length=80)
+
+
+class SupervisorBluetoothProvisionWifiRequest(SupervisorBluetoothLeaseRequest):
+    model_config = ConfigDict(extra="forbid")
+
+    contract_version: Literal["1.0"] = BLE_PROVISIONING_CONTRACT_VERSION
+    onboarding_session_id: str = Field(..., min_length=1)
+    target_node_id: str = Field(..., min_length=1)
+    node_profile_id: Literal["voice"] = "voice"
+    payload_schema_id: Literal["hexe.voice_node.wifi_backend.v1"] = VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID
+    pairing_nonce: str | None = Field(default=None, min_length=8, max_length=128)
+    claim_code_ref: str | None = Field(default=None, min_length=1, max_length=128)
+    target_address: str | None = Field(default=None, min_length=1, max_length=64)
+    credential_payload: SupervisorVoiceWifiProvisioningPayload
+    timeout_s: int = Field(default=30, ge=1, le=120)
+
+    @model_validator(mode="after")
+    def _validate_pairing_binding(self):
+        if not (self.pairing_nonce or self.claim_code_ref):
+            raise ValueError("pairing_nonce_or_claim_code_ref_required")
+        return self
 
 
 class ManagedNodeSummary(BaseModel):

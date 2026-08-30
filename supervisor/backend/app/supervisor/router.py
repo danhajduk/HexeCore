@@ -10,6 +10,7 @@ from .models import (
     SupervisorAdmissionContextSummary,
     SupervisorBluetoothBleScanRequest,
     SupervisorBluetoothLeaseRequest,
+    SupervisorBluetoothProvisionWifiRequest,
     SupervisorCoreRuntimeActionResult,
     SupervisorCoreRuntimeHeartbeatRequest,
     SupervisorCoreRuntimeRegistrationRequest,
@@ -51,6 +52,10 @@ def build_supervisor_router(service: SupervisorDomainService | None = None) -> A
     @router.post("/supervisor/hardware/bluetooth/ble/scan")
     def scan_supervisor_bluetooth_ble(body: SupervisorBluetoothBleScanRequest) -> dict[str, Any]:
         return supervisor.bluetooth_ble_scan(body)
+
+    @router.post("/supervisor/hardware/bluetooth/ble/provision-wifi")
+    def provision_supervisor_bluetooth_ble_wifi(body: SupervisorBluetoothProvisionWifiRequest) -> dict[str, Any]:
+        return supervisor.bluetooth_ble_provision_wifi(body)
 
     @router.get("/supervisor/resources/history")
     def get_supervisor_resource_history(range: str = "24h", step: str | None = "60s") -> dict[str, Any]:  # noqa: A002

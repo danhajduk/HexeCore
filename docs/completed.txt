@@ -27,3 +27,4 @@ Task 986: Implement Supervisor Bluetooth access broker and local enforcement pat
 Task 987: Document and verify the node Bluetooth access flow end to end - Completed on 08/30/2026 08:43
 Task 988: Define BLE onboarding contract and Voice node provisioning payload schema - Completed on 08/30/2026 16:21
 Task 989: Extend Core hardware access APIs and leases for ble.provision_wifi - Completed on 08/30/2026 16:24
+Task 990: Implement Supervisor BLE GATT provisioning service and enforcement path - Completed on 08/30/2026 16:28

@@ -120,6 +120,7 @@ Status: Implemented
 - Standalone Supervisor Bluetooth broker:
   - `POST /api/supervisor/hardware/bluetooth/ble/status` (Core-issued hardware lease token required in JSON body; returns adapter state)
   - `POST /api/supervisor/hardware/bluetooth/ble/scan` (Core-issued hardware lease token required in JSON body; performs bounded BLE scan through Supervisor-managed `bluetoothctl`)
+  - `POST /api/supervisor/hardware/bluetooth/ble/provision-wifi` (Core-issued `ble.provision_wifi` hardware lease token required in JSON body; validates the Voice provisioning payload and delegates to the Supervisor BLE GATT backend)
 
 Bluetooth hardware access is documented in [Node Hardware Access](../node-hardware-access.md). Core governs request/lease state; Supervisor enforces leases locally. Nodes do not receive raw host Bluetooth device or DBus access.
 
