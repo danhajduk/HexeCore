@@ -52,8 +52,10 @@ def node_registry_payload(item, node_governance_status_service: NodeGovernanceSt
     if capability_status == "missing":
         governance_status = "pending_capability"
     operational_ready = bool(trust_status == "trusted" and capability_status == "accepted" and governance_status == "issued")
+    provided_task_families = list(getattr(item, "provided_task_families", []) or getattr(item, "declared_capabilities", []) or [])
+    requested_task_families = list(getattr(item, "requested_task_families", []) or [])
     capability_taxonomy = capability_taxonomy_payload(
-        declared_task_families=list(getattr(item, "declared_capabilities", []) or []),
+        declared_task_families=provided_task_families,
         enabled_providers=list(getattr(item, "enabled_providers", []) or []),
         provider_intelligence=[dict(v) for v in list(getattr(item, "provider_intelligence", []) or []) if isinstance(v, dict)],
         capability_status=capability_status,
@@ -81,6 +83,8 @@ def node_registry_payload(item, node_governance_status_service: NodeGovernanceSt
         "approved_by_user_id": getattr(item, "approved_by_user_id", None),
         "approved_at": getattr(item, "approved_at", None),
         "declared_capabilities": list(getattr(item, "declared_capabilities", []) or []),
+        "provided_task_families": provided_task_families,
+        "requested_task_families": requested_task_families,
         "enabled_providers": list(getattr(item, "enabled_providers", []) or []),
         "provider_intelligence": [dict(v) for v in list(getattr(item, "provider_intelligence", []) or []) if isinstance(v, dict)],
         "capability_declaration_version": getattr(item, "capability_declaration_version", None),

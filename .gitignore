@@ -3,3 +3,4 @@ var/
 core/var/supervisor/
 supervisor/var/supervisor/
 docs/Reasoning.txt
+.venv/

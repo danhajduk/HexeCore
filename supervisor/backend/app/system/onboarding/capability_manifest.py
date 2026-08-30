@@ -30,6 +30,21 @@ def _clean_list(values: list[str]) -> list[str]:
     return out
 
 
+def _validate_task_family_values(value: Any, *, field_name: str, required: bool = False) -> list[str]:
+    if value is None:
+        values: list[str] = []
+    elif isinstance(value, list):
+        values = _clean_list([str(item) for item in value])
+    else:
+        raise ValueError(f"{field_name}_must_be_list")
+    if required and not values:
+        raise ValueError(f"{field_name}_empty")
+    for item in values:
+        if not _TASK_FAMILY_RE.match(item):
+            raise ValueError("invalid_task_family")
+    return values
+
+
 class CapabilityNodeMetadata(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -152,8 +167,10 @@ class CapabilityDeclaration(BaseModel):
 
     manifest_version: str = Field(..., min_length=1, max_length=16)
     node: CapabilityNodeMetadata
-    declared_task_families: list[str] = Field(..., min_length=1)
+    declared_task_families: list[str] = Field(default_factory=list)
     declared_capabilities: list[str] = Field(default_factory=list)
+    provided_task_families: list[str] = Field(default_factory=list)
+    requested_task_families: list[str] = Field(default_factory=list)
     capability_endpoints: dict[str, dict[str, Any]] = Field(default_factory=dict)
     supported_providers: list[str] = Field(..., min_length=1)
     enabled_providers: list[str] = Field(default_factory=list)
@@ -172,15 +189,7 @@ class CapabilityDeclaration(BaseModel):
     @field_validator("declared_task_families", mode="before")
     @classmethod
     def _validate_task_families(cls, value: Any) -> list[str]:
-        if not isinstance(value, list):
-            raise ValueError("declared_task_families_must_be_list")
-        values = _clean_list([str(item) for item in value])
-        if not values:
-            raise ValueError("declared_task_families_empty")
-        for item in values:
-            if not _TASK_FAMILY_RE.match(item):
-                raise ValueError("invalid_task_family")
-        return values
+        return _validate_task_family_values(value, field_name="declared_task_families")
 
     @field_validator("declared_capabilities", mode="before")
     @classmethod
@@ -194,6 +203,16 @@ class CapabilityDeclaration(BaseModel):
             if not _TASK_FAMILY_RE.match(item):
                 raise ValueError("invalid_declared_capability")
         return values
+
+    @field_validator("provided_task_families", mode="before")
+    @classmethod
+    def _validate_provided_task_families(cls, value: Any) -> list[str]:
+        return _validate_task_family_values(value, field_name="provided_task_families")
+
+    @field_validator("requested_task_families", mode="before")
+    @classmethod
+    def _validate_requested_task_families(cls, value: Any) -> list[str]:
+        return _validate_task_family_values(value, field_name="requested_task_families")
 
     @field_validator("capability_endpoints", mode="before")
     @classmethod
@@ -240,10 +259,18 @@ class CapabilityDeclaration(BaseModel):
 
     @model_validator(mode="after")
     def _validate_enabled_subset(self) -> "CapabilityDeclaration":
-        if self.declared_capabilities and self.declared_capabilities != self.declared_task_families:
-            raise ValueError("declared_capabilities_must_match_declared_task_families")
+        provider_families = list(self.provided_task_families or self.declared_task_families or [])
+        if self.provided_task_families and self.declared_task_families and self.provided_task_families != self.declared_task_families:
+            raise ValueError("provided_task_families_must_match_declared_task_families")
+        if self.declared_capabilities and self.declared_capabilities != provider_families:
+            raise ValueError("declared_capabilities_must_match_provided_task_families")
+        if not provider_families and not self.requested_task_families:
+            raise ValueError("capability_declaration_requires_provided_or_requested_task_families")
+        self.provided_task_families = provider_families
+        self.declared_task_families = provider_families
+        self.declared_capabilities = provider_families
         endpoint_keys = set(self.capability_endpoints)
-        declared = set(self.declared_task_families)
+        declared = set(provider_families)
         if endpoint_keys - declared:
             raise ValueError("capability_endpoint_not_declared")
         supported = set(self.supported_providers)

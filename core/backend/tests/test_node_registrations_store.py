@@ -31,6 +31,8 @@ class TestNodeRegistrationsStore(unittest.TestCase):
             created_at="2026-03-11T00:00:00+00:00",
             updated_at="2026-03-11T00:00:00+00:00",
             declared_capabilities=["task.classification", "task.captioning"],
+            provided_task_families=["task.classification", "task.captioning"],
+            requested_task_families=["task.chat"],
             enabled_providers=["openai", "local-cpu"],
             provider_intelligence=[
                 {
@@ -55,6 +57,8 @@ class TestNodeRegistrationsStore(unittest.TestCase):
         self.assertEqual(by_id.node_software_version, "1.2.3")
         self.assertEqual(by_id.trust_status, "approved")
         self.assertEqual(by_id.declared_capabilities, ["task.classification", "task.captioning"])
+        self.assertEqual(by_id.provided_task_families, ["task.classification", "task.captioning"])
+        self.assertEqual(by_id.requested_task_families, ["task.chat"])
         self.assertEqual(by_id.enabled_providers, ["openai", "local-cpu"])
         self.assertEqual(by_id.provider_intelligence[0]["provider"], "openai")
         self.assertEqual(by_id.capability_declaration_version, "1.0")
@@ -91,6 +95,8 @@ class TestNodeRegistrationsStore(unittest.TestCase):
         self.assertIsNotNone(item)
         assert item is not None
         self.assertEqual(item.declared_capabilities, [])
+        self.assertEqual(item.provided_task_families, [])
+        self.assertEqual(item.requested_task_families, [])
         self.assertEqual(item.enabled_providers, [])
         self.assertEqual(item.provider_intelligence, [])
         self.assertIsNone(item.capability_declaration_version)

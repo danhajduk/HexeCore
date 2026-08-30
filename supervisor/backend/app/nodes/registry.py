@@ -42,6 +42,8 @@ def _node_record_from_payload(payload: dict[str, object]) -> NodeRecord:
         ],
         capabilities=NodeCapabilitySummary(
             declared_capabilities=[str(v) for v in list(payload.get("declared_capabilities") or []) if str(v).strip()],
+            provided_task_families=[str(v) for v in list(payload.get("provided_task_families") or []) if str(v).strip()],
+            requested_task_families=[str(v) for v in list(payload.get("requested_task_families") or []) if str(v).strip()],
             enabled_providers=[str(v) for v in list(payload.get("enabled_providers") or []) if str(v).strip()],
             capability_profile_id=str(payload.get("capability_profile_id") or "").strip() or None,
             capability_status=str(payload.get("capability_status") or "missing"),

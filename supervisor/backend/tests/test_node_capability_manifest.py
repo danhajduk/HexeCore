@@ -61,9 +61,43 @@ class TestNodeCapabilityManifest(unittest.TestCase):
         self.assertEqual(payload["node"]["node_id"], "node-abc123")
         self.assertEqual(payload["enabled_providers"], ["openai"])
         self.assertEqual(payload["declared_capabilities"], ["task.classification", "task.summarization"])
+        self.assertEqual(payload["provided_task_families"], ["task.classification", "task.summarization"])
+        self.assertEqual(payload["requested_task_families"], [])
         self.assertEqual(payload["capability_endpoints"]["task.summarization"]["method"], "POST")
         self.assertEqual(payload["provider_intelligence"][0]["provider"], "openai")
         self.assertEqual(payload["provider_intelligence"][0]["available_models"][0]["model_id"], "gpt-4o-mini")
+
+    def test_validate_manifest_splits_provided_and_requested_task_families(self) -> None:
+        manifest = self._payload()
+        del manifest["declared_task_families"]
+        del manifest["declared_capabilities"]
+        manifest["provided_task_families"] = ["voice.tts.synthesize"]
+        manifest["requested_task_families"] = ["task.chat"]
+        manifest["capability_endpoints"] = {
+            "voice.tts.synthesize": {
+                "transport": "http",
+                "method": "POST",
+                "path": "/api/tts/synthesize",
+            }
+        }
+
+        payload = validate_capability_declaration(manifest)
+
+        self.assertEqual(payload["provided_task_families"], ["voice.tts.synthesize"])
+        self.assertEqual(payload["requested_task_families"], ["task.chat"])
+        self.assertEqual(payload["declared_task_families"], ["voice.tts.synthesize"])
+        self.assertEqual(payload["declared_capabilities"], ["voice.tts.synthesize"])
+
+    def test_rejects_capability_endpoint_for_requested_only_task_family(self) -> None:
+        payload = self._payload()
+        payload["provided_task_families"] = ["voice.tts.synthesize"]
+        payload["requested_task_families"] = ["task.chat"]
+        payload["declared_task_families"] = ["voice.tts.synthesize"]
+        payload["declared_capabilities"] = ["voice.tts.synthesize"]
+        payload["capability_endpoints"] = {"task.chat": {"transport": "http"}}
+
+        with self.assertRaises(CapabilityManifestValidationError):
+            validate_capability_declaration(payload)
 
     def test_rejects_unknown_top_level_keys(self) -> None:
         payload = self._payload()

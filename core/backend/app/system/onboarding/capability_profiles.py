@@ -38,6 +38,8 @@ class NodeCapabilityProfileRecord:
     manifest_version: str
     declaration_digest: str
     declaration_raw: dict[str, Any]
+    provided_task_families: list[str] = field(default_factory=list)
+    requested_task_families: list[str] = field(default_factory=list)
     provider_intelligence: list[dict[str, Any]] = field(default_factory=list)
     unified_model_descriptors: list[dict[str, Any]] = field(default_factory=list)
     schema_version: str = CAPABILITY_PROFILE_SCHEMA_VERSION
@@ -48,6 +50,8 @@ class NodeCapabilityProfileRecord:
             "profile_id": self.profile_id,
             "node_id": self.node_id,
             "declared_task_families": list(self.declared_task_families or []),
+            "provided_task_families": list(self.provided_task_families or self.declared_task_families or []),
+            "requested_task_families": list(self.requested_task_families or []),
             "enabled_providers": list(self.enabled_providers or []),
             "provider_intelligence": copy.deepcopy(self.provider_intelligence or []),
             "unified_model_descriptors": copy.deepcopy(self.unified_model_descriptors or []),
@@ -57,7 +61,7 @@ class NodeCapabilityProfileRecord:
             "declaration_digest": self.declaration_digest,
             "declaration_raw": copy.deepcopy(self.declaration_raw or {}),
             "capability_taxonomy": capability_taxonomy_payload(
-                declared_task_families=list(self.declared_task_families or []),
+                declared_task_families=list(self.provided_task_families or self.declared_task_families or []),
                 enabled_providers=list(self.enabled_providers or []),
                 provider_intelligence=[copy.deepcopy(v) for v in list(self.provider_intelligence or []) if isinstance(v, dict)],
                 capability_status="accepted",
@@ -97,6 +101,8 @@ class NodeCapabilityProfilesStore:
             if not (profile_id and node_id and accepted_at and manifest_version and digest):
                 continue
             declared = item.get("declared_task_families") if isinstance(item.get("declared_task_families"), list) else []
+            provided = item.get("provided_task_families") if isinstance(item.get("provided_task_families"), list) else declared
+            requested = item.get("requested_task_families") if isinstance(item.get("requested_task_families"), list) else []
             providers = item.get("enabled_providers") if isinstance(item.get("enabled_providers"), list) else []
             provider_intelligence = (
                 item.get("provider_intelligence") if isinstance(item.get("provider_intelligence"), list) else []
@@ -111,7 +117,9 @@ class NodeCapabilityProfilesStore:
             record = NodeCapabilityProfileRecord(
                 profile_id=profile_id,
                 node_id=node_id,
-                declared_task_families=[str(v).strip() for v in declared if str(v).strip()],
+                declared_task_families=[str(v).strip() for v in provided if str(v).strip()],
+                provided_task_families=[str(v).strip() for v in provided if str(v).strip()],
+                requested_task_families=[str(v).strip() for v in requested if str(v).strip()],
                 enabled_providers=[str(v).strip() for v in providers if str(v).strip()],
                 provider_intelligence=[
                     copy.deepcopy(v) for v in provider_intelligence if isinstance(v, dict)
@@ -165,6 +173,8 @@ class NodeCapabilityProfilesStore:
         enabled_providers: list[str],
         feature_flags: dict[str, bool],
         manifest_version: str,
+        provided_task_families: list[str] | None = None,
+        requested_task_families: list[str] | None = None,
         provider_intelligence: list[dict[str, Any]] | None = None,
         unified_model_descriptors: list[dict[str, Any]] | None = None,
     ) -> NodeCapabilityProfileRecord:
@@ -188,10 +198,14 @@ class NodeCapabilityProfilesStore:
             except Exception:
                 continue
         profile_id = f"cap-{node_key}-v{next_version}"
+        provider_families = list(provided_task_families if provided_task_families is not None else declared_task_families)
+        request_families = list(requested_task_families or [])
         record = NodeCapabilityProfileRecord(
             profile_id=profile_id,
             node_id=node_key,
-            declared_task_families=[str(v).strip() for v in declared_task_families if str(v).strip()],
+            declared_task_families=[str(v).strip() for v in provider_families if str(v).strip()],
+            provided_task_families=[str(v).strip() for v in provider_families if str(v).strip()],
+            requested_task_families=[str(v).strip() for v in request_families if str(v).strip()],
             enabled_providers=[str(v).strip() for v in enabled_providers if str(v).strip()],
             provider_intelligence=[copy.deepcopy(v) for v in list(provider_intelligence or []) if isinstance(v, dict)],
             unified_model_descriptors=[

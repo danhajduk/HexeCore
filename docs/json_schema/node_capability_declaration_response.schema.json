@@ -12,6 +12,8 @@
     "manifest_version",
     "accepted_at",
     "declared_capabilities",
+    "provided_task_families",
+    "requested_task_families",
     "enabled_providers",
     "provider_intelligence",
     "unified_model_descriptors",
@@ -53,6 +55,22 @@
         "type": "string",
         "pattern": "^[a-z0-9][a-z0-9._/-]{1,127}$"
       }
+    },
+    "provided_task_families": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9._/-]{1,127}$"
+      },
+      "description": "Task families this node can execute for other nodes."
+    },
+    "requested_task_families": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9._/-]{1,127}$"
+      },
+      "description": "Task families this node expects or is allowed to request from provider nodes."
     },
     "capability_endpoints": {
       "type": "object",

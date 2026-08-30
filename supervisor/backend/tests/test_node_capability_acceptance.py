@@ -50,9 +50,25 @@ class TestNodeCapabilityAcceptance(unittest.TestCase):
         self.assertIsNotNone(result.profile)
         assert result.profile is not None
         self.assertTrue(result.profile.profile_id.startswith("cap-node-abc123-v"))
+        self.assertEqual(result.profile.provided_task_families, ["task.classification", "task.summarization"])
+        self.assertEqual(result.profile.requested_task_families, [])
         self.assertEqual(result.profile.provider_intelligence[0]["provider"], "openai")
         self.assertEqual(result.profile.provider_intelligence[0]["available_models"][0]["normalized_model_id"], "gpt-4o-mini")
         self.assertEqual(result.profile.unified_model_descriptors[0]["normalized_model_id"], "gpt-4o-mini")
+
+    def test_accepts_distinct_requested_task_families(self) -> None:
+        manifest = self._manifest()
+        manifest["provided_task_families"] = ["voice.intent.dispatch"]
+        manifest["requested_task_families"] = ["task.chat"]
+        manifest["declared_task_families"] = ["voice.intent.dispatch"]
+
+        result = self.service.evaluate(node_id="node-abc123", manifest=manifest)
+
+        self.assertTrue(result.accepted)
+        assert result.profile is not None
+        self.assertEqual(result.profile.provided_task_families, ["voice.intent.dispatch"])
+        self.assertEqual(result.profile.declared_task_families, ["voice.intent.dispatch"])
+        self.assertEqual(result.profile.requested_task_families, ["task.chat"])
 
     def test_normalizes_provider_model_duplicates_into_single_descriptor(self) -> None:
         manifest = self._manifest()

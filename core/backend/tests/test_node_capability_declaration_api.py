@@ -196,6 +196,8 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
         self.assertEqual(payload["node_id"], node_id)
         self.assertEqual(payload["manifest_version"], "1.0")
         self.assertEqual(payload["declared_capabilities"], ["task.classification", "task.summarization"])
+        self.assertEqual(payload["provided_task_families"], ["task.classification", "task.summarization"])
+        self.assertEqual(payload["requested_task_families"], [])
         self.assertEqual(payload["capability_endpoints"]["task.summarization"]["method"], "POST")
         self.assertEqual(payload["enabled_providers"], ["openai"])
         self.assertEqual(payload["provider_intelligence"][0]["provider"], "openai")
@@ -212,6 +214,8 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
         self.assertIsNotNone(registration)
         assert registration is not None
         self.assertEqual(registration.declared_capabilities, ["task.classification", "task.summarization"])
+        self.assertEqual(registration.provided_task_families, ["task.classification", "task.summarization"])
+        self.assertEqual(registration.requested_task_families, [])
         self.assertEqual(registration.capability_endpoints["task.summarization"]["path"], "/api/summarize")
         self.assertEqual(registration.enabled_providers, ["openai"])
         self.assertEqual(registration.provider_intelligence[0]["provider"], "openai")
@@ -236,6 +240,38 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
         self.assertEqual(routing_items[0]["provider"], "openai")
         self.assertEqual(routing_items[0]["normalized_model_id"], "gpt-4o-mini")
         self.assertTrue(routing_items[0]["node_available"])
+
+    def test_accepts_distinct_provider_and_requester_task_families(self) -> None:
+        node_id, trust_token = self._trusted_node()
+        manifest = self._manifest(node_id)
+        manifest["declared_task_families"] = ["voice.intent.dispatch"]
+        manifest["declared_capabilities"] = ["voice.intent.dispatch"]
+        manifest["provided_task_families"] = ["voice.intent.dispatch"]
+        manifest["requested_task_families"] = ["task.chat"]
+        manifest["capability_endpoints"] = {
+            "voice.intent.dispatch": {
+                "transport": "http",
+                "method": "POST",
+                "path": "/api/voice/intents/dispatch",
+            }
+        }
+
+        res = self.client.post(
+            "/api/system/nodes/capabilities/declaration",
+            json={"manifest": manifest},
+            headers={"X-Node-Trust-Token": trust_token},
+        )
+
+        self.assertEqual(res.status_code, 200, res.text)
+        payload = res.json()
+        self.assertEqual(payload["declared_capabilities"], ["voice.intent.dispatch"])
+        self.assertEqual(payload["provided_task_families"], ["voice.intent.dispatch"])
+        self.assertEqual(payload["requested_task_families"], ["task.chat"])
+        registration = self.registrations.get(node_id)
+        self.assertIsNotNone(registration)
+        assert registration is not None
+        self.assertEqual(registration.provided_task_families, ["voice.intent.dispatch"])
+        self.assertEqual(registration.requested_task_families, ["task.chat"])
 
     def test_rejects_untrusted_node_token(self) -> None:
         node_id, _trust_token = self._trusted_node()

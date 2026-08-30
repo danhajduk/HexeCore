@@ -1360,7 +1360,11 @@ def build_system_router(
                 detail={"error": "untrusted_node", "message": f"node trust_status is {registration.trust_status}"},
             )
 
-        registration.declared_capabilities = list(manifest.get("declared_task_families") or [])
+        provided_task_families = list(manifest.get("provided_task_families") or manifest.get("declared_task_families") or [])
+        requested_task_families = list(manifest.get("requested_task_families") or [])
+        registration.declared_capabilities = provided_task_families
+        registration.provided_task_families = provided_task_families
+        registration.requested_task_families = requested_task_families
         registration.capability_endpoints = {
             str(key): dict(value)
             for key, value in dict(manifest.get("capability_endpoints") or {}).items()
@@ -1416,6 +1420,8 @@ def build_system_router(
                 "node_id": node_id,
                 "manifest_version": registration.capability_declaration_version or "",
                 "declared_capability_count": len(registration.declared_capabilities),
+                "provided_task_family_count": len(registration.provided_task_families),
+                "requested_task_family_count": len(registration.requested_task_families),
                 "enabled_provider_count": len(registration.enabled_providers),
                 "provider_intelligence_count": len(registration.provider_intelligence),
                 "capability_profile_id": registration.capability_profile_id or "",
@@ -1431,6 +1437,8 @@ def build_system_router(
             "manifest_version": registration.capability_declaration_version,
             "accepted_at": registration.capability_declaration_timestamp,
             "declared_capabilities": list(registration.declared_capabilities),
+            "provided_task_families": list(registration.provided_task_families or registration.declared_capabilities),
+            "requested_task_families": list(registration.requested_task_families or []),
             "capability_endpoints": dict(registration.capability_endpoints or {}),
             "enabled_providers": list(registration.enabled_providers),
             "provider_intelligence": [dict(item) for item in list(registration.provider_intelligence or []) if isinstance(item, dict)],
@@ -1441,7 +1449,7 @@ def build_system_router(
             ),
             "capability_profile_id": registration.capability_profile_id,
             "capability_taxonomy": capability_taxonomy_payload(
-                declared_task_families=list(registration.declared_capabilities),
+                declared_task_families=list(registration.provided_task_families or registration.declared_capabilities),
                 enabled_providers=list(registration.enabled_providers),
                 provider_intelligence=[
                     dict(item) for item in list(registration.provider_intelligence or []) if isinstance(item, dict)

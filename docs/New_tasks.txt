@@ -47,3 +47,6 @@ Standards reference:
 
 Do not edit above this line:
 #######################################################################
+[TODO] Task 975: Derive governance routing permissions from requested service dependencies
+[TODO] Task 976: Update persisted data migration and operational compatibility for capability dependency split
+[TODO] Task 977: Update Core documentation for provider versus requester capability semantics

@@ -48,7 +48,14 @@ class NodeCapabilityAcceptanceService:
                 message=f"manifest_version={version or 'missing'}",
             )
 
-        families = [str(v).strip().lower() for v in list(manifest.get("declared_task_families") or []) if str(v).strip()]
+        families = [
+            str(v).strip().lower()
+            for v in list(manifest.get("provided_task_families") or manifest.get("declared_task_families") or [])
+            if str(v).strip()
+        ]
+        requested_families = [
+            str(v).strip().lower() for v in list(manifest.get("requested_task_families") or []) if str(v).strip()
+        ]
         providers_supported = [
             str(v).strip().lower() for v in list(manifest.get("supported_providers") or []) if str(v).strip()
         ]
@@ -67,7 +74,7 @@ class NodeCapabilityAcceptanceService:
 
         allowed_families = _allowed_task_families()
         if allowed_families:
-            unsupported = sorted(set(families) - allowed_families)
+            unsupported = sorted((set(families) | set(requested_families)) - allowed_families)
             if unsupported:
                 return CapabilityAcceptanceResult(
                     accepted=False,
@@ -127,6 +134,8 @@ class NodeCapabilityAcceptanceService:
             node_id=node_id,
             manifest=manifest,
             declared_task_families=families,
+            provided_task_families=families,
+            requested_task_families=requested_families,
             enabled_providers=providers_enabled,
             provider_intelligence=provider_intelligence,
             unified_model_descriptors=unified_model_descriptors,

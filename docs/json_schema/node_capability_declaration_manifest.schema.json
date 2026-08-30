@@ -8,7 +8,6 @@
   "required": [
     "manifest_version",
     "node",
-    "declared_task_families",
     "supported_providers",
     "node_features",
     "environment_hints"
@@ -54,12 +53,12 @@
     },
     "declared_task_families": {
       "type": "array",
-      "minItems": 1,
+      "default": [],
       "items": {
         "type": "string",
         "pattern": "^[a-z0-9][a-z0-9._/-]{1,127}$"
       },
-      "description": "Declared task families. Core lowercases and de-duplicates these during validation."
+      "description": "Compatibility alias for provider-side task families. Core lowercases and de-duplicates these during validation."
     },
     "declared_capabilities": {
       "type": "array",
@@ -68,7 +67,25 @@
         "type": "string",
         "pattern": "^[a-z0-9][a-z0-9._/-]{1,127}$"
       },
-      "description": "Optional compatibility alias for declared_task_families. When present, it must match declared_task_families."
+      "description": "Optional compatibility alias for provider-side task families. When present, it must match the resolved provider-side families."
+    },
+    "provided_task_families": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9._/-]{1,127}$"
+      },
+      "description": "Task families this node can execute for other nodes."
+    },
+    "requested_task_families": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9._/-]{1,127}$"
+      },
+      "description": "Task families this node expects or is allowed to request from provider nodes."
     },
     "capability_endpoints": {
       "type": "object",
@@ -79,7 +96,7 @@
       "additionalProperties": {
         "type": "object"
       },
-      "description": "Optional per-capability invocation metadata such as transport, method, path, URL, schema names, and TTL limits. Keys must be declared capabilities."
+      "description": "Optional per-capability invocation metadata such as transport, method, path, URL, schema names, and TTL limits. Keys must be provider-side capabilities."
     },
     "supported_providers": {
       "type": "array",
@@ -218,5 +235,5 @@
       "description": "Optional provider capability metadata reported by the node."
     }
   },
-  "$comment": "JSON Schema cannot fully express Core's case-normalizing subset checks for enabled_providers and provider_intelligence membership. Those rules are still enforced server-side."
+  "$comment": "JSON Schema cannot fully express Core's case-normalizing subset checks for enabled_providers and provider_intelligence membership, or the requirement that at least one provider-side or requester-side task family is present. Those rules are still enforced server-side."
 }

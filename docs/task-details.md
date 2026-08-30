@@ -543,3 +543,80 @@ Original task details:
 - Verification: Run targeted backend tests for any new diagnostic payload.
 - Verification: Run `python tools/update_openapi_snapshot.py --check` if API paths or methods change.
 - Verification: Run `python tools/check_mirror_drift.py`.
+
+## Task 974
+Original task details:
+- Goal: Redesign the node capability declaration protocol so a node does not need to claim it can perform a task merely to request that task from another node.
+- Preserve compatibility with current v1 declarations while introducing explicit provider-side and requester-side fields.
+- Treat provider capabilities as tasks the declaring node can execute for others.
+- Treat requested task families or service dependencies as tasks the declaring node is allowed or expected to consume from other nodes.
+- Keep `declared_task_families` and `declared_capabilities` as compatibility aliases for provider-side capabilities in existing v1 manifests.
+- Add new manifest fields such as `provided_task_families` and `requested_task_families`, or choose clearer names if the existing codebase already has a better local convention.
+- Do not require `requested_task_families` to match `provided_task_families`.
+- Continue validating task-family syntax and provider identifiers.
+- Update capability manifest validation in both Core and Supervisor mirrors.
+- Update capability acceptance/profile persistence so provider-side capabilities and requester-side dependencies are stored distinctly.
+- Update registration persistence/API payloads to expose both concepts without breaking current clients.
+- Update schema docs and generated JSON schema artifacts that describe node capability declarations, responses, profiles, registrations, and resolution models.
+- Preserve Core/Supervisor mirror alignment.
+- Acceptance: Existing v1 declarations using only `declared_task_families` still validate and behave as provider capability declarations.
+- Acceptance: A new declaration can include provider capabilities that differ from requested task families.
+- Acceptance: Capability endpoints remain tied only to provider-side capabilities, not requester-side dependencies.
+- Acceptance: Tests pass in both Core and Supervisor where mirrored.
+- Verification: Run focused capability manifest, capability declaration, capability profile, registration, governance, and mirror drift tests.
+- Verification: Run `python tools/check_mirror_drift.py`.
+
+## Task 975
+Original task details:
+- Goal: Change task resolution governance so requester eligibility is based on the node's requested task families or service dependencies, not on the tasks the node provides.
+- `routing_policy_constraints.allowed_task_families` must be derived from requester-side task dependencies when present.
+- Provider-side task declarations must remain available for provider discovery and execution endpoint publication.
+- If a legacy node has no requester-side field, keep existing behavior only as a compatibility fallback.
+- Keep provider/model governance constraints intact.
+- Preserve budget-policy integration and provider-owned budget behavior for delegated resolution.
+- Update governance bundle generation in both Core and Supervisor mirrors.
+- Update service resolution so the initial requester gate uses requester-side allowed tasks.
+- Keep candidate discovery filtering against provider-side capabilities.
+- Update audit details only if needed to clarify requester task authorization versus provider capability matching.
+- Acceptance: A voice node that provides only voice capabilities but requests `task.chat` can resolve an AI-node candidate for `task.chat`.
+- Acceptance: A node without `task.chat` in requester-side dependencies cannot resolve `task.chat` unless legacy fallback intentionally applies.
+- Acceptance: Candidate nodes are still selected only when they provide the requested task family.
+- Acceptance: Provider-owned budget checks still use the provider node budget when a delegating/requesting node resolves another node's service.
+- Verification: Add or update focused tests in `test_node_service_resolution_api.py` for the Voice-to-AI `task.chat` case.
+- Verification: Add a negative test for an unauthorized requester task family.
+- Verification: Run focused service resolution and node budget tests.
+- Verification: Run `python tools/check_mirror_drift.py`.
+
+## Task 976
+Original task details:
+- Goal: Make the protocol change safe for current persisted registrations, capability profiles, governance bundles, and runtime data.
+- Existing nodes must continue to load from current JSON stores.
+- Existing provider-capability data must not be lost.
+- New requester-side dependency fields should default safely for legacy records.
+- Governance regeneration should produce the new routing constraints without requiring manual JSON edits.
+- Add load-time defaults or schema-version migration for node registrations and capability profiles.
+- Decide whether persisted governance bundles need lazy compatibility handling, forced regeneration, or an explicit migration utility.
+- Document the chosen migration path in the relevant node/Core docs.
+- Do not edit live runtime data files as the primary fix unless a migration task explicitly requires it.
+- Acceptance: Current `hexevoice` registration can remain a provider of voice/intent/TTS capabilities while gaining requester permission for `task.chat` through the new protocol.
+- Acceptance: Current AI-node registration remains the provider for `task.chat`.
+- Acceptance: Old store records load without exceptions and keep their previous API shape where compatibility requires it.
+- Acceptance: New store records include distinct provider and requester capability/dependency fields.
+- Verification: Run focused store/profile/governance loading tests.
+- Verification: Run service resolution regression tests with legacy and new-style records.
+- Verification: Run `python tools/check_mirror_drift.py`.
+
+## Task 977
+Original task details:
+- Goal: Make the new protocol explicit so future node implementations do not repeat the old inversion.
+- Define provider-side capabilities as what a node can execute for others.
+- Define requester-side dependencies as what a node may request from other providers.
+- Define provider access/model metadata as which external provider/model choices back a provider node.
+- Update node capability lifecycle docs, capability taxonomy docs, budget/service-resolution docs, and schema docs.
+- Add the Voice-to-AI `task.chat` example: HexeVoice provides voice/intent/TTS capabilities, HexeVoice requests `task.chat`, AI node provides `task.chat`, and Core resolves the AI-node candidate without Voice declaring itself as a chat provider.
+- Acceptance: Docs no longer imply that `declared_task_families` is the correct way for a consuming node to request delegated service execution.
+- Acceptance: Service-resolution docs clearly state that requester authorization and provider capability matching are separate checks.
+- Acceptance: Schema docs and examples match implemented runtime behavior.
+- Verification: Run documentation/schema checks available in the repo.
+- Verification: Run `python tools/check_repo_health.py --skip-backend-tests` if the full health check is too expensive.
+- Verification: Run `python tools/check_mirror_drift.py`.

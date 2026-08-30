@@ -28,6 +28,8 @@ class NodeCapabilityTaxonomySummary(BaseModel):
 
 class NodeCapabilitySummary(BaseModel):
     declared_capabilities: list[str] = Field(default_factory=list)
+    provided_task_families: list[str] = Field(default_factory=list)
+    requested_task_families: list[str] = Field(default_factory=list)
     enabled_providers: list[str] = Field(default_factory=list)
     capability_profile_id: str | None = None
     capability_status: str = "missing"

@@ -58,6 +58,8 @@ class NodeRegistrationRecord:
     ui_health_endpoint: str | None = None
     api_base_url: str | None = None
     declared_capabilities: list[str] = field(default_factory=list)
+    provided_task_families: list[str] = field(default_factory=list)
+    requested_task_families: list[str] = field(default_factory=list)
     capability_endpoints: dict[str, dict[str, object]] = field(default_factory=dict)
     enabled_providers: list[str] = field(default_factory=list)
     provider_intelligence: list[dict[str, object]] = field(default_factory=list)
@@ -84,6 +86,8 @@ class NodeRegistrationRecord:
             "api_base_url": self.api_base_url,
             "capabilities_summary": list(self.capabilities_summary or []),
             "declared_capabilities": list(self.declared_capabilities or []),
+            "provided_task_families": list(self.provided_task_families or self.declared_capabilities or []),
+            "requested_task_families": list(self.requested_task_families or []),
             "capability_endpoints": {
                 str(key): dict(value)
                 for key, value in (self.capability_endpoints or {}).items()
@@ -164,6 +168,18 @@ class NodeRegistrationsStore:
             declared_capabilities = (
                 [str(v).strip() for v in declared_capabilities_raw] if isinstance(declared_capabilities_raw, list) else []
             )
+            provided_task_families_raw = item.get("provided_task_families")
+            provided_task_families = (
+                [str(v).strip() for v in provided_task_families_raw]
+                if isinstance(provided_task_families_raw, list)
+                else declared_capabilities
+            )
+            requested_task_families_raw = item.get("requested_task_families")
+            requested_task_families = (
+                [str(v).strip() for v in requested_task_families_raw]
+                if isinstance(requested_task_families_raw, list)
+                else []
+            )
             enabled_providers_raw = item.get("enabled_providers")
             enabled_providers = [str(v).strip() for v in enabled_providers_raw] if isinstance(enabled_providers_raw, list) else []
             capability_endpoints_raw = item.get("capability_endpoints")
@@ -212,7 +228,9 @@ class NodeRegistrationsStore:
                 ui_health_endpoint=ui_health_endpoint,
                 api_base_url=api_base_url,
                 capabilities_summary=[v for v in capabilities if v],
-                declared_capabilities=[v for v in declared_capabilities if v],
+                declared_capabilities=[v for v in (provided_task_families or declared_capabilities) if v],
+                provided_task_families=[v for v in provided_task_families if v],
+                requested_task_families=[v for v in requested_task_families if v],
                 capability_endpoints=capability_endpoints,
                 enabled_providers=[v for v in enabled_providers if v],
                 provider_intelligence=provider_intelligence,
@@ -319,6 +337,8 @@ class NodeRegistrationsStore:
             api_base_url=api_base_url,
             capabilities_summary=[],
             declared_capabilities=[],
+            provided_task_families=[],
+            requested_task_families=[],
             enabled_providers=[],
             provider_intelligence=[],
             capability_declaration_version=None,

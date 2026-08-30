@@ -38,6 +38,7 @@ class TestNodeCapabilityProfilesStore(unittest.TestCase):
             node_id="node-abc123",
             manifest=self._manifest(),
             declared_task_families=["task.classification"],
+            requested_task_families=["task.chat"],
             enabled_providers=["openai"],
             feature_flags={"telemetry": True},
             manifest_version="1.0",
@@ -47,12 +48,17 @@ class TestNodeCapabilityProfilesStore(unittest.TestCase):
             node_id="node-abc123",
             manifest=self._manifest(),
             declared_task_families=["task.classification"],
+            requested_task_families=["task.chat"],
             enabled_providers=["openai"],
             feature_flags={"telemetry": True},
             manifest_version="1.0",
             provider_intelligence=self._manifest()["provider_intelligence"],
         )
         self.assertEqual(profile1.profile_id, profile2.profile_id)
+        self.assertEqual(profile1.provided_task_families, ["task.classification"])
+        self.assertEqual(profile1.requested_task_families, ["task.chat"])
+        self.assertEqual(profile1.to_dict()["provided_task_families"], ["task.classification"])
+        self.assertEqual(profile1.to_dict()["requested_task_families"], ["task.chat"])
         self.assertEqual(profile1.provider_intelligence[0]["provider"], "openai")
         self.assertEqual(profile1.to_dict()["capability_taxonomy"]["activation"]["stage"], "profile_accepted")
         self.assertEqual(len(self.store.list(node_id="node-abc123")), 1)
@@ -62,6 +68,7 @@ class TestNodeCapabilityProfilesStore(unittest.TestCase):
             node_id="node-abc123",
             manifest=self._manifest(["openai"]),
             declared_task_families=["task.classification"],
+            requested_task_families=["task.chat"],
             enabled_providers=["openai"],
             feature_flags={"telemetry": True},
             manifest_version="1.0",
@@ -71,6 +78,7 @@ class TestNodeCapabilityProfilesStore(unittest.TestCase):
             node_id="node-abc123",
             manifest=self._manifest(["local-llm"]),
             declared_task_families=["task.classification"],
+            requested_task_families=["task.reasoning"],
             enabled_providers=["local-llm"],
             feature_flags={"telemetry": True},
             manifest_version="1.0",

@@ -58,6 +58,18 @@
             },
             "type": "array"
           },
+          "provided_task_families": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "requested_task_families": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "enabled_providers": {
             "items": {
               "type": "string"

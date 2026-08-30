@@ -200,6 +200,20 @@
           "title": "Declared Capabilities",
           "type": "array"
         },
+        "provided_task_families": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Provided Task Families",
+          "type": "array"
+        },
+        "requested_task_families": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Requested Task Families",
+          "type": "array"
+        },
         "enabled_providers": {
           "items": {
             "type": "string"
@@ -410,6 +424,20 @@
                 "type": "string"
               },
               "title": "Declared Capabilities",
+              "type": "array"
+            },
+            "provided_task_families": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Provided Task Families",
+              "type": "array"
+            },
+            "requested_task_families": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Requested Task Families",
               "type": "array"
             },
             "enabled_providers": {
@@ -855,6 +883,20 @@
                 "type": "string"
               },
               "title": "Declared Capabilities",
+              "type": "array"
+            },
+            "provided_task_families": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Provided Task Families",
+              "type": "array"
+            },
+            "requested_task_families": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Requested Task Families",
               "type": "array"
             },
             "enabled_providers": {
