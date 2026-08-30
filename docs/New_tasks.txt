@@ -57,8 +57,6 @@ Do not edit above this line:
 [STOP] Review guardrail coverage before broad documentation consolidation.
 [TODO] Task 983: Consolidate duplicate Supervisor documentation into the root docs source of truth
 [TODO] Task 984: Repair schema documentation links and ownership references
-[TODO] Task 989: Extend Core hardware access APIs and leases for ble.provision_wifi
-[STOP] Do not add ble.provision_wifi to runtime allow-lists until Task 988 fixes the contract, schema, and credential-protection requirements.
 [TODO] Task 990: Implement Supervisor BLE GATT provisioning service and enforcement path
 [STOP] Choose the host BLE/GATT backend and privilege boundary before touching host BLE behavior.
 [STOP] Confirm whether Supervisor writes credentials to the node over BLE, applies local Wi-Fi settings, or supports both under separate contract fields.

@@ -44,8 +44,19 @@ Response fields:
 
 - `schema_version`: current hardware access contract version.
 - `resource_types`: currently `bluetooth`.
-- `operations`: currently `ble.status` and `ble.scan`.
+- `operations`: currently `ble.status`, `ble.scan`, and `ble.provision_wifi`.
 - `request_schema`: JSON Schema for the access request body. Unknown request fields are rejected.
+- `provisioning_payload_schemas`: node-profile payload schemas, including the Voice node Wi-Fi/backend baseline.
+
+### Provisioning Payload Schema
+
+`GET /api/system/nodes/hardware/ble/provisioning/schemas/{node_profile_id}`
+
+Authentication: none. This is a discovery endpoint for provisioning clients.
+
+Currently supported profile:
+
+- `voice`: Voice node Wi-Fi/backend payload schema `hexe.voice_node.wifi_backend.v1`.
 
 ### Request Access
 
@@ -57,11 +68,12 @@ Request fields:
 
 - `node_id`: trusted node id. Required.
 - `resource_type`: currently only `bluetooth`.
-- `operation`: currently `ble.status` or `ble.scan`.
+- `operation`: currently `ble.status`, `ble.scan`, or `ble.provision_wifi`.
 - `supervisor_id`: optional Supervisor id. When omitted, Core selects the first online trusted Supervisor that reports Bluetooth governance.
 - `adapter`: optional adapter id such as `hci0`.
 - `duration_s`: optional lease duration from 30 seconds to 24 hours. Default comes from `HEXE_HARDWARE_LEASE_TTL_S`.
 - `reason`: optional operator-readable reason.
+- `provisioning`: required only for `ble.provision_wifi`; carries contract/session/profile binding without plaintext Wi-Fi credentials.
 
 ```http
 POST /api/system/nodes/hardware/access-requests
@@ -74,6 +86,25 @@ X-Node-Trust-Token: <node trust token>
   "adapter": "hci0",
   "duration_s": 600,
   "reason": "discover nearby BLE sensors"
+}
+```
+
+Provisioning request example:
+
+```json
+{
+  "node_id": "operator-node-1",
+  "resource_type": "bluetooth",
+  "operation": "ble.provision_wifi",
+  "adapter": "hci0",
+  "provisioning": {
+    "contract_version": "1.0",
+    "onboarding_session_id": "onboard_...",
+    "target_node_id": "voice-node-1",
+    "node_profile_id": "voice",
+    "payload_schema_id": "hexe.voice_node.wifi_backend.v1",
+    "pairing_nonce": "nonce-from-target-node"
+  }
 }
 ```
 
@@ -161,6 +192,7 @@ Request fields:
 - `lease_token`: Core-issued signed hardware lease token.
 - `resource_type`: currently only `bluetooth`.
 - `operation`: currently `ble.status` or `ble.scan`.
+- `provisioning`: required for `ble.provision_wifi` validation and must match the lease's contract/session/profile binding.
 - `supervisor_id`: optional Supervisor id to match against the lease.
 - `adapter`: optional Bluetooth adapter id to match against the lease.
 

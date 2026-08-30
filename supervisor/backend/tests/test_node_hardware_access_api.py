@@ -140,7 +140,8 @@ class TestNodeHardwareAccessApi(unittest.TestCase):
         self.assertTrue(payload["ok"])
         self.assertEqual(payload["schema_version"], "1")
         self.assertEqual(payload["resource_types"], ["bluetooth"])
-        self.assertEqual(payload["operations"], ["ble.scan", "ble.status"])
+        self.assertEqual(payload["operations"], ["ble.provision_wifi", "ble.scan", "ble.status"])
+        self.assertIn("voice", payload["provisioning_payload_schemas"])
 
         schema = payload["request_schema"]
         self.assertEqual(schema["additionalProperties"], False)
@@ -149,8 +150,85 @@ class TestNodeHardwareAccessApi(unittest.TestCase):
         self.assertEqual(properties["node_id"]["minLength"], 1)
         self.assertEqual(properties["resource_type"]["default"], "bluetooth")
         self.assertEqual(properties["operation"]["default"], "ble.scan")
+        self.assertIn("ble.provision_wifi", properties["operation"]["enum"])
         self.assertIn("ble.scan", properties["operation"]["enum"])
         self.assertIn("ble.status", properties["operation"]["enum"])
+
+    def test_exposes_voice_provisioning_payload_schema(self) -> None:
+        response = self.client.get("/api/system/nodes/hardware/ble/provisioning/schemas/voice")
+
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["operation"], "ble.provision_wifi")
+        self.assertEqual(payload["node_profile_id"], "voice")
+        schema = payload["payload_schema"]["json_schema"]
+        self.assertIn("wifi_ssid", schema["required"])
+        self.assertIn("backend_host", schema["required"])
+        self.assertEqual(schema["properties"]["http_port"]["minimum"], 1)
+        self.assertEqual(schema["properties"]["http_port"]["maximum"], 65535)
+
+    def test_provision_wifi_grants_scoped_lease_and_validates_session(self) -> None:
+        provisioning = {
+            "contract_version": "1.0",
+            "onboarding_session_id": "onboard-1",
+            "target_node_id": "voice-node-1",
+            "node_profile_id": "voice",
+            "payload_schema_id": "hexe.voice_node.wifi_backend.v1",
+            "pairing_nonce": "nonce-123456",
+        }
+        created = self.client.post(
+            "/api/system/nodes/hardware/access-requests",
+            headers={"X-Node-Trust-Token": "node-token"},
+            json={
+                "node_id": "node-1",
+                "resource_type": "bluetooth",
+                "operation": "ble.provision_wifi",
+                "adapter": "hci0",
+                "provisioning": provisioning,
+            },
+        )
+        self.assertEqual(created.status_code, 200, created.text)
+        access = created.json()["access_request"]
+        self.assertEqual(access["status"], "granted")
+        self.assertEqual(access["operation"], "ble.provision_wifi")
+        self.assertEqual(access["provisioning"]["target_node_id"], "voice-node-1")
+        self.assertTrue(access["lease_token"])
+
+        validated = self.client.post(
+            "/api/system/hardware/leases/validate",
+            headers={"X-Admin-Token": "admin-token"},
+            json={
+                "node_id": "node-1",
+                "lease_token": access["lease_token"],
+                "resource_type": "bluetooth",
+                "operation": "ble.provision_wifi",
+                "supervisor_id": "sup-1",
+                "adapter": "hci0",
+                "provisioning": provisioning,
+            },
+        )
+        self.assertEqual(validated.status_code, 200, validated.text)
+        self.assertTrue(validated.json()["valid"])
+
+        wrong_session = dict(provisioning)
+        wrong_session["onboarding_session_id"] = "onboard-2"
+        invalid = self.client.post(
+            "/api/system/hardware/leases/validate",
+            headers={"X-Admin-Token": "admin-token"},
+            json={
+                "node_id": "node-1",
+                "lease_token": access["lease_token"],
+                "resource_type": "bluetooth",
+                "operation": "ble.provision_wifi",
+                "supervisor_id": "sup-1",
+                "adapter": "hci0",
+                "provisioning": wrong_session,
+            },
+        )
+        self.assertEqual(invalid.status_code, 200, invalid.text)
+        self.assertFalse(invalid.json()["valid"])
+        self.assertEqual(invalid.json()["error"], "hardware_access_provisioning_onboarding_session_id_mismatch")
 
     def test_allowed_policy_grants_and_release_invalidates_lease(self) -> None:
         created = self.client.post(

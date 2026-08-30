@@ -10,14 +10,36 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.system.auth.tokens import ServiceTokenError, sign_hs256, validate_claims, verify_hs256
 
 HARDWARE_ACCESS_SCHEMA_VERSION = "1"
 HARDWARE_LEASE_AUDIENCE = "hexe.hardware.bluetooth"
+BLE_PROVISIONING_CONTRACT_VERSION = "1.0"
+VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID = "hexe.voice_node.wifi_backend.v1"
 SUPPORTED_HARDWARE_RESOURCES = {"bluetooth"}
-SUPPORTED_BLUETOOTH_OPERATIONS = {"ble.status", "ble.scan"}
+SUPPORTED_BLUETOOTH_OPERATIONS = {"ble.status", "ble.scan", "ble.provision_wifi"}
+
+VOICE_WIFI_PROVISIONING_PAYLOAD_SCHEMA: dict[str, Any] = {
+    "schema_id": VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID,
+    "json_schema": {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["wifi_ssid", "backend_host", "http_port", "ws_port", "use_tls"],
+        "properties": {
+            "wifi_ssid": {"type": "string", "minLength": 1, "maxLength": 32},
+            "wifi_password": {"anyOf": [{"type": "string", "minLength": 8, "maxLength": 63}, {"type": "null"}]},
+            "backend_host": {"type": "string", "minLength": 1, "maxLength": 253},
+            "http_port": {"type": "integer", "minimum": 1, "maximum": 65535},
+            "ws_port": {"type": "integer", "minimum": 1, "maximum": 65535},
+            "use_tls": {"type": "boolean", "default": True},
+            "endpoint_name": {"anyOf": [{"type": "string", "minLength": 1, "maxLength": 64}, {"type": "null"}]},
+            "display_name": {"anyOf": [{"type": "string", "minLength": 1, "maxLength": 80}, {"type": "null"}]},
+        },
+    },
+}
+PROVISIONING_PAYLOAD_SCHEMAS = {"voice": VOICE_WIFI_PROVISIONING_PAYLOAD_SCHEMA}
 
 
 def utcnow_iso() -> str:
@@ -100,12 +122,34 @@ def active_bluetooth_supervisors(supervisor_store: object | None) -> list[object
     ]
 
 
+class HardwareProvisioningContext(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    contract_version: Literal["1.0"] = Field(default=BLE_PROVISIONING_CONTRACT_VERSION)
+    onboarding_session_id: str = Field(..., min_length=1)
+    target_node_id: str = Field(..., min_length=1)
+    node_profile_id: str = Field(default="voice", min_length=1)
+    payload_schema_id: str = Field(default=VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID, min_length=1)
+    pairing_nonce: str | None = Field(default=None, min_length=8, max_length=128)
+    claim_code_ref: str | None = Field(default=None, min_length=1, max_length=128)
+
+    @model_validator(mode="after")
+    def _validate_binding(self):
+        if not clean_text(self.pairing_nonce) and not clean_text(self.claim_code_ref):
+            raise ValueError("pairing_nonce_or_claim_code_ref_required")
+        if self.node_profile_id == "voice" and self.payload_schema_id != VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID:
+            raise ValueError("unsupported_voice_provisioning_payload_schema")
+        if self.node_profile_id not in PROVISIONING_PAYLOAD_SCHEMAS:
+            raise ValueError("unsupported_node_provisioning_profile")
+        return self
+
+
 class HardwareAccessRequestBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     node_id: str = Field(..., min_length=1, description="Trusted node id requesting hardware access.")
     resource_type: Literal["bluetooth"] = Field(default="bluetooth", description="Host hardware resource type.")
-    operation: Literal["ble.status", "ble.scan"] = Field(
+    operation: Literal["ble.status", "ble.scan", "ble.provision_wifi"] = Field(
         default="ble.scan",
         description="Bluetooth operation the node is requesting a Core-governed lease for.",
     )
@@ -118,6 +162,18 @@ class HardwareAccessRequestBody(BaseModel):
         description="Optional requested lease duration in seconds.",
     )
     reason: str | None = Field(default=None, description="Optional operator-readable reason for the request.")
+    provisioning: HardwareProvisioningContext | None = Field(
+        default=None,
+        description="Required only for ble.provision_wifi; carries session/profile binding without plaintext credentials.",
+    )
+
+    @model_validator(mode="after")
+    def _validate_provisioning_context(self):
+        if self.operation == "ble.provision_wifi" and self.provisioning is None:
+            raise ValueError("provisioning_context_required")
+        if self.operation != "ble.provision_wifi" and self.provisioning is not None:
+            raise ValueError("provisioning_context_only_supported_for_ble_provision_wifi")
+        return self
 
 
 class HardwareAccessDecisionBody(BaseModel):
@@ -140,9 +196,10 @@ class HardwareLeaseValidationBody(BaseModel):
     node_id: str = Field(..., min_length=1)
     lease_token: str = Field(..., min_length=1)
     resource_type: Literal["bluetooth"] = "bluetooth"
-    operation: Literal["ble.status", "ble.scan"] = "ble.scan"
+    operation: Literal["ble.status", "ble.scan", "ble.provision_wifi"] = "ble.scan"
     supervisor_id: str | None = None
     adapter: str | None = None
+    provisioning: HardwareProvisioningContext | None = None
 
 
 def hardware_access_request_schema_payload() -> dict[str, Any]:
@@ -152,6 +209,21 @@ def hardware_access_request_schema_payload() -> dict[str, Any]:
         "resource_types": sorted(SUPPORTED_HARDWARE_RESOURCES),
         "operations": sorted(SUPPORTED_BLUETOOTH_OPERATIONS),
         "request_schema": HardwareAccessRequestBody.model_json_schema(),
+        "provisioning_payload_schemas": PROVISIONING_PAYLOAD_SCHEMAS,
+    }
+
+
+def hardware_ble_provisioning_schema_payload(node_profile_id: str = "voice") -> dict[str, Any]:
+    profile_key = clean_text(node_profile_id, "voice").lower()
+    schema = PROVISIONING_PAYLOAD_SCHEMAS.get(profile_key)
+    if schema is None:
+        raise KeyError("unsupported_node_provisioning_profile")
+    return {
+        "ok": True,
+        "contract_version": BLE_PROVISIONING_CONTRACT_VERSION,
+        "operation": "ble.provision_wifi",
+        "node_profile_id": profile_key,
+        "payload_schema": schema,
     }
 
 
@@ -177,6 +249,7 @@ class HardwareAccessRecord:
     released_at: str | None = None
     broker_url: str | None = None
     token_hash: str | None = None
+    provisioning: dict[str, Any] | None = None
     audit: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
@@ -201,6 +274,7 @@ class HardwareAccessRecord:
             "revoked_at": self.revoked_at,
             "released_at": self.released_at,
             "broker_url": self.broker_url,
+            "provisioning": dict(self.provisioning) if isinstance(self.provisioning, dict) else None,
             "token_hash": self.token_hash,
             "audit": [dict(item) for item in self.audit],
         }
@@ -255,6 +329,7 @@ class HardwareAccessStore:
                 released_at=clean_text(item.get("released_at")) or None,
                 broker_url=clean_text(item.get("broker_url")) or None,
                 token_hash=clean_text(item.get("token_hash")) or None,
+                provisioning=dict(item.get("provisioning")) if isinstance(item.get("provisioning"), dict) else None,
                 audit=[dict(row) for row in item.get("audit", []) if isinstance(row, dict)]
                 if isinstance(item.get("audit"), list)
                 else [],
@@ -318,6 +393,7 @@ class HardwareAccessService:
             created_at=now,
             updated_at=now,
             broker_url=supervisor_broker_url(supervisor) if supervisor is not None else None,
+            provisioning=body.provisioning.model_dump(mode="json") if body.provisioning is not None else None,
             audit=[{"event": "requested", "at": now, "policy": policy}],
         )
         if supervisor is None:
@@ -415,6 +491,25 @@ class HardwareAccessService:
         token_adapter = clean_text(payload.get("adapter"))
         if requested_adapter and token_adapter and requested_adapter != token_adapter:
             return {"ok": True, "valid": False, "error": "hardware_access_adapter_mismatch"}
+        record_provisioning = record.provisioning if isinstance(record.provisioning, dict) else None
+        token_provisioning = payload.get("provisioning") if isinstance(payload.get("provisioning"), dict) else None
+        body_provisioning = body.provisioning.model_dump(mode="json") if body.provisioning is not None else None
+        if record.operation == "ble.provision_wifi":
+            if not record_provisioning or not token_provisioning or not body_provisioning:
+                return {"ok": True, "valid": False, "error": "hardware_access_provisioning_context_required"}
+            for key in ("contract_version", "onboarding_session_id", "target_node_id", "node_profile_id", "payload_schema_id"):
+                if clean_text(record_provisioning.get(key)) != clean_text(body_provisioning.get(key)):
+                    return {"ok": True, "valid": False, "error": f"hardware_access_provisioning_{key}_mismatch"}
+                if clean_text(token_provisioning.get(key)) != clean_text(body_provisioning.get(key)):
+                    return {"ok": True, "valid": False, "error": f"hardware_access_provisioning_{key}_mismatch"}
+            if clean_text(record_provisioning.get("pairing_nonce")) and clean_text(record_provisioning.get("pairing_nonce")) != clean_text(
+                body_provisioning.get("pairing_nonce")
+            ):
+                return {"ok": True, "valid": False, "error": "hardware_access_provisioning_pairing_nonce_mismatch"}
+            if clean_text(record_provisioning.get("claim_code_ref")) and clean_text(record_provisioning.get("claim_code_ref")) != clean_text(
+                body_provisioning.get("claim_code_ref")
+            ):
+                return {"ok": True, "valid": False, "error": "hardware_access_provisioning_claim_code_ref_mismatch"}
         return {
             "ok": True,
             "valid": True,
@@ -465,6 +560,8 @@ class HardwareAccessService:
             "supervisor_id": record.supervisor_id,
             "adapter": record.adapter,
         }
+        if record.provisioning:
+            claims["provisioning"] = dict(record.provisioning)
         token = sign_hs256({"alg": "HS256", "typ": "JWT", "kid": "hardware-v1"}, claims, secret=secret)
         expires_at = datetime.fromtimestamp(exp_ts, tz=timezone.utc).isoformat()
         record.status = "granted"

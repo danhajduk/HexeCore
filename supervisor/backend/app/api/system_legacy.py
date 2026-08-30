@@ -26,6 +26,7 @@ from ..system.hardware import (
     HardwareAccessStore,
     HardwareLeaseReleaseBody,
     HardwareLeaseValidationBody,
+    hardware_ble_provisioning_schema_payload,
     hardware_access_request_schema_payload,
 )
 from ..system.auth.tokens import sign_hs256
@@ -2217,6 +2218,13 @@ def build_system_router(
     @router.get("/system/nodes/hardware/access-requests/schema")
     def get_node_hardware_access_request_schema():
         return hardware_access_request_schema_payload()
+
+    @router.get("/system/nodes/hardware/ble/provisioning/schemas/{node_profile_id}")
+    def get_node_hardware_ble_provisioning_schema(node_profile_id: str):
+        try:
+            return hardware_ble_provisioning_schema_payload(node_profile_id)
+        except KeyError:
+            raise HTTPException(status_code=404, detail={"error": "unsupported_node_provisioning_profile"})
 
     @router.post("/system/nodes/hardware/access-requests")
     def request_node_hardware_access(
