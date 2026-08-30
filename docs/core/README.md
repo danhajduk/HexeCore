@@ -36,6 +36,7 @@ Core is currently implemented across:
 
 - [./api/README.md](./api/README.md)
 - [./frontend/README.md](./frontend/README.md)
+- [./ble-onboarding-contract.md](./ble-onboarding-contract.md)
 - [./node-budget-assignment-flow.md](./node-budget-assignment-flow.md)
 - [../addons/README.md](../addons/README.md)
 - [../mqtt/README.md](../mqtt/README.md)

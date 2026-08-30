@@ -1,6 +1,6 @@
 # BLE Onboarding Contract
 
-Status: Planned contract for `ble.provision_wifi`
+Status: Implemented contract and broker route for `ble.provision_wifi`; physical GATT backend is pluggable and fails closed when unavailable
 Last Updated: 2026-08-30
 
 ## Purpose

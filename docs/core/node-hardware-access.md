@@ -26,6 +26,21 @@ Bluetooth is the first implemented hardware resource. The current broker support
 4. The node calls the Supervisor broker with the lease token.
 5. The node releases the lease with `POST /api/system/nodes/hardware/leases/{lease_id}/release`, or lets it expire.
 
+## BLE Wi-Fi Onboarding Flow
+
+1. The provisioning client discovers the hardware access request schema with `GET /api/system/nodes/hardware/access-requests/schema`.
+2. The provisioning client discovers the target node payload schema, for example `GET /api/system/nodes/hardware/ble/provisioning/schemas/voice`.
+3. The target Voice node advertises the Hexe BLE onboarding GATT service from [BLE Onboarding Contract](./ble-onboarding-contract.md).
+4. The provisioning client reads device identity and pairing nonce/claim-code metadata from the target node over BLE.
+5. The provisioning client requests Core hardware access with `operation=ble.provision_wifi` and a `provisioning` context that binds the Core onboarding session, target node id, Voice profile, payload schema id, and nonce or claim-code reference.
+6. Core authenticates the requester, applies Bluetooth policy, selects an online Supervisor, and issues a short-lived lease scoped to `hardware.bluetooth.ble.provision_wifi`.
+7. The provisioning client calls `POST /api/supervisor/hardware/bluetooth/ble/provision-wifi` with the lease token, the same provisioning context, and the Voice Wi-Fi/backend payload.
+8. Supervisor validates the lease through Core when configured, validates the Voice payload, redacts secrets from responses and audit-shaped events, and delegates the GATT write to its provisioning backend.
+9. The target node applies credentials, updates the provisioning status/ack characteristic, and then joins the configured backend.
+10. The provisioning client releases the lease or lets it expire.
+
+Core owns policy/session/lease state. Supervisor owns host Bluetooth enforcement. The target node owns applying credentials. BLE provisioning remains a narrow operation and does not grant scan/status or general host Bluetooth access unless separately leased.
+
 ## Core API
 
 ### Request Schema
@@ -191,7 +206,7 @@ Request fields:
 - `node_id`: trusted node id that owns the lease.
 - `lease_token`: Core-issued signed hardware lease token.
 - `resource_type`: currently only `bluetooth`.
-- `operation`: currently `ble.status` or `ble.scan`.
+- `operation`: currently `ble.status`, `ble.scan`, or `ble.provision_wifi`.
 - `provisioning`: required for `ble.provision_wifi` validation and must match the lease's contract/session/profile binding.
 - `supervisor_id`: optional Supervisor id to match against the lease.
 - `adapter`: optional Bluetooth adapter id to match against the lease.
@@ -243,6 +258,42 @@ Response fields include:
 - `devices`: discovered rows with `address`, optional `name`, and `transport=ble`
 - `revocation_check`: `core` or `local_token_only`
 
+### BLE Wi-Fi Provisioning
+
+`POST /api/supervisor/hardware/bluetooth/ble/provision-wifi`
+
+```json
+{
+  "node_id": "operator-node-1",
+  "lease_token": "<Core-issued ble.provision_wifi lease token>",
+  "adapter": "hci0",
+  "target_address": "AA:BB:CC:DD:EE:FF",
+  "contract_version": "1.0",
+  "onboarding_session_id": "onboard_...",
+  "target_node_id": "voice-node-1",
+  "node_profile_id": "voice",
+  "payload_schema_id": "hexe.voice_node.wifi_backend.v1",
+  "pairing_nonce": "nonce-from-target-node",
+  "credential_payload": {
+    "wifi_ssid": "OfficeNet",
+    "wifi_password": "<not returned by Supervisor>",
+    "backend_host": "core.local",
+    "http_port": 9001,
+    "ws_port": 9001,
+    "use_tls": false,
+    "endpoint_name": "kitchen",
+    "display_name": "Kitchen Voice"
+  },
+  "timeout_s": 30
+}
+```
+
+The lease must include the `hardware.bluetooth.ble.provision_wifi` scope. Supervisor validates the lease and target provisioning context before accepting the Voice payload. The response redacts `credential_payload.wifi_password`; plaintext credentials must not be logged or returned.
+
+If no physical GATT backend is configured, the route returns `ok=false`, `status=failed`, and `error=gatt_backend_unavailable` after lease and payload validation.
+
+Voice node payload fields are the Voice baseline, not the universal payload for all node types. Future node profiles should publish their own payload schema while reusing the shared GATT service, nonce/claim-code binding, status, error, and lease model.
+
 ## Policy
 
 - `disabled`: all node Bluetooth access requests are denied.
@@ -262,9 +313,11 @@ Current `trusted_only` and `allowed` behavior is intentionally the same after no
 - `denied/bluetooth_policy_disabled`: the active Bluetooth policy is `disabled`.
 - `denied/hardware_lease_secret_unconfigured`: Core cannot issue leases because `HEXE_HARDWARE_LEASE_SECRET` is unset.
 - `403 hardware_access_*_mismatch`: the lease was presented by the wrong node, to the wrong Supervisor, for the wrong adapter, or for the wrong operation.
+- `403 hardware_access_provisioning_*_mismatch`: the `ble.provision_wifi` lease was presented with the wrong onboarding session, target node, node profile, payload schema, pairing nonce, or claim-code reference.
 - `403 token_expired`: the signed lease token expired.
 - `404 bluetooth_unavailable`: Supervisor no longer sees any Bluetooth adapter.
 - `404 bluetooth_adapter_not_found`: the requested adapter id is not present.
+- `gatt_backend_unavailable`: Supervisor validated the request, but no BLE provisioning backend is configured for physical GATT writes.
 
 ## Supervisor Broker
 
@@ -272,6 +325,7 @@ Implemented BLE routes:
 
 - `POST /api/supervisor/hardware/bluetooth/ble/status`
 - `POST /api/supervisor/hardware/bluetooth/ble/scan`
+- `POST /api/supervisor/hardware/bluetooth/ble/provision-wifi`
 
 Supervisor prefers Core validation using `HEXE_HARDWARE_LEASE_VALIDATE_URL` or `HEXE_SUPERVISOR_CORE_URL`. If Core validation is not configured, Supervisor can validate the signed lease locally with `HEXE_HARDWARE_LEASE_SECRET`; that mode cannot observe Core-side release state and is reported as `revocation_check=local_token_only`.
 
