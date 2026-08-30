@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -95,6 +96,66 @@ class TestNodeCapabilityProfilesStore(unittest.TestCase):
         self.assertTrue(p1.profile_id.endswith("-v1"))
         self.assertTrue(p2.profile_id.endswith("-v2"))
         self.assertEqual(self.store.latest_for_node("node-abc123").profile_id, p2.profile_id)  # type: ignore[union-attr]
+
+    def test_legacy_profile_load_backfills_provider_families_and_empty_requests(self) -> None:
+        payload = {
+            "schema_version": "1",
+            "items": [
+                {
+                    "profile_id": "cap-node-legacy-v1",
+                    "node_id": "node-legacy",
+                    "declared_capabilities": [" task.chat ", ""],
+                    "enabled_providers": ["openai"],
+                    "feature_flags": {"telemetry": True},
+                    "acceptance_timestamp": "2026-03-11T00:00:00+00:00",
+                    "manifest_version": "1.0",
+                    "declaration_digest": "digest-legacy",
+                    "declaration_raw": {},
+                }
+            ],
+        }
+        self.path.write_text(json.dumps(payload), encoding="utf-8")
+
+        reloaded = NodeCapabilityProfilesStore(path=self.path)
+        profile = reloaded.get("cap-node-legacy-v1")
+
+        self.assertIsNotNone(profile)
+        assert profile is not None
+        self.assertEqual(profile.declared_task_families, ["task.chat"])
+        self.assertEqual(profile.provided_task_families, ["task.chat"])
+        self.assertEqual(profile.requested_task_families, [])
+        self.assertEqual(profile.to_dict()["provided_task_families"], ["task.chat"])
+        self.assertEqual(profile.to_dict()["requested_task_families"], [])
+
+    def test_requester_only_profile_load_preserves_empty_provider_families(self) -> None:
+        payload = {
+            "schema_version": "1",
+            "items": [
+                {
+                    "profile_id": "cap-node-voice-v1",
+                    "node_id": "node-voice",
+                    "declared_task_families": [],
+                    "provided_task_families": [],
+                    "requested_task_families": ["task.chat"],
+                    "enabled_providers": [],
+                    "feature_flags": {},
+                    "acceptance_timestamp": "2026-03-11T00:00:00+00:00",
+                    "manifest_version": "1.0",
+                    "declaration_digest": "digest-requester",
+                    "declaration_raw": {},
+                }
+            ],
+        }
+        self.path.write_text(json.dumps(payload), encoding="utf-8")
+
+        reloaded = NodeCapabilityProfilesStore(path=self.path)
+        profile = reloaded.get("cap-node-voice-v1")
+
+        self.assertIsNotNone(profile)
+        assert profile is not None
+        self.assertEqual(profile.declared_task_families, [])
+        self.assertEqual(profile.provided_task_families, [])
+        self.assertEqual(profile.requested_task_families, ["task.chat"])
 
 
 if __name__ == "__main__":

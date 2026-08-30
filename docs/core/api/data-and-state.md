@@ -28,10 +28,27 @@ Observed JSON-backed state includes:
 - node onboarding session state (`data/node_onboarding_sessions.json`)
 - node onboarding archived terminal sessions (`data/node_onboarding_sessions.json.archive.jsonl`)
 - global node registrations (`data/node_registrations.json`)
+- node capability profiles (`data/node_capability_profiles.json`)
+- node governance bundles (`data/node_governance_bundles.json`)
 - AI Node trust issuance records (`data/node_trust_records.json`)
 - policy grants/revocations (`var/policy_*.json`)
 - service catalog and store source state
 - standalone addon desired/runtime files
+
+## Node Capability Store Compatibility
+
+Status: Implemented
+
+Node capability migration is lazy and load-time only. Operators should not hand-edit live JSON as the primary migration path.
+
+Current behavior:
+
+- legacy registration records using `declared_capabilities[]` or `declared_task_families[]` load as provider-side `provided_task_families[]`
+- legacy capability profile records using old provider declarations load as provider-side `provided_task_families[]`
+- missing `requested_task_families[]` loads as an empty requester dependency list
+- explicit empty `provided_task_families[]` is preserved for requester-only records
+- new saves include distinct provider and requester fields
+- governance bundles are regenerated through the normal current-governance path when profile-derived routing constraints change
 
 ## Desired and Runtime Models
 

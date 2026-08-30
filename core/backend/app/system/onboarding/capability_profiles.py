@@ -27,6 +27,12 @@ def _manifest_digest(manifest: dict[str, Any]) -> str:
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
+def _clean_string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(v).strip() for v in value if str(v).strip()]
+
+
 @dataclass
 class NodeCapabilityProfileRecord:
     profile_id: str
@@ -100,9 +106,13 @@ class NodeCapabilityProfilesStore:
             digest = str(item.get("declaration_digest") or "").strip()
             if not (profile_id and node_id and accepted_at and manifest_version and digest):
                 continue
-            declared = item.get("declared_task_families") if isinstance(item.get("declared_task_families"), list) else []
-            provided = item.get("provided_task_families") if isinstance(item.get("provided_task_families"), list) else declared
-            requested = item.get("requested_task_families") if isinstance(item.get("requested_task_families"), list) else []
+            declared_raw = item.get("declared_task_families")
+            if not isinstance(declared_raw, list):
+                declared_raw = item.get("declared_capabilities")
+            declared = _clean_string_list(declared_raw)
+            provided_raw = item.get("provided_task_families")
+            provided = _clean_string_list(provided_raw) if isinstance(provided_raw, list) else declared
+            requested = _clean_string_list(item.get("requested_task_families"))
             providers = item.get("enabled_providers") if isinstance(item.get("enabled_providers"), list) else []
             provider_intelligence = (
                 item.get("provider_intelligence") if isinstance(item.get("provider_intelligence"), list) else []
@@ -117,9 +127,9 @@ class NodeCapabilityProfilesStore:
             record = NodeCapabilityProfileRecord(
                 profile_id=profile_id,
                 node_id=node_id,
-                declared_task_families=[str(v).strip() for v in provided if str(v).strip()],
-                provided_task_families=[str(v).strip() for v in provided if str(v).strip()],
-                requested_task_families=[str(v).strip() for v in requested if str(v).strip()],
+                declared_task_families=provided,
+                provided_task_families=provided,
+                requested_task_families=requested,
                 enabled_providers=[str(v).strip() for v in providers if str(v).strip()],
                 provider_intelligence=[
                     copy.deepcopy(v) for v in provider_intelligence if isinstance(v, dict)

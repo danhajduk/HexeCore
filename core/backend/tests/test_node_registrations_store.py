@@ -108,6 +108,67 @@ class TestNodeRegistrationsStore(unittest.TestCase):
         self.assertIsNone(item.ui_health_endpoint)
         self.assertIsNone(item.api_base_url)
 
+    def test_legacy_load_backfills_provider_families_from_declared_task_families(self) -> None:
+        payload = {
+            "schema_version": "3",
+            "items": [
+                {
+                    "node_id": "node-ai-legacy",
+                    "node_type": "ai-node",
+                    "node_name": "legacy-ai",
+                    "node_software_version": "0.9.0",
+                    "trust_status": "trusted",
+                    "created_at": "2026-03-11T00:00:00+00:00",
+                    "updated_at": "2026-03-11T00:00:00+00:00",
+                    "declared_task_families": [" task.chat ", ""],
+                    "enabled_providers": ["openai"],
+                }
+            ],
+            "session_to_node": {},
+        }
+        self.path.write_text(json.dumps(payload), encoding="utf-8")
+
+        reloaded = NodeRegistrationsStore(path=self.path)
+        item = reloaded.get("node-ai-legacy")
+
+        self.assertIsNotNone(item)
+        assert item is not None
+        self.assertEqual(item.declared_capabilities, ["task.chat"])
+        self.assertEqual(item.provided_task_families, ["task.chat"])
+        self.assertEqual(item.requested_task_families, [])
+        self.assertEqual(item.to_dict()["provided_task_families"], ["task.chat"])
+        self.assertEqual(item.to_dict()["requested_task_families"], [])
+
+    def test_requester_only_load_preserves_empty_provider_families(self) -> None:
+        payload = {
+            "schema_version": "4",
+            "items": [
+                {
+                    "node_id": "node-voice",
+                    "node_type": "voice-node",
+                    "node_name": "voice",
+                    "node_software_version": "0.9.0",
+                    "trust_status": "trusted",
+                    "created_at": "2026-03-11T00:00:00+00:00",
+                    "updated_at": "2026-03-11T00:00:00+00:00",
+                    "declared_capabilities": [],
+                    "provided_task_families": [],
+                    "requested_task_families": ["task.chat"],
+                }
+            ],
+            "session_to_node": {},
+        }
+        self.path.write_text(json.dumps(payload), encoding="utf-8")
+
+        reloaded = NodeRegistrationsStore(path=self.path)
+        item = reloaded.get("node-voice")
+
+        self.assertIsNotNone(item)
+        assert item is not None
+        self.assertEqual(item.declared_capabilities, [])
+        self.assertEqual(item.provided_task_families, [])
+        self.assertEqual(item.requested_task_families, ["task.chat"])
+
     def test_backward_compatible_load_derives_ui_metadata_from_legacy_fields(self) -> None:
         payload = {
             "schema_version": "2",

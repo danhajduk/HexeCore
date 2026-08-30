@@ -219,3 +219,11 @@ Chosen fix: Route requester governance from `requested_task_families`, with lega
 What changed: Updated mirrored governance policy constraints, declared-node candidate discovery, and focused routing/service-resolution tests for requester-only consumption of `task.chat`.
 Verification: Core and Supervisor governance, service-resolution, and budget tests passed; Core/Supervisor mirror drift guard passed.
 ###########
+
+Task #976
+Step objective: Update persisted data migration and operational compatibility for capability dependency split.
+Issue cause: Existing JSON registrations and capability profiles may only contain legacy provider declaration aliases, while new requester-only records must not be backfilled into providers.
+Chosen fix: Added load-time normalization that backfills absent/malformed provider fields from legacy aliases, preserves explicit empty provider lists, defaults requester dependencies to empty, and relies on governance refresh for regenerated routing constraints.
+What changed: Updated mirrored registration/profile stores, added legacy/new-style reload and resolver compatibility tests, and documented the lazy migration path in Core data/state docs.
+Verification: Core and Supervisor focused store/governance/service-resolution tests passed; Core/Supervisor mirror drift guard passed.
+###########

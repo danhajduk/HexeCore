@@ -35,6 +35,12 @@ def _first_text(item: dict[str, object], keys: tuple[str, ...]) -> str:
     return ""
 
 
+def _clean_string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(v).strip() for v in value if str(v).strip()]
+
+
 @dataclass
 class NodeRegistrationRecord:
     node_id: str
@@ -165,18 +171,18 @@ class NodeRegistrationsStore:
             capabilities_raw = item.get("capabilities_summary")
             capabilities = [str(v).strip() for v in capabilities_raw] if isinstance(capabilities_raw, list) else []
             declared_capabilities_raw = item.get("declared_capabilities")
-            declared_capabilities = (
-                [str(v).strip() for v in declared_capabilities_raw] if isinstance(declared_capabilities_raw, list) else []
-            )
+            if not isinstance(declared_capabilities_raw, list):
+                declared_capabilities_raw = item.get("declared_task_families")
+            declared_capabilities = _clean_string_list(declared_capabilities_raw)
             provided_task_families_raw = item.get("provided_task_families")
             provided_task_families = (
-                [str(v).strip() for v in provided_task_families_raw]
+                _clean_string_list(provided_task_families_raw)
                 if isinstance(provided_task_families_raw, list)
                 else declared_capabilities
             )
             requested_task_families_raw = item.get("requested_task_families")
             requested_task_families = (
-                [str(v).strip() for v in requested_task_families_raw]
+                _clean_string_list(requested_task_families_raw)
                 if isinstance(requested_task_families_raw, list)
                 else []
             )
