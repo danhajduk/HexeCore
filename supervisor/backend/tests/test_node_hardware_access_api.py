@@ -132,6 +132,26 @@ class TestNodeHardwareAccessApi(unittest.TestCase):
             )
         )
 
+    def test_exposes_hardware_access_request_schema(self) -> None:
+        response = self.client.get("/api/system/nodes/hardware/access-requests/schema")
+
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["schema_version"], "1")
+        self.assertEqual(payload["resource_types"], ["bluetooth"])
+        self.assertEqual(payload["operations"], ["ble.scan", "ble.status"])
+
+        schema = payload["request_schema"]
+        self.assertEqual(schema["additionalProperties"], False)
+        self.assertIn("node_id", schema["required"])
+        properties = schema["properties"]
+        self.assertEqual(properties["node_id"]["minLength"], 1)
+        self.assertEqual(properties["resource_type"]["default"], "bluetooth")
+        self.assertEqual(properties["operation"]["default"], "ble.scan")
+        self.assertIn("ble.scan", properties["operation"]["enum"])
+        self.assertIn("ble.status", properties["operation"]["enum"])
+
     def test_allowed_policy_grants_and_release_invalidates_lease(self) -> None:
         created = self.client.post(
             "/api/system/nodes/hardware/access-requests",

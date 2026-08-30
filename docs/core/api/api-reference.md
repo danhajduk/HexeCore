@@ -86,6 +86,7 @@ Status: Implemented
   - `POST /api/system/nodes/governance/refresh` (trusted node token required; version-aware governance refresh across capability, routing-policy, and budget-policy changes; also clears `outdated` state when successful)
   - `GET /api/system/nodes/operational-status/{node_id}` (node trust token or admin session/token; lightweight lifecycle/capability/governance status, including governance freshness and outdated flags)
   - `POST /api/system/nodes/telemetry` (trusted node token required; runtime lifecycle/governance signal ingestion)
+  - `GET /api/system/nodes/hardware/access-requests/schema` (public discovery endpoint; returns the JSON Schema for node hardware access requests plus supported hardware resources and operations)
   - `POST /api/system/nodes/hardware/access-requests` (trusted node token required via `X-Node-Trust-Token`; request Core-governed host hardware access such as Bluetooth BLE status or scan)
   - `GET /api/system/nodes/{node_id}/hardware/access-requests` (trusted node token required via `X-Node-Trust-Token`; list the node's hardware requests and lease state without returning lease tokens)
   - `POST /api/system/nodes/hardware/leases/{lease_id}/release` (trusted node token required via `X-Node-Trust-Token`; release a granted hardware lease)

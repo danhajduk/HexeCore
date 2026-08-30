@@ -1,5 +1,5 @@
 {
-  "path_count": 229,
+  "path_count": 230,
   "paths": {
     "/api/addons": [
       "get"
@@ -506,6 +506,9 @@
     ],
     "/api/system/nodes/hardware/access-requests": [
       "post"
+    ],
+    "/api/system/nodes/hardware/access-requests/schema": [
+      "get"
     ],
     "/api/system/nodes/hardware/leases/{lease_id}/release": [
       "post"

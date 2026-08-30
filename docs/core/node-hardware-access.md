@@ -28,6 +28,25 @@ Bluetooth is the first implemented hardware resource. The current broker support
 
 ## Core API
 
+### Request Schema
+
+`GET /api/system/nodes/hardware/access-requests/schema`
+
+Authentication: none. This is a discovery endpoint for node clients.
+
+Returns the JSON Schema for `POST /api/system/nodes/hardware/access-requests` plus the current hardware access schema version and supported resource/operation catalog.
+
+```http
+GET /api/system/nodes/hardware/access-requests/schema
+```
+
+Response fields:
+
+- `schema_version`: current hardware access contract version.
+- `resource_types`: currently `bluetooth`.
+- `operations`: currently `ble.status` and `ble.scan`.
+- `request_schema`: JSON Schema for the access request body. Unknown request fields are rejected.
+
 ### Request Access
 
 `POST /api/system/nodes/hardware/access-requests`
@@ -135,6 +154,15 @@ The decision route applies to `pending` requests created under `HEXE_BLUETOOTH_A
 Authentication: admin token/session, or Supervisor reporting identity using `X-Supervisor-Id` and `X-Supervisor-Token`.
 
 Supervisor uses this endpoint to validate the signed token and persisted Core lease state before brokered Bluetooth operations.
+
+Request fields:
+
+- `node_id`: trusted node id that owns the lease.
+- `lease_token`: Core-issued signed hardware lease token.
+- `resource_type`: currently only `bluetooth`.
+- `operation`: currently `ble.status` or `ble.scan`.
+- `supervisor_id`: optional Supervisor id to match against the lease.
+- `adapter`: optional Bluetooth adapter id to match against the lease.
 
 ## Supervisor BLE API
 

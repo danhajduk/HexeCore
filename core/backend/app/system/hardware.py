@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.system.auth.tokens import ServiceTokenError, sign_hs256, validate_claims, verify_hs256
 
@@ -101,32 +101,58 @@ def active_bluetooth_supervisors(supervisor_store: object | None) -> list[object
 
 
 class HardwareAccessRequestBody(BaseModel):
-    node_id: str = Field(..., min_length=1)
-    resource_type: Literal["bluetooth"] = "bluetooth"
-    operation: Literal["ble.status", "ble.scan"] = "ble.scan"
-    supervisor_id: str | None = None
-    adapter: str | None = None
-    adapter: str | None = None
-    duration_s: int | None = Field(default=None, ge=30, le=24 * 60 * 60)
-    reason: str | None = None
+    model_config = ConfigDict(extra="forbid")
+
+    node_id: str = Field(..., min_length=1, description="Trusted node id requesting hardware access.")
+    resource_type: Literal["bluetooth"] = Field(default="bluetooth", description="Host hardware resource type.")
+    operation: Literal["ble.status", "ble.scan"] = Field(
+        default="ble.scan",
+        description="Bluetooth operation the node is requesting a Core-governed lease for.",
+    )
+    supervisor_id: str | None = Field(default=None, description="Optional target Supervisor id.")
+    adapter: str | None = Field(default=None, description="Optional Bluetooth adapter id such as hci0.")
+    duration_s: int | None = Field(
+        default=None,
+        ge=30,
+        le=24 * 60 * 60,
+        description="Optional requested lease duration in seconds.",
+    )
+    reason: str | None = Field(default=None, description="Optional operator-readable reason for the request.")
 
 
 class HardwareAccessDecisionBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     decision: Literal["approve", "deny"]
     reason: str | None = None
     duration_s: int | None = Field(default=None, ge=30, le=24 * 60 * 60)
 
 
 class HardwareLeaseReleaseBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     node_id: str = Field(..., min_length=1)
 
 
 class HardwareLeaseValidationBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     node_id: str = Field(..., min_length=1)
     lease_token: str = Field(..., min_length=1)
     resource_type: Literal["bluetooth"] = "bluetooth"
     operation: Literal["ble.status", "ble.scan"] = "ble.scan"
     supervisor_id: str | None = None
+    adapter: str | None = None
+
+
+def hardware_access_request_schema_payload() -> dict[str, Any]:
+    return {
+        "ok": True,
+        "schema_version": HARDWARE_ACCESS_SCHEMA_VERSION,
+        "resource_types": sorted(SUPPORTED_HARDWARE_RESOURCES),
+        "operations": sorted(SUPPORTED_BLUETOOTH_OPERATIONS),
+        "request_schema": HardwareAccessRequestBody.model_json_schema(),
+    }
 
 
 @dataclass

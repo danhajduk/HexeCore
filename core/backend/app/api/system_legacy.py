@@ -26,6 +26,7 @@ from ..system.hardware import (
     HardwareAccessStore,
     HardwareLeaseReleaseBody,
     HardwareLeaseValidationBody,
+    hardware_access_request_schema_payload,
 )
 from ..system.auth.tokens import sign_hs256
 from ..system.onboarding import (
@@ -2212,6 +2213,10 @@ def build_system_router(
             "claims": claims,
             "resolution": candidate.model_dump(mode="json"),
         }
+
+    @router.get("/system/nodes/hardware/access-requests/schema")
+    def get_node_hardware_access_request_schema():
+        return hardware_access_request_schema_payload()
 
     @router.post("/system/nodes/hardware/access-requests")
     def request_node_hardware_access(
