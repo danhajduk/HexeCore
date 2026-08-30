@@ -47,4 +47,3 @@ Standards reference:
 
 Do not edit above this line:
 #######################################################################
-[TODO] Task 977: Update Core documentation for provider versus requester capability semantics

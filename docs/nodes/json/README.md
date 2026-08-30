@@ -12,6 +12,8 @@ PUT /api/system/nodes/registrations/{node_id}/metadata
 
 Core-owned fields such as identity, trust status, MQTT credentials, governance state, and budget state are intentionally excluded from the metadata refresh schema.
 
+Capability declaration schemas use `provided_task_families[]` for task families the node can execute for others and `requested_task_families[]` for task families the node may ask Core to resolve from provider nodes. `declared_task_families[]` and `declared_capabilities[]` remain provider-side compatibility aliases.
+
 ## Schema Groups
 
 - Onboarding and registration: `node_onboarding_start_request.schema.json`, `node_onboarding_sessions.store.schema.json`, `node_registrations.store.schema.json`, `full-onboarding-metadata.schema.json`

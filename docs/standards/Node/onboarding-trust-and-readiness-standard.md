@@ -257,7 +257,17 @@ Post-trust setup may include:
 
 - provider configuration
 - capability selection
+- requester dependency selection
 - capability declaration prerequisites
+
+### Mandatory
+
+Capability declaration must distinguish provider capability from requester dependency:
+
+- provider capability: task families the node can execute for others
+- requester dependency: task families the node may ask Core to resolve from provider nodes
+
+Nodes that consume a delegated task must use requester dependency fields instead of declaring themselves as providers for that task.
 - governance prerequisites
 - background-task readiness prerequisites
 

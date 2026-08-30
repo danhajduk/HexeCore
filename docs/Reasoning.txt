@@ -227,3 +227,11 @@ Chosen fix: Added load-time normalization that backfills absent/malformed provid
 What changed: Updated mirrored registration/profile stores, added legacy/new-style reload and resolver compatibility tests, and documented the lazy migration path in Core data/state docs.
 Verification: Core and Supervisor focused store/governance/service-resolution tests passed; Core/Supervisor mirror drift guard passed.
 ###########
+
+Task #977
+Step objective: Update Core documentation for provider versus requester capability semantics.
+Issue cause: Active node docs still centered old provider declaration names and did not make requester authorization versus provider matching explicit enough for future node implementations.
+Chosen fix: Documented `provided_task_families[]` as provider-side executable capability, `requested_task_families[]` as delegated-service dependency, and legacy declaration fields as provider-only aliases.
+What changed: Updated lifecycle, capability activation, taxonomy, service-resolution, budget, registry, schema README, and node-standard docs with the Voice-to-AI `task.chat` example and routing split.
+Verification: Stale wording scan completed; `python tools/check_repo_health.py --skip-backend-tests` passed; Core/Supervisor mirror drift guard passed.
+###########

@@ -21,3 +21,4 @@ Task 973: Improve Supervisor Fleet offline/health UI semantics and operator diag
 Task 974: Split node-provided capabilities from node-requested service dependencies - Completed on 08/29/2026 17:18
 Task 975: Derive governance routing permissions from requested service dependencies - Completed on 08/29/2026 17:23
 Task 976: Update persisted data migration and operational compatibility for capability dependency split - Completed on 08/29/2026 17:28
+Task 977: Update Core documentation for provider versus requester capability semantics - Completed on 08/29/2026 17:30

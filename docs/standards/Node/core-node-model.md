@@ -202,6 +202,18 @@ Being trusted does not automatically make a node operational.
 
 If a node participates in capability declaration, it must treat capability activation as a post-trust stage.
 
+### Mandatory
+
+Nodes must keep provider-side capability separate from requester-side dependency:
+
+- `provided_task_families[]` is what the node can execute for other nodes.
+- `requested_task_families[]` is what the node may request from other provider nodes.
+- `declared_task_families[]` and `declared_capabilities[]` are compatibility aliases for provider-side capability only.
+
+### Mandatory
+
+A node must not declare a task as provided only because it needs to consume that task from another node.
+
 ### Recommended
 
 The `capability_setup_pending` state should be used as the default conceptual model for the trusted-but-not-yet-operational stage.

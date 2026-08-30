@@ -23,8 +23,11 @@ The taxonomy publishes the same ordered categories in every response:
 ### `task_families`
 
 - Label: `Task families`
-- Source: `declared_task_families[]` / `declared_capabilities[]`
-- Meaning: workload families the node declares it can perform
+- Source: `provided_task_families[]`
+- Compatibility aliases: `declared_task_families[]` / `declared_capabilities[]`
+- Meaning: workload families the node declares it can perform for other nodes
+
+Requester-side dependencies are not provider taxonomy items. A node that only needs a task from another node declares that need in `requested_task_families[]`; Core uses that field for routing authorization, not for provider capability matching.
 
 ### `provider_access`
 

@@ -103,13 +103,17 @@ Transition guidance:
 
 - `POST /api/system/nodes/capabilities/declaration`
 - Auth: `X-Node-Trust-Token`
+- Provider-side task families describe work the node can execute for other nodes.
+- Requester-side task families describe work the node may ask Core to resolve from other provider nodes.
+- `manifest.declared_task_families[]` and `manifest.declared_capabilities[]` remain compatibility aliases for provider-side task families.
 - Request:
   - `manifest.manifest_version`
   - `manifest.node.node_id`
   - `manifest.node.node_type`
   - `manifest.node.node_name`
   - `manifest.node.node_software_version`
-  - `manifest.declared_task_families[]`
+  - `manifest.provided_task_families[]`
+  - `manifest.requested_task_families[]`
   - `manifest.supported_providers[]`
   - `manifest.enabled_providers[]`
   - `manifest.node_features.telemetry`
@@ -126,10 +130,19 @@ Transition guidance:
   - `manifest_version`
   - `accepted_at`
   - `declared_capabilities[]`
+  - `provided_task_families[]`
+  - `requested_task_families[]`
   - `enabled_providers[]`
   - `capability_profile_id`
   - `governance_version`
   - `governance_issued_at`
+
+Example:
+
+- HexeVoice provides voice/intent/TTS task families such as `voice.intent.dispatch` and `voice.tts.synthesize`.
+- HexeVoice requests `task.chat` so it can consume chat execution from another provider node.
+- The AI node provides `task.chat` and publishes OpenAI model metadata.
+- Core resolves the AI-node candidate for HexeVoice without requiring HexeVoice to declare itself as a `task.chat` provider.
 
 ### Capability Profile Registry
 
@@ -158,6 +171,12 @@ Current implemented governance-bundle sections include:
 - `capability_usage_constraints`
 - `routing_policy_constraints`
 - `budget_policy`
+
+Current routing semantics:
+
+- `capability_usage_constraints.provided_task_families[]` records provider-side execution capability.
+- `capability_usage_constraints.requested_task_families[]` records requester-side delegated-service dependencies.
+- `routing_policy_constraints.allowed_task_families[]` is derived from requester-side dependencies when present, with provider-side legacy fallback for older profiles.
 
 ### Governance Refresh
 

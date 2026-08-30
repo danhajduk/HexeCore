@@ -43,11 +43,17 @@ Examples:
 Core keeps these as distinct concepts:
 
 - task family
+- provider-side task capability
+- requester-side task dependency
 - provider
 - model
 - grant/budget
 
 The resolution flow combines them, but it does not collapse them into one identifier.
+
+Provider-side capability means the task family a node can execute for others, expressed as `provided_task_families[]` in the capability declaration. `declared_task_families[]` and `declared_capabilities[]` are provider-side compatibility aliases.
+
+Requester-side dependency means the task family a node may ask Core to resolve from another provider node, expressed as `requested_task_families[]`. A consuming node does not declare the consumed task as provided unless it can actually execute that task for others.
 
 ### Core Resolves, Node Executes
 
@@ -164,21 +170,30 @@ Core combines:
 
 - trusted node identity
 - accepted capability profile
-- governance `routing_policy_constraints`
-- service catalog candidates
-- trusted-node `capability_endpoints` metadata for declared node-runtime capabilities
+- requester governance `routing_policy_constraints`
+- service catalog candidates for provider services
+- trusted-node `provided_task_families[]` and `capability_endpoints` metadata for declared node-runtime capabilities
 - current budget-policy and derived grants
 
 ### Resolution Filters
 
 Candidates are filtered by:
 
+- requester authorization: requested task family must be allowed by governance
+- provider capability matching: candidate capabilities must include the requested task family
 - matching `task_family` in service capabilities
 - service health
 - governance allowed providers
 - governance allowed models
 - preferred provider/model when requested
 - admissible current budget grant on the selected provider node
+
+Example:
+
+- HexeVoice provides voice/intent/TTS capabilities.
+- HexeVoice declares `requested_task_families: ["task.chat"]`.
+- The AI node declares `provided_task_families: ["task.chat"]` with OpenAI model metadata.
+- Core authorizes HexeVoice as a requester for `task.chat`, matches the AI node as the provider, evaluates the AI-node budget, and returns the AI-node candidate.
 
 For `task.image_generation` with provider `openai`, Core defaults an unspecified model to `gpt-image-1-mini`. Callers may also send `preferred_model` or `model_id` as `mini`; Core resolves that shorthand to `gpt-image-1-mini` during resolution and authorization.
 

@@ -85,7 +85,10 @@ sequenceDiagram
 
 ## Data Ownership (Target)
 - Node identity/trust: existing onboarding + trust domain (`node_id`, trust token, trust status).
-- Capability declaration: raw manifest payload tied to node identity.
+- Capability declaration: raw manifest payload tied to node identity, including separate provider-side and requester-side task-family lists.
+- Provider-side capabilities: `provided_task_families[]`, plus legacy aliases `declared_task_families[]` and `declared_capabilities[]`, describe what the node can execute for other nodes.
+- Requester-side dependencies: `requested_task_families[]` describe what the node may ask Core to resolve from provider nodes.
+- Provider access/model metadata: `enabled_providers[]` and `provider_intelligence[]` describe which external provider/model choices back a provider node.
 - Capability profile: normalized immutable record derived from accepted declaration.
 - Governance bundle: versioned baseline bundle tied to node + profile.
 - Operational state: lifecycle projection owned by node management layer.
@@ -94,6 +97,7 @@ sequenceDiagram
 - Authentication: declaration/governance/status APIs must require trusted node identity.
 - Schema strictness: manifest rejects unknown keys and unsupported versions.
 - Determinism: capability acceptance logic must not silently rewrite declaration intent.
+- Provider/requester separation: a consuming node must not declare a task as provided solely to request that task from another node.
 - Compatibility: schema and governance bundle versions must be explicit and comparable.
 
 ## Operational Readiness Criteria (Target)

@@ -208,6 +208,8 @@ Implemented governance-bundle additions:
 Current rules:
 
 - governance issuance is still the canonical Core-to-node policy channel
+- `routing_policy_constraints.allowed_task_families` is requester authorization, derived from `requested_task_families[]` when present
+- provider matching remains separate and uses provider-side service capabilities, including trusted node `provided_task_families[]`
 - governance refresh returns the latest budget-bearing governance bundle when capability, routing-policy, or budget-policy inputs change
 - nodes can fetch budget policy directly through `/budgets/policy/*`, but the same effective policy is also embedded in governance
 - governance freshness transitions are derived from existing governance timestamps, preferring refresh activity and falling back to issued time before the first refresh, audited as `node_governance_freshness_changed`, and surfaced in registry and operational-status views

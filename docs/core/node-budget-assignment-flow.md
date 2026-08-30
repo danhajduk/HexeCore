@@ -215,6 +215,8 @@ The explicit governance constraint enforced directly inside `resolve_for_node(..
 
 If the governance bundle includes `routing_policy_constraints.allowed_task_families` and the requested task family is not in that set, Core returns no candidates.
 
+`allowed_task_families` is requester-side authorization. It is derived from `requested_task_families[]` when a node declares delegated-service dependencies, with provider-side legacy fallback for older capability profiles. Provider candidate matching is separate and uses service catalog capabilities or trusted-node `provided_task_families[]`.
+
 That check happens earlier in the same method before candidate iteration.
 
 ## Phase 4: Determining Which Node Owns The Budget

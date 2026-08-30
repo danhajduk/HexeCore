@@ -31,12 +31,16 @@ This document defines the canonical node registry domain introduced for the Node
 ### NodeCapabilitySummary
 
 - `declared_capabilities`
+- `provided_task_families`
+- `requested_task_families`
 - `enabled_providers`
 - `capability_profile_id`
 - `capability_status`
 - `capability_declaration_version`
 - `capability_declaration_timestamp`
 - `taxonomy`
+
+`declared_capabilities` is retained as a provider-side compatibility alias. New node implementations should read and write `provided_task_families` for executable provider capability and `requested_task_families` for delegated-service dependencies.
 
 ### NodeCapabilityTaxonomySummary
 
