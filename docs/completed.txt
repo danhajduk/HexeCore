@@ -25,3 +25,4 @@ Task 977: Update Core documentation for provider versus requester capability sem
 Task 985: Add Core-governed node hardware access request and lease protocol - Completed on 08/30/2026 08:43
 Task 986: Implement Supervisor Bluetooth access broker and local enforcement path - Completed on 08/30/2026 08:43
 Task 987: Document and verify the node Bluetooth access flow end to end - Completed on 08/30/2026 08:43
+Task 988: Define BLE onboarding contract and Voice node provisioning payload schema - Completed on 08/30/2026 16:21

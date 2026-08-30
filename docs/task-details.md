@@ -793,3 +793,98 @@ Original task details:
 - Verification: Run `python tools/update_openapi_snapshot.py --check`.
 - Verification: Run `python tools/check_env_registry.py --check-docs`.
 - Verification: Run `python tools/check_mirror_drift.py`.
+
+## Task 988
+Original task details:
+- Source finding: Core/Supervisor Bluetooth hardware access currently supports `ble.status` and `ble.scan`, but there is no formal BLE onboarding/provisioning contract for Wi-Fi credential delivery to a new node.
+- Goal: Define the BLE onboarding contract for Wi-Fi provisioning before adding implementation.
+- [STOP] Before implementation, confirm the credential-protection model: pairing nonce lifetime, claim-code format, encryption scheme, replay protection, and whether credentials are encrypted end-to-end for the node or only protected by the BLE link.
+- [STOP] Confirm whether Core, Supervisor, or the target node owns generation and validation of pairing nonce and claim code.
+- Add `ble.provision_wifi` as the planned Bluetooth operation in the contract, distinct from `ble.status` and `ble.scan`.
+- Define a versioned Hexe BLE GATT service, including canonical service UUID, characteristic UUIDs, permissions, payload encoding, maximum payload size, and retry/timeout behavior.
+- Define a device identity / board profile characteristic that exposes only safe onboarding metadata such as node hardware id, board profile, firmware/protocol version, and supported provisioning contract version.
+- Define a pairing nonce / claim code characteristic, including freshness, single-use behavior, and how Core/Supervisor maps the nonce to a pending onboarding session.
+- Define a provisioning status characteristic with states such as idle, awaiting_credentials, validating, applying, connected, failed, and completed.
+- Define an encrypted credential write characteristic for Wi-Fi and backend settings.
+- Define an ack/error characteristic with deterministic error codes for invalid_nonce, invalid_claim_code, decrypt_failed, unsupported_schema, invalid_payload, wifi_apply_failed, backend_unreachable, timeout, and already_provisioned.
+- Define the provisioning payload as node-profile extensible rather than one fixed global field set.
+- Define the Voice node baseline payload fields: `wifi_ssid`, `wifi_password`, `backend_host`, `http_port`, `ws_port`, `use_tls`, and optional endpoint name/display name.
+- Include validation rules for the Voice node baseline fields, including password omission rules for open networks, port ranges, backend hostname/IP handling, and TLS defaults.
+- Define how other node types publish or reference their own provisioning payload schema without weakening the common GATT/security contract.
+- Preserve the existing Core-governed hardware lease boundary: BLE provisioning must not require giving nodes raw host Bluetooth, DBus, or privileged container access.
+- Acceptance: The contract document names the `ble.provision_wifi` operation and all GATT service/characteristic UUIDs or explicit UUID-allocation rules.
+- Acceptance: Payload schemas are precise enough to generate validation code and client examples.
+- Acceptance: The Voice node payload schema includes the listed Wi-Fi/backend fields, while the contract permits other node profiles to require different fields.
+- Acceptance: Security and ownership decisions are recorded before implementation begins.
+- Verification: Add or update JSON Schema artifacts if the repo uses generated schema docs for this contract.
+- Verification: Run documentation link validation if new docs are added.
+
+## Task 989
+Original task details:
+- Source finding: Core hardware access request schemas and leases do not yet include `ble.provision_wifi`.
+- Goal: Extend Core hardware access APIs and lease policy so trusted provisioning flows can request and receive a scoped `ble.provision_wifi` lease.
+- Depends on: Task 988.
+- [STOP] Do not add the operation to runtime allow-lists until Task 988 fixes the contract version, payload schema, and credential-protection requirements.
+- Add `ble.provision_wifi` to the supported Bluetooth operation set and generated request-schema endpoint once the contract is approved.
+- Add a Core request/response model for provisioning metadata needed by Supervisor, including onboarding session id, target node identity, pairing nonce or claim-code reference, node profile id, and payload schema/version reference.
+- Ensure the Voice node provisioning schema includes `wifi_ssid`, `wifi_password`, `backend_host`, `http_port`, `ws_port`, `use_tls`, and optional endpoint name/display name.
+- Ensure the issued lease scope is specific to `hardware.bluetooth.ble.provision_wifi` and cannot be reused for scan/status or a different Supervisor/adapter/session.
+- Persist provisioning request state and audit events separately from generic scan/status access where needed.
+- Add fail-closed validation for missing onboarding session, stale/used nonce, untrusted node, unavailable Supervisor, missing lease secret, unsupported contract version, unsupported node provisioning schema, and invalid payload schema.
+- Update Core API docs, OpenAPI path snapshot, request-schema endpoint behavior, and any admin review views if `ask` policy can gate provisioning.
+- Preserve Core/Supervisor mirror alignment.
+- Acceptance: A trusted authorized requester can request `ble.provision_wifi` and receive deterministic denied/pending/granted behavior with a provisioning-scoped lease.
+- Acceptance: Core can expose or resolve the provisioning payload schema required by the target node profile, including the Voice node baseline schema.
+- Acceptance: Core does not store or log plaintext Wi-Fi passwords except where an explicitly approved encrypted-at-rest design says otherwise.
+- Acceptance: Lease validation rejects wrong-node, wrong-operation, wrong-session, wrong-Supervisor, expired, released, or revoked provisioning leases.
+- Verification: Add focused Core tests for schema exposure, allowed/ask/disabled policy behavior, invalid payloads, stale nonce/session, and lease validation scope mismatches.
+- Verification: Run `PYTHONPATH=core/backend .venv/bin/pytest -q` with the focused hardware/provisioning test set.
+- Verification: Run `python tools/update_openapi_snapshot.py --check`.
+- Verification: Run `python tools/check_mirror_drift.py`.
+
+## Task 990
+Original task details:
+- Source finding: Supervisor currently exposes HTTP BLE status/scan broker routes but no BLE GATT provisioning service.
+- Goal: Implement the Supervisor-side BLE onboarding GATT service and `ble.provision_wifi` enforcement path.
+- Depends on: Tasks 988 and 989.
+- [STOP] Before touching host BLE behavior, choose the implementation backend and privilege boundary: BlueZ DBus GATT application, `bluetoothctl` helper, platform-specific library, or a narrow Supervisor-owned service process.
+- [STOP] Confirm whether the Supervisor writes Wi-Fi credentials to the node over BLE only, applies local host Wi-Fi settings, or supports both modes under separate contract fields.
+- Implement the Hexe BLE GATT service with the contract characteristics for device identity / board profile, pairing nonce / claim code, provisioning status, encrypted credential write, and ack/error.
+- Validate Core-issued `ble.provision_wifi` leases before accepting provisioning writes or emitting provisioning-specific acknowledgements.
+- Enforce the target node profile's payload schema and contract version before attempting credential handoff.
+- Keep BLE status/scan behavior unchanged and separate from provisioning write behavior.
+- Add audit events for GATT service start/stop, lease validation, credential-write attempts, successful provisioning, rejected provisioning, and error acknowledgements without logging plaintext secrets.
+- Add bounded timeouts and cleanup for abandoned pairing sessions and failed provisioning attempts.
+- Add tests using a fake BLE/GATT backend so CI can validate provisioning state transitions without physical Bluetooth hardware.
+- Preserve existing host resource reporting behavior and current Supervisor UI display.
+- Preserve Core/Supervisor mirror alignment.
+- Acceptance: Supervisor refuses provisioning writes without a valid `ble.provision_wifi` lease.
+- Acceptance: Valid provisioning writes produce deterministic status transitions and ack/error outputs.
+- Acceptance: Voice node provisioning accepts the Voice baseline fields, while unsupported or mismatched node-profile payloads fail closed.
+- Acceptance: Plaintext Wi-Fi passwords are never logged, exposed in API responses, or persisted outside the approved secure credential path.
+- Acceptance: BLE scan/status routes still pass existing tests.
+- Verification: Add focused Supervisor tests for valid provisioning, invalid lease, invalid nonce/claim code, decrypt failure, invalid payload, timeout, and backend failure.
+- Verification: Run targeted Supervisor Bluetooth broker/provisioning tests.
+- Verification: Run `python tools/check_mirror_drift.py`.
+
+## Task 991
+Original task details:
+- Source finding: The current Bluetooth docs describe Core-governed access and BLE scan/status, but not BLE Wi-Fi onboarding.
+- Goal: Document and verify the BLE onboarding flow end to end.
+- Depends on: Tasks 988, 989, and 990.
+- Update `docs/core/node-hardware-access.md` with the `ble.provision_wifi` request sequence, lease scope, schema discovery behavior, and failure modes.
+- Add or update Supervisor docs to describe the Hexe BLE GATT service, provisioning lifecycle, required host packages/capabilities, and security posture.
+- Add a node-author example showing how to discover the schema, request provisioning access, pair over BLE, write encrypted credentials, read ack/error state, and release the lease.
+- Document that provisioning payloads are node-profile extensible.
+- Document the Voice node baseline payload fields: `wifi_ssid`, `wifi_password`, `backend_host`, `http_port`, `ws_port`, `use_tls`, optional endpoint name, and optional display name.
+- Document how future node types define different required provisioning fields while reusing the shared BLE onboarding service and security model.
+- Document operator-visible provisioning states and what should be visible in admin/fleet views without exposing secrets.
+- Update environment docs/registry if new Bluetooth provisioning settings are added.
+- Acceptance: Docs explain who owns each step: Core policy/session/lease, Supervisor BLE enforcement, and node-side credential application.
+- Acceptance: Docs make clear that BLE provisioning is a narrow operation and does not grant general Bluetooth or host hardware access.
+- Acceptance: API reference, schema docs, and examples match the implemented behavior.
+- Acceptance: The docs identify the Voice node fields as the Voice baseline, not the universal payload for every node.
+- Verification: Run documentation link validation.
+- Verification: Run `python tools/update_openapi_snapshot.py --check`.
+- Verification: Run `python tools/check_env_registry.py --check-docs`.
+- Verification: Run `python tools/check_mirror_drift.py`.

@@ -17,6 +17,7 @@ This folder contains Core-owned JSON schema documents for the Hexe platform.
 ## Main Groups
 
 - Node-facing and MQTT-facing contracts:
+  - `ble_onboarding_provisioning.schema.json`
   - `node_*`
   - `node_ui_card_responses.schema.json`
   - `node_ui_manifest.schema.json`

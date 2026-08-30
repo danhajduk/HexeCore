@@ -1,0 +1,154 @@
+{
+  "$id": "https://hexe.local/schemas/ble_onboarding_provisioning.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Hexe BLE Onboarding Provisioning Schemas",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "operation",
+    "service",
+    "payload_schemas"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "operation": {
+      "const": "ble.provision_wifi"
+    },
+    "service": {
+      "$ref": "#/$defs/gatt_service"
+    },
+    "payload_schemas": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/node_profile_payload_schema"
+      },
+      "required": [
+        "voice"
+      ]
+    }
+  },
+  "$defs": {
+    "gatt_service": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "service_uuid",
+        "characteristics"
+      ],
+      "properties": {
+        "service_uuid": {
+          "const": "7f9c0000-5f04-4d8b-9a46-7c0f7a100000"
+        },
+        "characteristics": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "device_identity",
+            "pairing_nonce",
+            "provisioning_status",
+            "encrypted_credentials",
+            "ack_error"
+          ],
+          "properties": {
+            "device_identity": {
+              "const": "7f9c0001-5f04-4d8b-9a46-7c0f7a100000"
+            },
+            "pairing_nonce": {
+              "const": "7f9c0002-5f04-4d8b-9a46-7c0f7a100000"
+            },
+            "provisioning_status": {
+              "const": "7f9c0003-5f04-4d8b-9a46-7c0f7a100000"
+            },
+            "encrypted_credentials": {
+              "const": "7f9c0004-5f04-4d8b-9a46-7c0f7a100000"
+            },
+            "ack_error": {
+              "const": "7f9c0005-5f04-4d8b-9a46-7c0f7a100000"
+            }
+          }
+        }
+      }
+    },
+    "node_profile_payload_schema": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "schema_id",
+        "json_schema"
+      ],
+      "properties": {
+        "schema_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "json_schema": {
+          "type": "object"
+        }
+      }
+    },
+    "voice_wifi_backend_payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "wifi_ssid",
+        "backend_host",
+        "http_port",
+        "ws_port",
+        "use_tls"
+      ],
+      "properties": {
+        "wifi_ssid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "wifi_password": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 8,
+          "maxLength": 63
+        },
+        "backend_host": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 253
+        },
+        "http_port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "ws_port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "use_tls": {
+          "type": "boolean",
+          "default": true
+        },
+        "endpoint_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "display_name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 80
+        }
+      }
+    }
+  }
+}

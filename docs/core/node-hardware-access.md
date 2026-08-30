@@ -7,7 +7,7 @@ Last Updated: 2026-08-30
 
 Trusted nodes request host hardware through Core. Core owns policy decisions and short-lived leases. Supervisor owns host-local hardware observation and enforces leases through brokered APIs.
 
-Bluetooth is the first implemented hardware resource. The current broker supports BLE status and BLE scan operations.
+Bluetooth is the first implemented hardware resource. The current broker supports BLE status and BLE scan operations. BLE Wi-Fi onboarding is specified separately in [BLE Onboarding Contract](./ble-onboarding-contract.md).
 
 ## Ownership
 
