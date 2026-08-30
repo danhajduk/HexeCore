@@ -208,7 +208,9 @@ class NodeServiceResolutionService:
                 continue
             capabilities = [
                 _clean_text(item, lower=True)
-                for item in list(getattr(registration, "declared_capabilities", []) or [])
+                for item in list(
+                    getattr(registration, "provided_task_families", []) or getattr(registration, "declared_capabilities", []) or []
+                )
                 if _clean_text(item, lower=True)
             ]
             if task_family not in capabilities:

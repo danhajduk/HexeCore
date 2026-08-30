@@ -1,0 +1,221 @@
+Task #954
+Step objective: Consolidate repository documentation into root docs.
+Chosen fix: Moved the tracked Core docs tree to root docs and removed the tracked Supervisor docs mirror.
+What changed: Updated root README links/layout, updated branding validators to scan shared root docs, and kept the active task queue normalized under docs/New_tasks.txt.
+Verification: Branding validators passed for both Core and Supervisor; tracked docs now live under root docs with no tracked files under core/docs or supervisor/docs.
+###########
+Task #973
+Step objective: Improve Supervisor Fleet offline/health UI semantics and operator diagnostics
+Issue cause: Fleet rows could show stale/offline freshness while still displaying health as OK, leaving operators to infer heartbeat state from timestamps.
+Chosen fix: Add explicit freshness and visibility diagnostic fields to the fleet API and render them in the Supervisor table.
+What changed: Added freshness age/reason and visibility reason fields, surfaced a diagnostic column and hidden historical count in Settings, mirrored changes, and documented the operator behavior.
+Verification: Core and Supervisor fleet API tests passed; Core and Supervisor frontend builds passed; mirror drift guard passed.
+###########
+#############
+All Tasks completed 08/22/2026 20:28:50
+#############
+Task #972
+Step objective: Diagnose and correct stale Hexe Supervisor fleet offline records
+Issue cause: Local-attached Supervisor records were always protected from historical hiding, so a legacy offline local id could remain in the default fleet after a newer local Supervisor for the same host was online.
+Chosen fix: Classify offline local records as historical only when a newer online local-attached record exists for the same host.
+What changed: Added superseded-local Supervisor detection, made fleet API visibility calculation context-aware, added regression coverage for the stale `Hexe` row case, and documented the behavior.
+Verification: Core and Supervisor fleet API tests passed; mirror drift guard passed.
+###########
+Task #971
+Step objective: Surface recorded Core Services and Aux Runtimes history in API/UI/docs
+Issue cause: Resource history APIs and UI only exposed host and Node runtime timelines, leaving Core-hosted services and aux runtimes without a first-class history surface.
+Chosen fix: Add Core-runtime history endpoints mirroring the existing runtime history contract, proxy them through Core fleet routes, and render the recorded Core/Aux telemetry in Settings.
+What changed: Added Supervisor, local Core, and fleet-scoped Core-runtime history APIs; updated API client and tests; rendered Core/Aux history and table fallbacks in Settings; updated OpenAPI snapshot and docs.
+Verification: Core and Supervisor targeted backend tests passed; Core and Supervisor frontend builds passed; OpenAPI snapshot check passed; mirror drift guard passed.
+###########
+Task #970
+Step objective: Persist Core Services and Aux Runtimes telemetry fields
+Issue cause: RPS, p95 latency, error rate, and inflight values were displayed from transient API/runtime payloads but were not part of the persisted runtime metric sample set.
+Chosen fix: Preserve service telemetry keys in Supervisor resource history and enrich the local `core-api` runtime heartbeat from Core's current API metrics snapshot before storing the fleet record.
+What changed: Added local Core API metric enrichment for `core-api`, allowed service telemetry keys in persisted runtime samples, mirrored Core/Supervisor changes, and documented the persisted fields.
+Verification: Core and Supervisor targeted tests passed; mirror drift guard passed.
+###########
+
+#############
+All Tasks completed 08/22/2026 18:33:00
+#############
+
+Task #963
+Step objective: Reduce Supervisor resource history latency and UI polling load.
+Issue cause: The Supervisor resource history database was large, pruning used a full table scan, and the Supervisor settings page polled 24h history every 10 seconds.
+Chosen fix: Added timestamp indexes, throttled retention pruning, reduced the UI history window to 6h/5m, and slowed page refresh to 30 seconds.
+What changed: Updated mirrored resource history stores, mirrored Supervisor settings pages, tests, and Supervisor configuration docs.
+Verification: Resource history tests passed in both mirrors; Core and Supervisor frontend builds passed; live endpoint checks improved history/core runtime latency and Supervisor API CPU.
+###########
+
+#############
+All Tasks completed 08/22/2026 18:42:00
+#############
+
+Task #964
+Step objective: Add Supervisor resource history maintenance controls.
+Issue cause: Operators could view resource history but had no explicit API to inspect SQLite storage size/counts or compact the DB/WAL after a large backlog.
+Chosen fix: Added store-level status and constrained maintenance actions, exposed them through the Supervisor service/router, and documented when to use prune, checkpoint, vacuum, or compact.
+What changed: Added history DB status fields, prune/checkpoint/vacuum/compact maintenance, Supervisor API endpoints, focused tests, and operator docs.
+Verification: Resource history store tests, Supervisor router contract test, and Supervisor package compile check passed in the Core backend venv.
+###########
+
+#############
+All Tasks completed 08/22/2026 18:50:00
+#############
+
+Task #965
+Step objective: Clean up stale Supervisor fleet records and duplicate history polling.
+Issue cause: Core returned every registered Supervisor regardless of age, and the Settings Supervisor page fetched local host history both through the local summary endpoint and the local fleet row.
+Chosen fix: Added a long-offline remote Supervisor historical cutoff with explicit opt-in listing, kept local attached Supervisors active, and deduped local host/runtime history fetches in the UI refresh cycle.
+What changed: Updated Supervisor fleet filtering/API metadata, fleet API tests, Settings Supervisor history fetch logic, and Supervisor/API docs.
+Verification: Supervisor fleet API tests, Python compile check, and Core frontend build passed.
+###########
+
+#############
+All Tasks completed 08/22/2026 19:07:00
+#############
+
+Task #955
+Step objective: Split the Core node/system API router into domain routers.
+Issue cause: `backend/app/api/system.py` mixed addon runtime, node onboarding, reauth, registrations, capabilities, budgets, service resolution, provider routing, governance, telemetry, and runtime endpoints in one large router file.
+Chosen fix: Moved the existing behavior-preserving implementation to `system_legacy.py`, added explicit domain router modules under `system_domains/`, and kept `system.py` as the small composition entrypoint with route-assignment validation.
+What changed: Added domain route ownership modules, route-parity tests, compatibility export for `_RATE_WINDOWS`, and Core API router ownership docs.
+Verification: Route composition, node registrations, capability declaration, budgets, service resolution, governance, telemetry, operational status, system runtime tests, and API compile checks passed. `test_node_onboarding_start_api.py::test_admin_can_cancel_all_active_sessions` still fails against both legacy and composed routers because approved onboarding sessions are not cancelled by the existing store behavior.
+###########
+
+#############
+All Tasks completed 08/22/2026 19:15:00
+#############
+
+Task #956
+Step objective: Split the MQTT router into domain routers.
+Issue cause: `backend/app/system/mqtt/router.py` mixed setup, debug, runtime, provisioning, bridge grants, grants, principals/users, observability, health, and admin endpoints in one large router file.
+Chosen fix: Moved the existing behavior-preserving implementation to `router_legacy.py`, added explicit domain modules under `mqtt/domains/`, and kept `router.py` as the small composition entrypoint with route-assignment validation.
+What changed: Added MQTT domain route ownership modules, route-parity tests, MQTT router ownership docs, and aligned the phase-2 E2E expected non-reserved notification scope with the existing effective-access policy.
+Verification: MQTT admin lifecycle, runtime control, provisioning, phase-2 E2E, runtime integration, lifecycle hooks, router composition, effective-access tests, and MQTT router compile checks passed.
+###########
+
+#############
+All Tasks completed 08/22/2026 19:21:00
+#############
+
+Task #957
+Step objective: Split the store router into domain routers.
+Issue cause: `backend/app/store/router.py` mixed catalog, sources, install/update/uninstall, standalone lifecycle, status, and audit endpoints in one large router file.
+Chosen fix: Moved the behavior-preserving implementation to `router_legacy.py`, added explicit domain router modules under `store/domains/`, and kept `router.py` as the small composition entrypoint with route-assignment validation and legacy export compatibility.
+What changed: Added Store domain route ownership modules, route-parity tests, and Store router ownership docs.
+Verification: Store router composition, atomic install, cleanup policy, audit endpoint, sources endpoint, response fields, model compatibility, representative Store API endpoints, and Store router compile checks passed. The full `test_store_api_endpoints.py` suite still has pre-existing failures in disabled signing, catalog refresh counting, and published-port UI reachability behavior that are present in the legacy source.
+###########
+
+#############
+All Tasks completed 08/22/2026 19:28:00
+#############
+
+Task #958
+Step objective: Add Core/Supervisor mirror drift guard.
+Issue cause: Recent Core-side router, MQTT, Store, Supervisor, and UI changes had no repository-level check to catch or prevent the Supervisor mirror from drifting behind.
+Chosen fix: Added a tracked-source mirror drift script, a backend regression test in both mirrors, and documentation that defines guarded mirror areas plus intentional exceptions.
+What changed: Added `tools/check_mirror_drift.py`, mirrored guard tests, synchronized tracked Core source changes into `supervisor/`, and documented the guard in `docs/core-supervisor-mirror-drift-guard.md`.
+Verification: Mirror drift guard passed with 477 mirrored files checked; Core guard test passed; Supervisor guard plus system/MQTT/Store composition tests passed; Supervisor mirrored router compile checks passed.
+###########
+
+#############
+All Tasks completed 08/22/2026 19:35:00
+#############
+
+Task #959
+Step objective: Centralize Core environment/configuration registry and documentation.
+Issue cause: Core runtime code and scripts read many environment variables without a single registry or validation check to keep operator docs aligned.
+Chosen fix: Added a structured JSON registry, generated markdown docs, and a validation script/test that scans active Core source roots for scoped environment variables.
+What changed: Added `docs/config/core-env-registry.json`, generated `docs/config/environment.md`, config docs index links, `tools/check_env_registry.py`, and mirrored backend regression tests.
+Verification: Env registry validation passed with 134 documented env vars; generated docs freshness check passed; Core and Supervisor env registry tests passed; Core/Supervisor mirror drift guard passed.
+###########
+
+#############
+All Tasks completed 08/22/2026 19:40:00
+#############
+
+Task #960
+Step objective: Move tracked store source runtime defaults out of live var.
+Issue cause: `core/var/store_sources.json` and `supervisor/var/store_sources.json` were tracked live runtime state files even though the same official catalog default should be bootstrapped for fresh installs.
+Chosen fix: Added `backend/app/store/default_sources.json`, loaded defaults from that template when live state is missing or invalid, and removed tracked live var files.
+What changed: Updated StoreSourcesStore default loading, added missing-state initialization coverage in both mirrors, updated the store source schema description, and deleted tracked `var/store_sources.json` files.
+Verification: Core and Supervisor store source endpoint tests passed; Core and Supervisor store source compile checks passed; Core/Supervisor mirror drift guard passed.
+###########
+
+#############
+All Tasks completed 08/22/2026 19:41:00
+#############
+
+Task #961
+Step objective: Add OpenAPI contract snapshot and removed-endpoint regression checks.
+Issue cause: Core had API docs describing removed job ownership boundaries, but no deterministic route snapshot or regression check to fail if job queue, lease, worker, or per-job usage-report endpoints reappeared.
+Chosen fix: Added a deterministic OpenAPI path/method snapshot, an update/check tool, mirrored backend tests, and API docs for the intentional update workflow.
+What changed: Added `docs/core/api/openapi-paths.snapshot.json`, `tools/update_openapi_snapshot.py`, mirrored `test_openapi_contract_snapshot.py`, and linked `openapi-snapshot.md` from Core API docs.
+Verification: OpenAPI snapshot validation passed; Core and Supervisor OpenAPI contract tests passed; Core/Supervisor mirror drift guard passed.
+###########
+
+#############
+All Tasks completed 08/22/2026 19:45:00
+#############
+
+Task #962
+Step objective: Prune and classify active documentation versus archive/future material.
+Issue cause: Active docs, future-dev notes, temporary AI-node material, screenshots, and historical migration content were not clearly classified, and active links still used the typo path `ui-mogration`.
+Chosen fix: Added a documentation map, renamed `docs/nodes/ui-mogration` to `docs/nodes/ui-migration`, clarified active versus planning/reference sections, and tightened active workload-boundary language.
+What changed: Added documentation classification and screenshot/future-dev README files, updated active index links, marked temp AI-node docs as reference, corrected stale frontend route/tile docs, and allowed the live external catalog repo name in the branding validator for the new store default template.
+Verification: Stale `ui-mogration` search is clean; active workload-boundary search only returns explicit negative/ownership statements; active Hexe branding validation passed; Core/Supervisor mirror drift guard passed; diff checks passed.
+###########
+
+#############
+All Tasks completed 08/22/2026 19:48:00
+#############
+
+Task #966
+Step objective: Restore Store artifact verification.
+Issue cause: Store signing helpers returned success without validating checksum or detached signatures while active addon standards described verification as enforced.
+Chosen fix: Implemented SHA-256 checksum checks, RSA/Ed25519 detached signature verification with legacy RSA-label compatibility, and catalog publisher-key resolution before install lifecycle mutation.
+What changed: Updated Core and Supervisor store signing helpers, signature model metadata, catalog install verification wiring, store tests, and active addon platform docs.
+Verification: Core and Supervisor store signing tests passed; targeted catalog install verification tests passed in both mirrors; Core/Supervisor mirror drift guard passed.
+###########
+
+Task #967
+Step objective: Make OpenAPI checks catch duplicate operation IDs.
+Issue cause: Dynamic node/addon proxy routes generated duplicate OpenAPI operation IDs, and the snapshot tool suppressed those warnings.
+Chosen fix: Excluded catch-all proxy routers from generated OpenAPI and made the snapshot checker fail on duplicate operation ID warnings.
+What changed: Updated Core and Supervisor proxy routers, OpenAPI snapshot tooling, regenerated the path snapshot, and documented proxy route exclusion.
+Verification: OpenAPI snapshot validation passed; Core and Supervisor OpenAPI/proxy router tests passed; Core/Supervisor mirror drift guard passed.
+###########
+
+Task #968
+Step objective: Add repo health entrypoint.
+Issue cause: Core/Supervisor guard checks existed as separate commands without one developer/operator entrypoint.
+Chosen fix: Added `tools/check_repo_health.py` to run mirror drift, env registry, OpenAPI snapshot checks, and targeted Core/Supervisor backend guard tests.
+What changed: Added the health tool and documented it in the development and operator guides.
+Verification: `python tools/check_repo_health.py` passed.
+###########
+
+Task #969
+Step objective: Add ignored-artifact report helper.
+Issue cause: Ignored local caches, builds, logs, and runtime folders remain in Core/Supervisor worktrees and can obscure source audits.
+Chosen fix: Added a dry-run-first reporter that lists allowlisted ignored artifacts, distinguishes source-owned areas, and only deletes allowlisted directly ignored artifacts when `--delete` is explicitly passed.
+What changed: Added `tools/report_ignored_artifacts.py` and documented it in development and operator guides.
+Verification: `python tools/report_ignored_artifacts.py` reported artifacts without deleting files.
+###########
+
+Task #974
+Step objective: Split node-provided capabilities from node-requested service dependencies.
+Issue cause: The capability declaration protocol used one task-family list for both provider execution and requester service-dependency semantics.
+Chosen fix: Added explicit provider-side and requester-side task-family fields while retaining `declared_task_families` and `declared_capabilities` as compatibility aliases.
+What changed: Updated mirrored capability validation, acceptance, profiles, registrations, registry/API payloads, tests, and schema references for `provided_task_families` and `requested_task_families`.
+Verification: Core and Supervisor focused capability/registration/declaration tests passed; Core/Supervisor mirror drift guard passed.
+###########
+
+Task #975
+Step objective: Derive governance routing permissions from requested service dependencies.
+Issue cause: Service resolution still interpreted requester routing permission from provider-side task declarations, so a node had to appear to provide a task before it could consume that task from another node.
+Chosen fix: Route requester governance from `requested_task_families`, with legacy fallback to provider declarations for older persisted profiles, and discover provider candidates from provider-side task families.
+What changed: Updated mirrored governance policy constraints, declared-node candidate discovery, and focused routing/service-resolution tests for requester-only consumption of `task.chat`.
+Verification: Core and Supervisor governance, service-resolution, and budget tests passed; Core/Supervisor mirror drift guard passed.
+###########

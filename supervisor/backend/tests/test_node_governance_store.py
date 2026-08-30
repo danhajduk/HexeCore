@@ -33,6 +33,7 @@ class TestNodeGovernanceStore(unittest.TestCase):
             self.assertEqual(first.capability_profile_id, "cap-node-a-v1")
             self.assertTrue(first.feature_gating_defaults["allow_governance_refresh"])
             self.assertTrue(first.telemetry_requirements["required"])
+            self.assertEqual(first.routing_policy_constraints["allowed_task_families"], ["task.classification"])
 
             same = service.issue_baseline_for_profile(node_id="node-a", node_type="ai", profile=profile_v1)
             self.assertEqual(same.governance_version, "gov-v1")
@@ -59,6 +60,30 @@ class TestNodeGovernanceStore(unittest.TestCase):
             self.assertEqual(second.capability_profile_id, "cap-node-a-v2")
             self.assertTrue(second.feature_gating_defaults["allow_provider_failover"])
             self.assertEqual(len(store.list(node_id="node-a")), 2)
+
+    def test_routing_policy_prefers_requested_task_families(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = NodeGovernanceStore(path=Path(tmpdir) / "node_governance_bundles.json")
+            service = NodeGovernanceService(store)
+            profile = NodeCapabilityProfileRecord(
+                profile_id="cap-node-voice-v1",
+                node_id="node-voice",
+                declared_task_families=["voice.intent.dispatch"],
+                provided_task_families=["voice.intent.dispatch"],
+                requested_task_families=["task.chat"],
+                enabled_providers=["voice"],
+                feature_flags={},
+                acceptance_timestamp="2026-03-11T00:00:00+00:00",
+                manifest_version="1.0",
+                declaration_digest="digest-v1",
+                declaration_raw={},
+            )
+
+            issued = service.issue_baseline_for_profile(node_id="node-voice", node_type="voice", profile=profile)
+
+            self.assertEqual(issued.routing_policy_constraints["allowed_task_families"], ["task.chat"])
+            self.assertEqual(issued.capability_usage_constraints["provided_task_families"], ["voice.intent.dispatch"])
+            self.assertEqual(issued.capability_usage_constraints["requested_task_families"], ["task.chat"])
 
 
 if __name__ == "__main__":

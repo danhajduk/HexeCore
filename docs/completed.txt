@@ -19,3 +19,4 @@ Task 971: Surface recorded Core Services and Aux Runtimes history in API/UI/docs
 Task 972: Diagnose and correct stale Hexe Supervisor fleet offline records - Completed on 08/22/2026 20:26
 Task 973: Improve Supervisor Fleet offline/health UI semantics and operator diagnostics - Completed on 08/22/2026 20:28
 Task 974: Split node-provided capabilities from node-requested service dependencies - Completed on 08/29/2026 17:18
+Task 975: Derive governance routing permissions from requested service dependencies - Completed on 08/29/2026 17:23

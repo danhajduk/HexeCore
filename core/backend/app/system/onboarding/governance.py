@@ -184,6 +184,8 @@ class NodeGovernanceService:
         }
         capability_usage_constraints = {
             "declared_task_families": list(profile.declared_task_families or []),
+            "provided_task_families": list(profile.provided_task_families or profile.declared_task_families or []),
+            "requested_task_families": list(profile.requested_task_families or []),
             "enabled_providers": list(profile.enabled_providers or []),
             "max_concurrent_tasks": 2,
         }
@@ -239,10 +241,11 @@ class NodeGovernanceService:
                 record = self._provider_model_policy.get(provider)
                 if record is not None:
                     allowed_models[provider] = list(record.allowed_models or [])
+        allowed_task_families = list(profile.requested_task_families or profile.provided_task_families or profile.declared_task_families or [])
         return {
             "allowed_providers": list(profile.enabled_providers or []),
             "allowed_models": allowed_models,
-            "allowed_task_families": list(profile.declared_task_families or []),
+            "allowed_task_families": allowed_task_families,
         }
 
     def _budget_policy(self, node_id: str) -> dict[str, Any]:

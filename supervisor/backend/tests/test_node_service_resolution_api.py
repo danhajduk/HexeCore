@@ -185,6 +185,7 @@ class TestNodeServiceResolutionApi(unittest.TestCase):
         node_id: str,
         *,
         task_families: list[str] | None = None,
+        requested_task_families: list[str] | None = None,
         enabled_providers: list[str] | None = None,
         provider_intelligence: list[dict] | None = None,
         capability_endpoints: dict | None = None,
@@ -200,6 +201,8 @@ class TestNodeServiceResolutionApi(unittest.TestCase):
             },
             "declared_task_families": declared_task_families,
             "declared_capabilities": declared_task_families,
+            "provided_task_families": declared_task_families,
+            "requested_task_families": list(requested_task_families or []),
             "supported_providers": list(enabled_providers if enabled_providers is not None else ["openai"]),
             "enabled_providers": list(enabled_providers if enabled_providers is not None else ["openai"]),
             "provider_intelligence": list(
@@ -273,6 +276,29 @@ class TestNodeServiceResolutionApi(unittest.TestCase):
             )
         )
         return node_id, trust_token
+
+    def _configure_declared_chat_provider(self) -> tuple[str, str]:
+        provider_node_id, provider_trust_token = self._trusted_node()
+        self.provider_policy.set_allowlist(provider="openai", allowed_models=["gpt-4o-mini"], updated_by="test")
+        declared = self.client.post(
+            "/api/system/nodes/capabilities/declaration",
+            json={"manifest": self._manifest(provider_node_id, task_families=["task.chat"])},
+            headers={"X-Node-Trust-Token": provider_trust_token},
+        )
+        self.assertEqual(declared.status_code, 200, declared.text)
+        budget_declared = self.client.post(
+            "/api/system/nodes/budgets/declaration",
+            headers={"X-Node-Trust-Token": provider_trust_token},
+            json={"node_id": provider_node_id, "compute_unit": "tokens", "supported_providers": ["openai"]},
+        )
+        self.assertEqual(budget_declared.status_code, 200, budget_declared.text)
+        configured = self.client.put(
+            f"/api/system/nodes/budgets/{provider_node_id}",
+            headers={"X-Admin-Token": "test-token"},
+            json={"node_budget": {"node_money_limit": 10.0, "node_compute_limit": 10000.0, "compute_unit": "tokens"}},
+        )
+        self.assertEqual(configured.status_code, 200, configured.text)
+        return provider_node_id, provider_trust_token
 
     def test_node_can_resolve_authorize_and_report_usage_for_service(self) -> None:
         node_id, trust_token = self._configure_node_for_resolution()
@@ -423,6 +449,76 @@ class TestNodeServiceResolutionApi(unittest.TestCase):
             usage_report.json()["report"]["metadata"]["reported_by_node_id"],
             delegator_node_id,
         )
+
+    def test_voice_node_can_request_chat_from_ai_node_without_providing_chat(self) -> None:
+        provider_node_id, _provider_trust_token = self._configure_declared_chat_provider()
+        voice_node_id, voice_trust_token = self._trusted_node()
+        declared = self.client.post(
+            "/api/system/nodes/capabilities/declaration",
+            json={
+                "manifest": self._manifest(
+                    voice_node_id,
+                    task_families=["voice.intent.dispatch"],
+                    requested_task_families=["task.chat"],
+                    enabled_providers=["voice"],
+                    provider_intelligence=[],
+                )
+            },
+            headers={"X-Node-Trust-Token": voice_trust_token},
+        )
+        self.assertEqual(declared.status_code, 200, declared.text)
+
+        resolved = self.client.post(
+            "/api/system/nodes/services/resolve",
+            headers={"X-Node-Trust-Token": voice_trust_token},
+            json={
+                "node_id": voice_node_id,
+                "task_family": "task.chat",
+                "preferred_provider": "openai",
+                "preferred_model": "gpt-4o-mini",
+            },
+        )
+
+        self.assertEqual(resolved.status_code, 200, resolved.text)
+        payload = resolved.json()
+        self.assertEqual(len(payload["candidates"]), 1)
+        candidate = payload["candidates"][0]
+        self.assertEqual(candidate["provider_node_id"], provider_node_id)
+        self.assertEqual(candidate["provider"], "openai")
+        self.assertEqual(candidate["budget_view"]["budget_node_id"], provider_node_id)
+        self.assertEqual(candidate["models_allowed"], ["gpt-4o-mini"])
+
+    def test_requester_cannot_resolve_task_not_in_requested_task_families(self) -> None:
+        self._configure_declared_chat_provider()
+        voice_node_id, voice_trust_token = self._trusted_node()
+        declared = self.client.post(
+            "/api/system/nodes/capabilities/declaration",
+            json={
+                "manifest": self._manifest(
+                    voice_node_id,
+                    task_families=["voice.intent.dispatch"],
+                    requested_task_families=["task.summarization"],
+                    enabled_providers=["voice"],
+                    provider_intelligence=[],
+                )
+            },
+            headers={"X-Node-Trust-Token": voice_trust_token},
+        )
+        self.assertEqual(declared.status_code, 200, declared.text)
+
+        resolved = self.client.post(
+            "/api/system/nodes/services/resolve",
+            headers={"X-Node-Trust-Token": voice_trust_token},
+            json={
+                "node_id": voice_node_id,
+                "task_family": "task.chat",
+                "preferred_provider": "openai",
+                "preferred_model": "gpt-4o-mini",
+            },
+        )
+
+        self.assertEqual(resolved.status_code, 200, resolved.text)
+        self.assertEqual(resolved.json()["candidates"], [])
 
     def test_resolution_can_source_candidates_from_declared_node_data_without_service_catalog(self) -> None:
         provider_node_id, provider_trust_token = self._trusted_node()
