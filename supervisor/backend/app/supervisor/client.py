@@ -90,11 +90,15 @@ class SupervisorApiClient:
         *,
         payload: dict[str, Any] | None = None,
         params: dict[str, Any] | None = None,
+        timeout_s: float | None = None,
     ) -> dict[str, Any] | None:
         if not self._enabled or self._client is None:
             return None
         try:
-            response = self._client.request(method, path, json=payload, params=params)
+            kwargs: dict[str, Any] = {"json": payload, "params": params}
+            if timeout_s is not None:
+                kwargs["timeout"] = timeout_s
+            response = self._client.request(method, path, **kwargs)
         except httpx.HTTPError as exc:
             log.debug("Supervisor API request failed: %s %s (%s)", method, path, exc)
             return None
@@ -114,8 +118,9 @@ class SupervisorApiClient:
         *,
         payload: dict[str, Any] | None = None,
         params: dict[str, Any] | None = None,
+        timeout_s: float | None = None,
     ) -> dict[str, Any] | None:
-        return self._request_json(method, path, payload=payload, params=params)
+        return self._request_json(method, path, payload=payload, params=params, timeout_s=timeout_s)
 
     def resource_history(self, *, range_value: str = "24h", step_value: str | None = "60s") -> dict[str, Any] | None:
         params: dict[str, Any] = {"range": range_value}

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import os
+import socket
 import tempfile
 import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import httpx
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -59,6 +61,7 @@ class TestNodeHardwareAccessApi(unittest.TestCase):
         self._supervisor(policy="allowed")
 
         app = FastAPI()
+        self.app = app
         app.include_router(
             build_system_router(
                 _FakeRegistry(),
@@ -182,6 +185,138 @@ class TestNodeHardwareAccessApi(unittest.TestCase):
         self.assertIn("backend_host", schema["required"])
         self.assertEqual(schema["properties"]["http_port"]["minimum"], 1)
         self.assertEqual(schema["properties"]["http_port"]["maximum"], 65535)
+
+    def test_ble_scan_fans_out_to_bluetooth_supervisors_and_releases_leases(self) -> None:
+        self._supervisor(
+            policy="allowed",
+            supervisor_id="sup-2",
+            supervisor_name="Supervisor 2",
+            host_id="host-2",
+            api_base_url="http://127.0.0.1:57666",
+        )
+        calls: list[dict] = []
+
+        def fake_post(url: str, *, json: dict, timeout: float):
+            calls.append({"url": url, "json": dict(json), "timeout": timeout})
+            payload = {
+                "ok": True,
+                "status": "completed",
+                "operation": "ble.scan",
+                "adapter": json.get("adapter"),
+                "service_uuid": json.get("service_uuid"),
+                "scan_seconds": json.get("scan_seconds"),
+                "devices": [],
+                "matching_devices": [],
+            }
+            if "57666" in url:
+                payload["devices"] = [
+                    {
+                        "address": "AA:BB:CC:DD:EE:FF",
+                        "name": "Hexe Voice PE",
+                        "transport": "ble",
+                        "service_uuid_match": True,
+                        "matched_service_uuid": "7f9c0000-5f04-4d8b-9a46-7c0f7a100000",
+                    }
+                ]
+                payload["matching_devices"] = list(payload["devices"])
+            return httpx.Response(200, json=payload)
+
+        with patch("app.api.system_legacy.httpx.post", side_effect=fake_post):
+            response = self.client.post(
+                "/api/system/nodes/hardware/bluetooth/ble/scan",
+                headers={"X-Node-Trust-Token": "node-token"},
+                json={
+                    "node_id": "node-1",
+                    "adapter": "hci0",
+                    "service_uuid": "7f9c0000-5f04-4d8b-9a46-7c0f7a100000",
+                    "scan_seconds": 60,
+                },
+            )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["status"], "completed")
+        self.assertEqual(payload["mode"], "fleet")
+        self.assertEqual(payload["supervisor_count"], 2)
+        self.assertEqual(payload["completed_supervisor_count"], 2)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual({call["json"]["scan_seconds"] for call in calls}, {60})
+        self.assertEqual({call["timeout"] for call in calls}, {70.0})
+        self.assertTrue(all(call["json"].get("lease_token") for call in calls))
+        self.assertEqual(payload["devices"][0]["address"], "AA:BB:CC:DD:EE:FF")
+        self.assertEqual(payload["devices"][0]["supervisor_id"], "sup-2")
+
+        access_list = self.client.get(
+            "/api/system/nodes/node-1/hardware/access-requests",
+            headers={"X-Node-Trust-Token": "node-token"},
+        )
+        self.assertEqual(access_list.status_code, 200, access_list.text)
+        self.assertEqual({item["status"] for item in access_list.json()["items"]}, {"released"})
+
+    def test_ble_scan_uses_local_client_for_same_host_socket_supervisor(self) -> None:
+        self._supervisor(
+            policy="allowed",
+            supervisor_id="hxe-supervisor",
+            supervisor_name="Local Socket Supervisor",
+            host_id=socket.gethostname(),
+            transport="socket",
+            api_base_url=None,
+            metadata={"local_core_runtime_report": True},
+        )
+
+        class _LocalSupervisorClient:
+            def __init__(self) -> None:
+                self.requests: list[dict] = []
+
+            def request_json(self, method: str, path: str, *, payload: dict | None = None, params: dict | None = None, timeout_s: float | None = None):
+                self.requests.append({"method": method, "path": path, "payload": dict(payload or {}), "timeout_s": timeout_s})
+                return {
+                    "ok": True,
+                    "status": "completed",
+                    "operation": "ble.scan",
+                    "adapter": payload.get("adapter"),
+                    "service_uuid": payload.get("service_uuid"),
+                    "scan_seconds": payload.get("scan_seconds"),
+                    "devices": [
+                        {
+                            "address": "AA:BB:CC:DD:EE:FF",
+                            "name": "Hexe Voice PE",
+                            "transport": "ble",
+                            "service_uuid_match": True,
+                        }
+                    ],
+                    "matching_devices": [
+                        {
+                            "address": "AA:BB:CC:DD:EE:FF",
+                            "name": "Hexe Voice PE",
+                            "transport": "ble",
+                            "service_uuid_match": True,
+                        }
+                    ],
+                }
+
+        local_client = _LocalSupervisorClient()
+        self.app.state.supervisor_client = local_client
+        response = self.client.post(
+            "/api/system/nodes/hardware/bluetooth/ble/scan",
+            headers={"X-Node-Trust-Token": "node-token"},
+            json={
+                "node_id": "node-1",
+                "supervisor_id": "hxe-supervisor",
+                "adapter": "hci0",
+                "service_uuid": "7f9c0000-5f04-4d8b-9a46-7c0f7a100000",
+                "scan_seconds": 60,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["completed_supervisor_count"], 1)
+        self.assertEqual(payload["devices"][0]["supervisor_id"], "hxe-supervisor")
+        self.assertEqual(local_client.requests[0]["path"], "/api/supervisor/hardware/bluetooth/ble/scan")
+        self.assertEqual(local_client.requests[0]["timeout_s"], 70.0)
 
     def test_provision_wifi_grants_scoped_lease_and_validates_session(self) -> None:
         provisioning = {

@@ -88,6 +88,7 @@ Status: Implemented
   - `POST /api/system/nodes/telemetry` (trusted node token required; runtime lifecycle/governance signal ingestion)
   - `GET /api/system/nodes/hardware/access-requests/schema` (public discovery endpoint; returns the JSON Schema for node hardware access requests plus supported hardware resources and operations)
   - `GET /api/system/nodes/hardware/ble/provisioning/schemas/{node_profile_id}` (public discovery endpoint; returns the provisioning payload schema for a supported node profile such as Voice)
+  - `POST /api/system/nodes/hardware/bluetooth/ble/scan` (trusted node token required via `X-Node-Trust-Token`; Core fans a UUID-filtered BLE scan out to online trusted Bluetooth supervisors, issues and releases per-supervisor leases, and returns aggregated matches)
   - `POST /api/system/nodes/hardware/access-requests` (trusted node token required via `X-Node-Trust-Token`; request Core-governed host hardware access such as Bluetooth BLE status, scan, or Wi-Fi provisioning)
   - `GET /api/system/nodes/{node_id}/hardware/access-requests` (trusted node token required via `X-Node-Trust-Token`; list the node's hardware requests and lease state without returning lease tokens)
   - `POST /api/system/nodes/hardware/leases/{lease_id}/release` (trusted node token required via `X-Node-Trust-Token`; release a granted hardware lease)

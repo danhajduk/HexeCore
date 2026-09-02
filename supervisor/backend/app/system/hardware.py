@@ -274,6 +274,17 @@ class HardwareLeaseValidationBody(BaseModel):
     provisioning: HardwareProvisioningContext | None = None
 
 
+class HardwareBleScanRequestBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    node_id: str = Field(..., min_length=1, description="Trusted node id requesting a Core-governed BLE scan.")
+    supervisor_id: str | None = Field(default=None, max_length=120, description="Optional supervisor filter.")
+    adapter: str | None = Field(default=None, max_length=64, description="Optional Bluetooth adapter id such as hci0.")
+    service_uuid: str | None = Field(default=None, min_length=4, max_length=64, description="Optional BLE service UUID to match.")
+    scan_seconds: int = Field(default=5, ge=1, le=60, description="BLE scan duration requested from each supervisor.")
+    reason: str | None = Field(default=None, max_length=240, description="Optional operator-readable reason for the fleet scan.")
+
+
 def hardware_access_request_schema_payload() -> dict[str, Any]:
     return {
         "ok": True,

@@ -1,7 +1,7 @@
 # Node Hardware Access
 
 Status: Implemented
-Last Updated: 2026-08-30
+Last Updated: 2026-09-02
 
 ## Purpose
 
@@ -72,6 +72,31 @@ Authentication: none. This is a discovery endpoint for provisioning clients.
 Currently supported profile:
 
 - `voice`: Voice node Wi-Fi/backend payload schema `hexe.voice_node.wifi_backend.v1`.
+
+### Fleet BLE Scan
+
+`POST /api/system/nodes/hardware/bluetooth/ble/scan`
+
+Authentication: trusted node token in `X-Node-Trust-Token`.
+
+Core authenticates the requester, finds all online trusted Supervisors that report Bluetooth governance, creates a short-lived `ble.scan` lease for each eligible Supervisor, calls each Supervisor BLE scan broker in parallel, releases every granted lease, and returns one aggregated response. This route is intended for provisioning discovery where the target endpoint may be physically closest to a different Supervisor than the one Core would select for a single access request.
+
+Request fields:
+
+- `node_id`: trusted node id. Required.
+- `supervisor_id`: optional Supervisor id filter. When omitted, all online trusted Bluetooth Supervisors are scanned.
+- `adapter`: optional adapter id such as `hci0`.
+- `service_uuid`: optional BLE service UUID to match.
+- `scan_seconds`: scan duration per Supervisor from 1 to 60 seconds.
+- `reason`: optional operator-readable reason.
+
+Response fields:
+
+- `mode`: `fleet`.
+- `supervisor_count`: number of eligible Supervisors selected.
+- `completed_supervisor_count`: number of Supervisor broker scans that completed.
+- `devices` and `matching_devices`: aggregated matching devices, each annotated with the `supervisor_id` that observed it.
+- `supervisor_results`: per-Supervisor access request, broker result, matched devices, and lease release result. Lease tokens are not returned.
 
 ### Request Access
 
@@ -248,7 +273,7 @@ POST /api/supervisor/hardware/bluetooth/ble/scan
 }
 ```
 
-The lease must include the `hardware.bluetooth.ble.scan` scope. `scan_seconds` is bounded from 1 to 30 seconds. Supervisor runs LE discovery through `bluetoothctl --timeout <seconds> scan le`, then parses the scan output and `bluetoothctl devices` output into BLE device rows.
+The lease must include the `hardware.bluetooth.ble.scan` scope. `scan_seconds` is bounded from 1 to 60 seconds. Supervisor runs LE discovery through `bluetoothctl --timeout <seconds> scan le`, then parses the scan output and `bluetoothctl devices` output into BLE device rows.
 
 Response fields include:
 

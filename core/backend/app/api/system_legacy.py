@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import csv
 import hashlib
 import io
 import os
 import secrets
+import socket
 import time
 import uuid
 from datetime import datetime, timezone
@@ -13,6 +15,7 @@ from typing import Literal
 from urllib.parse import urlsplit
 from urllib.parse import urlencode
 
+import httpx
 from fastapi import APIRouter, Header, HTTPException, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -21,13 +24,17 @@ from ..addons.registry import AddonRegistry, list_addons
 from ..system.audit import AuditLogStore
 from ..system.hardware import (
     HardwareAccessDecisionBody,
+    HardwareBleScanRequestBody,
     HardwareAccessRequestBody,
     HardwareAccessService,
     HardwareAccessStore,
     HardwareLeaseReleaseBody,
     HardwareLeaseValidationBody,
+    active_bluetooth_supervisors,
+    clean_text,
     hardware_ble_provisioning_schema_payload,
     hardware_access_request_schema_payload,
+    supervisor_broker_url,
 )
 from ..system.auth.tokens import sign_hs256
 from ..system.onboarding import (
@@ -2225,6 +2232,211 @@ def build_system_router(
             return hardware_ble_provisioning_schema_payload(node_profile_id)
         except KeyError:
             raise HTTPException(status_code=404, detail={"error": "unsupported_node_provisioning_profile"})
+
+    def _supervisor_id(record: object) -> str:
+        return clean_text(getattr(record, "supervisor_id", ""))
+
+    def _supervisor_is_local(record: object) -> bool:
+        capabilities = [str(item) for item in getattr(record, "capabilities", []) or []]
+        metadata = getattr(record, "metadata", {}) if record is not None else {}
+        host_id = clean_text(getattr(record, "host_id", "")).lower()
+        hostname = clean_text(getattr(record, "hostname", "")).lower()
+        local_hostname = socket.gethostname().lower()
+        return (
+            clean_text(getattr(record, "transport", "")).lower() == "local"
+            or "local_core_attached" in capabilities
+            or bool(isinstance(metadata, dict) and metadata.get("attached_to_core"))
+            or bool(isinstance(metadata, dict) and metadata.get("local_core_runtime_report"))
+            or host_id == local_hostname
+            or hostname == local_hostname
+        )
+
+    def _call_supervisor_ble_scan(
+        request: Request,
+        supervisor: object,
+        payload: dict[str, object],
+        *,
+        timeout_s: float,
+    ) -> dict[str, object]:
+        path = "/api/supervisor/hardware/bluetooth/ble/scan"
+        if _supervisor_is_local(supervisor):
+            client = getattr(request.app.state, "supervisor_client", None)
+            request_json = getattr(client, "request_json", None)
+            if callable(request_json):
+                try:
+                    result = request_json("POST", path, payload=payload, timeout_s=timeout_s)
+                except TypeError:
+                    result = request_json("POST", path, payload=payload)
+                if isinstance(result, dict):
+                    return result
+
+        broker_url = supervisor_broker_url(supervisor)
+        if not broker_url:
+            return {"ok": False, "status": "failed", "error": "supervisor_broker_url_unavailable"}
+        try:
+            response = httpx.post(f"{broker_url}/scan", json=payload, timeout=timeout_s)
+        except httpx.HTTPError:
+            return {"ok": False, "status": "failed", "error": "supervisor_ble_scan_unavailable"}
+        if response.status_code >= 400:
+            return {"ok": False, "status": "failed", "error": f"supervisor_ble_scan_http_{response.status_code}"}
+        try:
+            result = response.json()
+        except ValueError:
+            return {"ok": False, "status": "failed", "error": "supervisor_ble_scan_invalid_json"}
+        return result if isinstance(result, dict) else {"ok": False, "status": "failed", "error": "supervisor_ble_scan_invalid_payload"}
+
+    @router.post("/system/nodes/hardware/bluetooth/ble/scan")
+    def scan_node_hardware_ble(
+        body: HardwareBleScanRequestBody,
+        request: Request,
+        x_node_trust_token: str | None = Header(default=None),
+    ):
+        _authenticate_trusted_node(body.node_id, str(x_node_trust_token or ""))
+        candidates = active_bluetooth_supervisors(supervisor_fleet_store)
+        supervisor_filter = clean_text(body.supervisor_id)
+        if supervisor_filter:
+            candidates = [record for record in candidates if _supervisor_id(record) == supervisor_filter]
+
+        results: list[dict[str, object]] = []
+        if not candidates:
+            return {
+                "ok": False,
+                "status": "failed",
+                "operation": "ble.scan",
+                "mode": "fleet",
+                "node_id": body.node_id,
+                "service_uuid": body.service_uuid,
+                "scan_seconds": body.scan_seconds,
+                "supervisor_count": 0,
+                "completed_supervisor_count": 0,
+                "matching_devices": [],
+                "devices": [],
+                "supervisor_results": [],
+                "error": "bluetooth_supervisor_unavailable",
+            }
+
+        scan_jobs: list[tuple[object, object, str, dict[str, object]]] = []
+        for supervisor in candidates:
+            access_record, lease_token = hardware_access.request_access(
+                HardwareAccessRequestBody(
+                    node_id=body.node_id,
+                    resource_type="bluetooth",
+                    operation="ble.scan",
+                    supervisor_id=_supervisor_id(supervisor),
+                    adapter=body.adapter,
+                    duration_s=max(30, min(24 * 60 * 60, int(body.scan_seconds) + 60)),
+                    reason=body.reason or "Discover nearby BLE endpoints",
+                )
+            )
+            result: dict[str, object] = {
+                "supervisor_id": access_record.supervisor_id,
+                "status": access_record.status,
+                "access_request": access_record.to_api_dict(),
+                "broker_url": access_record.broker_url,
+                "adapter": access_record.adapter or body.adapter,
+                "scan_seconds": body.scan_seconds,
+                "devices": [],
+                "matching_devices": [],
+            }
+            if access_record.status != "granted" or not lease_token:
+                result["error"] = access_record.decision_reason or access_record.status or "hardware_access_not_granted"
+            else:
+                scan_jobs.append((supervisor, access_record, lease_token, result))
+            results.append(result)
+
+        def _run_scan(job: tuple[object, object, str, dict[str, object]]) -> tuple[dict[str, object], dict[str, object]]:
+            supervisor, access_record, lease_token, result = job
+            scan_payload = {
+                "node_id": body.node_id,
+                "lease_token": lease_token,
+                "adapter": access_record.adapter or body.adapter,
+                "service_uuid": body.service_uuid,
+                "scan_seconds": body.scan_seconds,
+            }
+            scan_payload = {key: value for key, value in scan_payload.items() if value is not None}
+            supervisor_result = _call_supervisor_ble_scan(
+                request,
+                supervisor,
+                scan_payload,
+                timeout_s=min(max(float(body.scan_seconds) + 10.0, 15.0), 75.0),
+            )
+            result["supervisor_result"] = supervisor_result
+            result["status"] = "completed" if bool(supervisor_result.get("ok")) else "failed"
+            devices = supervisor_result.get("devices")
+            matches = supervisor_result.get("matching_devices")
+            result["devices"] = list(devices) if isinstance(devices, list) else []
+            result["matching_devices"] = list(matches) if isinstance(matches, list) else []
+            if result["status"] != "completed":
+                result["error"] = supervisor_result.get("error") or supervisor_result.get("status") or "supervisor_ble_scan_failed"
+            return result, supervisor_result
+
+        if scan_jobs:
+            with ThreadPoolExecutor(max_workers=min(len(scan_jobs), 8)) as executor:
+                futures = [executor.submit(_run_scan, job) for job in scan_jobs]
+                for future in as_completed(futures):
+                    future.result()
+
+        for _supervisor, access_record, _lease_token, result in scan_jobs:
+            try:
+                release_record = hardware_access.release(str(access_record.lease_id or ""), node_id=body.node_id)
+                result["release_result"] = release_record.to_api_dict()
+            except KeyError:
+                result["release_result"] = {"ok": False, "error": "hardware_access_lease_not_found"}
+
+        matching_devices: list[dict[str, object]] = []
+        for result in results:
+            source_devices = result.get("matching_devices")
+            if not isinstance(source_devices, list) or not source_devices:
+                source_devices = result.get("devices") if not body.service_uuid else []
+            if not isinstance(source_devices, list):
+                continue
+            for device in source_devices:
+                if not isinstance(device, dict):
+                    continue
+                device_payload = dict(device)
+                device_payload.setdefault("supervisor_id", result.get("supervisor_id"))
+                matching_devices.append(device_payload)
+
+        completed_count = len([result for result in results if result.get("status") == "completed"])
+        pending_count = len([result for result in results if result.get("status") == "pending"])
+        if completed_count == len(results):
+            status = "completed"
+        elif completed_count > 0:
+            status = "partial"
+        elif pending_count == len(results):
+            status = "pending"
+        else:
+            status = "failed"
+        _record_audit(
+            audit_store,
+            event_type="node_hardware_ble_scan_fleet",
+            actor_role="node",
+            actor_id=body.node_id,
+            details={
+                "operation": "ble.scan",
+                "supervisor_count": len(candidates),
+                "completed_supervisor_count": completed_count,
+                "matched_device_count": len(matching_devices),
+                "service_uuid": body.service_uuid,
+                "scan_seconds": body.scan_seconds,
+                "source_ip": str(request.client.host if request.client else "unknown"),
+            },
+        )
+        return {
+            "ok": completed_count > 0,
+            "status": status,
+            "operation": "ble.scan",
+            "mode": "fleet",
+            "node_id": body.node_id,
+            "service_uuid": body.service_uuid,
+            "scan_seconds": body.scan_seconds,
+            "supervisor_count": len(candidates),
+            "completed_supervisor_count": completed_count,
+            "matching_devices": matching_devices,
+            "devices": matching_devices,
+            "supervisor_results": results,
+            "error": None if completed_count > 0 or pending_count == len(results) else "supervisor_ble_scan_unavailable",
+        }
 
     @router.post("/system/nodes/hardware/access-requests")
     def request_node_hardware_access(
