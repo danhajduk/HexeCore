@@ -122,6 +122,9 @@ Status: Implemented
   - `POST /api/supervisor/hardware/bluetooth/ble/status` (Core-issued hardware lease token required in JSON body; returns adapter state)
   - `POST /api/supervisor/hardware/bluetooth/ble/scan` (Core-issued hardware lease token required in JSON body; performs bounded BLE scan through Supervisor-managed `bluetoothctl`)
   - `POST /api/supervisor/hardware/bluetooth/ble/provision-wifi` (Core-issued `ble.provision_wifi` hardware lease token required in JSON body; validates the Voice provisioning context, encrypts the Voice payload into the BLE provisioning envelope, and delegates only the envelope to the Supervisor BLE GATT backend)
+- Standalone Supervisor update:
+  - `GET /api/supervisor/update/status` (reports Supervisor-local git/updater capability and current or last update state)
+  - `POST /api/supervisor/update/start` (starts the bounded `hexe-updater.service` git update path when supported; `core_host` package mode is intentionally unavailable until the package workflow is implemented)
 
 Bluetooth hardware access is documented in [Node Hardware Access](../node-hardware-access.md). Core governs request/lease state; Supervisor enforces leases locally. Nodes do not receive raw host Bluetooth device or DBus access.
 

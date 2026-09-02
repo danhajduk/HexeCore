@@ -1,5 +1,5 @@
 {
-  "path_count": 231,
+  "path_count": 232,
   "paths": {
     "/api/addons": [
       "get"
@@ -512,6 +512,9 @@
     ],
     "/api/system/nodes/hardware/ble/provisioning/schemas/{node_profile_id}": [
       "get"
+    ],
+    "/api/system/nodes/hardware/bluetooth/ble/scan": [
+      "post"
     ],
     "/api/system/nodes/hardware/leases/{lease_id}/release": [
       "post"

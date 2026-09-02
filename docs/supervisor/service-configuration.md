@@ -58,6 +58,14 @@ Resource history maintenance:
 - `POST /api/supervisor/resources/history/maintenance` accepts `{"action":"prune"}`, `{"action":"checkpoint"}`, `{"action":"vacuum"}`, or `{"action":"compact"}`. `compact` is the normal operator action after a large history backlog: it applies retention pruning, truncates the WAL, and vacuums the DB while keeping the Supervisor process online.
 - Use `checkpoint` when the WAL file is large but table counts are expected, `vacuum` after large deletes when free pages remain high, and `compact` when high Supervisor history latency was caused by an oversized `supervisor_resource_history.sqlite3`.
 
+Supervisor update routes:
+
+- `GET /api/supervisor/update/status` reports the install root, reported `HEXE_CORE_VERSION`, git checkout metadata, updater script/unit availability, supported update modes, and the current or most recent update attempt.
+- `POST /api/supervisor/update/start` starts a git-based update through `systemctl --user start hexe-updater.service` when the Supervisor install root is a git checkout and the bounded updater script/unit are present.
+- The request body requires an `idempotency_key` and accepts `source_mode`. `git` is the only implemented mode in this step. `core_host` package mode fails closed with `supervisor_update_mode_not_configured` until the Core-host package workflow is implemented.
+- The route never runs caller-supplied shell, never accepts caller-supplied filesystem paths, and stores only sanitized update metadata in `var/supervisor/update-state.json`.
+- Concurrent update requests are rejected. Repeating the same idempotency key returns the existing current or completed attempt instead of starting another update.
+
 Bluetooth broker routes:
 
 - `POST /api/supervisor/hardware/bluetooth/ble/status` validates a Core-issued hardware lease and returns adapter state.

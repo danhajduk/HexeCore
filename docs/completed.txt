@@ -29,3 +29,4 @@ Task 988: Define BLE onboarding contract and Voice node provisioning payload sch
 Task 989: Extend Core hardware access APIs and leases for ble.provision_wifi - Completed on 08/30/2026 16:24
 Task 990: Implement Supervisor BLE GATT provisioning service and enforcement path - Completed on 08/30/2026 16:28
 Task 991: Document and verify BLE Wi-Fi onboarding end to end - Completed on 08/30/2026 16:30
+Task 992: Add Supervisor self-update status and command API - Completed on 09/02/2026 08:25

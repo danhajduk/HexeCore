@@ -61,6 +61,9 @@ from .models import (
     SupervisorRuntimeHeartbeatRequest,
     SupervisorRuntimeRegistrationRequest,
     SupervisorRuntimeSummary,
+    SupervisorUpdateStartRequest,
+    SupervisorUpdateStartResult,
+    SupervisorUpdateStatusSummary,
 )
 from .boot_order import load_boot_order_plan
 from .core_runtime_store import SupervisorCoreRuntimeRecord, SupervisorCoreRuntimeStore
@@ -99,6 +102,7 @@ class SupervisorDomainService:
         resource_monitor: SupervisorResourceMonitor | None = None,
         resource_history_store: SupervisorResourceHistoryStore | None = None,
         ble_provisioning_backend: object | None = None,
+        install_root: Path | None = None,
     ) -> None:
         self._runtime_service = runtime_service or StandaloneRuntimeService()
         self._runtime_nodes_store = runtime_nodes_store or SupervisorRuntimeNodesStore()
@@ -107,6 +111,7 @@ class SupervisorDomainService:
         self._resource_monitor = resource_monitor or SupervisorResourceMonitor()
         self._resource_history_store = resource_history_store or SupervisorResourceHistoryStore()
         self._ble_provisioning_backend = ble_provisioning_backend or DisabledBleProvisioningBackend()
+        self._install_root_override = install_root
         self._ble_provisioning_events: list[dict[str, Any]] = []
         self._boot_loop_status: dict[str, Any] = {
             "state": "idle",
@@ -114,6 +119,12 @@ class SupervisorDomainService:
         }
         self._bluetooth_power_last_attempt_s = 0.0
         self._bluetooth_power_error: str | None = None
+
+    def _install_root(self) -> Path:
+        return self._install_root_override or Path(__file__).resolve().parents[3]
+
+    def _update_state_path(self) -> Path:
+        return self._install_root() / "var" / "supervisor" / "update-state.json"
 
     def _runtime_provider(self) -> str:
         return str(getenv("HEXE_MQTT_RUNTIME_PROVIDER", "docker")).strip().lower() or "docker"
@@ -135,6 +146,304 @@ class SupervisorDomainService:
         if not raw:
             return default
         return raw in {"1", "true", "yes", "on"}
+
+    def _supervisor_version(self) -> str | None:
+        value = str(getenv("HEXE_CORE_VERSION") or "").strip()
+        return value or None
+
+    def _read_update_state(self) -> dict[str, Any]:
+        path = self._update_state_path()
+        if not path.exists():
+            return {}
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+        return dict(payload) if isinstance(payload, dict) else {}
+
+    def _write_update_state(self, payload: dict[str, Any]) -> None:
+        path = self._update_state_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    def _redact_update_text(self, value: object) -> str:
+        text = str(value or "")
+        if not text:
+            return ""
+        redacted: list[str] = []
+        for line in text.splitlines():
+            lowered = line.lower()
+            if any(marker in lowered for marker in ("token", "password", "secret", "credential", "private_key", "authorization")):
+                redacted.append("[REDACTED]")
+            else:
+                redacted.append(line[:500])
+        return "\n".join(redacted)[-4000:]
+
+    def _run_git(self, args: list[str], *, timeout_s: float = 5.0) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["git", *args],
+            cwd=self._install_root(),
+            capture_output=True,
+            text=True,
+            timeout=timeout_s,
+            check=False,
+        )
+
+    def _run_systemctl_user(self, args: list[str], *, timeout_s: float = 8.0) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["systemctl", "--user", *args],
+            capture_output=True,
+            text=True,
+            timeout=timeout_s,
+            check=False,
+        )
+
+    def _git_update_status(self) -> dict[str, Any]:
+        install_root = self._install_root()
+        status: dict[str, Any] = {
+            "path": str(install_root),
+            "is_git_checkout": False,
+        }
+        if not (install_root / ".git").exists():
+            status["error"] = "not_git_checkout"
+            return status
+        inside = self._run_git(["rev-parse", "--is-inside-work-tree"])
+        if inside.returncode != 0 or (inside.stdout or "").strip() != "true":
+            status["error"] = self._redact_update_text(inside.stderr or inside.stdout) or "not_git_checkout"
+            return status
+        status["is_git_checkout"] = True
+
+        def git_text(args: list[str]) -> str | None:
+            result = self._run_git(args)
+            return (result.stdout or "").strip() if result.returncode == 0 else None
+
+        branch = git_text(["rev-parse", "--abbrev-ref", "HEAD"])
+        local_sha = git_text(["rev-parse", "HEAD"])
+        upstream = git_text(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"])
+        remote_sha = git_text(["rev-parse", upstream]) if upstream else None
+        counts = git_text(["rev-list", "--left-right", "--count", f"HEAD...{upstream}"]) if upstream else None
+        ahead: int | None = None
+        behind: int | None = None
+        if counts:
+            parts = counts.split()
+            if len(parts) == 2:
+                try:
+                    ahead = int(parts[0])
+                    behind = int(parts[1])
+                except ValueError:
+                    ahead = behind = None
+        dirty_result = self._run_git(["status", "--porcelain"])
+        dirty = dirty_result.returncode == 0 and bool((dirty_result.stdout or "").strip())
+        status.update(
+            {
+                "branch": branch,
+                "upstream": upstream,
+                "local_sha": local_sha,
+                "remote_sha": remote_sha,
+                "ahead": ahead,
+                "behind": behind,
+                "dirty": dirty,
+                "update_available": bool(behind and behind > 0),
+            }
+        )
+        if dirty_result.returncode != 0:
+            status["dirty_error"] = self._redact_update_text(dirty_result.stderr or dirty_result.stdout)
+        return status
+
+    def _updater_status(self) -> dict[str, Any]:
+        install_root = self._install_root()
+        script = install_root / "scripts" / "update.sh"
+        status: dict[str, Any] = {
+            "unit": "hexe-updater.service",
+            "script_path": str(script),
+            "script_exists": script.exists(),
+            "script_executable": os.access(script, os.X_OK),
+            "systemctl_available": shutil.which("systemctl") is not None,
+            "unit_loaded": False,
+            "active_state": "unknown",
+            "sub_state": "unknown",
+            "result": None,
+            "exec_main_status": None,
+        }
+        if not status["systemctl_available"]:
+            status["error"] = "systemctl_not_found"
+            return status
+        try:
+            result = self._run_systemctl_user(
+                [
+                    "show",
+                    "hexe-updater.service",
+                    "--property=LoadState,ActiveState,SubState,Result,ExecMainStatus,InactiveEnterTimestamp",
+                    "--no-page",
+                ],
+            )
+        except Exception as exc:
+            status["error"] = self._redact_update_text(exc)
+            return status
+        if result.returncode != 0:
+            status["error"] = self._redact_update_text(result.stderr or result.stdout) or f"systemctl_exit_{result.returncode}"
+            return status
+        props: dict[str, str] = {}
+        for line in (result.stdout or "").splitlines():
+            if "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            props[key] = value
+        status.update(
+            {
+                "unit_loaded": props.get("LoadState") == "loaded",
+                "load_state": props.get("LoadState"),
+                "active_state": props.get("ActiveState") or "unknown",
+                "sub_state": props.get("SubState") or "unknown",
+                "result": props.get("Result") or None,
+                "exec_main_status": props.get("ExecMainStatus") or None,
+                "inactive_enter_timestamp": props.get("InactiveEnterTimestamp") or None,
+            }
+        )
+        return status
+
+    def _finalize_update_state(self, state: dict[str, Any], updater: dict[str, Any]) -> dict[str, Any]:
+        current = dict(state.get("current_update") or {}) if isinstance(state.get("current_update"), dict) else None
+        if not current:
+            return state
+        active_state = str(updater.get("active_state") or "").strip().lower()
+        if active_state in {"activating", "active", "reloading"}:
+            current["state"] = "running"
+            current["updated_at"] = self._now_iso()
+            state["current_update"] = current
+            return state
+        if str(current.get("state") or "").lower() not in {"starting", "running"}:
+            return state
+        result = str(updater.get("result") or "").strip().lower()
+        exit_status = str(updater.get("exec_main_status") or "").strip()
+        succeeded = result in {"success", ""} and exit_status in {"", "0"}
+        finished = {
+            **current,
+            "state": "succeeded" if succeeded else "failed",
+            "finished_at": self._now_iso(),
+            "result": updater.get("result"),
+            "exec_main_status": updater.get("exec_main_status"),
+        }
+        state.pop("current_update", None)
+        state["last_update"] = finished
+        self._write_update_state(state)
+        return state
+
+    def supervisor_update_status(self) -> SupervisorUpdateStatusSummary:
+        git = self._git_update_status()
+        updater = self._updater_status()
+        state = self._finalize_update_state(self._read_update_state(), updater)
+        unsupported: dict[str, str] = {}
+        supported_modes: list[str] = []
+        if not bool(git.get("is_git_checkout")):
+            unsupported["git"] = "source_path_is_not_git_checkout"
+        elif not bool(updater.get("script_exists")):
+            unsupported["git"] = "updater_script_missing"
+        elif not bool(updater.get("unit_loaded")):
+            unsupported["git"] = "updater_unit_missing"
+        else:
+            supported_modes.append("git")
+        unsupported["core_host"] = "core_host_package_mode_not_implemented"
+        current_update = dict(state.get("current_update") or {}) if isinstance(state.get("current_update"), dict) else None
+        last_update = dict(state.get("last_update") or {}) if isinstance(state.get("last_update"), dict) else None
+        update_state = str((current_update or last_update or {}).get("state") or "idle")
+        return SupervisorUpdateStatusSummary(
+            supervisor_id=self._supervisor_id(),
+            reported_version=self._supervisor_version(),
+            install_root=str(self._install_root()),
+            source_path=str(self._install_root()),
+            source_is_git_checkout=bool(git.get("is_git_checkout")),
+            supported_modes=supported_modes,
+            unsupported_reasons=unsupported,
+            git=git,
+            updater=updater,
+            update_state=update_state,
+            current_update=current_update,
+            last_update=last_update,
+            updated_at=self._now_iso(),
+        )
+
+    def start_supervisor_update(self, body: SupervisorUpdateStartRequest) -> SupervisorUpdateStartResult:
+        status = self.supervisor_update_status()
+        state = self._read_update_state()
+        current = dict(state.get("current_update") or {}) if isinstance(state.get("current_update"), dict) else None
+        last = dict(state.get("last_update") or {}) if isinstance(state.get("last_update"), dict) else None
+        if current and current.get("idempotency_key") == body.idempotency_key:
+            return SupervisorUpdateStartResult(
+                accepted=True,
+                state=str(current.get("state") or status.update_state),
+                source_mode=body.source_mode,
+                idempotency_key=body.idempotency_key,
+                message="update_request_already_accepted",
+                status=status,
+            )
+        if last and last.get("idempotency_key") == body.idempotency_key:
+            return SupervisorUpdateStartResult(
+                accepted=False,
+                state=str(last.get("state") or status.update_state),
+                source_mode=body.source_mode,
+                idempotency_key=body.idempotency_key,
+                message="update_request_already_finished",
+                status=status,
+            )
+        if current:
+            raise HTTPException(status_code=409, detail={"error": "supervisor_update_already_running"})
+        if body.source_mode == "core_host":
+            raise HTTPException(status_code=409, detail={"error": "supervisor_update_mode_not_configured", "mode": "core_host"})
+        if body.source_mode not in status.supported_modes:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "error": "supervisor_update_mode_unsupported",
+                    "mode": body.source_mode,
+                    "reason": status.unsupported_reasons.get(body.source_mode),
+                },
+            )
+        if body.service_update:
+            raise HTTPException(status_code=409, detail={"error": "supervisor_service_update_option_not_supported"})
+        started_at = self._now_iso()
+        attempt = {
+            "state": "starting",
+            "source_mode": body.source_mode,
+            "idempotency_key": body.idempotency_key,
+            "service_update": body.service_update,
+            "requested_at": started_at,
+            "updated_at": started_at,
+            "command": ["systemctl", "--user", "start", "hexe-updater.service"],
+        }
+        state["current_update"] = attempt
+        self._write_update_state(state)
+        try:
+            result = self._run_systemctl_user(["start", "hexe-updater.service"])
+        except Exception as exc:
+            error = self._redact_update_text(exc) or type(exc).__name__
+            failed = {**attempt, "state": "failed", "finished_at": self._now_iso(), "error": error}
+            state.pop("current_update", None)
+            state["last_update"] = failed
+            self._write_update_state(state)
+            raise HTTPException(status_code=500, detail={"error": "supervisor_update_start_failed", "message": error}) from None
+        if result.returncode != 0:
+            error = self._redact_update_text(result.stderr or result.stdout) or f"systemctl_exit_{result.returncode}"
+            failed = {
+                **attempt,
+                "state": "failed",
+                "finished_at": self._now_iso(),
+                "exit_code": result.returncode,
+                "error": error,
+            }
+            state.pop("current_update", None)
+            state["last_update"] = failed
+            self._write_update_state(state)
+            raise HTTPException(status_code=500, detail={"error": "supervisor_update_start_failed", "message": error}) from None
+        accepted_status = self.supervisor_update_status()
+        return SupervisorUpdateStartResult(
+            accepted=True,
+            state=accepted_status.update_state,
+            source_mode=body.source_mode,
+            idempotency_key=body.idempotency_key,
+            message="supervisor_update_started",
+            status=accepted_status,
+        )
 
     def _bluetooth_ensure_powered_enabled(self) -> bool:
         raw = str(getenv("HEXE_BLUETOOTH_ENSURE_POWERED", "")).strip().lower()

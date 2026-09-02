@@ -275,6 +275,40 @@ class SupervisorCoreRuntimeActionResult(BaseModel):
     runtime: SupervisorCoreRuntimeSummary
 
 
+class SupervisorUpdateStartRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_mode: Literal["git", "core_host"] = "git"
+    idempotency_key: str = Field(..., min_length=8, max_length=128)
+    service_update: bool = False
+
+
+class SupervisorUpdateStatusSummary(BaseModel):
+    supervisor_id: str
+    reported_version: str | None = None
+    install_root: str
+    source_path: str
+    source_is_git_checkout: bool
+    supported_modes: list[str] = Field(default_factory=list)
+    unsupported_reasons: dict[str, str] = Field(default_factory=dict)
+    git: dict[str, object] = Field(default_factory=dict)
+    updater: dict[str, object] = Field(default_factory=dict)
+    update_state: str = "idle"
+    current_update: dict[str, object] | None = None
+    last_update: dict[str, object] | None = None
+    updated_at: str
+
+
+class SupervisorUpdateStartResult(BaseModel):
+    accepted: bool
+    state: str
+    source_mode: Literal["git", "core_host"]
+    idempotency_key: str
+    message: str | None = None
+    error: str | None = None
+    status: SupervisorUpdateStatusSummary
+
+
 class ProcessResourceSummary(BaseModel):
     rss_bytes: int | None = Field(default=None, ge=0)
     cpu_percent: float | None = Field(default=None)

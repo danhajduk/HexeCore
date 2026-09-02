@@ -20,6 +20,8 @@ from app.supervisor import (
     SupervisorRegisteredRuntimeSummary,
     SupervisorRuntimeActionResult,
     SupervisorRuntimeSummary,
+    SupervisorUpdateStartResult,
+    SupervisorUpdateStatusSummary,
     build_supervisor_router,
 )
 
@@ -247,6 +249,31 @@ class _FakeSupervisorService:
     def apply_cloudflared_config(self, config: dict[str, object]) -> dict[str, object]:
         return {"ok": True, "runtime_state": "configured", "config_path": "/tmp/cloudflared.yaml"}
 
+    def supervisor_update_status(self) -> SupervisorUpdateStatusSummary:
+        return SupervisorUpdateStatusSummary(
+            supervisor_id="host-a",
+            reported_version="0.6.0",
+            install_root="/opt/hexe/supervisor",
+            source_path="/opt/hexe/supervisor",
+            source_is_git_checkout=True,
+            supported_modes=["git"],
+            unsupported_reasons={"core_host": "core_host_package_mode_not_implemented"},
+            git={"branch": "main", "behind": 1, "update_available": True},
+            updater={"unit": "hexe-updater.service", "unit_loaded": True},
+            update_state="idle",
+            updated_at="2026-03-16T00:00:00Z",
+        )
+
+    def start_supervisor_update(self, body) -> SupervisorUpdateStartResult:
+        return SupervisorUpdateStartResult(
+            accepted=True,
+            state="running",
+            source_mode=body.source_mode,
+            idempotency_key=body.idempotency_key,
+            message="supervisor_update_started",
+            status=self.supervisor_update_status(),
+        )
+
 
 class TestSupervisorRouterContract(unittest.TestCase):
     def test_supervisor_host_api_surface(self) -> None:
@@ -276,6 +303,11 @@ class TestSupervisorRouterContract(unittest.TestCase):
         self.assertTrue(client.get("/api/supervisor/runtime/cloudflared").json()["exists"])
         self.assertFalse(client.get("/api/supervisor/runtime/unknown").json()["exists"])
         self.assertTrue(client.post("/api/supervisor/runtime/cloudflared/apply", json={"ok": True}).json()["ok"])
+        self.assertEqual(client.get("/api/supervisor/update/status").json()["supported_modes"], ["git"])
+        update = client.post("/api/supervisor/update/start", json={"source_mode": "git", "idempotency_key": "update-1234"})
+        self.assertEqual(update.status_code, 200)
+        self.assertTrue(update.json()["accepted"])
+        self.assertEqual(update.json()["state"], "running")
         self.assertEqual(client.get("/api/supervisor/nodes").json()["items"][0]["node_id"], "mqtt")
         self.assertEqual(client.post("/api/supervisor/nodes/mqtt/start").json()["action"], "start")
         self.assertEqual(client.post("/api/supervisor/nodes/mqtt/stop").json()["action"], "stop")

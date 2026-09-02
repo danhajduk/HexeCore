@@ -57,7 +57,6 @@ Do not edit above this line:
 [STOP] Review guardrail coverage before broad documentation consolidation.
 [TODO] Task 983: Consolidate duplicate Supervisor documentation into the root docs source of truth
 [TODO] Task 984: Repair schema documentation links and ownership references
-[TODO] Task 992: Add Supervisor self-update status and command API
 [TODO] Task 993: Add Core Supervisor update orchestration and authorization
 [TODO] Task 994: Add Core-host source sync update mode for remote Supervisors
 [TODO] Task 995: Surface Supervisor update state and actions in Core UI

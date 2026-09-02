@@ -235,3 +235,11 @@ Chosen fix: Documented `provided_task_families[]` as provider-side executable ca
 What changed: Updated lifecycle, capability activation, taxonomy, service-resolution, budget, registry, schema README, and node-standard docs with the Voice-to-AI `task.chat` example and routing split.
 Verification: Stale wording scan completed; `python tools/check_repo_health.py --skip-backend-tests` passed; Core/Supervisor mirror drift guard passed.
 ###########
+
+Task #992
+Step objective: Add Supervisor self-update status and command API.
+Issue cause: Remote Supervisors could report versions and freshness, but no Supervisor-owned update status or bounded update command API existed.
+Chosen fix: Added Supervisor-local status/start routes that report git/updater capability and start only `hexe-updater.service` for git mode, leaving Core-host package mode fail-closed for the follow-up task.
+What changed: Added mirrored Supervisor update models, service logic, router endpoints, tests, OpenAPI snapshot updates, and docs for supported/unsupported update modes.
+Verification: Core and Supervisor focused update/router tests passed; OpenAPI snapshot validation passed; Core/Supervisor mirror drift guard passed.
+###########

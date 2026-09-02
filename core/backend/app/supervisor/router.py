@@ -25,6 +25,9 @@ from .models import (
     SupervisorRuntimeHeartbeatRequest,
     SupervisorRuntimeRegistrationRequest,
     SupervisorRuntimeSummary,
+    SupervisorUpdateStartRequest,
+    SupervisorUpdateStartResult,
+    SupervisorUpdateStatusSummary,
 )
 from .service import SupervisorDomainService
 
@@ -103,6 +106,14 @@ def build_supervisor_router(service: SupervisorDomainService | None = None) -> A
     @router.post("/supervisor/boot/run")
     def run_supervisor_boot_loop() -> dict[str, Any]:
         return supervisor.run_boot_loop()
+
+    @router.get("/supervisor/update/status")
+    def get_supervisor_update_status() -> SupervisorUpdateStatusSummary:
+        return supervisor.supervisor_update_status()
+
+    @router.post("/supervisor/update/start")
+    def start_supervisor_update(body: SupervisorUpdateStartRequest) -> SupervisorUpdateStartResult:
+        return supervisor.start_supervisor_update(body)
 
     @router.get("/supervisor/nodes")
     def list_supervisor_nodes() -> dict[str, list[ManagedNodeSummary]]:

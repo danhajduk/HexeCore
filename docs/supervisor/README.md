@@ -42,6 +42,9 @@ Supervisor API routes are served by the standalone Supervisor service rather tha
 - boot loop status and manual trigger through:
   - `GET /api/supervisor/boot/status`
   - `POST /api/supervisor/boot/run`
+- self-update inspection and bounded git updater trigger through:
+  - `GET /api/supervisor/update/status`
+  - `POST /api/supervisor/update/start`
 - compose-based realization for host-local standalone addon workloads
 
 ## Service Configuration
@@ -122,6 +125,14 @@ The default bundled Core checkout location is `~/hexe/hexe/core`.
 All modes prepare the backend Python runtime, install `hexe-supervisor.service` and `hexe-supervisor-api.service` as systemd user units, start both services by default, and verify the Supervisor API with `curl` over `/run/hexe/supervisor.sock`.
 
 The installer writes `%h/.config/hexe/supervisor.env` with `HEXE_SUPERVISOR_INSTALL_MODE`. In join-Core mode it also writes the Core URL, reporting token, token kind, Supervisor ID/name/public URL values, and enables remote reporting. Core stores reported Supervisors behind `/api/system/supervisors`.
+
+## Self-Update API
+
+Status: Implemented
+
+The standalone Supervisor exposes a host-local update surface for Core or an operator to inspect before any remote orchestration. `GET /api/supervisor/update/status` reports the Supervisor install root, reported version, git checkout state, local/upstream commit metadata when available, updater unit state, supported modes, last update attempt, and current update state.
+
+`POST /api/supervisor/update/start` accepts `source_mode=git` with an `idempotency_key` and starts only the bounded `hexe-updater.service` systemd user unit. It does not accept arbitrary shell commands or caller-supplied paths. Git mode is available only when the Supervisor install root is a git checkout and both `scripts/update.sh` and `hexe-updater.service` are present. `core_host` package mode is intentionally reported as unsupported until the Core-host package workflow is implemented.
 
 ## Supervisor Enrollment Tokens
 
