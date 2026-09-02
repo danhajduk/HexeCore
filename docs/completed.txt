@@ -31,3 +31,4 @@ Task 990: Implement Supervisor BLE GATT provisioning service and enforcement pat
 Task 991: Document and verify BLE Wi-Fi onboarding end to end - Completed on 08/30/2026 16:30
 Task 992: Add Supervisor self-update status and command API - Completed on 09/02/2026 08:25
 Task 993: Add Core Supervisor update orchestration and authorization - Completed on 09/02/2026 08:33
+Task 994: Add Core-host source sync update mode for remote Supervisors - Completed on 09/02/2026 08:43

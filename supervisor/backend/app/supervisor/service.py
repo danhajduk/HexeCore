@@ -8,6 +8,8 @@ import json
 import shlex
 import shutil
 import subprocess
+import sys
+import tarfile
 import time
 from datetime import datetime, timezone
 from typing import Any
@@ -71,6 +73,12 @@ from .resource_history_store import SupervisorResourceHistoryStore
 from .resource_monitor import SupervisorResourceMonitor
 from .runtime_nodes import merge_runtime_identity
 from .runtime_store import SupervisorRuntimeNodeRecord, SupervisorRuntimeNodesStore
+from .update_package import (
+    SupervisorUpdatePackageError,
+    decode_update_package_request,
+    extract_update_package_archive,
+    validate_update_package_manifest,
+)
 
 
 class DisabledBleProvisioningBackend:
@@ -125,6 +133,12 @@ class SupervisorDomainService:
 
     def _update_state_path(self) -> Path:
         return self._install_root() / "var" / "supervisor" / "update-state.json"
+
+    def _package_runtime_root(self) -> Path:
+        return self._install_root() / "var" / "supervisor" / "packages"
+
+    def _package_backup_root(self) -> Path:
+        return self._install_root() / "var" / "supervisor" / "backups"
 
     def _runtime_provider(self) -> str:
         return str(getenv("HEXE_MQTT_RUNTIME_PROVIDER", "docker")).strip().lower() or "docker"
@@ -302,6 +316,28 @@ class SupervisorDomainService:
         )
         return status
 
+    def _package_update_status(self) -> dict[str, Any]:
+        install_root = self._install_root()
+        runtime_root = self._package_runtime_root()
+        backup_root = self._package_backup_root()
+        status: dict[str, Any] = {
+            "install_root": str(install_root),
+            "staging_root": str(runtime_root / "staging"),
+            "backup_root": str(backup_root),
+            "supported": False,
+        }
+        if not install_root.exists() or not install_root.is_dir():
+            status["error"] = "install_root_missing"
+            return status
+        try:
+            runtime_root.mkdir(parents=True, exist_ok=True)
+            backup_root.mkdir(parents=True, exist_ok=True)
+        except Exception as exc:
+            status["error"] = self._redact_update_text(exc) or "package_runtime_path_unavailable"
+            return status
+        status["supported"] = True
+        return status
+
     def _finalize_update_state(self, state: dict[str, Any], updater: dict[str, Any]) -> dict[str, Any]:
         current = dict(state.get("current_update") or {}) if isinstance(state.get("current_update"), dict) else None
         if not current:
@@ -333,6 +369,7 @@ class SupervisorDomainService:
         git = self._git_update_status()
         updater = self._updater_status()
         state = self._finalize_update_state(self._read_update_state(), updater)
+        package = self._package_update_status()
         unsupported: dict[str, str] = {}
         supported_modes: list[str] = []
         if not bool(git.get("is_git_checkout")):
@@ -343,7 +380,10 @@ class SupervisorDomainService:
             unsupported["git"] = "updater_unit_missing"
         else:
             supported_modes.append("git")
-        unsupported["core_host"] = "core_host_package_mode_not_implemented"
+        if bool(package.get("supported")):
+            supported_modes.append("core_host")
+        else:
+            unsupported["core_host"] = str(package.get("error") or "core_host_package_mode_unavailable")
         current_update = dict(state.get("current_update") or {}) if isinstance(state.get("current_update"), dict) else None
         last_update = dict(state.get("last_update") or {}) if isinstance(state.get("last_update"), dict) else None
         update_state = str((current_update or last_update or {}).get("state") or "idle")
@@ -357,6 +397,7 @@ class SupervisorDomainService:
             unsupported_reasons=unsupported,
             git=git,
             updater=updater,
+            package=package,
             update_state=update_state,
             current_update=current_update,
             last_update=last_update,
@@ -386,10 +427,32 @@ class SupervisorDomainService:
                 message="update_request_already_finished",
                 status=status,
             )
+        package_id = str(body.package_id or "").strip()
+        manifest_digest = ""
+        if isinstance(body.package_manifest, dict):
+            package_id = package_id or str(body.package_manifest.get("package_id") or "").strip()
+            manifest_digest = str(body.package_manifest.get("manifest_digest") or "").strip()
+        if last and body.source_mode == "core_host":
+            if package_id and package_id == str(last.get("package_id") or ""):
+                return SupervisorUpdateStartResult(
+                    accepted=False,
+                    state=str(last.get("state") or status.update_state),
+                    source_mode=body.source_mode,
+                    idempotency_key=body.idempotency_key,
+                    message="update_package_already_applied",
+                    status=status,
+                )
+            if manifest_digest and manifest_digest == str(last.get("manifest_digest") or ""):
+                return SupervisorUpdateStartResult(
+                    accepted=False,
+                    state=str(last.get("state") or status.update_state),
+                    source_mode=body.source_mode,
+                    idempotency_key=body.idempotency_key,
+                    message="update_package_already_applied",
+                    status=status,
+                )
         if current:
             raise HTTPException(status_code=409, detail={"error": "supervisor_update_already_running"})
-        if body.source_mode == "core_host":
-            raise HTTPException(status_code=409, detail={"error": "supervisor_update_mode_not_configured", "mode": "core_host"})
         if body.source_mode not in status.supported_modes:
             raise HTTPException(
                 status_code=409,
@@ -399,6 +462,8 @@ class SupervisorDomainService:
                     "reason": status.unsupported_reasons.get(body.source_mode),
                 },
             )
+        if body.source_mode == "core_host":
+            return self._start_core_host_package_update(body, state)
         if body.service_update:
             raise HTTPException(status_code=409, detail={"error": "supervisor_service_update_option_not_supported"})
         started_at = self._now_iso()
@@ -444,6 +509,215 @@ class SupervisorDomainService:
             message="supervisor_update_started",
             status=accepted_status,
         )
+
+    def _start_core_host_package_update(
+        self,
+        body: SupervisorUpdateStartRequest,
+        state: dict[str, Any],
+    ) -> SupervisorUpdateStartResult:
+        if not body.package_manifest or not body.package_archive_base64 or not body.package_archive_sha256:
+            raise HTTPException(status_code=422, detail={"error": "supervisor_update_package_required"})
+        started_at = self._now_iso()
+        manifest = dict(body.package_manifest)
+        package_id = str(body.package_id or manifest.get("package_id") or "").strip()
+        attempt = {
+            "state": "starting",
+            "source_mode": "core_host",
+            "idempotency_key": body.idempotency_key,
+            "service_update": body.service_update,
+            "requested_at": started_at,
+            "updated_at": started_at,
+            "package_id": package_id,
+            "manifest_digest": str(manifest.get("manifest_digest") or "").strip() or None,
+        }
+        state["current_update"] = attempt
+        self._write_update_state(state)
+        backup_path: str | None = None
+        try:
+            manifest, archive = decode_update_package_request(body.model_dump(mode="json"))
+            if body.package_id and str(manifest.get("package_id") or "") != body.package_id:
+                raise SupervisorUpdatePackageError("package_id_mismatch")
+            applied = self._apply_update_package(manifest, archive, service_update=body.service_update)
+            backup_path = str(applied.get("backup_path") or "") or None
+            finished = {
+                **attempt,
+                "state": "succeeded",
+                "finished_at": self._now_iso(),
+                "package_id": manifest.get("package_id"),
+                "manifest_digest": manifest.get("manifest_digest"),
+                "backup_path": backup_path,
+                "applied_file_count": applied.get("applied_file_count"),
+                "service_update_results": applied.get("service_update_results"),
+            }
+            state.pop("current_update", None)
+            state["last_update"] = finished
+            self._write_update_state(state)
+            status = self.supervisor_update_status()
+            return SupervisorUpdateStartResult(
+                accepted=True,
+                state="succeeded",
+                source_mode="core_host",
+                idempotency_key=body.idempotency_key,
+                message="supervisor_update_package_applied",
+                status=status,
+            )
+        except SupervisorUpdatePackageError as exc:
+            self._fail_core_host_update(state, attempt, str(exc), backup_path=backup_path, rollback_required=False)
+            raise HTTPException(status_code=422, detail={"error": str(exc)}) from None
+        except HTTPException as exc:
+            if isinstance(exc.detail, dict):
+                backup_path = str(exc.detail.get("backup_path") or "") or backup_path
+            rollback_required = backup_path is not None
+            self._fail_core_host_update(state, attempt, exc.detail, backup_path=backup_path, rollback_required=rollback_required)
+            raise
+        except Exception as exc:
+            error = self._redact_update_text(exc) or type(exc).__name__
+            rollback_required = backup_path is not None
+            self._fail_core_host_update(state, attempt, error, backup_path=backup_path, rollback_required=rollback_required)
+            raise HTTPException(status_code=500, detail={"error": "supervisor_update_package_apply_failed", "message": error}) from None
+
+    def _fail_core_host_update(
+        self,
+        state: dict[str, Any],
+        attempt: dict[str, Any],
+        error: object,
+        *,
+        backup_path: str | None,
+        rollback_required: bool,
+    ) -> None:
+        failed = {
+            **attempt,
+            "state": "failed",
+            "finished_at": self._now_iso(),
+            "error": self._redact_update_text(error),
+            "backup_path": backup_path,
+            "rollback_required": rollback_required,
+        }
+        state.pop("current_update", None)
+        state["last_update"] = failed
+        self._write_update_state(state)
+
+    def _apply_update_package(self, manifest: dict[str, Any], archive: bytes, *, service_update: bool) -> dict[str, Any]:
+        validate_update_package_manifest(manifest)
+        install_root = self._install_root().resolve()
+        package_id = str(manifest.get("package_id") or "").strip()
+        staging_root = (self._package_runtime_root() / "staging" / package_id).resolve()
+        if staging_root.exists():
+            shutil.rmtree(staging_root)
+        written = extract_update_package_archive(manifest, archive, staging_root)
+        backup_path = self._backup_package_targets(manifest)
+        applied_count = 0
+        for item in manifest["files"]:
+            rel = str(item["path"])
+            source = (staging_root / rel).resolve()
+            target = (install_root / rel).resolve()
+            if not str(target).startswith(str(install_root) + os.sep):
+                raise SupervisorUpdatePackageError("package_apply_path_escape")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            tmp_target = target.with_name(f".{target.name}.hexe-update-tmp")
+            shutil.copy2(source, tmp_target)
+            tmp_target.chmod(int(item["mode"]) & 0o777)
+            tmp_target.replace(target)
+            applied_count += 1
+        results: dict[str, Any] = {"staged_file_count": len(written)}
+        if service_update:
+            try:
+                results.update(self._apply_package_service_update())
+            except HTTPException as exc:
+                if isinstance(exc.detail, dict):
+                    exc.detail["backup_path"] = str(backup_path)
+                    exc.detail["applied_file_count"] = applied_count
+                raise
+        return {
+            "backup_path": str(backup_path),
+            "applied_file_count": applied_count,
+            "service_update_results": results,
+        }
+
+    def _backup_package_targets(self, manifest: dict[str, Any]) -> Path:
+        backup_root = self._package_backup_root()
+        backup_root.mkdir(parents=True, exist_ok=True)
+        package_id = str(manifest.get("package_id") or "package").strip()
+        backup_path = backup_root / f"{package_id}-{int(time.time())}.tar.gz"
+        install_root = self._install_root().resolve()
+        with tarfile.open(backup_path, mode="w:gz") as tf:
+            for item in manifest["files"]:
+                rel = str(item["path"])
+                target = (install_root / rel).resolve()
+                if not str(target).startswith(str(install_root) + os.sep):
+                    raise SupervisorUpdatePackageError("package_backup_path_escape")
+                if target.exists() and target.is_file() and not target.is_symlink():
+                    tf.add(target, arcname=rel)
+        return backup_path
+
+    def _apply_package_service_update(self) -> dict[str, Any]:
+        dependency = self._run_package_dependency_install()
+        if dependency.returncode != 0:
+            raise HTTPException(
+                status_code=500,
+                detail={
+                    "error": "supervisor_update_dependency_install_failed",
+                    "message": self._redact_update_text(dependency.stderr or dependency.stdout),
+                },
+            )
+        units = self._regenerate_supervisor_units()
+        restart_results: list[dict[str, Any]] = []
+        for unit in ("hexe-supervisor.service", "hexe-supervisor-api.service"):
+            result = self._run_systemctl_user(["try-restart", unit], timeout_s=15.0)
+            restart_results.append({"unit": unit, "exit_code": result.returncode})
+            if result.returncode != 0:
+                raise HTTPException(
+                    status_code=500,
+                    detail={
+                        "error": "supervisor_update_restart_failed",
+                        "unit": unit,
+                        "message": self._redact_update_text(result.stderr or result.stdout),
+                    },
+                )
+        return {
+            "dependency_install": {"exit_code": dependency.returncode},
+            "units": units,
+            "restarts": restart_results,
+        }
+
+    def _run_package_dependency_install(self) -> subprocess.CompletedProcess[str]:
+        requirements = self._install_root() / "backend" / "requirements.txt"
+        if not requirements.exists():
+            return subprocess.CompletedProcess([sys.executable, "-m", "pip", "install"], 0, stdout="requirements_missing_skipped", stderr="")
+        return subprocess.run(
+            [sys.executable, "-m", "pip", "install", "-r", str(requirements)],
+            cwd=self._install_root(),
+            capture_output=True,
+            text=True,
+            timeout=300,
+            check=False,
+        )
+
+    def _regenerate_supervisor_units(self) -> dict[str, Any]:
+        source_dir = self._install_root() / "systemd" / "user"
+        target_dir = Path.home() / ".config" / "systemd" / "user"
+        templates = ("hexe-supervisor.service.in", "hexe-supervisor-api.service.in", "hexe-updater.service.in")
+        written: list[str] = []
+        target_dir.mkdir(parents=True, exist_ok=True)
+        for template_name in templates:
+            source = source_dir / template_name
+            if not source.exists():
+                continue
+            unit_name = template_name[:-3] if template_name.endswith(".in") else template_name
+            rendered = source.read_text(encoding="utf-8").replace("@INSTALL_DIR@", str(self._install_root()))
+            target = target_dir / unit_name
+            target.write_text(rendered, encoding="utf-8")
+            written.append(str(target))
+        daemon_reload = self._run_systemctl_user(["daemon-reload"], timeout_s=15.0)
+        if daemon_reload.returncode != 0:
+            raise HTTPException(
+                status_code=500,
+                detail={
+                    "error": "supervisor_update_unit_reload_failed",
+                    "message": self._redact_update_text(daemon_reload.stderr or daemon_reload.stdout),
+                },
+            )
+        return {"written": written, "daemon_reload_exit_code": daemon_reload.returncode}
 
     def _bluetooth_ensure_powered_enabled(self) -> bool:
         raw = str(getenv("HEXE_BLUETOOTH_ENSURE_POWERED", "")).strip().lower()

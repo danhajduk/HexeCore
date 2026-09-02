@@ -251,3 +251,11 @@ Chosen fix: Added admin-protected fleet update status/start routes that verify o
 What changed: Updated mirrored fleet router orchestration, Supervisor API client helpers, app audit wiring, focused tests, OpenAPI path snapshot, and operator documentation.
 Verification: Core and Supervisor focused fleet/client/update tests passed; OpenAPI snapshot validation passed; Core/Supervisor mirror drift guard passed; diff whitespace check passed.
 ###########
+
+Task #994
+Step objective: Add Core-host source sync update mode for remote Supervisors.
+Issue cause: Some remote Supervisors run copied source trees or cannot pull git, so git-only update support would strand hosts like the previously observed non-git `hexe-ai.local` Supervisor.
+Chosen fix: Added a Core-built Supervisor package format with manifest digest, archive checksum, per-file SHA-256 validation, strict path containment, Supervisor-side staging, backup creation, idempotent package replay handling, and optional bounded service maintenance.
+What changed: Added mirrored package builder/validator modules, extended Supervisor update request/status models and service apply logic, taught Core fleet update orchestration to build/upload `core_host` packages, added focused package/apply/upload tests, and updated API/Supervisor docs.
+Verification: Core and Supervisor package/update/fleet/client tests passed; OpenAPI snapshot validation passed; Core/Supervisor mirror drift guard passed; diff whitespace check passed.
+###########

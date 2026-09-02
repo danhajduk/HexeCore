@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from app.supervisor.models import SupervisorUpdateStartRequest
 from app.supervisor.router import build_supervisor_router
 from app.supervisor.service import SupervisorDomainService
+from app.supervisor.update_package import build_supervisor_update_package
 
 
 def _completed(args: list[str], stdout: str = "", stderr: str = "", returncode: int = 0) -> subprocess.CompletedProcess[str]:
@@ -80,10 +81,10 @@ class TestSupervisorUpdateApi(unittest.TestCase):
         self.assertEqual(status.supervisor_id, "sup-1")
         self.assertEqual(status.reported_version, "0.6.0")
         self.assertTrue(status.source_is_git_checkout)
-        self.assertEqual(status.supported_modes, ["git"])
+        self.assertEqual(status.supported_modes, ["git", "core_host"])
         self.assertEqual(status.git["behind"], 1)
         self.assertTrue(status.git["update_available"])
-        self.assertEqual(status.unsupported_reasons["core_host"], "core_host_package_mode_not_implemented")
+        self.assertTrue(status.package["supported"])
 
     def test_status_fails_closed_for_non_git_tree_and_missing_unit(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -96,7 +97,7 @@ class TestSupervisorUpdateApi(unittest.TestCase):
                 status = service.supervisor_update_status()
 
         self.assertFalse(status.source_is_git_checkout)
-        self.assertEqual(status.supported_modes, [])
+        self.assertEqual(status.supported_modes, ["core_host"])
         self.assertEqual(status.unsupported_reasons["git"], "source_path_is_not_git_checkout")
         self.assertFalse(status.updater["unit_loaded"])
 
@@ -126,7 +127,7 @@ class TestSupervisorUpdateApi(unittest.TestCase):
         self.assertIn("git", result.status.supported_modes)
         self.assertIn((["start", "hexe-updater.service"],), [call.args for call in systemctl_mock.call_args_list])
 
-    def test_start_core_host_mode_is_closed_until_package_mode_exists(self) -> None:
+    def test_start_core_host_mode_requires_package(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             app = FastAPI()
             app.include_router(build_supervisor_router(SupervisorDomainService(install_root=self._install_root(tmp))), prefix="/api")
@@ -141,8 +142,104 @@ class TestSupervisorUpdateApi(unittest.TestCase):
                     json={"source_mode": "core_host", "idempotency_key": "update-1234"},
                 )
 
-        self.assertEqual(response.status_code, 409)
-        self.assertEqual(response.json()["detail"]["error"], "supervisor_update_mode_not_configured")
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["detail"]["error"], "supervisor_update_package_required")
+
+    def test_start_core_host_package_applies_files_with_backup(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            install_root = self._install_root(tmp, git=False, updater=False)
+            (install_root / "backend" / "app").mkdir(parents=True)
+            (install_root / "backend" / "app" / "main.py").write_text("old\n", encoding="utf-8")
+            source = Path(tmp) / "source"
+            (source / "backend" / "app").mkdir(parents=True)
+            (source / "backend" / "app" / "main.py").write_text("new\n", encoding="utf-8")
+            (source / "scripts").mkdir()
+            (source / "scripts" / "update.sh").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+            package = build_supervisor_update_package(source)
+            service = SupervisorDomainService(install_root=install_root)
+
+            result = service.start_supervisor_update(
+                SupervisorUpdateStartRequest(
+                    source_mode="core_host",
+                    idempotency_key="package-1234",
+                    **package.to_request_payload(),
+                )
+            )
+
+            self.assertTrue(result.accepted)
+            self.assertEqual(result.state, "succeeded")
+            self.assertEqual((install_root / "backend" / "app" / "main.py").read_text(encoding="utf-8"), "new\n")
+            last = service._read_update_state()["last_update"]
+            self.assertEqual(last["package_id"], package.package_id)
+            self.assertTrue(Path(last["backup_path"]).exists())
+
+            replay = service.start_supervisor_update(
+                SupervisorUpdateStartRequest(
+                    source_mode="core_host",
+                    idempotency_key="package-replay",
+                    **package.to_request_payload(),
+                )
+            )
+            self.assertFalse(replay.accepted)
+            self.assertEqual(replay.message, "update_package_already_applied")
+
+    def test_start_core_host_package_invalid_checksum_fails_before_backup(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            install_root = self._install_root(tmp, git=False, updater=False)
+            source = Path(tmp) / "source"
+            (source / "backend").mkdir(parents=True)
+            (source / "backend" / "requirements.txt").write_text("fastapi\n", encoding="utf-8")
+            package = build_supervisor_update_package(source)
+            payload = package.to_request_payload()
+            payload["package_archive_sha256"] = "0" * 64
+            service = SupervisorDomainService(install_root=install_root)
+
+            with self.assertRaises(Exception) as raised:
+                service.start_supervisor_update(
+                    SupervisorUpdateStartRequest(
+                        source_mode="core_host",
+                        idempotency_key="bad-package-1234",
+                        **payload,
+                    )
+                )
+
+            self.assertEqual(getattr(raised.exception, "status_code", None), 422)
+            last = service._read_update_state()["last_update"]
+            self.assertEqual(last["state"], "failed")
+            self.assertFalse(last["rollback_required"])
+
+    def test_start_core_host_service_update_records_dependency_failure_and_backup(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            install_root = self._install_root(tmp, git=False, updater=False)
+            (install_root / "backend").mkdir(exist_ok=True)
+            (install_root / "backend" / "requirements.txt").write_text("old\n", encoding="utf-8")
+            source = Path(tmp) / "source"
+            (source / "backend").mkdir(parents=True)
+            (source / "backend" / "requirements.txt").write_text("new\n", encoding="utf-8")
+            package = build_supervisor_update_package(source)
+            service = SupervisorDomainService(install_root=install_root)
+
+            with patch.object(
+                service,
+                "_run_package_dependency_install",
+                return_value=_completed(["pip"], stderr="password=leaked", returncode=1),
+            ):
+                with self.assertRaises(Exception) as raised:
+                    service.start_supervisor_update(
+                        SupervisorUpdateStartRequest(
+                            source_mode="core_host",
+                            idempotency_key="dependency-fail-1234",
+                            service_update=True,
+                            **package.to_request_payload(),
+                        )
+                    )
+
+            self.assertEqual(getattr(raised.exception, "status_code", None), 500)
+            last = service._read_update_state()["last_update"]
+            self.assertEqual(last["state"], "failed")
+            self.assertTrue(last["rollback_required"])
+            self.assertTrue(Path(last["backup_path"]).exists())
+            self.assertNotIn("leaked", last["error"])
 
     def test_concurrent_update_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

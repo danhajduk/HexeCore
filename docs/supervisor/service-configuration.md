@@ -62,14 +62,17 @@ Supervisor update routes:
 
 - `GET /api/supervisor/update/status` reports the install root, reported `HEXE_CORE_VERSION`, git checkout metadata, updater script/unit availability, supported update modes, and the current or most recent update attempt.
 - `POST /api/supervisor/update/start` starts a git-based update through `systemctl --user start hexe-updater.service` when the Supervisor install root is a git checkout and the bounded updater script/unit are present.
-- The request body requires an `idempotency_key` and accepts `source_mode`. `git` is the only implemented mode in this step. `core_host` package mode fails closed with `supervisor_update_mode_not_configured` until the Core-host package workflow is implemented.
+- The request body requires an `idempotency_key` and accepts `source_mode`. `git` uses the Supervisor-local updater unit. `core_host` requires a Core-built package with `package_manifest`, `package_archive_base64`, `package_archive_sha256`, and `package_id`.
 - The route never runs caller-supplied shell, never accepts caller-supplied filesystem paths, and stores only sanitized update metadata in `var/supervisor/update-state.json`.
 - Concurrent update requests are rejected. Repeating the same idempotency key returns the existing current or completed attempt instead of starting another update.
+- Core-host packages stage under `var/supervisor/packages`, validate manifest digest, archive checksum, archive manifest equality, file paths, file sizes, and per-file SHA-256 before applying files. Paths that are absolute, contain `..`, escape the install root, or appear outside the package manifest are rejected.
+- Before applying package files, Supervisor creates a backup tarball for overwritten files under `var/supervisor/backups`. If a later dependency install, unit reload, or restart step fails, the failed update record includes `rollback_required=true` and the backup path.
+- When `service_update=true`, Supervisor runs bounded service maintenance: install backend requirements with the current Python, render known Supervisor user units from `systemd/user/*.in` with the configured install root, run `systemctl --user daemon-reload`, and `try-restart` the Supervisor daemon/API units.
 
 Core fleet update routes:
 
 - `GET /api/system/supervisors/{supervisor_id}/update/status` requires an admin session or token, verifies the Supervisor is currently `online`, reads `/api/supervisor/update/status` from the local attached Supervisor client or the remote `api_base_url`, and stores a sanitized `metadata.update_status` snapshot in the Core fleet registry.
-- `POST /api/system/supervisors/{supervisor_id}/update/start` requires an admin session or token, refreshes status first, verifies the requested `source_mode` is advertised by that Supervisor, then forwards the idempotent update request to `/api/supervisor/update/start`.
+- `POST /api/system/supervisors/{supervisor_id}/update/start` requires an admin session or token, refreshes status first, verifies the requested `source_mode` is advertised by that Supervisor, then forwards the idempotent update request to `/api/supervisor/update/start`. For `core_host`, Core builds the package from `HEXE_SUPERVISOR_PACKAGE_SOURCE_ROOT` or the local sibling `supervisor` source tree before upload.
 - Core records `supervisor_update_status_checked`, `supervisor_update_status_failed`, `supervisor_update_requested`, and `supervisor_update_rejected` audit events when an audit store is configured. Update payloads are sanitized before storage or audit logging.
 - Core fails closed when a Supervisor is stale/offline, lacks `api_base_url`, lacks the update API, returns invalid JSON, or advertises no support for the requested update mode.
 

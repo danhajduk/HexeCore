@@ -112,7 +112,7 @@ Status: Implemented
   - `GET /api/system/supervisors?include_historical=true` (admin session/token required; includes long-offline records marked with `visibility_state: "historical"`)
   - `GET /api/system/supervisors/{supervisor_id}` (admin session/token required)
   - `GET /api/system/supervisors/{supervisor_id}/update/status` (admin session/token required; reads the Supervisor-local update status for an online local or remote Supervisor and stores a sanitized status snapshot in fleet metadata)
-  - `POST /api/system/supervisors/{supervisor_id}/update/start` (admin session/token required; validates the online Supervisor's supported update modes, forwards a bounded self-update request, and records a sanitized audit/status result)
+  - `POST /api/system/supervisors/{supervisor_id}/update/start` (admin session/token required; validates the online Supervisor's supported update modes, forwards a bounded git self-update request or builds/uploads a `core_host` Supervisor source package, and records a sanitized audit/status result)
   - `GET /api/system/supervisors/{supervisor_id}/resources/history` (admin session/token required; local or remote Supervisor host resource history)
   - `GET /api/system/supervisors/{supervisor_id}/runtimes/{node_id}/resources/history` (admin session/token required; local or remote Supervisor runtime resource history)
   - `POST /api/system/supervisors/enrollment-tokens` (admin session/token required; creates a short-lived one-time Supervisor enrollment token)
@@ -126,9 +126,9 @@ Status: Implemented
   - `POST /api/supervisor/hardware/bluetooth/ble/provision-wifi` (Core-issued `ble.provision_wifi` hardware lease token required in JSON body; validates the Voice provisioning context, encrypts the Voice payload into the BLE provisioning envelope, and delegates only the envelope to the Supervisor BLE GATT backend)
 - Standalone Supervisor update:
   - `GET /api/supervisor/update/status` (reports Supervisor-local git/updater capability and current or last update state)
-  - `POST /api/supervisor/update/start` (starts the bounded `hexe-updater.service` git update path when supported; `core_host` package mode is intentionally unavailable until the package workflow is implemented)
+  - `POST /api/supervisor/update/start` (starts the bounded `hexe-updater.service` git update path when supported, or validates/stages/applies a Core-built `core_host` Supervisor source package)
 
-Core fleet update orchestration uses the local Supervisor client for attached local Supervisors and each remote Supervisor's registered `api_base_url` for remote Supervisors. Update commands fail closed when the fleet record is not `online`, the remote API URL is missing, the Supervisor does not expose the update API, or the requested `source_mode` is not in the Supervisor's advertised `supported_modes`.
+Core fleet update orchestration uses the local Supervisor client for attached local Supervisors and each remote Supervisor's registered `api_base_url` for remote Supervisors. Update commands fail closed when the fleet record is not `online`, the remote API URL is missing, the Supervisor does not expose the update API, the requested `source_mode` is not in the Supervisor's advertised `supported_modes`, or a Core-host package cannot be built from the configured source root.
 
 Bluetooth hardware access is documented in [Node Hardware Access](../node-hardware-access.md). Core governs request/lease state; Supervisor enforces leases locally. Nodes do not receive raw host Bluetooth device or DBus access.
 

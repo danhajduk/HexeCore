@@ -5,6 +5,7 @@ import hmac
 import json
 import os
 import secrets
+import subprocess
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -16,6 +17,7 @@ from fastapi import APIRouter, Header, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.admin import require_admin_token
+from app.supervisor.update_package import SupervisorUpdatePackageError, build_supervisor_update_package
 
 SUPERVISOR_REGISTRY_SCHEMA_VERSION = "1"
 SUPERVISOR_ENROLLMENT_SCHEMA_VERSION = "1"
@@ -34,6 +36,10 @@ def _utcnow_iso() -> str:
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[3]
+
+
+def _workspace_root() -> Path:
+    return _repo_root().parent
 
 
 def _clean_text(value: object, default: str = "") -> str:
@@ -79,6 +85,29 @@ def _supervisor_history_timeout_s() -> float:
         return min(max(1.0, float(raw)), 60.0)
     except Exception:
         return 5.0
+
+
+def _supervisor_package_source_root() -> Path:
+    configured = _clean_text(os.getenv("HEXE_SUPERVISOR_PACKAGE_SOURCE_ROOT"))
+    if configured:
+        return Path(configured).expanduser()
+    sibling = _workspace_root() / "supervisor"
+    return sibling if sibling.exists() else _repo_root()
+
+
+def _source_commit_sha() -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(_workspace_root()), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5.0,
+            check=False,
+        )
+    except Exception:
+        return None
+    sha = (result.stdout or "").strip()
+    return sha if result.returncode == 0 and sha else None
 
 
 def _bluetooth_access_policy() -> str:
@@ -1030,6 +1059,36 @@ def build_supervisors_router(
         )
         return _sanitize_update_payload(payload)
 
+    def build_core_host_update_payload(record: SupervisorFleetRecord, body: SupervisorUpdateStartRequest) -> dict[str, Any]:
+        source_root = _supervisor_package_source_root()
+        try:
+            package = build_supervisor_update_package(
+                source_root,
+                source_version=_clean_text(os.getenv("HEXE_CORE_VERSION")) or None,
+                commit_sha=_source_commit_sha(),
+                compatibility={
+                    "target_supervisor_id": record.supervisor_id,
+                    "target_supervisor_version": record.supervisor_version,
+                    "source": "core_host",
+                },
+            )
+        except SupervisorUpdatePackageError as exc:
+            raise HTTPException(
+                status_code=409,
+                detail={"error": "supervisor_update_package_build_failed", "message": str(exc), "source_root": str(source_root)},
+            ) from None
+        except Exception:
+            raise HTTPException(
+                status_code=500,
+                detail={"error": "supervisor_update_package_build_failed", "source_root": str(source_root)},
+            ) from None
+        return {
+            "source_mode": "core_host",
+            "idempotency_key": body.idempotency_key,
+            "service_update": body.service_update,
+            **package.to_request_payload(),
+        }
+
     @router.get("/supervisors")
     def list_supervisors(
         request: Request,
@@ -1140,7 +1199,11 @@ def build_supervisors_router(
                         else None,
                     },
                 )
-            payload = body.model_dump(mode="json")
+            payload = (
+                build_core_host_update_payload(record, body)
+                if body.source_mode == "core_host"
+                else body.model_dump(mode="json")
+            )
             result = request_supervisor_update_api(record, request, "POST", "/api/supervisor/update/start", payload=payload)
             registry.set_update_status(record.supervisor_id, dict(result.get("status") or result))
             record_update_audit(
@@ -1150,6 +1213,7 @@ def build_supervisors_router(
                 details={
                     "source_mode": body.source_mode,
                     "idempotency_key": body.idempotency_key,
+                    "package_id": payload.get("package_id") if body.source_mode == "core_host" else None,
                     "result": result,
                 },
             )

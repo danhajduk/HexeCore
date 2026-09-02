@@ -1,5 +1,7 @@
 import os
 import json
+import hashlib
+import base64
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -511,6 +513,68 @@ class TestSupervisorFleetApi(unittest.TestCase):
         self.assertEqual(calls[1][0], "POST")
         self.assertEqual(calls[1][1], "http://remote-supervisor:57665/api/supervisor/update/start")
         self.assertEqual(calls[1][2]["idempotency_key"], "remote-key-123")
+
+    def test_remote_supervisor_core_host_update_builds_and_uploads_package(self) -> None:
+        headers = {"X-Admin-Token": "test-token"}
+        source = Path(self.tmpdir.name) / "package-source"
+        (source / "backend" / "app").mkdir(parents=True)
+        (source / "backend" / ".venv").mkdir(parents=True)
+        (source / "backend" / "app" / "main.py").write_text("print('new supervisor')\n", encoding="utf-8")
+        (source / "backend" / ".venv" / "ignored.py").write_text("ignored\n", encoding="utf-8")
+        (source / "scripts").mkdir()
+        (source / "scripts" / "update.sh").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+        registered = self.client.post(
+            "/api/system/supervisors/register",
+            headers=headers,
+            json={"supervisor_id": "host-package", "api_base_url": "http://remote-supervisor:57665", "transport": "http"},
+        )
+        self.assertEqual(registered.status_code, 200, registered.text)
+        heartbeat = self.client.post(
+            "/api/system/supervisors/heartbeat",
+            headers=headers,
+            json={"supervisor_id": "host-package", "health_status": "healthy", "lifecycle_state": "running"},
+        )
+        self.assertEqual(heartbeat.status_code, 200, heartbeat.text)
+        uploaded: list[dict] = []
+
+        def fake_request(method: str, url: str, *, json: dict | None, timeout: float) -> httpx.Response:  # noqa: A002
+            if url.endswith("/api/supervisor/update/status"):
+                return httpx.Response(200, json={"supported_modes": ["core_host"], "update_state": "idle", "package": {"supported": True}})
+            if url.endswith("/api/supervisor/update/start"):
+                uploaded.append(json or {})
+                return httpx.Response(
+                    200,
+                    json={
+                        "accepted": True,
+                        "state": "succeeded",
+                        "source_mode": "core_host",
+                        "status": {"update_state": "succeeded", "supported_modes": ["core_host"]},
+                    },
+                )
+            return httpx.Response(404, json={"detail": "not_found"})
+
+        with patch.dict(os.environ, {"HEXE_SUPERVISOR_PACKAGE_SOURCE_ROOT": str(source), "HEXE_CORE_VERSION": "0.6.0"}), patch(
+            "app.system.supervisors.httpx.request",
+            side_effect=fake_request,
+        ):
+            response = self.client.post(
+                "/api/system/supervisors/host-package/update/start",
+                headers=headers,
+                json={"source_mode": "core_host", "idempotency_key": "package-key-123", "service_update": True},
+            )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(len(uploaded), 1)
+        payload = uploaded[0]
+        self.assertEqual(payload["source_mode"], "core_host")
+        self.assertEqual(payload["idempotency_key"], "package-key-123")
+        self.assertTrue(payload["service_update"])
+        self.assertTrue(payload["package_id"].startswith("hexe-supervisor-"))
+        paths = {item["path"] for item in payload["package_manifest"]["files"]}
+        self.assertIn("backend/app/main.py", paths)
+        self.assertNotIn("backend/.venv/ignored.py", paths)
+        archive = base64.b64decode(payload["package_archive_base64"].encode("ascii"))
+        self.assertEqual(hashlib.sha256(archive).hexdigest(), payload["package_archive_sha256"])
 
     def test_supervisor_update_rejects_offline_and_unsupported_modes(self) -> None:
         headers = {"X-Admin-Token": "test-token"}

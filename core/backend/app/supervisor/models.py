@@ -281,6 +281,11 @@ class SupervisorUpdateStartRequest(BaseModel):
     source_mode: Literal["git", "core_host"] = "git"
     idempotency_key: str = Field(..., min_length=8, max_length=128)
     service_update: bool = False
+    package_id: str | None = Field(default=None, min_length=1, max_length=128)
+    package_manifest: dict[str, object] | None = None
+    package_archive_base64: str | None = Field(default=None, min_length=1)
+    package_archive_sha256: str | None = Field(default=None, min_length=64, max_length=64)
+    package_archive_size: int | None = Field(default=None, ge=1)
 
 
 class SupervisorUpdateStatusSummary(BaseModel):
@@ -293,6 +298,7 @@ class SupervisorUpdateStatusSummary(BaseModel):
     unsupported_reasons: dict[str, str] = Field(default_factory=dict)
     git: dict[str, object] = Field(default_factory=dict)
     updater: dict[str, object] = Field(default_factory=dict)
+    package: dict[str, object] = Field(default_factory=dict)
     update_state: str = "idle"
     current_update: dict[str, object] | None = None
     last_update: dict[str, object] | None = None
