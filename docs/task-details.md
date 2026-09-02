@@ -888,3 +888,111 @@ Original task details:
 - Verification: Run `python tools/update_openapi_snapshot.py --check`.
 - Verification: Run `python tools/check_env_registry.py --check-docs`.
 - Verification: Run `python tools/check_mirror_drift.py`.
+
+## Task 992
+Original task details:
+- User request: Add the option for Core to send an update command to a remote Supervisor. The update can come from git or from the Core host.
+- Source finding from live `hexe-ai.local` on 2026-09-02: the remote Supervisor was reachable by SSH and local Unix socket, but its running tree at `/home/dan/hexe/hexe/supervisor` was not a git checkout and `hexe-updater.service` was not installed. It reported `supervisor_version=0.1.0` until source and `HEXE_CORE_VERSION=0.6.0` were synced manually.
+- Goal: Add a Supervisor-owned self-update status and command API that can safely run on local or remote Supervisor hosts without SSH.
+- Add a Supervisor status endpoint that reports update capability, installed update mode support, current reported version, source path, whether the source path is a git checkout, local git HEAD/branch/remote status when available, updater unit presence, last update attempt, last result, and current update state.
+- Add a Supervisor command endpoint for update requests with a narrow request model, an idempotency key, an explicit update source mode, and safe options such as `service_update`.
+- Support `git` mode by invoking a Supervisor-local updater path only when the host has a valid git checkout and updater script/unit. Do not run arbitrary shell supplied by Core.
+- Support `core_host` mode as a declared capability placeholder only if the implementation is deferred to Task 994; it must fail closed with a clear unsupported/not-configured response until implemented.
+- Store update attempt metadata and logs in Supervisor-owned runtime state, excluding secrets and large output.
+- Prevent concurrent update runs and expose deterministic `idle`, `starting`, `running`, `succeeded`, `failed`, and `rollback_required` or equivalent states.
+- Preserve existing health, runtime registration, BLE broker, and node lifecycle routes.
+- Preserve Core/Supervisor mirror alignment.
+- Acceptance: `GET /api/supervisor/update/status` or equivalent returns capability and repo/updater state for local and remote Supervisors.
+- Acceptance: `POST /api/supervisor/update/start` or equivalent can start a configured git-based update with a bounded command path and idempotency protection.
+- Acceptance: Unsupported source modes, missing updater unit, non-git source paths, concurrent runs, and malformed requests fail closed with operator-readable errors.
+- Acceptance: No command request can inject shell arguments, print secrets, or update paths outside the configured Supervisor install root.
+- Verification: Add focused Supervisor API/service tests for status, git-capable start, missing updater, non-git tree, unsupported mode, concurrent update, idempotent retry, and secret redaction.
+- Verification: Run targeted Supervisor update API tests.
+- Verification: Run `python tools/update_openapi_snapshot.py --check` if API paths or schemas change.
+- Verification: Run `python tools/check_mirror_drift.py`.
+
+## Task 993
+Original task details:
+- User request: Core should be able to send an update command to remote Supervisors.
+- Depends on: Task 992.
+- Goal: Add Core-owned Supervisor update orchestration, authorization, audit, and fleet status integration.
+- Add Core request/response models and routes for fleet-scoped Supervisor update status and update start, for example under `/api/system/supervisors/{supervisor_id}/update/status` and `/api/system/supervisors/{supervisor_id}/update/start`.
+- Route local-attached Supervisors through the existing local Supervisor client and remote Supervisors through their registered `api_base_url`; fail closed when a remote Supervisor has no Core-reachable API URL.
+- Require Core admin authorization for update commands. Supervisor reporting tokens must not be sufficient to trigger updates.
+- Add update-source selection with at least `git` and `core_host` modes, but only forward modes the target Supervisor reports as supported.
+- Add audit events for status checks, update requested, update accepted, update rejected, update failed, and update completed. Include supervisor id, host id, source mode, idempotency key, and sanitized result; never include tokens or raw logs containing secrets.
+- Update Supervisor fleet records so update status can be surfaced without confusing freshness or health. Do not mark a host healthy merely because an old update status exists.
+- Add operator-readable errors for offline Supervisor, stale heartbeat, missing `api_base_url`, unsupported mode, authorization failure, Supervisor API timeout, invalid Supervisor response, and update already running.
+- Preserve existing Supervisor history proxy behavior.
+- Preserve Core/Supervisor mirror alignment.
+- Acceptance: Core can request update status from an online local or remote Supervisor and normalize the result.
+- Acceptance: Core can start an update on an online Supervisor only when the operator is authorized and the Supervisor reports the selected mode as supported.
+- Acceptance: Core refuses update commands for offline/stale Supervisors unless an explicit force option is implemented and tested.
+- Acceptance: Core audit and API responses identify what happened without exposing credentials.
+- Verification: Add focused Core tests for local status/start, remote status/start, missing API URL, stale Supervisor, unsupported mode, timeout, invalid response, auth failure, and audit payload redaction.
+- Verification: Run targeted Supervisor fleet/update orchestration tests.
+- Verification: Run `python tools/update_openapi_snapshot.py --check`.
+- Verification: Run `python tools/check_mirror_drift.py`.
+
+## Task 994
+Original task details:
+- User request: Remote Supervisor updates can come from the Core host, not only git.
+- Depends on: Tasks 992 and 993.
+- Goal: Implement a Core-host source sync update mode for Supervisors that are running copied source trees or cannot pull from git.
+- Define a Core-created update package format for the Supervisor source tree, including manifest, source version, commit SHA when available, file list, checksum, and compatibility metadata.
+- Package only approved source assets needed by the Supervisor runtime: backend app, `hexe_supervisor`, requirements, scripts, systemd templates, shared assets, and bundled addons if needed.
+- Exclude private config, tokens, `.env` files, `.venv`, `node_modules`, build caches, runtime data, logs, `var`, `data`, `runtime`, `temp`, and machine-local state.
+- Add Supervisor-side package receive/apply support with staging, checksum validation, install-root containment checks, backup creation, atomic replacement where practical, dependency install, unit regeneration when requested, restart, status polling, and rollback metadata.
+- Make package application idempotent by package id or manifest digest.
+- Ensure Core can stream or upload the package to the selected Supervisor over the authenticated Supervisor API without requiring SSH.
+- Preserve local git mode; Core-host mode must not degrade git-based hosts.
+- Preserve Core/Supervisor mirror alignment.
+- Acceptance: Core can build a sanitized Supervisor update package from the Core host source and send it to a Supervisor that has no git checkout.
+- Acceptance: Supervisor validates the package manifest and checksum before applying it.
+- Acceptance: Package apply preserves private env/config, runtime state, and node/addon data.
+- Acceptance: Failed package apply leaves the previous Supervisor source and units recoverable through a recorded backup path.
+- Acceptance: The remote `hexe-ai.local` copied-tree deployment shape is covered by tests or a documented live-verification checklist.
+- Verification: Add package builder tests for include/exclude rules, checksum generation, path traversal rejection, and manifest compatibility.
+- Verification: Add Supervisor package apply tests for success, invalid checksum, path escape, dependency failure, restart failure, idempotent retry, and rollback metadata.
+- Verification: Run targeted package/update tests.
+- Verification: Run `python tools/update_openapi_snapshot.py --check` if API paths or schemas change.
+- Verification: Run `python tools/check_mirror_drift.py`.
+
+## Task 995
+Original task details:
+- User request: Make the Core-sent remote Supervisor update option usable by an operator.
+- Depends on: Tasks 992 and 993; include Task 994 behavior when available.
+- Goal: Surface Supervisor update state and actions in the Core UI without making update state look like liveness.
+- Add Supervisor Fleet UI fields for reported version, target/current Core source revision when available, update capability, supported modes, last update state, last update time, and sanitized last error.
+- Add an update action affordance for online trusted Supervisors with supported update modes. Require explicit operator confirmation that names the target Supervisor, host, selected mode, and expected source.
+- Offer `git` and `core_host` modes only when the backend says they are supported. Disable unavailable modes with clear reasons.
+- Show progress/status polling after an update starts, including accepted/running/succeeded/failed states and restart reconnect handling.
+- Keep stale/offline/historical Supervisor records visually distinct and do not offer normal update actions for them.
+- Add UI tests for mode availability, confirmation, disabled stale/offline states, start success, start failure, progress polling, and sanitized errors.
+- Preserve existing resource history and runtime tables.
+- Acceptance: An operator can see which Supervisors are up to date, which need updates, and which update source modes are available.
+- Acceptance: An operator can start an update for a supported online Supervisor from Core UI with confirmation.
+- Acceptance: UI never displays tokens, raw env values, or unredacted update logs.
+- Verification: Run targeted frontend tests for Supervisor Settings/Fleet update UI.
+- Verification: Run frontend typecheck or build as appropriate.
+
+## Task 996
+Original task details:
+- User request: Create dev tasks for Core-sent Supervisor update commands, including git and Core-host update sources.
+- Depends on: Tasks 992, 993, 994, and 995.
+- Goal: Document and live-verify the complete remote Supervisor update workflow after implementation.
+- Update Supervisor docs with supported update modes, required environment variables, updater unit behavior, API routes, state machine, idempotency behavior, backup/rollback expectations, and security boundaries.
+- Update Core docs/API reference with fleet update routes, authorization requirements, audit behavior, stale/offline behavior, and operator UI flow.
+- Add an operator runbook for both modes:
+  - Git mode: Supervisor host pulls from its configured remote checkout and runs the bounded updater.
+  - Core-host mode: Core builds a sanitized package from its local Supervisor source and sends it to the remote Supervisor.
+- Include a live-verification checklist based on the `hexe-ai.local` scenario: remote host reachable, Supervisor socket healthy, copied-tree source supported by Core-host mode, version changes from stale to current, Core fleet heartbeat returns fresh `supervisor_version`, and private config/runtime state remains intact.
+- Document rollback expectations and where backups/logs are stored.
+- Preserve Core/Supervisor mirror alignment.
+- Acceptance: Docs clearly separate update detection, operator command, Supervisor-local execution, package application, restart, heartbeat propagation, and rollback.
+- Acceptance: Docs make clear that Core does not gain arbitrary remote shell execution and that Supervisor remains the host-local update executor.
+- Acceptance: API reference, OpenAPI snapshot, UI docs, and operator runbook match the implemented behavior.
+- Verification: Run `python tools/update_openapi_snapshot.py --check`.
+- Verification: Run `python tools/check_env_registry.py --check-docs` if env settings are added.
+- Verification: Run `python tools/check_mirror_drift.py`.
+- Verification: Run a live or dry-run remote update check against a test Supervisor or explicitly document why live verification was not safe.
