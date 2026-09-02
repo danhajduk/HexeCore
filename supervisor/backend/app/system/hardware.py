@@ -160,13 +160,22 @@ def active_bluetooth_supervisors(supervisor_store: object | None) -> list[object
     if supervisor_store is None or not hasattr(supervisor_store, "list"):
         return []
     records = supervisor_store.list(include_historical=False)
-    return [
+    candidates = [
         record
         for record in records
         if supervisor_has_bluetooth(record)
         and clean_text(getattr(record, "trust_status", "")).lower() == "trusted"
         and freshness_state(record) == "online"
     ]
+    candidates.sort(
+        key=lambda record: (
+            "local_core_attached" in [str(item) for item in getattr(record, "capabilities", []) or []],
+            clean_text(getattr(record, "transport", "")).lower() == "local",
+            clean_text(getattr(record, "last_seen_at", "")),
+        ),
+        reverse=True,
+    )
+    return candidates
 
 
 class HardwareProvisioningContext(BaseModel):

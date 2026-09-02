@@ -112,15 +112,29 @@ class TestNodeHardwareAccessApi(unittest.TestCase):
             )
         )
 
-    def _supervisor(self, *, policy: str) -> None:
+    def _supervisor(
+        self,
+        *,
+        policy: str,
+        supervisor_id: str = "sup-1",
+        supervisor_name: str = "Supervisor 1",
+        host_id: str = "host-1",
+        transport: str = "http",
+        api_base_url: str | None = "http://127.0.0.1:57665",
+        capabilities: list[str] | None = None,
+        metadata: dict | None = None,
+    ) -> None:
+        bluetooth_metadata = {"present": True, "powered": True, "policy": policy, "governed_by_core": True}
+        if metadata:
+            bluetooth_metadata.update(metadata)
         self.supervisors.heartbeat(
             SupervisorHeartbeatRequest(
-                supervisor_id="sup-1",
-                supervisor_name="Supervisor 1",
-                host_id="host-1",
-                hostname="host-1",
-                api_base_url="http://127.0.0.1:57665",
-                transport="http",
+                supervisor_id=supervisor_id,
+                supervisor_name=supervisor_name,
+                host_id=host_id,
+                hostname=host_id,
+                api_base_url=api_base_url,
+                transport=transport,
                 health_status="ok",
                 lifecycle_state="running",
                 resources={
@@ -128,8 +142,8 @@ class TestNodeHardwareAccessApi(unittest.TestCase):
                     "bluetooth_powered": True,
                     "bluetooth_adapters": [{"adapter": "hci0", "present": True, "powered": True}],
                 },
-                capabilities=["host_resources", "bluetooth", "bluetooth_governance"],
-                metadata={"bluetooth": {"present": True, "powered": True, "policy": policy, "governed_by_core": True}},
+                capabilities=capabilities or ["host_resources", "bluetooth", "bluetooth_governance"],
+                metadata={"bluetooth": bluetooth_metadata},
             )
         )
 
@@ -304,6 +318,36 @@ class TestNodeHardwareAccessApi(unittest.TestCase):
         self.assertEqual(invalid.status_code, 200, invalid.text)
         self.assertFalse(invalid.json()["valid"])
         self.assertEqual(invalid.json()["error"], "hardware_access_lease_released")
+
+    def test_unspecified_supervisor_prefers_local_attached_bluetooth_broker(self) -> None:
+        self._supervisor(
+            policy="allowed",
+            supervisor_id="remote-sup",
+            supervisor_name="Remote Supervisor",
+            host_id="remote-host",
+            transport="socket",
+            api_base_url=None,
+        )
+        self._supervisor(
+            policy="allowed",
+            supervisor_id="local-sup",
+            supervisor_name="Local Supervisor",
+            host_id="local-host",
+            transport="local",
+            api_base_url=None,
+            capabilities=["host_resources", "bluetooth", "bluetooth_governance", "local_core_attached"],
+        )
+
+        created = self.client.post(
+            "/api/system/nodes/hardware/access-requests",
+            headers={"X-Node-Trust-Token": "node-token"},
+            json={"node_id": "node-1", "resource_type": "bluetooth", "operation": "ble.scan", "adapter": "hci0"},
+        )
+
+        self.assertEqual(created.status_code, 200, created.text)
+        access = created.json()["access_request"]
+        self.assertEqual(access["status"], "granted")
+        self.assertEqual(access["supervisor_id"], "local-sup")
 
     def test_disabled_policy_denies_request(self) -> None:
         self._supervisor(policy="disabled")
