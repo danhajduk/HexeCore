@@ -243,3 +243,11 @@ Chosen fix: Added Supervisor-local status/start routes that report git/updater c
 What changed: Added mirrored Supervisor update models, service logic, router endpoints, tests, OpenAPI snapshot updates, and docs for supported/unsupported update modes.
 Verification: Core and Supervisor focused update/router tests passed; OpenAPI snapshot validation passed; Core/Supervisor mirror drift guard passed.
 ###########
+
+Task #993
+Step objective: Add Core Supervisor update orchestration and authorization.
+Issue cause: Core could list Supervisor freshness and versions, but had no admin-owned fleet command path to ask an online local or remote Supervisor to update itself.
+Chosen fix: Added admin-protected fleet update status/start routes that verify online freshness, read each Supervisor's advertised update capability, forward only bounded idempotent update requests, and persist/audit sanitized status metadata.
+What changed: Updated mirrored fleet router orchestration, Supervisor API client helpers, app audit wiring, focused tests, OpenAPI path snapshot, and operator documentation.
+Verification: Core and Supervisor focused fleet/client/update tests passed; OpenAPI snapshot validation passed; Core/Supervisor mirror drift guard passed; diff whitespace check passed.
+###########

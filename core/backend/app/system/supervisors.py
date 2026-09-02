@@ -9,11 +9,11 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 from fastapi import APIRouter, Header, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.admin import require_admin_token
 
@@ -192,6 +192,31 @@ def _numeric_metrics_payload(value: object, keys: tuple[str, ...] = SERVICE_TELE
     return metrics
 
 
+def _sanitize_update_payload(value: object, *, depth: int = 0) -> Any:
+    if depth > 6:
+        return "[truncated]"
+    if isinstance(value, dict):
+        clean: dict[str, Any] = {}
+        for key, item in value.items():
+            key_text = str(key)
+            lowered = key_text.lower()
+            if any(marker in lowered for marker in ("token", "password", "secret", "credential", "private_key", "authorization")):
+                clean[key_text] = "[REDACTED]"
+            else:
+                clean[key_text] = _sanitize_update_payload(item, depth=depth + 1)
+        return clean
+    if isinstance(value, list):
+        return [_sanitize_update_payload(item, depth=depth + 1) for item in value[:100]]
+    if isinstance(value, str):
+        lowered = value.lower()
+        if any(marker in lowered for marker in ("token=", "password=", "secret=", "authorization:", "credential")):
+            return "[REDACTED]"
+        return value[:4000]
+    if isinstance(value, (int, float, bool)) or value is None:
+        return value
+    return str(value)[:1000]
+
+
 def _current_core_api_metrics(request: Request) -> dict[str, int | float]:
     latest = getattr(request.app.state, "latest_api_metrics", None)
     metrics = _numeric_metrics_payload(latest)
@@ -332,6 +357,14 @@ class SupervisorHeartbeatRequest(BaseModel):
 class SupervisorCoreRuntimeReportRequest(BaseModel):
     supervisor_id: str = Field(..., min_length=1)
     core_runtimes: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class SupervisorUpdateStartRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source_mode: Literal["git", "core_host"] = "git"
+    idempotency_key: str = Field(..., min_length=8, max_length=128)
+    service_update: bool = False
 
 
 class SupervisorEnrollmentTokenCreateRequest(BaseModel):
@@ -655,6 +688,16 @@ class SupervisorFleetStore:
         self._save()
         return record
 
+    def set_update_status(self, supervisor_id: str, update_status: dict[str, Any]) -> SupervisorFleetRecord:
+        record = self.get(supervisor_id)
+        if record is None:
+            raise HTTPException(status_code=404, detail="supervisor_not_found")
+        record.metadata = {**dict(record.metadata or {}), "update_status": _sanitize_update_payload(update_status)}
+        record.updated_at = _utcnow_iso()
+        self._records[record.supervisor_id] = record
+        self._save()
+        return record
+
     def verify_reporting_token(self, supervisor_id: str, token: str | None) -> bool:
         if not token:
             return False
@@ -752,6 +795,7 @@ class SupervisorEnrollmentTokenStore:
 def build_supervisors_router(
     store: SupervisorFleetStore | None = None,
     enrollment_store: SupervisorEnrollmentTokenStore | None = None,
+    audit_store: Any | None = None,
 ) -> APIRouter:
     router = APIRouter()
     registry = store or SupervisorFleetStore()
@@ -772,6 +816,25 @@ def build_supervisors_router(
                 return
             raise HTTPException(status_code=401, detail="invalid_supervisor_token")
         require_admin_token(x_admin_token, request)
+
+    def record_update_audit(event_type: str, *, supervisor_id: str, status: str, details: dict[str, Any] | None = None) -> None:
+        if audit_store is None:
+            return
+        record_sync = getattr(audit_store, "record_sync", None)
+        if not callable(record_sync):
+            return
+        record_sync(
+            event_type=event_type,
+            actor_role="admin",
+            actor_id="admin",
+            details=_sanitize_update_payload(
+                {
+                    "supervisor_id": supervisor_id,
+                    "status": status,
+                    **dict(details or {}),
+                }
+            ),
+        )
 
     def sync_local_supervisor(request: Request) -> None:
         cache = getattr(request.app.state, "supervisor_fleet_local_sync_cache", None)
@@ -895,6 +958,78 @@ def build_supervisors_router(
             raise HTTPException(status_code=502, detail="supervisor_history_invalid_payload")
         return payload
 
+    def require_updateable_supervisor(record: SupervisorFleetRecord) -> None:
+        freshness = _freshness_state(record.last_seen_at)
+        if freshness != "online":
+            raise HTTPException(
+                status_code=409,
+                detail={"error": "supervisor_not_online", "freshness_state": freshness},
+            )
+
+    def request_supervisor_update_api(
+        record: SupervisorFleetRecord,
+        request: Request,
+        method: str,
+        path: str,
+        *,
+        payload: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        if _is_local_supervisor_record(record):
+            client = getattr(request.app.state, "supervisor_client", None)
+            request_json = getattr(client, "request_json", None)
+            if not callable(request_json):
+                raise HTTPException(status_code=503, detail={"error": "supervisor_client_unavailable"})
+            result = request_json(method, path, payload=payload)
+            if result is None:
+                raise HTTPException(status_code=502, detail={"error": "supervisor_update_api_unavailable"})
+            if not isinstance(result, dict):
+                raise HTTPException(status_code=502, detail={"error": "supervisor_update_api_invalid_payload"})
+            return result
+
+        base_url = _clean_text(record.api_base_url).rstrip("/")
+        if not base_url:
+            raise HTTPException(status_code=409, detail={"error": "supervisor_api_base_url_missing"})
+        try:
+            response = httpx.request(method.upper(), f"{base_url}{path}", json=payload, timeout=_supervisor_history_timeout_s())
+        except httpx.HTTPError:
+            raise HTTPException(status_code=502, detail={"error": "supervisor_update_api_unavailable"}) from None
+        if response.status_code == 404:
+            raise HTTPException(status_code=404, detail={"error": "supervisor_update_api_not_found"})
+        if response.status_code >= 400:
+            try:
+                detail = response.json()
+            except ValueError:
+                detail = {"error": "supervisor_update_api_error", "status_code": response.status_code}
+            raise HTTPException(
+                status_code=502,
+                detail={
+                    "error": "supervisor_update_api_error",
+                    "status_code": response.status_code,
+                    "supervisor_detail": _sanitize_update_payload(detail),
+                },
+            )
+        try:
+            result = response.json()
+        except ValueError:
+            raise HTTPException(status_code=502, detail={"error": "supervisor_update_api_invalid_json"}) from None
+        if not isinstance(result, dict):
+            raise HTTPException(status_code=502, detail={"error": "supervisor_update_api_invalid_payload"})
+        return result
+
+    def update_status_for_record(record: SupervisorFleetRecord, request: Request) -> dict[str, Any]:
+        require_updateable_supervisor(record)
+        payload = request_supervisor_update_api(record, request, "GET", "/api/supervisor/update/status")
+        if not isinstance(payload.get("supported_modes", []), list):
+            raise HTTPException(status_code=502, detail={"error": "supervisor_update_status_invalid_payload"})
+        registry.set_update_status(record.supervisor_id, payload)
+        record_update_audit(
+            "supervisor_update_status_checked",
+            supervisor_id=record.supervisor_id,
+            status="success",
+            details={"source": "core", "update_state": payload.get("update_state")},
+        )
+        return _sanitize_update_payload(payload)
+
     @router.get("/supervisors")
     def list_supervisors(
         request: Request,
@@ -955,6 +1090,82 @@ def build_supervisors_router(
         if record is None:
             raise HTTPException(status_code=404, detail="supervisor_not_found")
         return {"supervisor": registry.api_dict(record)}
+
+    @router.get("/supervisors/{supervisor_id}/update/status")
+    def get_supervisor_update_status(
+        supervisor_id: str,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        require_admin_token(x_admin_token, request)
+        sync_local_supervisor(request)
+        record = registry.get(supervisor_id)
+        if record is None:
+            raise HTTPException(status_code=404, detail="supervisor_not_found")
+        try:
+            status = update_status_for_record(record, request)
+        except HTTPException as exc:
+            record_update_audit(
+                "supervisor_update_status_failed",
+                supervisor_id=supervisor_id,
+                status="failed",
+                details={"detail": exc.detail},
+            )
+            raise
+        return {"ok": True, "supervisor_id": record.supervisor_id, "update_status": status}
+
+    @router.post("/supervisors/{supervisor_id}/update/start")
+    def start_supervisor_update(
+        supervisor_id: str,
+        body: SupervisorUpdateStartRequest,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        require_admin_token(x_admin_token, request)
+        sync_local_supervisor(request)
+        record = registry.get(supervisor_id)
+        if record is None:
+            raise HTTPException(status_code=404, detail="supervisor_not_found")
+        try:
+            status = update_status_for_record(record, request)
+            supported_modes = status.get("supported_modes") if isinstance(status.get("supported_modes"), list) else []
+            if body.source_mode not in supported_modes:
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "error": "supervisor_update_mode_unsupported",
+                        "mode": body.source_mode,
+                        "reason": dict(status.get("unsupported_reasons") or {}).get(body.source_mode)
+                        if isinstance(status.get("unsupported_reasons"), dict)
+                        else None,
+                    },
+                )
+            payload = body.model_dump(mode="json")
+            result = request_supervisor_update_api(record, request, "POST", "/api/supervisor/update/start", payload=payload)
+            registry.set_update_status(record.supervisor_id, dict(result.get("status") or result))
+            record_update_audit(
+                "supervisor_update_requested",
+                supervisor_id=record.supervisor_id,
+                status="accepted" if bool(result.get("accepted")) else "replayed",
+                details={
+                    "source_mode": body.source_mode,
+                    "idempotency_key": body.idempotency_key,
+                    "result": result,
+                },
+            )
+        except HTTPException as exc:
+            record_update_audit(
+                "supervisor_update_rejected",
+                supervisor_id=supervisor_id,
+                status="failed",
+                details={
+                    "source_mode": body.source_mode,
+                    "idempotency_key": body.idempotency_key,
+                    "detail": exc.detail,
+                },
+            )
+            raise
+        return {"ok": True, "supervisor_id": record.supervisor_id, "result": _sanitize_update_payload(result)}
 
     @router.get("/supervisors/{supervisor_id}/resources/history")
     def get_supervisor_resource_history(

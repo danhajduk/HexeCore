@@ -152,6 +152,12 @@ class SupervisorApiClient:
             params["step"] = step_value
         return self._request_json("GET", f"/api/supervisor/core/runtimes/{runtime_id}/resources/history", params=params)
 
+    def supervisor_update_status(self) -> dict[str, Any] | None:
+        return self._request_json("GET", "/api/supervisor/update/status")
+
+    def start_supervisor_update(self, payload: dict[str, Any]) -> dict[str, Any] | None:
+        return self._request_json("POST", "/api/supervisor/update/start", payload=payload)
+
     def admission_summary(
         self,
         *,

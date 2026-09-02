@@ -1,5 +1,5 @@
 {
-  "path_count": 232,
+  "path_count": 234,
   "paths": {
     "/api/addons": [
       "get"
@@ -709,6 +709,12 @@
       "get"
     ],
     "/api/system/supervisors/{supervisor_id}/runtimes/{node_id}/resources/history": [
+      "get"
+    ],
+    "/api/system/supervisors/{supervisor_id}/update/start": [
+      "post"
+    ],
+    "/api/system/supervisors/{supervisor_id}/update/status": [
       "get"
     ],
     "/api/telemetry/usage": [

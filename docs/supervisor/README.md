@@ -134,6 +134,8 @@ The standalone Supervisor exposes a host-local update surface for Core or an ope
 
 `POST /api/supervisor/update/start` accepts `source_mode=git` with an `idempotency_key` and starts only the bounded `hexe-updater.service` systemd user unit. It does not accept arbitrary shell commands or caller-supplied paths. Git mode is available only when the Supervisor install root is a git checkout and both `scripts/update.sh` and `hexe-updater.service` are present. `core_host` package mode is intentionally reported as unsupported until the Core-host package workflow is implemented.
 
+Core exposes fleet-scoped wrappers at `GET /api/system/supervisors/{supervisor_id}/update/status` and `POST /api/system/supervisors/{supervisor_id}/update/start`. These wrappers require admin auth, only operate on online Supervisor records, use the local Supervisor client for attached Core Supervisors, use `api_base_url` for remote Supervisors, and store/audit only sanitized update metadata.
+
 ## Supervisor Enrollment Tokens
 
 Status: Implemented

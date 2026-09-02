@@ -1,4 +1,5 @@
 import os
+import json
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -47,6 +48,41 @@ class _FakeSupervisorClient:
 
     def __init__(self) -> None:
         self.requests: list[tuple[str, str]] = []
+
+
+class _FakeUpdateSupervisorClient(_FakeSupervisorClient):
+    def __init__(self, *, supported_modes: list[str] | None = None, start_response: dict | None = None) -> None:
+        super().__init__()
+        self.supported_modes = ["git"] if supported_modes is None else supported_modes
+        self.start_response = start_response or {
+            "accepted": True,
+            "state": "running",
+            "source_mode": "git",
+            "status": {"update_state": "running", "current_update": {"idempotency_key": "local-key-123"}},
+        }
+        self.update_payloads: list[dict | None] = []
+
+    def request_json(self, method: str, path: str, **kwargs):  # noqa: ANN001
+        self.requests.append((method, path))
+        if path == "/api/supervisor/update/status":
+            return {
+                "supervisor_id": "local-core-supervisor",
+                "supported_modes": list(self.supported_modes),
+                "unsupported_reasons": {"core_host": "core_host_package_mode_not_implemented"},
+                "update_state": "idle",
+            }
+        if path == "/api/supervisor/update/start":
+            self.update_payloads.append(kwargs.get("payload"))
+            return self.start_response
+        return super().request_json(method, path, **kwargs)
+
+
+class _FakeAuditStore:
+    def __init__(self) -> None:
+        self.records: list[dict] = []
+
+    def record_sync(self, **kwargs):  # noqa: ANN001
+        self.records.append(kwargs)
 
 
 class TestSupervisorFleetApi(unittest.TestCase):
@@ -411,6 +447,164 @@ class TestSupervisorFleetApi(unittest.TestCase):
         self.assertEqual(calls[0][1], {"range": "24h", "step": "60s"})
         self.assertEqual(calls[1][0], "http://remote-supervisor:57665/api/supervisor/core/runtimes/core-api/resources/history")
         self.assertEqual(calls[1][1], {"range": "24h", "step": "60s"})
+
+    def test_local_supervisor_update_start_uses_configured_client(self) -> None:
+        app = FastAPI()
+        supervisor_client = _FakeUpdateSupervisorClient()
+        app.state.supervisor_client = supervisor_client
+        audit_store = _FakeAuditStore()
+        app.include_router(build_supervisors_router(self.store, self.enrollment_store, audit_store=audit_store), prefix="/api/system")
+        client = TestClient(app)
+        headers = {"X-Admin-Token": "test-token"}
+
+        status_response = client.get("/api/system/supervisors/local-core-supervisor/update/status", headers=headers)
+        start_response = client.post(
+            "/api/system/supervisors/local-core-supervisor/update/start",
+            headers=headers,
+            json={"source_mode": "git", "idempotency_key": "local-key-123"},
+        )
+
+        self.assertEqual(status_response.status_code, 200, status_response.text)
+        self.assertEqual(status_response.json()["update_status"]["supported_modes"], ["git"])
+        self.assertEqual(start_response.status_code, 200, start_response.text)
+        self.assertTrue(start_response.json()["result"]["accepted"])
+        self.assertEqual(supervisor_client.update_payloads[0]["idempotency_key"], "local-key-123")
+        record = self.store.get("local-core-supervisor")
+        self.assertIsNotNone(record)
+        self.assertEqual(record.metadata["update_status"]["update_state"], "running")
+        self.assertIn("supervisor_update_requested", [entry["event_type"] for entry in audit_store.records])
+
+    def test_remote_supervisor_update_start_uses_registered_api_base_url(self) -> None:
+        headers = {"X-Admin-Token": "test-token"}
+        registered = self.client.post(
+            "/api/system/supervisors/register",
+            headers=headers,
+            json={"supervisor_id": "host-remote", "api_base_url": "http://remote-supervisor:57665", "transport": "http"},
+        )
+        self.assertEqual(registered.status_code, 200, registered.text)
+        heartbeat = self.client.post(
+            "/api/system/supervisors/heartbeat",
+            headers=headers,
+            json={"supervisor_id": "host-remote", "health_status": "healthy", "lifecycle_state": "running"},
+        )
+        self.assertEqual(heartbeat.status_code, 200, heartbeat.text)
+        calls: list[tuple[str, str, dict | None]] = []
+
+        def fake_request(method: str, url: str, *, json: dict | None, timeout: float) -> httpx.Response:  # noqa: A002
+            calls.append((method, url, json))
+            if url.endswith("/api/supervisor/update/status"):
+                return httpx.Response(200, json={"supported_modes": ["git"], "update_state": "idle", "timeout": timeout})
+            if url.endswith("/api/supervisor/update/start"):
+                return httpx.Response(200, json={"accepted": True, "state": "running", "status": {"update_state": "running"}})
+            return httpx.Response(404, json={"detail": "not_found"})
+
+        with patch("app.system.supervisors.httpx.request", side_effect=fake_request):
+            response = self.client.post(
+                "/api/system/supervisors/host-remote/update/start",
+                headers=headers,
+                json={"source_mode": "git", "idempotency_key": "remote-key-123"},
+            )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(calls[0][0], "GET")
+        self.assertEqual(calls[0][1], "http://remote-supervisor:57665/api/supervisor/update/status")
+        self.assertEqual(calls[1][0], "POST")
+        self.assertEqual(calls[1][1], "http://remote-supervisor:57665/api/supervisor/update/start")
+        self.assertEqual(calls[1][2]["idempotency_key"], "remote-key-123")
+
+    def test_supervisor_update_rejects_offline_and_unsupported_modes(self) -> None:
+        headers = {"X-Admin-Token": "test-token"}
+        registered = self.client.post(
+            "/api/system/supervisors/register",
+            headers=headers,
+            json={"supervisor_id": "host-offline", "api_base_url": "http://remote-supervisor:57665", "transport": "http"},
+        )
+        self.assertEqual(registered.status_code, 200, registered.text)
+
+        offline_response = self.client.get("/api/system/supervisors/host-offline/update/status", headers=headers)
+        self.assertEqual(offline_response.status_code, 409, offline_response.text)
+        self.assertEqual(offline_response.json()["detail"]["error"], "supervisor_not_online")
+
+        app = FastAPI()
+        supervisor_client = _FakeUpdateSupervisorClient(supported_modes=[])
+        app.state.supervisor_client = supervisor_client
+        app.include_router(build_supervisors_router(self.store, self.enrollment_store), prefix="/api/system")
+        client = TestClient(app)
+
+        unsupported_response = client.post(
+            "/api/system/supervisors/local-core-supervisor/update/start",
+            headers=headers,
+            json={"source_mode": "git", "idempotency_key": "unsupported-key-123"},
+        )
+        self.assertEqual(unsupported_response.status_code, 409, unsupported_response.text)
+        self.assertEqual(unsupported_response.json()["detail"]["error"], "supervisor_update_mode_unsupported")
+
+    def test_remote_supervisor_update_missing_api_and_invalid_payload_fail_closed(self) -> None:
+        headers = {"X-Admin-Token": "test-token"}
+        created = self.client.post(
+            "/api/system/supervisors/register",
+            headers=headers,
+            json={"supervisor_id": "host-missing-api", "transport": "http"},
+        )
+        self.assertEqual(created.status_code, 200, created.text)
+        record = self.store.get("host-missing-api")
+        self.assertIsNotNone(record)
+        record.last_seen_at = datetime.now(timezone.utc).isoformat()
+        self.store._save()
+
+        missing_api = self.client.get("/api/system/supervisors/host-missing-api/update/status", headers=headers)
+        self.assertEqual(missing_api.status_code, 409, missing_api.text)
+        self.assertEqual(missing_api.json()["detail"]["error"], "supervisor_api_base_url_missing")
+
+        registered = self.client.post(
+            "/api/system/supervisors/register",
+            headers=headers,
+            json={"supervisor_id": "host-invalid", "api_base_url": "http://remote-supervisor:57665", "transport": "http"},
+        )
+        self.assertEqual(registered.status_code, 200, registered.text)
+        record = self.store.get("host-invalid")
+        self.assertIsNotNone(record)
+        record.last_seen_at = datetime.now(timezone.utc).isoformat()
+        self.store._save()
+
+        with patch("app.system.supervisors.httpx.request", return_value=httpx.Response(200, json=[])):
+            invalid = self.client.get("/api/system/supervisors/host-invalid/update/status", headers=headers)
+
+        self.assertEqual(invalid.status_code, 502, invalid.text)
+        self.assertEqual(invalid.json()["detail"]["error"], "supervisor_update_api_invalid_payload")
+
+    def test_supervisor_update_redacts_sensitive_audit_details(self) -> None:
+        app = FastAPI()
+        supervisor_client = _FakeUpdateSupervisorClient(
+            start_response={
+                "accepted": True,
+                "state": "running",
+                "status": {
+                    "update_state": "running",
+                    "current_update": {
+                        "idempotency_key": "audit-key-123",
+                        "token": "plain-token",
+                        "output": "authorization: bearer secret",
+                    },
+                },
+            }
+        )
+        app.state.supervisor_client = supervisor_client
+        audit_store = _FakeAuditStore()
+        app.include_router(build_supervisors_router(self.store, self.enrollment_store, audit_store=audit_store), prefix="/api/system")
+        client = TestClient(app)
+
+        response = client.post(
+            "/api/system/supervisors/local-core-supervisor/update/start",
+            headers={"X-Admin-Token": "test-token"},
+            json={"source_mode": "git", "idempotency_key": "audit-key-123"},
+        )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        serialized = json.dumps([entry["details"] for entry in audit_store.records], sort_keys=True)
+        self.assertNotIn("plain-token", serialized)
+        self.assertNotIn("bearer secret", serialized)
+        self.assertIn("[REDACTED]", serialized)
 
 
 if __name__ == "__main__":

@@ -66,6 +66,13 @@ Supervisor update routes:
 - The route never runs caller-supplied shell, never accepts caller-supplied filesystem paths, and stores only sanitized update metadata in `var/supervisor/update-state.json`.
 - Concurrent update requests are rejected. Repeating the same idempotency key returns the existing current or completed attempt instead of starting another update.
 
+Core fleet update routes:
+
+- `GET /api/system/supervisors/{supervisor_id}/update/status` requires an admin session or token, verifies the Supervisor is currently `online`, reads `/api/supervisor/update/status` from the local attached Supervisor client or the remote `api_base_url`, and stores a sanitized `metadata.update_status` snapshot in the Core fleet registry.
+- `POST /api/system/supervisors/{supervisor_id}/update/start` requires an admin session or token, refreshes status first, verifies the requested `source_mode` is advertised by that Supervisor, then forwards the idempotent update request to `/api/supervisor/update/start`.
+- Core records `supervisor_update_status_checked`, `supervisor_update_status_failed`, `supervisor_update_requested`, and `supervisor_update_rejected` audit events when an audit store is configured. Update payloads are sanitized before storage or audit logging.
+- Core fails closed when a Supervisor is stale/offline, lacks `api_base_url`, lacks the update API, returns invalid JSON, or advertises no support for the requested update mode.
+
 Bluetooth broker routes:
 
 - `POST /api/supervisor/hardware/bluetooth/ble/status` validates a Core-issued hardware lease and returns adapter state.

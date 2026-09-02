@@ -1066,7 +1066,11 @@ def create_app() -> FastAPI:
     app.include_router(build_supervisor_status_router(), prefix="/api/system", tags=["supervisor"])
     supervisor_fleet_store = SupervisorFleetStore()
     app.state.supervisor_fleet_store = supervisor_fleet_store
-    app.include_router(build_supervisors_router(supervisor_fleet_store), prefix="/api/system", tags=["supervisor-fleet"])
+    app.include_router(
+        build_supervisors_router(supervisor_fleet_store, audit_store=audit_store),
+        prefix="/api/system",
+        tags=["supervisor-fleet"],
+    )
     app.include_router(build_internal_scheduler_router(), prefix="/api/system", tags=["scheduler"])
 
     event_service = PlatformEventService()
