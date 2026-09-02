@@ -93,6 +93,21 @@
   opacity: 0.6;
 }
 
+.settings-icon-btn {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.settings-icon-btn svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.2;
+}
+
 .settings-jobs-panel {
   background: hsl(var(--sx-bg) / 0.5);
   border: 1px solid hsl(var(--sx-text) / 0.08);
@@ -179,6 +194,41 @@
 
 .settings-pill-bad {
   background: hsl(var(--sx-danger) / 0.24);
+}
+
+.settings-pill-warn {
+  background: hsl(var(--sx-warning) / 0.3);
+}
+
+.settings-pill-neutral {
+  background: hsl(var(--sx-text) / 0.12);
+}
+
+.settings-update-cell {
+  min-width: 190px;
+  display: grid;
+  gap: calc(var(--sx-space-1) + 2px);
+}
+
+.settings-update-cell small {
+  opacity: 0.72;
+  line-height: 1.25;
+}
+
+.settings-update-error {
+  color: hsl(var(--sx-danger));
+  max-width: 260px;
+  overflow-wrap: anywhere;
+}
+
+.settings-update-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sx-space-2);
+}
+
+.settings-update-mode select {
+  max-width: 118px;
 }
 
 .settings-icon-pill {

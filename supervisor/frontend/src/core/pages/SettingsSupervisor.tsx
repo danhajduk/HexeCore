@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useState } from "react";
-import { Bluetooth, Globe2, Network, Wifi, type LucideIcon } from "lucide-react";
+import { Bluetooth, GitBranch, Globe2, Network, RefreshCw, UploadCloud, Wifi, type LucideIcon } from "lucide-react";
 import "./settings.css";
 import "./home.css";
 
@@ -104,6 +104,21 @@ type SupervisorFleetRecord = {
   last_seen_at?: string | null;
   visibility_state?: string;
   visibility_reason?: string | null;
+  metadata?: Record<string, unknown>;
+};
+
+export type SupervisorUpdateMode = "git" | "core_host";
+
+export type SupervisorUpdateStatus = {
+  reported_version?: string | null;
+  supported_modes?: string[];
+  unsupported_reasons?: Record<string, string>;
+  update_state?: string;
+  current_update?: Record<string, unknown> | null;
+  last_update?: Record<string, unknown> | null;
+  updated_at?: string;
+  git?: Record<string, unknown>;
+  package?: Record<string, unknown>;
 };
 
 type NodeServiceRow = {
@@ -200,6 +215,14 @@ function statusTone(state: unknown): "ok" | "warn" | "bad" | "neutral" {
   if (["unhealthy", "disconnected", "unreachable", "error", "failed", "down", "offline", "stopped"].includes(x)) {
     return "bad";
   }
+  return "neutral";
+}
+
+function updateTone(state: unknown): "ok" | "warn" | "bad" | "neutral" {
+  const normalized = String(state || "idle").toLowerCase();
+  if (["idle", "succeeded", "success"].includes(normalized)) return "ok";
+  if (["starting", "running", "rollback_required"].includes(normalized)) return "warn";
+  if (["failed", "error"].includes(normalized)) return "bad";
   return "neutral";
 }
 
@@ -579,6 +602,54 @@ function supervisorDiagnostic(supervisor: SupervisorFleetRecord): string {
   }
 }
 
+export function fleetSupervisorUpdateStatus(supervisor: SupervisorFleetRecord): SupervisorUpdateStatus | null {
+  const metadata = supervisor.metadata;
+  const status = metadata && typeof metadata === "object" ? metadata.update_status : null;
+  return status && typeof status === "object" ? (status as SupervisorUpdateStatus) : null;
+}
+
+export function updateModesForSupervisor(
+  supervisor: SupervisorFleetRecord,
+  status?: SupervisorUpdateStatus | null,
+): SupervisorUpdateMode[] {
+  if (String(supervisor.freshness_state || "").toLowerCase() !== "online") return [];
+  const modes = Array.isArray(status?.supported_modes) ? status?.supported_modes || [] : [];
+  return modes.filter((mode): mode is SupervisorUpdateMode => mode === "git" || mode === "core_host");
+}
+
+export function preferredSupervisorUpdateMode(modes: SupervisorUpdateMode[]): SupervisorUpdateMode | null {
+  if (modes.includes("core_host")) return "core_host";
+  if (modes.includes("git")) return "git";
+  return null;
+}
+
+export function supervisorUpdateStateLabel(status?: SupervisorUpdateStatus | null): string {
+  const current = status?.current_update;
+  const last = status?.last_update;
+  return displayState(status?.update_state || current?.state || last?.state || "unknown");
+}
+
+export function supervisorLastUpdateTime(status?: SupervisorUpdateStatus | null): string {
+  const current = status?.current_update;
+  const last = status?.last_update;
+  const value = current?.updated_at || current?.requested_at || last?.finished_at || last?.updated_at || status?.updated_at;
+  return value ? formatDateTime(value) : "-";
+}
+
+export function supervisorLastUpdateError(status?: SupervisorUpdateStatus | null): string {
+  const last = status?.last_update;
+  if (!last || typeof last !== "object") return "";
+  return String(last.error || last.message || "").trim();
+}
+
+export function buildSupervisorUpdateStartPayload(mode: SupervisorUpdateMode, idempotencyKey: string): Record<string, unknown> {
+  return {
+    source_mode: mode,
+    idempotency_key: idempotencyKey,
+    service_update: mode === "core_host",
+  };
+}
+
 function formatBytes(value: unknown): string {
   const parsed = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(parsed)) return "-";
@@ -766,6 +837,14 @@ function supervisorHostHistoryUrl(supervisor: SupervisorFleetRecord): string {
   return `/api/system/supervisors/${encodeURIComponent(supervisor.supervisor_id)}/resources/history?${SUPERVISOR_HISTORY_QUERY}`;
 }
 
+function supervisorUpdateStatusUrl(supervisor: SupervisorFleetRecord): string {
+  return `/api/system/supervisors/${encodeURIComponent(supervisor.supervisor_id)}/update/status`;
+}
+
+function supervisorUpdateStartUrl(supervisor: SupervisorFleetRecord): string {
+  return `/api/system/supervisors/${encodeURIComponent(supervisor.supervisor_id)}/update/start`;
+}
+
 function runtimeHistoryUrl(runtime: Record<string, unknown>): string {
   const nodeId = String(runtime.node_id || "").trim();
   const supervisorId = String(runtime.__supervisor_id || "").trim();
@@ -804,6 +883,10 @@ export default function SettingsSupervisor() {
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionBusy, setActionBusy] = useState<Record<string, string | null>>({});
+  const [updateBusy, setUpdateBusy] = useState<Record<string, SupervisorUpdateMode | null>>({});
+  const [updateStatuses, setUpdateStatuses] = useState<Record<string, SupervisorUpdateStatus>>({});
+  const [updateModes, setUpdateModes] = useState<Record<string, SupervisorUpdateMode>>({});
+  const [updateMessage, setUpdateMessage] = useState<string | null>(null);
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
   const [hostHistory, setHostHistory] = useState<SupervisorResourceHistory | null>(null);
   const [supervisorHistories, setSupervisorHistories] = useState<Record<string, SupervisorResourceHistory>>({});
@@ -829,9 +912,19 @@ export default function SettingsSupervisor() {
         fleetItems = Array.isArray(fleet.items) ? fleet.items : [];
         setSupervisors(fleetItems);
         setHiddenHistoricalCount(typeof fleet.hidden_historical_count === "number" ? fleet.hidden_historical_count : 0);
+        setUpdateStatuses((prev) =>
+          fleetItems.reduce<Record<string, SupervisorUpdateStatus>>((acc, supervisor) => {
+            const existing = prev[supervisor.supervisor_id];
+            const stored = fleetSupervisorUpdateStatus(supervisor);
+            if (existing) acc[supervisor.supervisor_id] = existing;
+            else if (stored) acc[supervisor.supervisor_id] = stored;
+            return acc;
+          }, {}),
+        );
       } else {
         setSupervisors([]);
         setHiddenHistoricalCount(0);
+        setUpdateStatuses({});
       }
       if (statsRes.ok) setStats((await statsRes.json()) as SystemStats);
       if (stackRes.ok) setStack((await stackRes.json()) as StackSummary);
@@ -861,6 +954,28 @@ export default function SettingsSupervisor() {
           return acc;
         }, {}),
       );
+      const updateStatusPairs = await Promise.all(
+        fleetItems
+          .filter((supervisor) => String(supervisor.freshness_state || "").toLowerCase() === "online")
+          .slice(0, 12)
+          .map(async (supervisor) => {
+            try {
+              const res = await fetch(supervisorUpdateStatusUrl(supervisor), { cache: "no-store" });
+              if (!res.ok) return null;
+              const payload = (await res.json()) as { update_status?: SupervisorUpdateStatus };
+              return [supervisor.supervisor_id, payload.update_status || {}] as const;
+            } catch {
+              return null;
+            }
+          }),
+      );
+      setUpdateStatuses((prev) => {
+        const next = { ...prev };
+        for (const item of updateStatusPairs) {
+          if (item) next[item[0]] = item[1];
+        }
+        return next;
+      });
       const runtimeItems = Array.isArray(supervisorPayload.runtimes) ? supervisorPayload.runtimes : [];
       const historyRuntimeItems = mergeNodeRuntimes(runtimeItems, fleetItems);
       const seenRuntimeHistoryUrls = new Set<string>();
@@ -929,6 +1044,7 @@ export default function SettingsSupervisor() {
       setSupervisorHistories({});
       setRuntimeHistories({});
       setCoreRuntimeHistories({});
+      setUpdateStatuses({});
     } finally {
       setLoading(false);
     }
@@ -1075,6 +1191,52 @@ export default function SettingsSupervisor() {
     setExpandedNodes((prev) => ({ ...prev, [nodeId]: !prev[nodeId] }));
   }
 
+  async function readResponseError(res: Response): Promise<string> {
+    try {
+      const payload = await res.json();
+      const detail = payload?.detail;
+      if (typeof detail === "string") return detail;
+      if (detail && typeof detail === "object") return String(detail.error || detail.message || JSON.stringify(detail));
+      return String(payload?.error || `HTTP ${res.status}`);
+    } catch {
+      return `HTTP ${res.status}`;
+    }
+  }
+
+  async function runSupervisorUpdate(supervisor: SupervisorFleetRecord, mode: SupervisorUpdateMode) {
+    const status = updateStatuses[supervisor.supervisor_id] || fleetSupervisorUpdateStatus(supervisor);
+    const modes = updateModesForSupervisor(supervisor, status);
+    if (!modes.includes(mode)) return;
+    const target = String(supervisor.supervisor_name || supervisor.supervisor_id);
+    const host = hostLabel(supervisor);
+    const modeLabel = mode === "core_host" ? "Core host package" : "Git";
+    const confirmed = window.confirm(`Update ${target} on ${host} using ${modeLabel}?`);
+    if (!confirmed) return;
+    const idempotencyKey = `ui-${supervisor.supervisor_id}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    setErr(null);
+    setUpdateMessage(null);
+    setUpdateBusy((prev) => ({ ...prev, [supervisor.supervisor_id]: mode }));
+    try {
+      const res = await fetch(supervisorUpdateStartUrl(supervisor), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildSupervisorUpdateStartPayload(mode, idempotencyKey)),
+      });
+      if (!res.ok) throw new Error(await readResponseError(res));
+      const payload = (await res.json()) as { result?: { status?: SupervisorUpdateStatus; state?: string; message?: string } };
+      const resultStatus = payload.result?.status || (payload.result as SupervisorUpdateStatus | undefined);
+      if (resultStatus) {
+        setUpdateStatuses((prev) => ({ ...prev, [supervisor.supervisor_id]: resultStatus }));
+      }
+      setUpdateMessage(`${target}: ${displayState(payload.result?.state || resultStatus?.update_state || "accepted")}`);
+      await loadSummary();
+    } catch (e: any) {
+      setErr(e?.message ?? String(e));
+    } finally {
+      setUpdateBusy((prev) => ({ ...prev, [supervisor.supervisor_id]: null }));
+    }
+  }
+
   return (
     <div className="settings-page">
       <h1 className="settings-title">Settings / Supervisor</h1>
@@ -1083,8 +1245,9 @@ export default function SettingsSupervisor() {
         <div className="settings-row-actions" />
       </div>
 
-      {err && <div className="settings-error">Failed to load supervisor summary: {err}</div>}
+      {err && <div className="settings-error">Supervisor page error: {err}</div>}
       {summary?.error && <div className="settings-error">Supervisor error: {summary.error}</div>}
+      {updateMessage && <div className="settings-success">{updateMessage}</div>}
 
       <section className="settings-section">
         <div className="settings-section-head">
@@ -1099,40 +1262,107 @@ export default function SettingsSupervisor() {
                 <tr>
                   <th />
                   <th>Name</th>
-                  <th>ID</th>
-                  <th>Host</th>
-                  <th>Freshness</th>
-                  <th>Health</th>
-                  <th>Diagnostic</th>
+	                  <th>ID</th>
+	                  <th>Version</th>
+	                  <th>Host</th>
+	                  <th>Freshness</th>
+	                  <th>Health</th>
+	                  <th>Diagnostic</th>
                   <th>Nodes</th>
                   <th>Runtimes</th>
                   <th>GPU</th>
-                  <th>CPU</th>
-                  <th>Mem</th>
-                  <th>Last Seen</th>
-                </tr>
-              </thead>
-              <tbody>
-                {supervisors.map((supervisor) => (
-                  <tr key={supervisor.supervisor_id}>
-                    <td>
-                      <StatusLed tone={statusTone(supervisor.freshness_state || supervisor.health_status)} />
-                    </td>
-                    <td>{String(supervisor.supervisor_name || supervisor.supervisor_id)}</td>
-                    <td className="settings-mono">{supervisor.supervisor_id}</td>
-                    <td>{String(supervisor.hostname || supervisor.host_id || "-")}</td>
-                    <td>{supervisorFreshnessLabel(supervisor)}</td>
-                    <td>{supervisorHealthLabel(supervisor)}</td>
-                    <td>{supervisorDiagnostic(supervisor)}</td>
+	                  <th>CPU</th>
+	                  <th>Mem</th>
+	                  <th>Update</th>
+	                  <th>Last Seen</th>
+	                </tr>
+	              </thead>
+	              <tbody>
+	                {supervisors.map((supervisor) => {
+                    const updateStatus = updateStatuses[supervisor.supervisor_id] || fleetSupervisorUpdateStatus(supervisor);
+                    const modes = updateModesForSupervisor(supervisor, updateStatus);
+                    const selectedMode =
+                      updateModes[supervisor.supervisor_id] && modes.includes(updateModes[supervisor.supervisor_id])
+                        ? updateModes[supervisor.supervisor_id]
+                        : preferredSupervisorUpdateMode(modes);
+                    const busyMode = updateBusy[supervisor.supervisor_id];
+                    const lastError = supervisorLastUpdateError(updateStatus);
+                    return (
+	                  <tr key={supervisor.supervisor_id}>
+	                    <td>
+	                      <StatusLed tone={statusTone(supervisor.freshness_state || supervisor.health_status)} />
+	                    </td>
+	                    <td>{String(supervisor.supervisor_name || supervisor.supervisor_id)}</td>
+	                    <td className="settings-mono">{supervisor.supervisor_id}</td>
+	                    <td>{String(supervisor.supervisor_version || updateStatus?.reported_version || "-")}</td>
+	                    <td>{String(supervisor.hostname || supervisor.host_id || "-")}</td>
+	                    <td>{supervisorFreshnessLabel(supervisor)}</td>
+	                    <td>{supervisorHealthLabel(supervisor)}</td>
+	                    <td>{supervisorDiagnostic(supervisor)}</td>
                     <td>{formatNumber(supervisorNodeCount(supervisor))}</td>
                     <td>{formatNumber(supervisor.registered_runtime_count)}</td>
-                    <td>{numberValue(supervisor.resources?.gpu_count) ? "Yes" : "No"}</td>
-                    <td>{formatPctValue(supervisor.resources?.cpu_percent_total)}</td>
-                    <td>{formatPctValue(supervisor.resources?.memory_percent)}</td>
-                    <td>{formatDateTime(supervisor.last_seen_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
+	                    <td>{numberValue(supervisor.resources?.gpu_count) ? "Yes" : "No"}</td>
+	                    <td>{formatPctValue(supervisor.resources?.cpu_percent_total)}</td>
+	                    <td>{formatPctValue(supervisor.resources?.memory_percent)}</td>
+	                    <td>
+                        <div className="settings-update-cell">
+                          <span className={`settings-pill settings-pill-${updateTone(updateStatus?.update_state)}`}>
+                            {supervisorUpdateStateLabel(updateStatus)}
+                          </span>
+                          <small>{supervisorLastUpdateTime(updateStatus)}</small>
+                          {lastError && <small className="settings-update-error">{lastError}</small>}
+                          {modes.length > 0 ? (
+                            <div className="settings-update-actions">
+                              <label className="settings-select settings-update-mode">
+                                <select
+                                  value={selectedMode || ""}
+                                  onChange={(event) =>
+                                    setUpdateModes((prev) => ({
+                                      ...prev,
+                                      [supervisor.supervisor_id]: event.target.value as SupervisorUpdateMode,
+                                    }))
+                                  }
+                                  disabled={Boolean(busyMode)}
+                                  aria-label={`Update mode for ${supervisor.supervisor_id}`}
+                                >
+                                  {modes.map((mode) => (
+                                    <option key={mode} value={mode}>
+                                      {mode === "core_host" ? "Core host" : "Git"}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <button
+                                className="settings-btn settings-icon-btn"
+                                type="button"
+                                title={`Update ${supervisor.supervisor_id}`}
+                                aria-label={`Update ${supervisor.supervisor_id}`}
+                                onClick={() => selectedMode && void runSupervisorUpdate(supervisor, selectedMode)}
+                                disabled={!selectedMode || Boolean(busyMode)}
+                              >
+                                {selectedMode === "git" ? <GitBranch aria-hidden="true" /> : <UploadCloud aria-hidden="true" />}
+                              </button>
+                              <button
+                                className="settings-btn settings-icon-btn"
+                                type="button"
+                                title={`Refresh update status for ${supervisor.supervisor_id}`}
+                                aria-label={`Refresh update status for ${supervisor.supervisor_id}`}
+                                onClick={() => void loadSummary()}
+                                disabled={Boolean(busyMode)}
+                              >
+                                <RefreshCw aria-hidden="true" />
+                              </button>
+                            </div>
+                          ) : (
+                            <small>{String(updateStatus?.unsupported_reasons?.git || updateStatus?.unsupported_reasons?.core_host || "Unavailable")}</small>
+                          )}
+                        </div>
+                      </td>
+	                    <td>{formatDateTime(supervisor.last_seen_at)}</td>
+	                  </tr>
+                    );
+                  })}
+	              </tbody>
             </table>
           )}
           {hiddenHistoricalCount > 0 && (

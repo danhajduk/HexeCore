@@ -259,3 +259,11 @@ Chosen fix: Added a Core-built Supervisor package format with manifest digest, a
 What changed: Added mirrored package builder/validator modules, extended Supervisor update request/status models and service apply logic, taught Core fleet update orchestration to build/upload `core_host` packages, added focused package/apply/upload tests, and updated API/Supervisor docs.
 Verification: Core and Supervisor package/update/fleet/client tests passed; OpenAPI snapshot validation passed; Core/Supervisor mirror drift guard passed; diff whitespace check passed.
 ###########
+
+Task #995
+Step objective: Surface Supervisor update state and actions in Core UI.
+Issue cause: Operators could use the new backend update routes, but the Supervisor settings UI did not show update capability, state, or safe action controls.
+Chosen fix: Added compact fleet-table update status, mode selection, icon actions, confirmation prompts, status refresh, success/error feedback, and helper tests while keeping freshness and update state visually separate.
+What changed: Updated mirrored Supervisor settings page and CSS, added frontend update helper tests, and kept actions gated to online Supervisors with advertised modes.
+Verification: Core and Supervisor targeted frontend update tests passed; Core and Supervisor frontend production builds passed; Core/Supervisor mirror drift guard passed.
+###########
