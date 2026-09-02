@@ -2,14 +2,37 @@ from __future__ import annotations
 
 import os
 import time
+import base64
+import json
 import unittest
 from unittest.mock import patch
 
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import x25519
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.supervisor import SupervisorDomainService, build_supervisor_router
 from app.system.auth.tokens import sign_hs256
+from app.system.hardware import BLE_PROVISIONING_CONTRACT_VERSION, BLE_PROVISIONING_KEY_AGREEMENT
+
+
+def _b64url_encode(raw: bytes) -> str:
+    return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+
+
+def _b64url_decode(value: str) -> bytes:
+    return base64.urlsafe_b64decode(value + ("=" * (-len(value) % 4)))
+
+
+def _json_bytes(payload: dict) -> bytes:
+    return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def _future_iso() -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + 600))
 
 
 class _Completed:
@@ -23,14 +46,14 @@ class _ProvisioningBackend:
     def __init__(self) -> None:
         self.calls = []
 
-    def provision_wifi(self, *, body, adapter, validation):
-        self.calls.append((body, adapter, validation))
+    def provision_wifi(self, *, adapter, validation, envelope, target_address, timeout_s):
+        self.calls.append((adapter, validation, envelope, target_address, timeout_s))
         return {"ok": True, "status": "completed", "ack": True, "message": "provisioned"}
 
 
 class _FailingProvisioningBackend:
-    def provision_wifi(self, *, body, adapter, validation):
-        raise RuntimeError("write_timeout")
+    def provision_wifi(self, *, adapter, validation, envelope, target_address, timeout_s):
+        raise RuntimeError(f"write_timeout:{envelope['ciphertext']}:correct-password")
 
 
 class TestSupervisorBluetoothBroker(unittest.TestCase):
@@ -46,6 +69,14 @@ class TestSupervisorBluetoothBroker(unittest.TestCase):
             clear=False,
         )
         self.env_patch.start()
+        self.endpoint_private_key = x25519.X25519PrivateKey.generate()
+        self.endpoint_public_key = _b64url_encode(
+            self.endpoint_private_key.public_key().public_bytes(
+                encoding=serialization.Encoding.Raw,
+                format=serialization.PublicFormat.Raw,
+            )
+        )
+        self.provisioning_expires_at = _future_iso()
         self.service = SupervisorDomainService()
         self.service._bluetooth_summary = lambda: {  # type: ignore[method-assign]
             "bluetooth_present": True,
@@ -64,11 +95,16 @@ class TestSupervisorBluetoothBroker(unittest.TestCase):
     def _provisioning_context(self, *, onboarding_session_id: str = "onboard-1") -> dict:
         return {
             "contract_version": "1.0",
+            "schema_version": "1.0",
             "onboarding_session_id": onboarding_session_id,
             "target_node_id": "voice-node-1",
             "node_profile_id": "voice",
             "payload_schema_id": "hexe.voice_node.wifi_backend.v1",
+            "endpoint_ephemeral_public_key": self.endpoint_public_key,
             "pairing_nonce": "nonce-123456",
+            "claim_code_ref": "claim-ref-1",
+            "sequence": 1,
+            "expires_at": self.provisioning_expires_at,
         }
 
     def _voice_payload(self) -> dict:
@@ -170,6 +206,15 @@ class TestSupervisorBluetoothBroker(unittest.TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.json()["detail"]["error"], "hardware_access_provisioning_onboarding_session_id_mismatch")
 
+    def test_ble_provision_wifi_rejects_wrong_claim_code_binding(self) -> None:
+        request = self._provisioning_request()
+        request["claim_code_ref"] = "claim-ref-2"
+
+        response = self.client.post("/api/supervisor/hardware/bluetooth/ble/provision-wifi", json=request)
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()["detail"]["error"], "hardware_access_provisioning_claim_code_ref_mismatch")
+
     def test_ble_provision_wifi_fails_closed_without_backend(self) -> None:
         response = self.client.post("/api/supervisor/hardware/bluetooth/ble/provision-wifi", json=self._provisioning_request())
 
@@ -200,10 +245,11 @@ class TestSupervisorBluetoothBroker(unittest.TestCase):
         self.assertFalse(payload["ok"])
         self.assertEqual(payload["status"], "failed")
         self.assertEqual(payload["error"], "gatt_backend_failed")
-        self.assertEqual(payload["message"], "write_timeout")
+        self.assertEqual(payload["message"], "write_timeout:[REDACTED]:[REDACTED]")
         self.assertEqual(payload["credential_payload"]["wifi_password"], "[REDACTED]")
+        self.assertEqual(payload["provisioning_envelope"]["ciphertext"], "[REDACTED]")
 
-    def test_ble_provision_wifi_uses_gatt_backend_and_redacts_response(self) -> None:
+    def test_ble_provision_wifi_writes_encrypted_envelope_and_redacts_response(self) -> None:
         backend = _ProvisioningBackend()
         self.service._ble_provisioning_backend = backend
 
@@ -215,9 +261,45 @@ class TestSupervisorBluetoothBroker(unittest.TestCase):
         self.assertEqual(payload["status"], "completed")
         self.assertEqual(payload["credential_payload"]["wifi_password"], "[REDACTED]")
         self.assertEqual(payload["provisioning"]["target_node_id"], "voice-node-1")
-        self.assertEqual(backend.calls[0][0].credential_payload.wifi_password, "correct-password")
-        self.assertEqual(backend.calls[0][1]["adapter"], "hci0")
+        self.assertEqual(payload["provisioning_envelope"]["ciphertext"], "[REDACTED]")
+        adapter, _validation, envelope, target_address, timeout_s = backend.calls[0]
+        self.assertEqual(adapter["adapter"], "hci0")
+        self.assertEqual(target_address, "AA:BB:CC:DD:EE:FF")
+        self.assertEqual(timeout_s, 30)
+        self.assertEqual(envelope["schema_version"], "1.0")
+        self.assertEqual(envelope["payload_schema_id"], "hexe.voice_node.wifi_backend.v1")
+        self.assertEqual(envelope["contract_version"], "1.0")
+        self.assertEqual(envelope["sequence"], 1)
+        self.assertEqual(envelope["expires_at"], self.provisioning_expires_at)
+        self.assertEqual(envelope["algorithm"], "aes-256-gcm")
+        decrypted = self._decrypt_envelope(envelope)
+        self.assertEqual(decrypted["credential_payload"]["wifi_password"], "correct-password")
+        self.assertEqual(decrypted["credential_payload"]["backend_host"], "core.local")
         self.assertEqual(self.service._ble_provisioning_events[-1]["event"], "provision_wifi_completed")
+        self.assertNotIn("correct-password", json.dumps(self.service._ble_provisioning_events))
+
+    def _decrypt_envelope(self, envelope: dict) -> dict:
+        supervisor_public_key = x25519.X25519PublicKey.from_public_bytes(_b64url_decode(envelope["supervisor_ephemeral_public_key"]))
+        shared_secret = self.endpoint_private_key.exchange(supervisor_public_key)
+        salt = _json_bytes(
+            {
+                "contract_version": BLE_PROVISIONING_CONTRACT_VERSION,
+                "schema_version": "1.0",
+                "onboarding_session_id": envelope["onboarding_session_id"],
+                "target_node_id": envelope["target_node_id"],
+                "pairing_nonce": envelope["pairing_nonce"],
+            }
+        )
+        key = HKDF(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=salt,
+            info=f"hexe:{BLE_PROVISIONING_KEY_AGREEMENT}:ble.provision_wifi".encode("ascii"),
+        ).derive(shared_secret)
+        aad = _b64url_decode(envelope["aad"])
+        ciphertext = _b64url_decode(envelope["ciphertext"]) + _b64url_decode(envelope["tag"])
+        decrypted = AESGCM(key).decrypt(_b64url_decode(envelope["nonce"]), ciphertext, aad)
+        return json.loads(decrypted)
 
 
 if __name__ == "__main__":

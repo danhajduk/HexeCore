@@ -4,7 +4,11 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.system.hardware import BLE_PROVISIONING_CONTRACT_VERSION, VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID
+from app.system.hardware import (
+    BLE_PROVISIONING_CONTRACT_VERSION,
+    BLE_PROVISIONING_ENVELOPE_SCHEMA_VERSION,
+    VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID,
+)
 
 
 class HostIdentitySummary(BaseModel):
@@ -81,12 +85,16 @@ class SupervisorBluetoothProvisionWifiRequest(SupervisorBluetoothLeaseRequest):
     model_config = ConfigDict(extra="forbid")
 
     contract_version: Literal["1.0"] = BLE_PROVISIONING_CONTRACT_VERSION
+    schema_version: Literal["1.0"] = BLE_PROVISIONING_ENVELOPE_SCHEMA_VERSION
     onboarding_session_id: str = Field(..., min_length=1)
     target_node_id: str = Field(..., min_length=1)
     node_profile_id: Literal["voice"] = "voice"
     payload_schema_id: Literal["hexe.voice_node.wifi_backend.v1"] = VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID
+    endpoint_ephemeral_public_key: str = Field(..., min_length=43, max_length=128)
     pairing_nonce: str | None = Field(default=None, min_length=8, max_length=128)
     claim_code_ref: str | None = Field(default=None, min_length=1, max_length=128)
+    sequence: int = Field(default=1, ge=1)
+    expires_at: str | None = None
     target_address: str | None = Field(default=None, min_length=1, max_length=64)
     credential_payload: SupervisorVoiceWifiProvisioningPayload
     timeout_s: int = Field(default=30, ge=1, le=120)

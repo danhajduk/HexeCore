@@ -114,11 +114,15 @@ Provisioning request example:
   "adapter": "hci0",
   "provisioning": {
     "contract_version": "1.0",
+    "schema_version": "1.0",
     "onboarding_session_id": "onboard_...",
     "target_node_id": "voice-node-1",
     "node_profile_id": "voice",
     "payload_schema_id": "hexe.voice_node.wifi_backend.v1",
-    "pairing_nonce": "nonce-from-target-node"
+    "endpoint_ephemeral_public_key": "<base64url raw X25519 public key>",
+    "pairing_nonce": "nonce-from-target-node",
+    "sequence": 1,
+    "expires_at": "2026-09-02T20:00:00+00:00"
   }
 }
 ```
@@ -269,11 +273,15 @@ Response fields include:
   "adapter": "hci0",
   "target_address": "AA:BB:CC:DD:EE:FF",
   "contract_version": "1.0",
+  "schema_version": "1.0",
   "onboarding_session_id": "onboard_...",
   "target_node_id": "voice-node-1",
   "node_profile_id": "voice",
   "payload_schema_id": "hexe.voice_node.wifi_backend.v1",
+  "endpoint_ephemeral_public_key": "<base64url raw X25519 public key>",
   "pairing_nonce": "nonce-from-target-node",
+  "sequence": 1,
+  "expires_at": "2026-09-02T20:00:00+00:00",
   "credential_payload": {
     "wifi_ssid": "OfficeNet",
     "wifi_password": "<not returned by Supervisor>",
@@ -288,7 +296,7 @@ Response fields include:
 }
 ```
 
-The lease must include the `hardware.bluetooth.ble.provision_wifi` scope. Supervisor validates the lease and target provisioning context before accepting the Voice payload. The response redacts `credential_payload.wifi_password`; plaintext credentials must not be logged or returned.
+The lease must include the `hardware.bluetooth.ble.provision_wifi` scope. Supervisor validates the lease and target provisioning context before accepting the Voice payload. It derives a one-use AES-256-GCM key from the endpoint ephemeral X25519 public key and a Supervisor ephemeral X25519 key, then passes only the encrypted envelope to the GATT backend. The response redacts `credential_payload.wifi_password`, `ciphertext`, and `tag`; plaintext credentials, claim codes, derived keys, ciphertext contents, and decrypted payloads must not be logged or returned.
 
 If no physical GATT backend is configured, the route returns `ok=false`, `status=failed`, and `error=gatt_backend_unavailable` after lease and payload validation.
 

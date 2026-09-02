@@ -1,7 +1,7 @@
 # BLE Onboarding Contract
 
 Status: Implemented contract and broker route for `ble.provision_wifi`; physical GATT backend is pluggable and fails closed when unavailable
-Last Updated: 2026-08-30
+Last Updated: 2026-09-02
 
 ## Purpose
 
@@ -21,10 +21,30 @@ The first provisioning profile is the Voice node Wi-Fi/backend profile. The payl
 
 - Operation name: `ble.provision_wifi`.
 - Lease scope: `hardware.bluetooth.ble.provision_wifi`.
+- GATT contract version: `1.0`.
+- Provisioning envelope schema version: `1.0`.
 - Pairing nonce and claim code are single-use and bound to a Core onboarding session, target node identity, requester node identity, Supervisor id, and contract version.
 - Nonces should expire quickly; the recommended default is 10 minutes.
 - Credential protection is end-to-end at the provisioning envelope level before writing the `encrypted_credentials` characteristic. BLE link encryption is useful but not sufficient by itself.
-- Secret-bearing payloads, ciphertext, plaintext Wi-Fi passwords, claim codes, and derived keys must not be logged or returned in API responses.
+- Encryption uses the endpoint ephemeral X25519 public key and a Supervisor-generated ephemeral X25519 key. Both sides derive a one-use AES-256-GCM key with HKDF-SHA256.
+- Replay protection is the pair of `sequence` and `expires_at`; endpoints must reject expired envelopes and already-seen sequence values for the active onboarding session.
+- Secret-bearing payloads, ciphertext contents, plaintext Wi-Fi passwords, claim codes, derived keys, and decrypted payloads must not be logged or returned in API responses.
+
+## Core Contract Authority
+
+Core defines the canonical onboarding contract:
+
+- `onboarding_session_id`: active Core onboarding session for this target.
+- `target_node_id`: node id being provisioned.
+- `pairing_nonce`: endpoint nonce read from the pairing characteristic.
+- `claim_code_ref`: non-secret Core reference to a claim code that Core has already validated; Supervisor matches this reference from the Core-issued lease and must not log or require plaintext claim codes.
+- `endpoint_ephemeral_public_key`: base64url-encoded raw X25519 endpoint public key read from the endpoint onboarding metadata.
+- `contract_version`: `1.0`.
+- `schema_version`: `1.0`.
+- `sequence`: monotonically increasing integer within the onboarding session.
+- `expires_at`: UTC ISO-8601 expiry for the pairing nonce and encrypted envelope.
+
+Leases for `ble.provision_wifi` are scoped to `hardware.bluetooth.ble.provision_wifi` and bind the requester node, Supervisor, adapter, onboarding session, target node, endpoint public key, pairing nonce, claim-code reference, sequence, payload schema, and expiry window.
 
 ## GATT Service
 
@@ -88,10 +108,18 @@ Writable. Contains an encrypted provisioning envelope:
 - `onboarding_session_id`
 - `target_node_id`
 - `pairing_nonce`
+- `sequence`
+- `expires_at`
 - `algorithm`
+- `key_agreement`
 - `key_id`
+- `supervisor_ephemeral_public_key`
 - `nonce`
+- `aad`
 - `ciphertext`
+- `tag`
+
+The endpoint public key is carried in the Core-bound provisioning context, not inside the envelope written to GATT. `aad` is base64url-encoded canonical JSON of the non-secret envelope headers. `ciphertext` and `tag` are base64url-encoded AES-GCM output and must be treated as redacted operational data.
 
 ### Ack/Error
 

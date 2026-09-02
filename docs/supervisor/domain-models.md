@@ -109,17 +109,21 @@ Fields include:
 - `lease_token`
 - `adapter`
 - `contract_version`
+- `schema_version`
 - `onboarding_session_id`
 - `target_node_id`
 - `node_profile_id`
 - `payload_schema_id`
+- `endpoint_ephemeral_public_key`
 - `pairing_nonce`
 - `claim_code_ref`
+- `sequence`
+- `expires_at`
 - `target_address`
 - `credential_payload`
 - `timeout_s`
 
-The route validates a Core-issued `hardware.bluetooth.ble.provision_wifi` lease, enforces the Voice node Wi-Fi/backend payload schema, redacts `wifi_password` from responses, and delegates the actual GATT write to the configured Supervisor BLE provisioning backend. Without a backend, it fails closed with `gatt_backend_unavailable`.
+The route validates a Core-issued `hardware.bluetooth.ble.provision_wifi` lease, enforces the Voice node Wi-Fi/backend payload schema, derives an AES-256-GCM key with endpoint/Supervisor ephemeral X25519 keys, and delegates only the encrypted provisioning envelope to the configured Supervisor BLE provisioning backend. Responses redact `wifi_password`, `ciphertext`, and `tag`. Without a backend, it fails closed with `gatt_backend_unavailable`.
 
 ### ManagedNodeSummary
 

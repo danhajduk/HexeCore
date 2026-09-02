@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import socket
+import base64
+import hashlib
 import json
 import shlex
 import shutil
@@ -12,12 +14,23 @@ from typing import Any
 from pathlib import Path
 
 import httpx
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import x25519
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from fastapi import HTTPException
 
 from app.system.onboarding import NodeRegistrationsStore
 from app.core.env import getenv
 from app.system.auth.tokens import ServiceTokenError, validate_claims, verify_hs256
-from app.system.hardware import HARDWARE_LEASE_AUDIENCE, hardware_lease_secret
+from app.system.hardware import (
+    BLE_PROVISIONING_CONTRACT_VERSION,
+    BLE_PROVISIONING_ENCRYPTION_ALGORITHM,
+    BLE_PROVISIONING_ENVELOPE_SCHEMA_VERSION,
+    BLE_PROVISIONING_KEY_AGREEMENT,
+    HARDWARE_LEASE_AUDIENCE,
+    hardware_lease_secret,
+)
 from app.system.runtime import StandaloneRuntimeService
 from app.system.stats.models import SystemStats, SystemStatsSnapshot
 from app.system.stats.service import collect_process_stats, collect_system_snapshot, collect_system_stats
@@ -61,9 +74,11 @@ class DisabledBleProvisioningBackend:
     def provision_wifi(
         self,
         *,
-        body: SupervisorBluetoothProvisionWifiRequest,
         adapter: dict[str, Any],
         validation: dict[str, Any],
+        envelope: dict[str, Any],
+        target_address: str | None,
+        timeout_s: int,
     ) -> dict[str, Any]:
         return {
             "ok": False,
@@ -300,6 +315,13 @@ class SupervisorDomainService:
             for key in ("contract_version", "onboarding_session_id", "target_node_id", "node_profile_id", "payload_schema_id"):
                 if str(token_provisioning.get(key) or "").strip() != str(requested_provisioning.get(key) or "").strip():
                     raise HTTPException(status_code=403, detail={"error": f"hardware_access_provisioning_{key}_mismatch"})
+            for key in ("schema_version", "endpoint_ephemeral_public_key", "sequence"):
+                if str(token_provisioning.get(key) or "").strip() != str(requested_provisioning.get(key) or "").strip():
+                    raise HTTPException(status_code=403, detail={"error": f"hardware_access_provisioning_{key}_mismatch"})
+            if str(token_provisioning.get("expires_at") or "").strip() and str(token_provisioning.get("expires_at") or "").strip() != str(
+                requested_provisioning.get("expires_at") or ""
+            ).strip():
+                raise HTTPException(status_code=403, detail={"error": "hardware_access_provisioning_expires_at_mismatch"})
             if str(token_provisioning.get("pairing_nonce") or "").strip() and str(token_provisioning.get("pairing_nonce") or "").strip() != str(
                 requested_provisioning.get("pairing_nonce") or ""
             ).strip():
@@ -321,8 +343,12 @@ class SupervisorDomainService:
             "target_node_id": str(getattr(body, "target_node_id") or "").strip(),
             "node_profile_id": str(getattr(body, "node_profile_id") or "").strip(),
             "payload_schema_id": str(getattr(body, "payload_schema_id") or "").strip(),
+            "schema_version": str(getattr(body, "schema_version", None) or "").strip(),
+            "endpoint_ephemeral_public_key": str(getattr(body, "endpoint_ephemeral_public_key", None) or "").strip(),
             "pairing_nonce": str(getattr(body, "pairing_nonce", None) or "").strip() or None,
             "claim_code_ref": str(getattr(body, "claim_code_ref", None) or "").strip() or None,
+            "sequence": int(getattr(body, "sequence", 1) or 1),
+            "expires_at": str(getattr(body, "expires_at", None) or "").strip() or None,
         }
 
     @staticmethod
@@ -345,6 +371,150 @@ class SupervisorDomainService:
                 **details,
             }
         )
+
+    @staticmethod
+    def _b64url_encode(raw: bytes) -> str:
+        return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+
+    @staticmethod
+    def _b64url_decode(value: str) -> bytes:
+        text = str(value or "").strip()
+        padding = "=" * (-len(text) % 4)
+        return base64.urlsafe_b64decode(text + padding)
+
+    @staticmethod
+    def _json_bytes(payload: dict[str, Any]) -> bytes:
+        return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+    @staticmethod
+    def _redact_message(
+        text: object,
+        body: SupervisorBluetoothProvisionWifiRequest | None = None,
+        envelope: dict[str, Any] | None = None,
+    ) -> str:
+        value = str(text or "")
+        replacements = {"[REDACTED]", str(getattr(body, "lease_token", "") or ""), str(getattr(body, "endpoint_ephemeral_public_key", "") or "")}
+        if body is not None:
+            credential_payload = body.credential_payload.model_dump(mode="json")
+            replacements.update(str(item) for item in credential_payload.values() if item)
+            replacements.update(
+                str(item)
+                for item in (
+                    body.claim_code_ref,
+                    body.pairing_nonce,
+                    body.onboarding_session_id,
+                )
+                if item
+            )
+        if isinstance(envelope, dict):
+            replacements.update(str(envelope.get(item) or "") for item in ("ciphertext", "tag", "nonce", "aad"))
+        for secret in sorted((item for item in replacements if item), key=len, reverse=True):
+            value = value.replace(secret, "[REDACTED]")
+        return value
+
+    @staticmethod
+    def _validate_provisioning_expiry(expires_at: str) -> None:
+        try:
+            expires = datetime.fromisoformat(str(expires_at).replace("Z", "+00:00"))
+        except Exception:
+            raise HTTPException(status_code=422, detail={"error": "provisioning_expires_at_invalid"}) from None
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+        if expires <= datetime.now(timezone.utc):
+            raise HTTPException(status_code=403, detail={"error": "provisioning_envelope_expired"})
+
+    def _provisioning_expires_at(self, body: SupervisorBluetoothProvisionWifiRequest, validation: dict[str, Any]) -> str:
+        if body.expires_at:
+            return str(body.expires_at)
+        lease = validation.get("lease") if isinstance(validation.get("lease"), dict) else {}
+        lease_expires_at = str(lease.get("expires_at") or "").strip()
+        if lease_expires_at:
+            return lease_expires_at
+        claims = validation.get("claims") if isinstance(validation.get("claims"), dict) else {}
+        exp = claims.get("exp")
+        if isinstance(exp, int):
+            return datetime.fromtimestamp(exp, tz=timezone.utc).isoformat()
+        return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+    def _build_provisioning_envelope(
+        self,
+        body: SupervisorBluetoothProvisionWifiRequest,
+        *,
+        validation: dict[str, Any],
+    ) -> dict[str, Any]:
+        expires_at = self._provisioning_expires_at(body, validation)
+        self._validate_provisioning_expiry(expires_at)
+        pairing_nonce = str(body.pairing_nonce or "").strip()
+        if not pairing_nonce:
+            raise HTTPException(status_code=422, detail={"error": "pairing_nonce_required_for_encrypted_envelope"})
+        try:
+            endpoint_public_key = x25519.X25519PublicKey.from_public_bytes(self._b64url_decode(body.endpoint_ephemeral_public_key))
+        except Exception:
+            raise HTTPException(status_code=422, detail={"error": "endpoint_ephemeral_public_key_invalid"}) from None
+
+        supervisor_private_key = x25519.X25519PrivateKey.generate()
+        supervisor_public_key = supervisor_private_key.public_key().public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
+        shared_secret = supervisor_private_key.exchange(endpoint_public_key)
+        salt = self._json_bytes(
+            {
+                "contract_version": BLE_PROVISIONING_CONTRACT_VERSION,
+                "schema_version": BLE_PROVISIONING_ENVELOPE_SCHEMA_VERSION,
+                "onboarding_session_id": body.onboarding_session_id,
+                "target_node_id": body.target_node_id,
+                "pairing_nonce": pairing_nonce,
+            }
+        )
+        key = HKDF(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=salt,
+            info=f"hexe:{BLE_PROVISIONING_KEY_AGREEMENT}:ble.provision_wifi".encode("ascii"),
+        ).derive(shared_secret)
+        aad_payload = {
+            "schema_version": BLE_PROVISIONING_ENVELOPE_SCHEMA_VERSION,
+            "payload_schema_id": body.payload_schema_id,
+            "contract_version": BLE_PROVISIONING_CONTRACT_VERSION,
+            "onboarding_session_id": body.onboarding_session_id,
+            "target_node_id": body.target_node_id,
+            "pairing_nonce": pairing_nonce,
+            "sequence": body.sequence,
+            "expires_at": expires_at,
+            "algorithm": BLE_PROVISIONING_ENCRYPTION_ALGORITHM,
+            "key_agreement": BLE_PROVISIONING_KEY_AGREEMENT,
+        }
+        aad = self._json_bytes(aad_payload)
+        plaintext = self._json_bytes(
+            {
+                "payload_schema_id": body.payload_schema_id,
+                "credential_payload": body.credential_payload.model_dump(mode="json"),
+            }
+        )
+        nonce = os.urandom(12)
+        encrypted = AESGCM(key).encrypt(nonce, plaintext, aad)
+        ciphertext, tag = encrypted[:-16], encrypted[-16:]
+        key_id = hashlib.sha256(
+            self._json_bytes(
+                {
+                    "endpoint_ephemeral_public_key": body.endpoint_ephemeral_public_key,
+                    "supervisor_ephemeral_public_key": self._b64url_encode(supervisor_public_key),
+                    "onboarding_session_id": body.onboarding_session_id,
+                    "target_node_id": body.target_node_id,
+                    "sequence": body.sequence,
+                }
+            )
+        ).hexdigest()
+        return {
+            **aad_payload,
+            "key_id": key_id,
+            "supervisor_ephemeral_public_key": self._b64url_encode(supervisor_public_key),
+            "nonce": self._b64url_encode(nonce),
+            "aad": self._b64url_encode(aad),
+            "ciphertext": self._b64url_encode(ciphertext),
+            "tag": self._b64url_encode(tag),
+        }
 
     @staticmethod
     def _parse_bluetoothctl_devices(output: str) -> list[dict[str, Any]]:
@@ -451,14 +621,35 @@ class SupervisorDomainService:
         validation = self._validate_bluetooth_lease(body, operation="ble.provision_wifi")
         adapter, adapters = self._bluetooth_adapter_for_request(body.adapter)
         provisioning = self._provisioning_context_for_request(body) or {}
-        self._record_ble_provisioning_event("provision_wifi_attempted", body, adapter=adapter.get("adapter"))
+        envelope = self._build_provisioning_envelope(body, validation=validation)
+        self._record_ble_provisioning_event(
+            "provision_wifi_attempted",
+            body,
+            adapter=adapter.get("adapter"),
+            envelope_schema_version=envelope["schema_version"],
+            sequence=envelope["sequence"],
+            envelope_key_id=envelope["key_id"],
+        )
         try:
-            result = self._ble_provisioning_backend.provision_wifi(body=body, adapter=adapter, validation=validation)
+            result = self._ble_provisioning_backend.provision_wifi(
+                adapter=adapter,
+                validation=validation,
+                envelope=envelope,
+                target_address=body.target_address,
+                timeout_s=body.timeout_s,
+            )
         except Exception as exc:
-            result = {"ok": False, "status": "failed", "ack": False, "error": "gatt_backend_failed", "message": str(exc)}
+            result = {
+                "ok": False,
+                "status": "failed",
+                "ack": False,
+                "error": "gatt_backend_failed",
+                "message": self._redact_message(str(exc), body, envelope),
+            }
         ok = bool(result.get("ok")) if isinstance(result, dict) else False
         status = str(result.get("status") or ("completed" if ok else "failed")) if isinstance(result, dict) else "failed"
         error = str(result.get("error") or "") if isinstance(result, dict) else "gatt_backend_failed"
+        message = self._redact_message(result.get("message"), body, envelope) if isinstance(result, dict) else None
         self._record_ble_provisioning_event(
             "provision_wifi_completed" if ok else "provision_wifi_rejected",
             body,
@@ -475,10 +666,22 @@ class SupervisorDomainService:
             "target_address": body.target_address,
             "provisioning": provisioning,
             "credential_payload": self._redacted_voice_payload(body),
+            "provisioning_envelope": {
+                "schema_version": envelope["schema_version"],
+                "payload_schema_id": envelope["payload_schema_id"],
+                "contract_version": envelope["contract_version"],
+                "sequence": envelope["sequence"],
+                "expires_at": envelope["expires_at"],
+                "algorithm": envelope["algorithm"],
+                "key_agreement": envelope["key_agreement"],
+                "key_id": envelope["key_id"],
+                "ciphertext": "[REDACTED]",
+                "tag": "[REDACTED]",
+            },
             "status": status,
             "ack": bool(result.get("ack", ok)) if isinstance(result, dict) else False,
             "error": (error or None),
-            "message": result.get("message") if isinstance(result, dict) else None,
+            "message": message,
             "revocation_check": validation.get("revocation_check"),
         }
 

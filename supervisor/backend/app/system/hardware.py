@@ -17,6 +17,9 @@ from app.system.auth.tokens import ServiceTokenError, sign_hs256, validate_claim
 HARDWARE_ACCESS_SCHEMA_VERSION = "1"
 HARDWARE_LEASE_AUDIENCE = "hexe.hardware.bluetooth"
 BLE_PROVISIONING_CONTRACT_VERSION = "1.0"
+BLE_PROVISIONING_ENVELOPE_SCHEMA_VERSION = "1.0"
+BLE_PROVISIONING_ENCRYPTION_ALGORITHM = "aes-256-gcm"
+BLE_PROVISIONING_KEY_AGREEMENT = "x25519-hkdf-sha256"
 VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID = "hexe.voice_node.wifi_backend.v1"
 SUPPORTED_HARDWARE_RESOURCES = {"bluetooth"}
 SUPPORTED_BLUETOOTH_OPERATIONS = {"ble.status", "ble.scan", "ble.provision_wifi"}
@@ -40,6 +43,50 @@ VOICE_WIFI_PROVISIONING_PAYLOAD_SCHEMA: dict[str, Any] = {
     },
 }
 PROVISIONING_PAYLOAD_SCHEMAS = {"voice": VOICE_WIFI_PROVISIONING_PAYLOAD_SCHEMA}
+
+BLE_PROVISIONING_ENVELOPE_SCHEMA: dict[str, Any] = {
+    "schema_id": "hexe.ble_onboarding.provisioning_envelope.v1",
+    "json_schema": {
+        "type": "object",
+        "additionalProperties": False,
+        "required": [
+            "schema_version",
+            "payload_schema_id",
+            "contract_version",
+            "onboarding_session_id",
+            "target_node_id",
+            "pairing_nonce",
+            "sequence",
+            "expires_at",
+            "algorithm",
+            "key_agreement",
+            "key_id",
+            "supervisor_ephemeral_public_key",
+            "nonce",
+            "aad",
+            "ciphertext",
+            "tag",
+        ],
+        "properties": {
+            "schema_version": {"const": BLE_PROVISIONING_ENVELOPE_SCHEMA_VERSION},
+            "payload_schema_id": {"type": "string", "minLength": 1},
+            "contract_version": {"const": BLE_PROVISIONING_CONTRACT_VERSION},
+            "onboarding_session_id": {"type": "string", "minLength": 1},
+            "target_node_id": {"type": "string", "minLength": 1},
+            "pairing_nonce": {"type": "string", "minLength": 8, "maxLength": 128},
+            "sequence": {"type": "integer", "minimum": 1},
+            "expires_at": {"type": "string", "format": "date-time"},
+            "algorithm": {"const": BLE_PROVISIONING_ENCRYPTION_ALGORITHM},
+            "key_agreement": {"const": BLE_PROVISIONING_KEY_AGREEMENT},
+            "key_id": {"type": "string", "minLength": 16},
+            "supervisor_ephemeral_public_key": {"type": "string", "minLength": 43, "maxLength": 128},
+            "nonce": {"type": "string", "minLength": 16},
+            "aad": {"type": "string", "minLength": 16},
+            "ciphertext": {"type": "string", "minLength": 1},
+            "tag": {"type": "string", "minLength": 16},
+        },
+    },
+}
 
 
 def utcnow_iso() -> str:
@@ -126,12 +173,16 @@ class HardwareProvisioningContext(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     contract_version: Literal["1.0"] = Field(default=BLE_PROVISIONING_CONTRACT_VERSION)
+    schema_version: Literal["1.0"] = Field(default=BLE_PROVISIONING_ENVELOPE_SCHEMA_VERSION)
     onboarding_session_id: str = Field(..., min_length=1)
     target_node_id: str = Field(..., min_length=1)
     node_profile_id: str = Field(default="voice", min_length=1)
     payload_schema_id: str = Field(default=VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID, min_length=1)
+    endpoint_ephemeral_public_key: str = Field(..., min_length=43, max_length=128)
     pairing_nonce: str | None = Field(default=None, min_length=8, max_length=128)
     claim_code_ref: str | None = Field(default=None, min_length=1, max_length=128)
+    sequence: int = Field(default=1, ge=1)
+    expires_at: str | None = Field(default=None, description="UTC ISO-8601 expiry for the pairing nonce/envelope replay window.")
 
     @model_validator(mode="after")
     def _validate_binding(self):
@@ -141,6 +192,15 @@ class HardwareProvisioningContext(BaseModel):
             raise ValueError("unsupported_voice_provisioning_payload_schema")
         if self.node_profile_id not in PROVISIONING_PAYLOAD_SCHEMAS:
             raise ValueError("unsupported_node_provisioning_profile")
+        if clean_text(self.expires_at):
+            try:
+                expires = datetime.fromisoformat(str(self.expires_at).replace("Z", "+00:00"))
+            except Exception:
+                raise ValueError("provisioning_expires_at_invalid") from None
+            if expires.tzinfo is None:
+                expires = expires.replace(tzinfo=timezone.utc)
+            if expires <= datetime.now(timezone.utc):
+                raise ValueError("provisioning_expires_at_expired")
         return self
 
 
@@ -210,6 +270,13 @@ def hardware_access_request_schema_payload() -> dict[str, Any]:
         "operations": sorted(SUPPORTED_BLUETOOTH_OPERATIONS),
         "request_schema": HardwareAccessRequestBody.model_json_schema(),
         "provisioning_payload_schemas": PROVISIONING_PAYLOAD_SCHEMAS,
+        "provisioning_envelope_schema": BLE_PROVISIONING_ENVELOPE_SCHEMA,
+        "encryption_model": {
+            "key_agreement": BLE_PROVISIONING_KEY_AGREEMENT,
+            "algorithm": BLE_PROVISIONING_ENCRYPTION_ALGORITHM,
+            "replay_protection": ["sequence", "expires_at"],
+            "redacted_fields": ["wifi_password", "claim_code", "derived_key", "ciphertext", "tag", "decrypted_payload"],
+        },
     }
 
 
@@ -221,9 +288,18 @@ def hardware_ble_provisioning_schema_payload(node_profile_id: str = "voice") -> 
     return {
         "ok": True,
         "contract_version": BLE_PROVISIONING_CONTRACT_VERSION,
+        "schema_version": BLE_PROVISIONING_ENVELOPE_SCHEMA_VERSION,
         "operation": "ble.provision_wifi",
         "node_profile_id": profile_key,
         "payload_schema": schema,
+        "provisioning_envelope_schema": BLE_PROVISIONING_ENVELOPE_SCHEMA,
+        "encryption_model": {
+            "key_agreement": BLE_PROVISIONING_KEY_AGREEMENT,
+            "algorithm": BLE_PROVISIONING_ENCRYPTION_ALGORITHM,
+            "endpoint_public_key": "endpoint_ephemeral_public_key",
+            "supervisor_public_key": "supervisor_ephemeral_public_key",
+            "replay_protection": ["sequence", "expires_at"],
+        },
     }
 
 
@@ -497,11 +573,28 @@ class HardwareAccessService:
         if record.operation == "ble.provision_wifi":
             if not record_provisioning or not token_provisioning or not body_provisioning:
                 return {"ok": True, "valid": False, "error": "hardware_access_provisioning_context_required"}
-            for key in ("contract_version", "onboarding_session_id", "target_node_id", "node_profile_id", "payload_schema_id"):
+            for key in (
+                "contract_version",
+                "schema_version",
+                "onboarding_session_id",
+                "target_node_id",
+                "node_profile_id",
+                "payload_schema_id",
+                "endpoint_ephemeral_public_key",
+                "sequence",
+            ):
                 if clean_text(record_provisioning.get(key)) != clean_text(body_provisioning.get(key)):
                     return {"ok": True, "valid": False, "error": f"hardware_access_provisioning_{key}_mismatch"}
                 if clean_text(token_provisioning.get(key)) != clean_text(body_provisioning.get(key)):
                     return {"ok": True, "valid": False, "error": f"hardware_access_provisioning_{key}_mismatch"}
+            if clean_text(record_provisioning.get("expires_at")) and clean_text(record_provisioning.get("expires_at")) != clean_text(
+                body_provisioning.get("expires_at")
+            ):
+                return {"ok": True, "valid": False, "error": "hardware_access_provisioning_expires_at_mismatch"}
+            if clean_text(token_provisioning.get("expires_at")) and clean_text(token_provisioning.get("expires_at")) != clean_text(
+                body_provisioning.get("expires_at")
+            ):
+                return {"ok": True, "valid": False, "error": "hardware_access_provisioning_expires_at_mismatch"}
             if clean_text(record_provisioning.get("pairing_nonce")) and clean_text(record_provisioning.get("pairing_nonce")) != clean_text(
                 body_provisioning.get("pairing_nonce")
             ):

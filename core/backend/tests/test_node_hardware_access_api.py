@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -171,11 +172,16 @@ class TestNodeHardwareAccessApi(unittest.TestCase):
     def test_provision_wifi_grants_scoped_lease_and_validates_session(self) -> None:
         provisioning = {
             "contract_version": "1.0",
+            "schema_version": "1.0",
             "onboarding_session_id": "onboard-1",
             "target_node_id": "voice-node-1",
             "node_profile_id": "voice",
             "payload_schema_id": "hexe.voice_node.wifi_backend.v1",
+            "endpoint_ephemeral_public_key": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
             "pairing_nonce": "nonce-123456",
+            "claim_code_ref": "claim-ref-1",
+            "sequence": 1,
+            "expires_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + 600)),
         }
         created = self.client.post(
             "/api/system/nodes/hardware/access-requests",
@@ -229,6 +235,25 @@ class TestNodeHardwareAccessApi(unittest.TestCase):
         self.assertEqual(invalid.status_code, 200, invalid.text)
         self.assertFalse(invalid.json()["valid"])
         self.assertEqual(invalid.json()["error"], "hardware_access_provisioning_onboarding_session_id_mismatch")
+
+        wrong_claim_code = dict(provisioning)
+        wrong_claim_code["claim_code_ref"] = "claim-ref-2"
+        invalid_claim = self.client.post(
+            "/api/system/hardware/leases/validate",
+            headers={"X-Admin-Token": "admin-token"},
+            json={
+                "node_id": "node-1",
+                "lease_token": access["lease_token"],
+                "resource_type": "bluetooth",
+                "operation": "ble.provision_wifi",
+                "supervisor_id": "sup-1",
+                "adapter": "hci0",
+                "provisioning": wrong_claim_code,
+            },
+        )
+        self.assertEqual(invalid_claim.status_code, 200, invalid_claim.text)
+        self.assertFalse(invalid_claim.json()["valid"])
+        self.assertEqual(invalid_claim.json()["error"], "hardware_access_provisioning_claim_code_ref_mismatch")
 
     def test_allowed_policy_grants_and_release_invalidates_lease(self) -> None:
         created = self.client.post(

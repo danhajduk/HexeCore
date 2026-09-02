@@ -6,16 +6,63 @@
   "additionalProperties": false,
   "required": [
     "schema_version",
+    "gatt_contract_version",
+    "envelope_schema_version",
     "operation",
+    "encryption_model",
     "service",
-    "payload_schemas"
+    "payload_schemas",
+    "provisioning_envelope_schema"
   ],
   "properties": {
     "schema_version": {
       "const": "1.0"
     },
+    "gatt_contract_version": {
+      "const": "1.0"
+    },
+    "envelope_schema_version": {
+      "const": "1.0"
+    },
     "operation": {
       "const": "ble.provision_wifi"
+    },
+    "encryption_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key_agreement",
+        "algorithm",
+        "endpoint_public_key",
+        "supervisor_public_key",
+        "replay_protection"
+      ],
+      "properties": {
+        "key_agreement": {
+          "const": "x25519-hkdf-sha256"
+        },
+        "algorithm": {
+          "const": "aes-256-gcm"
+        },
+        "endpoint_public_key": {
+          "const": "endpoint_ephemeral_public_key"
+        },
+        "supervisor_public_key": {
+          "const": "supervisor_ephemeral_public_key"
+        },
+        "replay_protection": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "const": "sequence"
+            },
+            {
+              "const": "expires_at"
+            }
+          ],
+          "items": false
+        }
+      }
     },
     "service": {
       "$ref": "#/$defs/gatt_service"
@@ -28,6 +75,9 @@
       "required": [
         "voice"
       ]
+    },
+    "provisioning_envelope_schema": {
+      "$ref": "#/$defs/provisioning_envelope_schema"
     }
   },
   "$defs": {
@@ -86,6 +136,108 @@
         },
         "json_schema": {
           "type": "object"
+        }
+      }
+    },
+    "provisioning_envelope_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "json_schema"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "hexe.ble_onboarding.provisioning_envelope.v1"
+        },
+        "json_schema": {
+          "$ref": "#/$defs/provisioning_envelope"
+        }
+      }
+    },
+    "provisioning_envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "payload_schema_id",
+        "contract_version",
+        "onboarding_session_id",
+        "target_node_id",
+        "pairing_nonce",
+        "sequence",
+        "expires_at",
+        "algorithm",
+        "key_agreement",
+        "key_id",
+        "supervisor_ephemeral_public_key",
+        "nonce",
+        "aad",
+        "ciphertext",
+        "tag"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "1.0"
+        },
+        "payload_schema_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contract_version": {
+          "const": "1.0"
+        },
+        "onboarding_session_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_node_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pairing_nonce": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "algorithm": {
+          "const": "aes-256-gcm"
+        },
+        "key_agreement": {
+          "const": "x25519-hkdf-sha256"
+        },
+        "key_id": {
+          "type": "string",
+          "minLength": 16
+        },
+        "supervisor_ephemeral_public_key": {
+          "type": "string",
+          "minLength": 43,
+          "maxLength": 128
+        },
+        "nonce": {
+          "type": "string",
+          "minLength": 16
+        },
+        "aad": {
+          "type": "string",
+          "minLength": 16
+        },
+        "ciphertext": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tag": {
+          "type": "string",
+          "minLength": 16
         }
       }
     },
