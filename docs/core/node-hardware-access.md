@@ -248,7 +248,7 @@ POST /api/supervisor/hardware/bluetooth/ble/scan
 }
 ```
 
-The lease must include the `hardware.bluetooth.ble.scan` scope. `scan_seconds` is bounded from 1 to 30 seconds. Supervisor runs the scan through `bluetoothctl --timeout <seconds> scan on`, then parses `bluetoothctl devices` output into BLE device rows.
+The lease must include the `hardware.bluetooth.ble.scan` scope. `scan_seconds` is bounded from 1 to 30 seconds. Supervisor runs LE discovery through `bluetoothctl --timeout <seconds> scan le`, then parses the scan output and `bluetoothctl devices` output into BLE device rows.
 
 Response fields include:
 
@@ -259,6 +259,7 @@ Response fields include:
 - `adapter`
 - `adapters`
 - `scan_seconds`
+- `scan_transport`: `le`
 - `devices`: discovered rows with `address`, optional `name`, and `transport=ble`
 - `revocation_check`: `core` or `local_token_only`
 

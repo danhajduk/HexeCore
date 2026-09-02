@@ -61,7 +61,7 @@ Resource history maintenance:
 Bluetooth broker routes:
 
 - `POST /api/supervisor/hardware/bluetooth/ble/status` validates a Core-issued hardware lease and returns adapter state.
-- `POST /api/supervisor/hardware/bluetooth/ble/scan` validates a Core-issued hardware lease and runs a bounded BLE scan through Supervisor-managed `bluetoothctl`.
+- `POST /api/supervisor/hardware/bluetooth/ble/scan` validates a Core-issued hardware lease and runs bounded LE discovery through Supervisor-managed `bluetoothctl`.
 - `POST /api/supervisor/hardware/bluetooth/ble/provision-wifi` validates a Core-issued `ble.provision_wifi` lease, checks the Voice node provisioning payload, encrypts it into a provisioning envelope with endpoint/Supervisor ephemeral X25519 keys plus AES-256-GCM, and delegates only that envelope to a Supervisor BLE GATT backend. If no backend is configured, it fails closed with `gatt_backend_unavailable`.
 
 Bluetooth presence reporting does not grant node access. Nodes must request a Core hardware lease first; see [node-hardware-access.md](../core/node-hardware-access.md).

@@ -585,7 +585,7 @@ class SupervisorDomainService:
         scan_output = ""
         try:
             scan = subprocess.run(
-                ["bluetoothctl", "--timeout", str(scan_seconds), "scan", "on"],
+                ["bluetoothctl", "--timeout", str(scan_seconds), "scan", "le"],
                 capture_output=True,
                 text=True,
                 timeout=scan_seconds + 3.0,
@@ -613,6 +613,7 @@ class SupervisorDomainService:
             "adapter": adapter,
             "adapters": adapters,
             "scan_seconds": scan_seconds,
+            "scan_transport": "le",
             "devices": self._parse_bluetoothctl_devices(scan_output + "\n" + devices_output),
             "revocation_check": validation.get("revocation_check"),
         }

@@ -185,8 +185,9 @@ class TestSupervisorBluetoothBroker(unittest.TestCase):
         self.assertEqual(payload["operation"], "ble.scan")
         self.assertEqual(payload["adapter"]["adapter"], "hci0")
         self.assertEqual(payload["revocation_check"], "local_token_only")
+        self.assertEqual(payload["scan_transport"], "le")
         self.assertEqual({item["address"] for item in payload["devices"]}, {"AA:BB:CC:DD:EE:FF", "11:22:33:44:55:66"})
-        self.assertEqual(calls[0], ["bluetoothctl", "--timeout", "2", "scan", "on"])
+        self.assertEqual(calls[0], ["bluetoothctl", "--timeout", "2", "scan", "le"])
         self.assertEqual(calls[1], ["bluetoothctl", "devices"])
 
     def test_ble_provision_wifi_requires_matching_lease_scope(self) -> None:

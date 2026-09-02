@@ -349,6 +349,36 @@ class TestNodeHardwareAccessApi(unittest.TestCase):
         self.assertEqual(access["status"], "granted")
         self.assertEqual(access["supervisor_id"], "local-sup")
 
+    def test_unspecified_supervisor_prefers_same_host_broker_over_fresher_remote(self) -> None:
+        with patch("app.system.hardware.socket.gethostname", return_value="local-host"):
+            self._supervisor(
+                policy="allowed",
+                supervisor_id="same-host-sup",
+                supervisor_name="Same Host Supervisor",
+                host_id="local-host",
+                transport="socket",
+                api_base_url=None,
+            )
+            self._supervisor(
+                policy="allowed",
+                supervisor_id="remote-sup",
+                supervisor_name="Remote Supervisor",
+                host_id="remote-host",
+                transport="socket",
+                api_base_url=None,
+            )
+
+            created = self.client.post(
+                "/api/system/nodes/hardware/access-requests",
+                headers={"X-Node-Trust-Token": "node-token"},
+                json={"node_id": "node-1", "resource_type": "bluetooth", "operation": "ble.scan", "adapter": "hci0"},
+            )
+
+        self.assertEqual(created.status_code, 200, created.text)
+        access = created.json()["access_request"]
+        self.assertEqual(access["status"], "granted")
+        self.assertEqual(access["supervisor_id"], "same-host-sup")
+
     def test_disabled_policy_denies_request(self) -> None:
         self._supervisor(policy="disabled")
         created = self.client.post(

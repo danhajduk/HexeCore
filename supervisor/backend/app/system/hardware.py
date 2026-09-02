@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import hashlib
 import os
+import socket
 import secrets
 import time
 from dataclasses import dataclass, field
@@ -169,6 +170,8 @@ def active_bluetooth_supervisors(supervisor_store: object | None) -> list[object
     ]
     candidates.sort(
         key=lambda record: (
+            clean_text(getattr(record, "host_id", "")).lower() == socket.gethostname().lower()
+            or clean_text(getattr(record, "hostname", "")).lower() == socket.gethostname().lower(),
             "local_core_attached" in [str(item) for item in getattr(record, "capabilities", []) or []],
             clean_text(getattr(record, "transport", "")).lower() == "local",
             clean_text(getattr(record, "last_seen_at", "")),
