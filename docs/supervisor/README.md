@@ -138,6 +138,8 @@ The standalone Supervisor exposes a host-local update surface for Core or an ope
 
 Core exposes fleet-scoped wrappers at `GET /api/system/supervisors/{supervisor_id}/update/status` and `POST /api/system/supervisors/{supervisor_id}/update/start`. These wrappers require admin auth, only operate on online Supervisor records, use the local Supervisor client for attached Core Supervisors, use `api_base_url` for remote Supervisors, and store/audit only sanitized update metadata.
 
+The full workflow is documented in [Remote Supervisor Update Workflow](./remote-update-workflow.md).
+
 ## Supervisor Enrollment Tokens
 
 Status: Implemented

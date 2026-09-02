@@ -57,4 +57,3 @@ Do not edit above this line:
 [STOP] Review guardrail coverage before broad documentation consolidation.
 [TODO] Task 983: Consolidate duplicate Supervisor documentation into the root docs source of truth
 [TODO] Task 984: Repair schema documentation links and ownership references
-[TODO] Task 996: Document and verify remote Supervisor update workflows

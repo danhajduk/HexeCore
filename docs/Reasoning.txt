@@ -267,3 +267,11 @@ Chosen fix: Added compact fleet-table update status, mode selection, icon action
 What changed: Updated mirrored Supervisor settings page and CSS, added frontend update helper tests, and kept actions gated to online Supervisors with advertised modes.
 Verification: Core and Supervisor targeted frontend update tests passed; Core and Supervisor frontend production builds passed; Core/Supervisor mirror drift guard passed.
 ###########
+
+Task #996
+Step objective: Document and verify remote Supervisor update workflows.
+Issue cause: The new git and Core-host update paths needed an operator-readable workflow that separated detection, authorization, execution, restart, heartbeat propagation, rollback, and live verification boundaries.
+Chosen fix: Added a dedicated remote update workflow document and linked it from Supervisor and Core API docs.
+What changed: Documented update detection, admin authorization, git mode, Core-host package mode, idempotency, failure/rollback, UI behavior, and recommended verification commands.
+Verification: Dry-run Core-host package build from the local `supervisor` tree succeeded with 369 files and a 565295 byte archive. Live remote mutation was not run because target Supervisors must first be running the new receive/apply API from Tasks 992-994.
+###########

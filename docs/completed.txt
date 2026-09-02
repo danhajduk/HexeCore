@@ -33,3 +33,4 @@ Task 992: Add Supervisor self-update status and command API - Completed on 09/02
 Task 993: Add Core Supervisor update orchestration and authorization - Completed on 09/02/2026 08:33
 Task 994: Add Core-host source sync update mode for remote Supervisors - Completed on 09/02/2026 08:43
 Task 995: Surface Supervisor update state and actions in Core UI - Completed on 09/02/2026 08:47
+Task 996: Document and verify remote Supervisor update workflows - Completed on 09/02/2026 08:50

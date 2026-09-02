@@ -130,6 +130,8 @@ Status: Implemented
 
 Core fleet update orchestration uses the local Supervisor client for attached local Supervisors and each remote Supervisor's registered `api_base_url` for remote Supervisors. Update commands fail closed when the fleet record is not `online`, the remote API URL is missing, the Supervisor does not expose the update API, the requested `source_mode` is not in the Supervisor's advertised `supported_modes`, or a Core-host package cannot be built from the configured source root.
 
+The end-to-end update workflow is documented in [Remote Supervisor Update Workflow](../../supervisor/remote-update-workflow.md).
+
 Bluetooth hardware access is documented in [Node Hardware Access](../node-hardware-access.md). Core governs request/lease state; Supervisor enforces leases locally. Nodes do not receive raw host Bluetooth device or DBus access.
 
 Platform metadata currently includes:
