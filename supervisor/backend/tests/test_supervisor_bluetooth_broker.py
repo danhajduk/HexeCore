@@ -190,6 +190,58 @@ class TestSupervisorBluetoothBroker(unittest.TestCase):
         self.assertEqual(calls[0], ["bluetoothctl", "--timeout", "2", "scan", "le"])
         self.assertEqual(calls[1], ["bluetoothctl", "devices"])
 
+    def test_ble_scan_marks_requested_service_uuid_matches(self) -> None:
+        calls: list[list[str]] = []
+
+        def fake_run(cmd, **kwargs):
+            calls.append(list(cmd))
+            if cmd[:3] == ["bluetoothctl", "--timeout", "2"]:
+                return _Completed(stdout="[NEW] Device AA:BB:CC:DD:EE:FF A0-85-E3-F0-E1-6E\n")
+            if cmd == ["bluetoothctl", "devices"]:
+                return _Completed(stdout="Device 11:22:33:44:55:66 Thermometer\n")
+            if cmd == ["bluetoothctl", "info", "AA:BB:CC:DD:EE:FF"]:
+                return _Completed(
+                    stdout=(
+                        "Device AA:BB:CC:DD:EE:FF (public)\n"
+                        "Name: Hexe Voice PE\n"
+                        "Alias: A0-85-E3-F0-E1-6E\n"
+                        "UUID: Vendor specific (7f9c0000-5f04-4d8b-9a46-7c0f7a100000)\n"
+                    )
+                )
+            if cmd == ["bluetoothctl", "info", "11:22:33:44:55:66"]:
+                return _Completed(
+                    stdout=(
+                        "Device 11:22:33:44:55:66\n"
+                        "Name: Thermometer\n"
+                        "UUID: Heart Rate (0000180d-0000-1000-8000-00805f9b34fb)\n"
+                    )
+                )
+            return _Completed()
+
+        with patch("app.supervisor.service.shutil.which", return_value="/usr/bin/bluetoothctl"):
+            with patch("app.supervisor.service.subprocess.run", side_effect=fake_run):
+                response = self.client.post(
+                    "/api/supervisor/hardware/bluetooth/ble/scan",
+                    json={
+                        "node_id": "node-1",
+                        "lease_token": self._lease_token(),
+                        "adapter": "hci0",
+                        "service_uuid": "{7F9C0000-5F04-4D8B-9A46-7C0F7A100000}",
+                        "scan_seconds": 2,
+                    },
+                )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertEqual(payload["service_uuid"], "7f9c0000-5f04-4d8b-9a46-7c0f7a100000")
+        self.assertEqual([item["address"] for item in payload["matching_devices"]], ["AA:BB:CC:DD:EE:FF"])
+        matched = payload["matching_devices"][0]
+        self.assertTrue(matched["service_uuid_match"])
+        self.assertEqual(matched["matched_service_uuid"], "7f9c0000-5f04-4d8b-9a46-7c0f7a100000")
+        self.assertEqual(matched["uuids"], ["7f9c0000-5f04-4d8b-9a46-7c0f7a100000"])
+        self.assertEqual(calls[2], ["bluetoothctl", "info", "AA:BB:CC:DD:EE:FF"])
+        self.assertEqual(calls[3], ["bluetoothctl", "info", "11:22:33:44:55:66"])
+
     def test_ble_provision_wifi_requires_matching_lease_scope(self) -> None:
         request = self._provisioning_request()
         request["lease_token"] = self._lease_token(operation="ble.scan")

@@ -65,6 +65,7 @@ class SupervisorBluetoothLeaseRequest(BaseModel):
 
 
 class SupervisorBluetoothBleScanRequest(SupervisorBluetoothLeaseRequest):
+    service_uuid: str | None = Field(default=None, min_length=4, max_length=64)
     scan_seconds: int = Field(default=5, ge=1, le=30)
 
 

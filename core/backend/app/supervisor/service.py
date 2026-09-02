@@ -539,6 +539,82 @@ class SupervisorDomainService:
             devices[address] = {"address": address, "name": name, "transport": "ble"}
         return list(devices.values())
 
+    @staticmethod
+    def _normalize_ble_uuid(value: object) -> str | None:
+        text = str(value or "").strip().lower()
+        if not text:
+            return None
+        if text.startswith("urn:uuid:"):
+            text = text.removeprefix("urn:uuid:")
+        return text.strip("{}") or None
+
+    @classmethod
+    def _parse_bluetoothctl_info(cls, output: str) -> dict[str, Any]:
+        result: dict[str, Any] = {"uuids": []}
+        uuids: set[str] = set()
+        for line in (output or "").splitlines():
+            text = line.strip()
+            if text.startswith("Name: "):
+                result["name"] = text.split("Name: ", 1)[1].strip()
+                continue
+            if text.startswith("Alias: "):
+                result["alias"] = text.split("Alias: ", 1)[1].strip()
+                continue
+            if not text.startswith("UUID: "):
+                continue
+            raw_uuid = text.split("UUID: ", 1)[1].strip()
+            if "(" in raw_uuid and raw_uuid.endswith(")"):
+                raw_uuid = raw_uuid.rsplit("(", 1)[1].rstrip(")").strip()
+            uuid = cls._normalize_ble_uuid(raw_uuid)
+            if uuid:
+                uuids.add(uuid)
+        result["uuids"] = sorted(uuids)
+        return result
+
+    def _enrich_bluetoothctl_devices(
+        self,
+        devices: list[dict[str, Any]],
+        service_uuid: str | None,
+    ) -> list[dict[str, Any]]:
+        requested_uuid = self._normalize_ble_uuid(service_uuid)
+        if not requested_uuid:
+            return devices
+        enriched: list[dict[str, Any]] = []
+        for device in devices:
+            address = str(device.get("address") or "").strip()
+            item = dict(device)
+            info: dict[str, Any] = {}
+            if address:
+                try:
+                    result = subprocess.run(
+                        ["bluetoothctl", "info", address],
+                        capture_output=True,
+                        text=True,
+                        timeout=5.0,
+                        check=False,
+                    )
+                    if result.returncode == 0:
+                        info = self._parse_bluetoothctl_info(
+                            (result.stdout or "") + "\n" + (result.stderr or "")
+                        )
+                except Exception:
+                    info = {}
+            if info.get("name") and (
+                not item.get("name") or str(item.get("name")) == address.replace(":", "-")
+            ):
+                item["name"] = info["name"]
+            if info.get("alias"):
+                item["alias"] = info["alias"]
+            uuids = [value for value in info.get("uuids", []) if isinstance(value, str)]
+            if uuids:
+                item["uuids"] = uuids
+            matched = requested_uuid in uuids
+            item["service_uuid_match"] = matched
+            if matched:
+                item["matched_service_uuid"] = requested_uuid
+            enriched.append(item)
+        return enriched
+
     def _bluetooth_adapter_for_request(self, adapter: str | None = None) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         summary = self._bluetooth_summary()
         adapters = list(summary.get("bluetooth_adapters") or [])
@@ -605,6 +681,10 @@ class SupervisorDomainService:
             devices_output = (devices.stdout or "") + "\n" + (devices.stderr or "")
         except Exception:
             devices_output = ""
+        service_uuid = self._normalize_ble_uuid(body.service_uuid)
+        parsed_devices = self._parse_bluetoothctl_devices(scan_output + "\n" + devices_output)
+        devices = self._enrich_bluetoothctl_devices(parsed_devices, service_uuid)
+        matching_devices = [item for item in devices if item.get("service_uuid_match")]
         return {
             "ok": True,
             "operation": "ble.scan",
@@ -614,7 +694,9 @@ class SupervisorDomainService:
             "adapters": adapters,
             "scan_seconds": scan_seconds,
             "scan_transport": "le",
-            "devices": self._parse_bluetoothctl_devices(scan_output + "\n" + devices_output),
+            "service_uuid": service_uuid,
+            "devices": devices,
+            "matching_devices": matching_devices,
             "revocation_check": validation.get("revocation_check"),
         }
 
