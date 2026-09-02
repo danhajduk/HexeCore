@@ -657,7 +657,7 @@ class SupervisorDomainService:
                 "devices": [],
                 "revocation_check": validation.get("revocation_check"),
             }
-        scan_seconds = max(1, min(int(body.scan_seconds or 5), 30))
+        scan_seconds = max(1, min(int(body.scan_seconds or 5), 60))
         scan_output = ""
         try:
             scan = subprocess.run(

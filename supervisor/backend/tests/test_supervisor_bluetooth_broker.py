@@ -162,7 +162,7 @@ class TestSupervisorBluetoothBroker(unittest.TestCase):
 
         def fake_run(cmd, **kwargs):
             calls.append(list(cmd))
-            if cmd[:3] == ["bluetoothctl", "--timeout", "2"]:
+            if cmd[:3] == ["bluetoothctl", "--timeout", "60"]:
                 return _Completed(stdout="[NEW] Device AA:BB:CC:DD:EE:FF Heart Sensor\n")
             if cmd == ["bluetoothctl", "devices"]:
                 return _Completed(stdout="Device 11:22:33:44:55:66 Thermometer\n")
@@ -176,7 +176,7 @@ class TestSupervisorBluetoothBroker(unittest.TestCase):
                         "node_id": "node-1",
                         "lease_token": self._lease_token(),
                         "adapter": "hci0",
-                        "scan_seconds": 2,
+                        "scan_seconds": 60,
                     },
                 )
         self.assertEqual(response.status_code, 200, response.text)
@@ -187,7 +187,7 @@ class TestSupervisorBluetoothBroker(unittest.TestCase):
         self.assertEqual(payload["revocation_check"], "local_token_only")
         self.assertEqual(payload["scan_transport"], "le")
         self.assertEqual({item["address"] for item in payload["devices"]}, {"AA:BB:CC:DD:EE:FF", "11:22:33:44:55:66"})
-        self.assertEqual(calls[0], ["bluetoothctl", "--timeout", "2", "scan", "le"])
+        self.assertEqual(calls[0], ["bluetoothctl", "--timeout", "60", "scan", "le"])
         self.assertEqual(calls[1], ["bluetoothctl", "devices"])
 
     def test_ble_scan_marks_requested_service_uuid_matches(self) -> None:
