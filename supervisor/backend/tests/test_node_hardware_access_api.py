@@ -574,6 +574,79 @@ class TestNodeHardwareAccessApi(unittest.TestCase):
         self.assertEqual(canceled.json()["pairing_session"]["status"], "canceled")
         self.assertTrue(any(call["url"].endswith("/pairing-advert/stop") for call in calls))
 
+    def test_node_ble_pairing_start_reuses_active_session(self) -> None:
+        calls: list[dict] = []
+
+        def endpoint_identity(session_id: str) -> dict:
+            return {
+                "contract_version": "1.0",
+                "onboarding_session_id": session_id,
+                "device_id": "hexe-pe-a0-85-e3-f0-e1-6e",
+                "node_hardware_id": "A0:85:E3:F0:E1:6E",
+                "target_node_id": "voice-node-a0",
+                "board_profile": "ha_voice_pe",
+                "firmware_version": "min-fw-test",
+                "application_type": "hexe_voice",
+                "provisioning_mode": "core_published_pairing",
+                "endpoint_ephemeral_public_key": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+                "supported_payload_schemas": ["hexe.voice_node.wifi_backend.v1"],
+                "provisioning_state": "awaiting_credentials",
+            }
+
+        def fake_post(url: str, *, json: dict, timeout: float):
+            calls.append({"url": url, "json": dict(json), "timeout": timeout})
+            session_id = str(json.get("onboarding_session_id"))
+            if url.endswith("/pairing-advert/start"):
+                return httpx.Response(
+                    200,
+                    json={
+                        "ok": True,
+                        "status": "advertising",
+                        "operation": "ble.host_pairing_advert",
+                        "supervisor_id": "sup-1",
+                        "adapter": {"adapter": json.get("adapter") or "hci0", "present": True, "powered": True},
+                        "onboarding_session_id": session_id,
+                        "session_hint": json.get("session_hint"),
+                        "advertising": True,
+                    },
+                )
+            if url.endswith("/pairing-advert/status"):
+                return httpx.Response(
+                    200,
+                    json={
+                        "ok": True,
+                        "status": "endpoint_identity_received",
+                        "operation": "ble.host_pairing_advert",
+                        "supervisor_id": "sup-1",
+                        "adapter": {"adapter": json.get("adapter") or "hci0", "present": True, "powered": True},
+                        "onboarding_session_id": session_id,
+                        "endpoint_identity": endpoint_identity(session_id),
+                        "advertising": True,
+                    },
+                )
+            raise AssertionError(f"unexpected url: {url}")
+
+        with patch("app.api.system_legacy.httpx.post", side_effect=fake_post):
+            created = self.client.post(
+                "/api/system/nodes/hardware/bluetooth/ble/pairing-sessions",
+                headers={"X-Node-Trust-Token": "node-token"},
+                json={"node_id": "node-1", "adapter": "hci0", "duration_s": 300, "reason": "test add device"},
+            )
+            repeated = self.client.post(
+                "/api/system/nodes/hardware/bluetooth/ble/pairing-sessions",
+                headers={"X-Node-Trust-Token": "node-token"},
+                json={"node_id": "node-1", "adapter": "hci0", "duration_s": 300, "reason": "test add device"},
+            )
+
+        self.assertEqual(created.status_code, 200, created.text)
+        self.assertEqual(repeated.status_code, 200, repeated.text)
+        created_session = created.json()["pairing_session"]
+        repeated_session = repeated.json()["pairing_session"]
+        self.assertEqual(repeated_session["session_id"], created_session["session_id"])
+        self.assertEqual(repeated_session["status"], "found")
+        self.assertEqual(sum(1 for call in calls if call["url"].endswith("/pairing-advert/start")), 1)
+        self.assertEqual(sum(1 for call in calls if call["url"].endswith("/pairing-advert/status")), 1)
+
     def test_ble_identity_uses_local_client_and_releases_lease(self) -> None:
         self._supervisor(
             policy="allowed",

@@ -661,6 +661,34 @@ class HardwareBlePairingSessionService:
         self._expire_old_sessions()
         return self._store.list(status=status)
 
+    def find_active_session(
+        self,
+        body: HardwareBlePairingSessionCreateBody,
+        *,
+        requesting_node_id: str | None = None,
+    ) -> HardwareBlePairingSessionRecord | None:
+        self._expire_old_sessions()
+        requested_node_id = clean_text(requesting_node_id)
+        requested_adapter = clean_text(body.adapter)
+        requested_supervisor_id = clean_text(body.supervisor_id)
+        for record in self._store.list():
+            if record.status not in {"waiting", "found", "approved"}:
+                continue
+            if requested_node_id and clean_text(record.requesting_node_id) != requested_node_id:
+                continue
+            if clean_text(record.node_profile_id) != clean_text(body.node_profile_id):
+                continue
+            if clean_text(record.payload_schema_id) != clean_text(body.payload_schema_id):
+                continue
+            if bool(record.claim_code_required) != bool(body.claim_code_required):
+                continue
+            if requested_adapter and clean_text(record.adapter) != requested_adapter:
+                continue
+            if requested_supervisor_id and clean_text(record.supervisor_id) != requested_supervisor_id:
+                continue
+            return record
+        return None
+
     def pairing_offer(self, record: HardwareBlePairingSessionRecord, *, supervisor_id: str, adapter: str | None) -> dict[str, Any]:
         return {
             "contract_version": BLE_PROVISIONING_CONTRACT_VERSION,

@@ -2335,6 +2335,10 @@ def build_system_router(
         x_admin_token: str | None = Header(default=None),
     ):
         require_admin_token(x_admin_token, request)
+        existing_session = ble_pairing_sessions.find_active_session(body)
+        if existing_session is not None:
+            existing_session = _refresh_ble_pairing_session_from_supervisors(existing_session, request)
+            return {"ok": existing_session.status not in {"failed", "expired", "canceled"}, "pairing_session": existing_session.to_api_dict()}
         session = ble_pairing_sessions.create_session(body)
         session = _start_ble_pairing_session_adverts(session, request)
         _record_audit(
@@ -2358,6 +2362,11 @@ def build_system_router(
         x_node_trust_token: str | None = Header(default=None),
     ):
         _authenticate_trusted_node(body.node_id, str(x_node_trust_token or ""))
+        create_body = HardwareBlePairingSessionCreateBody.model_validate(body.model_dump(exclude={"node_id"}))
+        existing_session = ble_pairing_sessions.find_active_session(create_body, requesting_node_id=body.node_id)
+        if existing_session is not None:
+            existing_session = _refresh_ble_pairing_session_from_supervisors(existing_session, request)
+            return {"ok": existing_session.status not in {"failed", "expired", "canceled"}, "pairing_session": existing_session.to_api_dict()}
         candidates = active_bluetooth_supervisors(supervisor_fleet_store)
         supervisor_filter = clean_text(body.supervisor_id)
         if supervisor_filter:
@@ -2398,7 +2407,6 @@ def build_system_router(
                 "error": None if pending else "hardware_access_not_granted",
             }
 
-        create_body = HardwareBlePairingSessionCreateBody.model_validate(body.model_dump(exclude={"node_id"}))
         session = ble_pairing_sessions.create_session(
             create_body,
             requesting_node_id=body.node_id,
