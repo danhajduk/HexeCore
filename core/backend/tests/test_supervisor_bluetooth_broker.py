@@ -157,6 +157,74 @@ class TestSupervisorBluetoothBroker(unittest.TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.json()["detail"]["error"], "claim_scope_missing")
 
+    def test_ble_identity_reads_onboarding_characteristics(self) -> None:
+        calls: list[list[str]] = []
+
+        def read_output(payload: dict) -> str:
+            encoded = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+            hex_rows = " ".join(f"{value:02x}" for value in encoded)
+            return f"Attempting to read ...\n[CHG] Attribute /org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF/service0010/char0011 Value:\n  {hex_rows}\n"
+
+        def fake_run(cmd, **kwargs):
+            calls.append(list(cmd))
+            if cmd[:3] == ["bluetoothctl", "--timeout", "15"] and cmd[3:] == ["scan", "le"]:
+                return _Completed(stdout="[NEW] Device AA:BB:CC:DD:EE:FF HexeRecovery\n")
+            if cmd[:2] == ["bash", "-lc"] and "bluetoothctl --timeout 20" in cmd[2]:
+                return _Completed(
+                    stdout=(
+                        "Connection successful\n"
+                        + read_output(
+                            {
+                                "target_node_id": "hexe-pe-1",
+                                "endpoint_ephemeral_public_key": self.endpoint_public_key,
+                                "board_profile": "ha_voice_pe",
+                                "firmware_version": "min-test",
+                                "provisioning_mode": "endpoint_app",
+                            }
+                        )
+                        + read_output(
+                            {
+                                "onboarding_session_id": "ble-session-1",
+                                "target_node_id": "hexe-pe-1",
+                                "pairing_nonce": "nonce-123456",
+                                "endpoint_ephemeral_public_key": self.endpoint_public_key,
+                            }
+                        )
+                        + read_output({"state": "advertising", "reason": "ready"})
+                    )
+                )
+            return _Completed()
+
+        with patch("app.supervisor.service.shutil.which", return_value="/usr/bin/bluetoothctl"):
+            with patch("app.supervisor.service.subprocess.run", side_effect=fake_run):
+                response = self.client.post(
+                    "/api/supervisor/hardware/bluetooth/ble/identity",
+                    json={
+                        "node_id": "node-1",
+                        "lease_token": self._lease_token(operation="ble.read_identity"),
+                        "adapter": "hci0",
+                        "target_address": "AA:BB:CC:DD:EE:FF",
+                        "timeout_s": 20,
+                    },
+                )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["operation"], "ble.read_identity")
+        self.assertEqual(payload["target_address"], "AA:BB:CC:DD:EE:FF")
+        self.assertEqual(payload["onboarding"]["board_profile"], "ha_voice_pe")
+        self.assertEqual(payload["onboarding"]["onboarding_session_id"], "ble-session-1")
+        self.assertEqual(payload["onboarding"]["pairing_nonce"], "nonce-123456")
+        self.assertEqual(payload["onboarding"]["endpoint_ephemeral_public_key"], self.endpoint_public_key)
+        self.assertIn("device_identity", payload["characteristics"])
+        self.assertIn("pairing_nonce", payload["characteristics"])
+        self.assertTrue(payload["discovery_refreshed"])
+        self.assertEqual(calls[0], ["bluetoothctl", "--timeout", "15", "scan", "le"])
+        self.assertEqual(calls[1][:2], ["bash", "-lc"])
+        self.assertIn("connect AA:BB:CC:DD:EE:FF", calls[1][2])
+        self.assertIn("disconnect AA:BB:CC:DD:EE:FF", calls[1][2])
+
     def test_ble_scan_uses_brokered_bluetoothctl_surface(self) -> None:
         calls: list[list[str]] = []
 

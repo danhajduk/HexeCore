@@ -24,6 +24,8 @@ from ..addons.registry import AddonRegistry, list_addons
 from ..system.audit import AuditLogStore
 from ..system.hardware import (
     HardwareAccessDecisionBody,
+    HardwareBleIdentityRequestBody,
+    HardwareOperatorBleScanRequestBody,
     HardwareBleScanRequestBody,
     HardwareAccessRequestBody,
     HardwareAccessService,
@@ -2239,14 +2241,18 @@ def build_system_router(
     def _supervisor_is_local(record: object) -> bool:
         capabilities = [str(item) for item in getattr(record, "capabilities", []) or []]
         metadata = getattr(record, "metadata", {}) if record is not None else {}
+        transport = clean_text(getattr(record, "transport", "")).lower()
         host_id = clean_text(getattr(record, "host_id", "")).lower()
         hostname = clean_text(getattr(record, "hostname", "")).lower()
         local_hostname = socket.gethostname().lower()
+        api_base_url = clean_text(getattr(record, "api_base_url", ""))
         return (
-            clean_text(getattr(record, "transport", "")).lower() == "local"
+            transport == "local"
+            or (transport == "socket" and not api_base_url)
             or "local_core_attached" in capabilities
             or bool(isinstance(metadata, dict) and metadata.get("attached_to_core"))
             or bool(isinstance(metadata, dict) and metadata.get("local_core_runtime_report"))
+            or bool(isinstance(metadata, dict) and clean_text(metadata.get("supervisor_api_transport", "")).lower() == "socket" and not api_base_url)
             or host_id == local_hostname
             or hostname == local_hostname
         )
@@ -2284,6 +2290,41 @@ def build_system_router(
         except ValueError:
             return {"ok": False, "status": "failed", "error": "supervisor_ble_scan_invalid_json"}
         return result if isinstance(result, dict) else {"ok": False, "status": "failed", "error": "supervisor_ble_scan_invalid_payload"}
+
+    def _call_supervisor_ble_identity(
+        request: Request,
+        supervisor: object,
+        payload: dict[str, object],
+        *,
+        timeout_s: float,
+    ) -> dict[str, object]:
+        path = "/api/supervisor/hardware/bluetooth/ble/identity"
+        if _supervisor_is_local(supervisor):
+            client = getattr(request.app.state, "supervisor_client", None)
+            request_json = getattr(client, "request_json", None)
+            if callable(request_json):
+                try:
+                    result = request_json("POST", path, payload=payload, timeout_s=timeout_s)
+                except TypeError:
+                    result = request_json("POST", path, payload=payload)
+                if isinstance(result, dict):
+                    return result
+                return {"ok": False, "status": "failed", "error": "supervisor_local_ble_identity_unavailable"}
+
+        broker_url = supervisor_broker_url(supervisor)
+        if not broker_url:
+            return {"ok": False, "status": "failed", "error": "supervisor_broker_url_unavailable"}
+        try:
+            response = httpx.post(f"{broker_url}/identity", json=payload, timeout=timeout_s)
+        except httpx.HTTPError:
+            return {"ok": False, "status": "failed", "error": "supervisor_ble_identity_unavailable"}
+        if response.status_code >= 400:
+            return {"ok": False, "status": "failed", "error": f"supervisor_ble_identity_http_{response.status_code}"}
+        try:
+            result = response.json()
+        except ValueError:
+            return {"ok": False, "status": "failed", "error": "supervisor_ble_identity_invalid_json"}
+        return result if isinstance(result, dict) else {"ok": False, "status": "failed", "error": "supervisor_ble_identity_invalid_payload"}
 
     @router.post("/system/nodes/hardware/bluetooth/ble/scan")
     def scan_node_hardware_ble(
@@ -2436,6 +2477,137 @@ def build_system_router(
             "devices": matching_devices,
             "supervisor_results": results,
             "error": None if completed_count > 0 or pending_count == len(results) else "supervisor_ble_scan_unavailable",
+        }
+
+    @router.post("/system/nodes/hardware/bluetooth/ble/identity")
+    def read_node_hardware_ble_identity(
+        body: HardwareBleIdentityRequestBody,
+        request: Request,
+        x_node_trust_token: str | None = Header(default=None),
+    ):
+        _authenticate_trusted_node(body.node_id, str(x_node_trust_token or ""))
+        candidates = active_bluetooth_supervisors(supervisor_fleet_store)
+        supervisor_filter = clean_text(body.supervisor_id)
+        if supervisor_filter:
+            candidates = [record for record in candidates if _supervisor_id(record) == supervisor_filter]
+
+        results: list[dict[str, object]] = []
+        if not candidates:
+            return {
+                "ok": False,
+                "status": "failed",
+                "operation": "ble.read_identity",
+                "mode": "fleet",
+                "node_id": body.node_id,
+                "target_address": body.target_address,
+                "supervisor_count": 0,
+                "completed_supervisor_count": 0,
+                "identity": {},
+                "supervisor_results": [],
+                "error": "bluetooth_supervisor_unavailable",
+            }
+
+        identity_jobs: list[tuple[object, object, str, dict[str, object]]] = []
+        for supervisor in candidates:
+            access_record, lease_token = hardware_access.request_access(
+                HardwareAccessRequestBody(
+                    node_id=body.node_id,
+                    resource_type="bluetooth",
+                    operation="ble.read_identity",
+                    supervisor_id=_supervisor_id(supervisor),
+                    adapter=body.adapter,
+                    duration_s=max(30, min(24 * 60 * 60, int(body.timeout_s) + 60)),
+                    reason=body.reason or f"Read BLE onboarding identity from {body.target_address}",
+                )
+            )
+            result: dict[str, object] = {
+                "supervisor_id": access_record.supervisor_id,
+                "status": access_record.status,
+                "access_request": access_record.to_api_dict(),
+                "broker_url": access_record.broker_url,
+                "adapter": access_record.adapter or body.adapter,
+                "target_address": body.target_address,
+                "identity": {},
+            }
+            if access_record.status != "granted" or not lease_token:
+                result["error"] = access_record.decision_reason or access_record.status or "hardware_access_not_granted"
+            else:
+                identity_jobs.append((supervisor, access_record, lease_token, result))
+            results.append(result)
+
+        def _run_identity_read(job: tuple[object, object, str, dict[str, object]]) -> tuple[dict[str, object], dict[str, object]]:
+            supervisor, access_record, lease_token, result = job
+            identity_payload = {
+                "node_id": body.node_id,
+                "lease_token": lease_token,
+                "adapter": access_record.adapter or body.adapter,
+                "target_address": body.target_address,
+                "timeout_s": body.timeout_s,
+            }
+            identity_payload = {key: value for key, value in identity_payload.items() if value is not None}
+            supervisor_result = _call_supervisor_ble_identity(
+                request,
+                supervisor,
+                identity_payload,
+                timeout_s=min(max(float(body.timeout_s) * 4.0 + 20.0, 45.0), 180.0),
+            )
+            result["supervisor_result"] = supervisor_result
+            result["status"] = "completed" if bool(supervisor_result.get("ok")) else "failed"
+            identity = supervisor_result.get("onboarding") or supervisor_result.get("identity") or {}
+            result["identity"] = dict(identity) if isinstance(identity, dict) else {}
+            if result["status"] != "completed":
+                result["error"] = supervisor_result.get("error") or supervisor_result.get("status") or "supervisor_ble_identity_failed"
+            return result, supervisor_result
+
+        if identity_jobs:
+            with ThreadPoolExecutor(max_workers=min(len(identity_jobs), 8)) as executor:
+                futures = [executor.submit(_run_identity_read, job) for job in identity_jobs]
+                for future in as_completed(futures):
+                    future.result()
+
+        for _supervisor, access_record, _lease_token, result in identity_jobs:
+            try:
+                release_record = hardware_access.release(str(access_record.lease_id or ""), node_id=body.node_id)
+                result["release_result"] = release_record.to_api_dict()
+            except KeyError:
+                result["release_result"] = {"ok": False, "error": "hardware_access_lease_not_found"}
+
+        completed_count = len([result for result in results if result.get("status") == "completed"])
+        pending_count = len([result for result in results if result.get("status") == "pending"])
+        identity = next((result.get("identity") for result in results if isinstance(result.get("identity"), dict) and result.get("identity")), {})
+        if completed_count == len(results):
+            status = "completed"
+        elif completed_count > 0:
+            status = "partial"
+        elif pending_count == len(results):
+            status = "pending"
+        else:
+            status = "failed"
+        _record_audit(
+            audit_store,
+            event_type="node_hardware_ble_identity_read",
+            actor_role="node",
+            actor_id=body.node_id,
+            details={
+                "operation": "ble.read_identity",
+                "supervisor_count": len(candidates),
+                "completed_supervisor_count": completed_count,
+                "target_address": body.target_address,
+                "source_ip": str(request.client.host if request.client else "unknown"),
+            },
+        )
+        return {
+            "ok": completed_count > 0,
+            "status": status,
+            "operation": "ble.read_identity",
+            "mode": "fleet",
+            "node_id": body.node_id,
+            "target_address": body.target_address,
+            "supervisor_count": len(candidates),
+            "completed_supervisor_count": completed_count,
+            "identity": identity if isinstance(identity, dict) else {},
+            "supervisor_results": results,
+            "error": None if completed_count > 0 or pending_count == len(results) else "supervisor_ble_identity_unavailable",
         }
 
     @router.post("/system/nodes/hardware/access-requests")

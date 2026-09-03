@@ -8,6 +8,7 @@ from .models import (
     HostResourceSummary,
     ManagedNodeSummary,
     SupervisorAdmissionContextSummary,
+    SupervisorBluetoothBleIdentityRequest,
     SupervisorBluetoothBleScanRequest,
     SupervisorBluetoothLeaseRequest,
     SupervisorBluetoothProvisionWifiRequest,
@@ -55,6 +56,10 @@ def build_supervisor_router(service: SupervisorDomainService | None = None) -> A
     @router.post("/supervisor/hardware/bluetooth/ble/scan")
     def scan_supervisor_bluetooth_ble(body: SupervisorBluetoothBleScanRequest) -> dict[str, Any]:
         return supervisor.bluetooth_ble_scan(body)
+
+    @router.post("/supervisor/hardware/bluetooth/ble/identity")
+    def read_supervisor_bluetooth_ble_identity(body: SupervisorBluetoothBleIdentityRequest) -> dict[str, Any]:
+        return supervisor.bluetooth_ble_identity(body)
 
     @router.post("/supervisor/hardware/bluetooth/ble/provision-wifi")
     def provision_supervisor_bluetooth_ble_wifi(body: SupervisorBluetoothProvisionWifiRequest) -> dict[str, Any]:

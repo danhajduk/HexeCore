@@ -104,19 +104,19 @@
           ],
           "properties": {
             "device_identity": {
-              "const": "7f9c0001-5f04-4d8b-9a46-7c0f7a100000"
+              "const": "7f9c0000-5f04-4d8b-9a46-7c0f7a100001"
             },
             "pairing_nonce": {
-              "const": "7f9c0002-5f04-4d8b-9a46-7c0f7a100000"
+              "const": "7f9c0000-5f04-4d8b-9a46-7c0f7a100002"
             },
             "provisioning_status": {
-              "const": "7f9c0003-5f04-4d8b-9a46-7c0f7a100000"
+              "const": "7f9c0000-5f04-4d8b-9a46-7c0f7a100003"
             },
             "encrypted_credentials": {
-              "const": "7f9c0004-5f04-4d8b-9a46-7c0f7a100000"
+              "const": "7f9c0000-5f04-4d8b-9a46-7c0f7a100004"
             },
             "ack_error": {
-              "const": "7f9c0005-5f04-4d8b-9a46-7c0f7a100000"
+              "const": "7f9c0000-5f04-4d8b-9a46-7c0f7a100005"
             }
           }
         }

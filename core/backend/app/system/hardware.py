@@ -23,7 +23,7 @@ BLE_PROVISIONING_ENCRYPTION_ALGORITHM = "aes-256-gcm"
 BLE_PROVISIONING_KEY_AGREEMENT = "x25519-hkdf-sha256"
 VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID = "hexe.voice_node.wifi_backend.v1"
 SUPPORTED_HARDWARE_RESOURCES = {"bluetooth"}
-SUPPORTED_BLUETOOTH_OPERATIONS = {"ble.status", "ble.scan", "ble.provision_wifi"}
+SUPPORTED_BLUETOOTH_OPERATIONS = {"ble.status", "ble.scan", "ble.read_identity", "ble.provision_wifi"}
 
 VOICE_WIFI_PROVISIONING_PAYLOAD_SCHEMA: dict[str, Any] = {
     "schema_id": VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID,
@@ -221,7 +221,7 @@ class HardwareAccessRequestBody(BaseModel):
 
     node_id: str = Field(..., min_length=1, description="Trusted node id requesting hardware access.")
     resource_type: Literal["bluetooth"] = Field(default="bluetooth", description="Host hardware resource type.")
-    operation: Literal["ble.status", "ble.scan", "ble.provision_wifi"] = Field(
+    operation: Literal["ble.status", "ble.scan", "ble.read_identity", "ble.provision_wifi"] = Field(
         default="ble.scan",
         description="Bluetooth operation the node is requesting a Core-governed lease for.",
     )
@@ -268,7 +268,7 @@ class HardwareLeaseValidationBody(BaseModel):
     node_id: str = Field(..., min_length=1)
     lease_token: str = Field(..., min_length=1)
     resource_type: Literal["bluetooth"] = "bluetooth"
-    operation: Literal["ble.status", "ble.scan", "ble.provision_wifi"] = "ble.scan"
+    operation: Literal["ble.status", "ble.scan", "ble.read_identity", "ble.provision_wifi"] = "ble.scan"
     supervisor_id: str | None = None
     adapter: str | None = None
     provisioning: HardwareProvisioningContext | None = None
@@ -283,6 +283,27 @@ class HardwareBleScanRequestBody(BaseModel):
     service_uuid: str | None = Field(default=None, min_length=4, max_length=64, description="Optional BLE service UUID to match.")
     scan_seconds: int = Field(default=5, ge=1, le=60, description="BLE scan duration requested from each supervisor.")
     reason: str | None = Field(default=None, max_length=240, description="Optional operator-readable reason for the fleet scan.")
+
+
+class HardwareOperatorBleScanRequestBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    supervisor_id: str | None = Field(default=None, max_length=120, description="Optional supervisor filter.")
+    adapter: str | None = Field(default=None, max_length=64, description="Optional Bluetooth adapter id such as hci0.")
+    service_uuid: str | None = Field(default=None, min_length=4, max_length=64, description="Optional BLE service UUID to match.")
+    scan_seconds: int = Field(default=5, ge=1, le=60, description="BLE scan duration requested from each supervisor.")
+    reason: str | None = Field(default=None, max_length=240, description="Optional operator-readable reason for the fleet scan.")
+
+
+class HardwareBleIdentityRequestBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    node_id: str = Field(..., min_length=1, description="Trusted node id requesting Core-governed BLE onboarding identity.")
+    supervisor_id: str | None = Field(default=None, max_length=120, description="Optional supervisor filter.")
+    adapter: str | None = Field(default=None, max_length=64, description="Optional Bluetooth adapter id such as hci0.")
+    target_address: str = Field(..., min_length=1, max_length=64, description="BLE device address to connect and read.")
+    timeout_s: int = Field(default=20, ge=1, le=60, description="BLE GATT identity read timeout requested from each supervisor.")
+    reason: str | None = Field(default=None, max_length=240, description="Optional operator-readable reason for the identity read.")
 
 
 def hardware_access_request_schema_payload() -> dict[str, Any]:

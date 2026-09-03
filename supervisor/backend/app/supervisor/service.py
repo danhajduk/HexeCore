@@ -44,6 +44,7 @@ from .models import (
     ManagedNodeSummary,
     ProcessResourceSummary,
     SupervisorAdmissionContextSummary,
+    SupervisorBluetoothBleIdentityRequest,
     SupervisorBluetoothBleScanRequest,
     SupervisorBluetoothLeaseRequest,
     SupervisorBluetoothProvisionWifiRequest,
@@ -1197,6 +1198,197 @@ class SupervisorDomainService:
                 item["matched_service_uuid"] = requested_uuid
             enriched.append(item)
         return enriched
+
+    @staticmethod
+    def _parse_bluetoothctl_gatt_json_values(output: str) -> list[dict[str, Any]]:
+        raw_values: list[bytearray] = []
+        raw_bytes: bytearray | None = None
+        hex_digits = set("0123456789abcdefABCDEF")
+        for line in (output or "").splitlines():
+            text = line.strip()
+            if "Value:" in text:
+                if raw_bytes:
+                    raw_values.append(raw_bytes)
+                raw_bytes = bytearray()
+                text = text.split("Value:", 1)[1].strip()
+            if raw_bytes is None:
+                continue
+            line_bytes: list[int] = []
+            for token in text.replace(",", " ").split():
+                candidate = token.removeprefix("0x").strip(":")
+                if len(candidate) == 2 and all(ch in hex_digits for ch in candidate):
+                    line_bytes.append(int(candidate, 16))
+            if line_bytes:
+                raw_bytes.extend(line_bytes)
+        if raw_bytes:
+            raw_values.append(raw_bytes)
+
+        values: list[dict[str, Any]] = []
+        for raw in raw_values:
+            text = raw.decode("utf-8", errors="ignore").strip("\x00\r\n ")
+            start = text.find("{")
+            if start < 0:
+                continue
+            try:
+                payload, _index = json.JSONDecoder().raw_decode(text[start:])
+            except ValueError:
+                continue
+            if isinstance(payload, dict):
+                values.append(payload)
+        return values
+
+    @classmethod
+    def _parse_bluetoothctl_gatt_json(cls, output: str) -> dict[str, Any] | None:
+        values = cls._parse_bluetoothctl_gatt_json_values(output)
+        return values[0] if values else None
+
+    @staticmethod
+    def _bluetoothctl_run(args: list[str], *, timeout_s: float) -> subprocess.CompletedProcess[str]:
+        timeout_value = max(1, int(timeout_s))
+        return subprocess.run(
+            ["bluetoothctl", "--timeout", str(timeout_value), *args],
+            capture_output=True,
+            text=True,
+            timeout=timeout_value + 3.0,
+            check=False,
+        )
+
+    def _read_bluetoothctl_gatt_json(self, uuid: str, *, timeout_s: float) -> tuple[dict[str, Any] | None, str | None]:
+        timeout_value = max(1, int(timeout_s))
+        quoted_uuid = shlex.quote(uuid)
+        script = (
+            "set -e; "
+            f"(printf 'menu gatt\\nselect-attribute {quoted_uuid}\\nread\\n'; "
+            "sleep 3; "
+            "printf 'quit\\n') | "
+            f"bluetoothctl --timeout {timeout_value}"
+        )
+        read = subprocess.run(
+            ["bash", "-lc", script],
+            capture_output=True,
+            text=True,
+            timeout=timeout_value + 8.0,
+            check=False,
+        )
+        read_output = (read.stdout or "") + "\n" + (read.stderr or "")
+        read_error_text = read_output.strip().lower()
+        if read.returncode != 0 or "no attribute selected" in read_error_text or "no device connected" in read_error_text or "not found" in read_error_text:
+            return None, (read_output.strip() or f"read_attribute_failed:{uuid}")
+        parsed = self._parse_bluetoothctl_gatt_json(read_output)
+        if parsed is None:
+            return None, "read_attribute_invalid_json"
+        return parsed, None
+
+    def _read_bluetoothctl_gatt_identity(
+        self,
+        target_address: str,
+        characteristics: dict[str, str],
+        *,
+        timeout_s: float,
+    ) -> tuple[dict[str, Any], dict[str, str]]:
+        timeout_value = max(1, int(timeout_s))
+        commands: list[tuple[str, float]] = [(f"connect {target_address}", 4.0), ("menu gatt", 0.2)]
+        for uuid in characteristics.values():
+            commands.append((f"select-attribute {uuid}", 0.2))
+            commands.append(("read", 2.0))
+        commands.extend([("back", 0.2), (f"disconnect {target_address}", 0.5), ("quit", 0.0)])
+        feed = "; ".join(
+            f"printf '%s\\n' {shlex.quote(command)}; sleep {delay:g}" for command, delay in commands
+        )
+        script = f"( {feed} ) | bluetoothctl --timeout {timeout_value}"
+        read = subprocess.run(
+            ["bash", "-lc", script],
+            capture_output=True,
+            text=True,
+            timeout=timeout_value + 20.0,
+            check=False,
+        )
+        read_output = (read.stdout or "") + "\n" + (read.stderr or "")
+        read_error_text = read_output.strip().lower()
+        values = self._parse_bluetoothctl_gatt_json_values(read_output)
+        payloads: dict[str, Any] = {}
+        errors: dict[str, str] = {}
+        names = list(characteristics)
+        for index, payload in enumerate(values[: len(names)]):
+            payloads[names[index]] = payload
+        if read.returncode != 0 or "failed to connect" in read_error_text:
+            message = read_output.strip() or "bluetoothctl identity session failed"
+            for name in names:
+                errors.setdefault(name, message)
+            return payloads, errors
+        if "no device connected" in read_error_text or "no attribute selected" in read_error_text or "not found" in read_error_text:
+            message = read_output.strip() or "gatt_attribute_read_failed"
+            for name in names:
+                errors.setdefault(name, message)
+        for name in names:
+            if name not in payloads:
+                errors.setdefault(name, "read_attribute_invalid_json")
+        return payloads, errors
+
+    def bluetooth_ble_identity(self, body: SupervisorBluetoothBleIdentityRequest) -> dict[str, Any]:
+        validation = self._validate_bluetooth_lease(body, operation="ble.read_identity")
+        adapter, adapters = self._bluetooth_adapter_for_request(body.adapter)
+        if not shutil.which("bluetoothctl"):
+            return {
+                "ok": False,
+                "status": "failed",
+                "operation": "ble.read_identity",
+                "error": "bluetoothctl_unavailable",
+                "node_id": body.node_id,
+                "supervisor_id": self._supervisor_id(),
+                "adapter": adapter,
+                "adapters": adapters,
+                "target_address": body.target_address,
+                "revocation_check": validation.get("revocation_check"),
+            }
+
+        timeout_s = max(1, min(int(body.timeout_s or 20), 60))
+        target_address = str(body.target_address).strip()
+        characteristics = {
+            "device_identity": "7f9c0000-5f04-4d8b-9a46-7c0f7a100001",
+            "pairing_nonce": "7f9c0000-5f04-4d8b-9a46-7c0f7a100002",
+            "provisioning_status": "7f9c0000-5f04-4d8b-9a46-7c0f7a100003",
+        }
+        payloads: dict[str, Any] = {}
+        errors: dict[str, str] = {}
+        discovery_refreshed = False
+        try:
+            discovery_timeout = min(timeout_s, 15)
+            discovery = self._bluetoothctl_run(["scan", "le"], timeout_s=discovery_timeout)
+            discovery_output = (discovery.stdout or "") + "\n" + (discovery.stderr or "")
+            discovery_refreshed = target_address.lower() in discovery_output.lower()
+            payloads, errors = self._read_bluetoothctl_gatt_identity(
+                target_address,
+                characteristics,
+                timeout_s=timeout_s,
+            )
+        except Exception as exc:
+            errors["read"] = str(exc)
+
+        onboarding: dict[str, Any] = {}
+        for name in ("device_identity", "pairing_nonce", "provisioning_status"):
+            payload = payloads.get(name)
+            if isinstance(payload, dict):
+                onboarding.update(payload)
+
+        ok = bool(payloads.get("device_identity") or payloads.get("pairing_nonce"))
+        return {
+            "ok": ok,
+            "status": "completed" if ok else "failed",
+            "operation": "ble.read_identity",
+            "node_id": body.node_id,
+            "supervisor_id": self._supervisor_id(),
+            "adapter": adapter,
+            "adapters": adapters,
+            "target_address": target_address,
+            "timeout_s": timeout_s,
+            "discovery_refreshed": discovery_refreshed,
+            "characteristics": payloads,
+            "onboarding": onboarding,
+            "errors": errors,
+            "error": None if ok else "ble_identity_read_failed",
+            "revocation_check": validation.get("revocation_check"),
+        }
 
     def _bluetooth_adapter_for_request(self, adapter: str | None = None) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         summary = self._bluetooth_summary()

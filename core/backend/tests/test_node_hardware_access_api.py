@@ -158,7 +158,7 @@ class TestNodeHardwareAccessApi(unittest.TestCase):
         self.assertTrue(payload["ok"])
         self.assertEqual(payload["schema_version"], "1")
         self.assertEqual(payload["resource_types"], ["bluetooth"])
-        self.assertEqual(payload["operations"], ["ble.provision_wifi", "ble.scan", "ble.status"])
+        self.assertEqual(payload["operations"], ["ble.provision_wifi", "ble.read_identity", "ble.scan", "ble.status"])
         self.assertIn("voice", payload["provisioning_payload_schemas"])
 
         schema = payload["request_schema"]
@@ -169,6 +169,7 @@ class TestNodeHardwareAccessApi(unittest.TestCase):
         self.assertEqual(properties["resource_type"]["default"], "bluetooth")
         self.assertEqual(properties["operation"]["default"], "ble.scan")
         self.assertIn("ble.provision_wifi", properties["operation"]["enum"])
+        self.assertIn("ble.read_identity", properties["operation"]["enum"])
         self.assertIn("ble.scan", properties["operation"]["enum"])
         self.assertIn("ble.status", properties["operation"]["enum"])
 
@@ -317,6 +318,68 @@ class TestNodeHardwareAccessApi(unittest.TestCase):
         self.assertEqual(payload["devices"][0]["supervisor_id"], "hxe-supervisor")
         self.assertEqual(local_client.requests[0]["path"], "/api/supervisor/hardware/bluetooth/ble/scan")
         self.assertEqual(local_client.requests[0]["timeout_s"], 70.0)
+
+    def test_ble_identity_uses_local_client_and_releases_lease(self) -> None:
+        self._supervisor(
+            policy="allowed",
+            supervisor_id="hxe-supervisor",
+            supervisor_name="Local Socket Supervisor",
+            host_id=socket.gethostname(),
+            transport="socket",
+            api_base_url=None,
+            metadata={"local_core_runtime_report": True},
+        )
+
+        class _LocalSupervisorClient:
+            def __init__(self) -> None:
+                self.requests: list[dict] = []
+
+            def request_json(self, method: str, path: str, *, payload: dict | None = None, params: dict | None = None, timeout_s: float | None = None):
+                self.requests.append({"method": method, "path": path, "payload": dict(payload or {}), "timeout_s": timeout_s})
+                return {
+                    "ok": True,
+                    "status": "completed",
+                    "operation": "ble.read_identity",
+                    "target_address": payload.get("target_address"),
+                    "onboarding": {
+                        "target_node_id": "hexe-pe-1",
+                        "onboarding_session_id": "recovery-ble-1234",
+                        "pairing_nonce": "nonce-123456",
+                        "board_profile": "ha_voice_pe",
+                        "provisioning_mode": "local_recovery",
+                    },
+                }
+
+        local_client = _LocalSupervisorClient()
+        self.app.state.supervisor_client = local_client
+        response = self.client.post(
+            "/api/system/nodes/hardware/bluetooth/ble/identity",
+            headers={"X-Node-Trust-Token": "node-token"},
+            json={
+                "node_id": "node-1",
+                "supervisor_id": "hxe-supervisor",
+                "adapter": "hci0",
+                "target_address": "AA:BB:CC:DD:EE:FF",
+                "timeout_s": 20,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["operation"], "ble.read_identity")
+        self.assertEqual(payload["completed_supervisor_count"], 1)
+        self.assertEqual(payload["identity"]["board_profile"], "ha_voice_pe")
+        self.assertEqual(payload["identity"]["onboarding_session_id"], "recovery-ble-1234")
+        self.assertEqual(local_client.requests[0]["path"], "/api/supervisor/hardware/bluetooth/ble/identity")
+        self.assertEqual(local_client.requests[0]["payload"]["target_address"], "AA:BB:CC:DD:EE:FF")
+        self.assertEqual(local_client.requests[0]["payload"]["lease_token"] is not None, True)
+        self.assertEqual(local_client.requests[0]["timeout_s"], 100.0)
+        access_list = self.client.get(
+            "/api/system/nodes/node-1/hardware/access-requests",
+            headers={"X-Node-Trust-Token": "node-token"},
+        )
+        self.assertEqual({item["status"] for item in access_list.json()["items"]}, {"released"})
 
     def test_provision_wifi_grants_scoped_lease_and_validates_session(self) -> None:
         provisioning = {

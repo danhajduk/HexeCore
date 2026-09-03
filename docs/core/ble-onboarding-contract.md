@@ -52,11 +52,11 @@ Hexe BLE Onboarding Service UUID: `7f9c0000-5f04-4d8b-9a46-7c0f7a100000`
 
 Characteristics:
 
-- Device identity / board profile: `7f9c0001-5f04-4d8b-9a46-7c0f7a100000`
-- Pairing nonce / claim code: `7f9c0002-5f04-4d8b-9a46-7c0f7a100000`
-- Provisioning status: `7f9c0003-5f04-4d8b-9a46-7c0f7a100000`
-- Encrypted credential write: `7f9c0004-5f04-4d8b-9a46-7c0f7a100000`
-- Ack/error: `7f9c0005-5f04-4d8b-9a46-7c0f7a100000`
+- Device identity / board profile: `7f9c0000-5f04-4d8b-9a46-7c0f7a100001`
+- Pairing nonce / claim code: `7f9c0000-5f04-4d8b-9a46-7c0f7a100002`
+- Provisioning status: `7f9c0000-5f04-4d8b-9a46-7c0f7a100003`
+- Encrypted credential write: `7f9c0000-5f04-4d8b-9a46-7c0f7a100004`
+- Ack/error: `7f9c0000-5f04-4d8b-9a46-7c0f7a100005`
 
 All JSON characteristic payloads use UTF-8 JSON. Binary encrypted payloads are base64url encoded inside JSON. Implementations should support chunking when BLE MTU limits require it.
 

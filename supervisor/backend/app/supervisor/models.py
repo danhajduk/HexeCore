@@ -69,6 +69,11 @@ class SupervisorBluetoothBleScanRequest(SupervisorBluetoothLeaseRequest):
     scan_seconds: int = Field(default=5, ge=1, le=60)
 
 
+class SupervisorBluetoothBleIdentityRequest(SupervisorBluetoothLeaseRequest):
+    target_address: str = Field(..., min_length=1, max_length=64)
+    timeout_s: int = Field(default=20, ge=1, le=60)
+
+
 class SupervisorVoiceWifiProvisioningPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
