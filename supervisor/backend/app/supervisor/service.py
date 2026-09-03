@@ -1543,10 +1543,48 @@ class SupervisorDomainService:
         timeout_s: float,
     ) -> tuple[dict[str, Any], dict[str, str], bool]:
         timeout_value = max(1, int(timeout_s))
-        connect_attempts = max(1, min(15, (timeout_value + 3) // 4))
-        commands: list[tuple[str, float]] = [("scan le", 2.0)]
-        commands.extend((f"connect {target_address}", 4.0) for _ in range(connect_attempts))
-        commands.append(("menu gatt", 0.5))
+        session_output: list[str] = []
+        discovery_refreshed = False
+        connected_successfully = False
+        scan = subprocess.Popen(
+            ["bluetoothctl", "--timeout", str(timeout_value), "scan", "le"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        try:
+            deadline = time.monotonic() + timeout_value
+            while time.monotonic() < deadline:
+                connect = subprocess.run(
+                    ["bluetoothctl", "connect", target_address],
+                    capture_output=True,
+                    text=True,
+                    timeout=6.0,
+                    check=False,
+                )
+                connect_output = (connect.stdout or "") + "\n" + (connect.stderr or "")
+                session_output.append(connect_output)
+                connect_text = connect_output.lower()
+                if target_address.lower() in connect_text:
+                    discovery_refreshed = True
+                if "connection successful" in connect_text or "already connected" in connect_text:
+                    connected_successfully = True
+                    break
+                time.sleep(1.0)
+        finally:
+            if scan.poll() is None:
+                scan.terminate()
+            try:
+                scan_stdout, scan_stderr = scan.communicate(timeout=2.0)
+            except subprocess.TimeoutExpired:
+                scan.kill()
+                scan_stdout, scan_stderr = scan.communicate(timeout=2.0)
+            scan_output = (scan_stdout or "") + "\n" + (scan_stderr or "")
+            session_output.insert(0, scan_output)
+            if target_address.lower() in scan_output.lower():
+                discovery_refreshed = True
+
+        commands: list[tuple[str, float]] = [("menu gatt", 0.5)]
         for uuid in characteristics.values():
             commands.append((f"select-attribute {uuid}", 0.5))
             commands.append(("read", 3.0))
@@ -1554,25 +1592,27 @@ class SupervisorDomainService:
         feed = "; ".join(
             f"printf '%s\\n' {shlex.quote(command)}; sleep {delay:g}" for command, delay in commands
         )
-        script = f"( {feed} ) | bluetoothctl --timeout {timeout_value}"
-        read = subprocess.run(
-            ["bash", "-lc", script],
-            capture_output=True,
-            text=True,
-            timeout=timeout_value + 35.0,
-            check=False,
-        )
-        read_output = (read.stdout or "") + "\n" + (read.stderr or "")
+        read_output = "\n".join(session_output)
+        read_returncode = 0
+        if connected_successfully:
+            script = f"( {feed} ) | bluetoothctl --timeout {timeout_value}"
+            read = subprocess.run(
+                ["bash", "-lc", script],
+                capture_output=True,
+                text=True,
+                timeout=timeout_value + 20.0,
+                check=False,
+            )
+            read_returncode = read.returncode
+            read_output = read_output + "\n" + (read.stdout or "") + "\n" + (read.stderr or "")
         read_error_text = read_output.strip().lower()
-        discovery_refreshed = target_address.lower() in read_output.lower()
         values = self._parse_bluetoothctl_gatt_json_values(read_output)
         payloads: dict[str, Any] = {}
         errors: dict[str, str] = {}
         names = list(characteristics)
         for index, payload in enumerate(values[: len(names)]):
             payloads[names[index]] = payload
-        connected_successfully = "connection successful" in read_error_text
-        if read.returncode != 0 or ("failed to connect" in read_error_text and not connected_successfully):
+        if read_returncode != 0 or not connected_successfully:
             message = read_output.strip() or "bluetoothctl identity session failed"
             for name in names:
                 errors.setdefault(name, message)

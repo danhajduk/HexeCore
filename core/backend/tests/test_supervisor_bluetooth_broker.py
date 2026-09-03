@@ -205,6 +205,21 @@ class TestSupervisorBluetoothBroker(unittest.TestCase):
 
     def test_ble_identity_reads_onboarding_characteristics(self) -> None:
         calls: list[list[str]] = []
+        connect_attempts = 0
+
+        class _ScanProcess:
+            def __init__(self, cmd, **kwargs) -> None:
+                calls.append(list(cmd))
+                self.returncode = None
+
+            def poll(self):
+                return self.returncode
+
+            def terminate(self) -> None:
+                self.returncode = -15
+
+            def communicate(self, timeout=None):
+                return ("[NEW] Device AA:BB:CC:DD:EE:FF HexeRecovery\n", "")
 
         def read_output(payload: dict) -> str:
             encoded = json.dumps(payload, separators=(",", ":")).encode("utf-8")
@@ -212,14 +227,17 @@ class TestSupervisorBluetoothBroker(unittest.TestCase):
             return f"Attempting to read ...\n[CHG] Attribute /org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF/service0010/char0011 Value:\n  {hex_rows}\n"
 
         def fake_run(cmd, **kwargs):
+            nonlocal connect_attempts
             calls.append(list(cmd))
+            if cmd == ["bluetoothctl", "connect", "AA:BB:CC:DD:EE:FF"]:
+                connect_attempts += 1
+                if connect_attempts == 1:
+                    return _Completed(stdout="Device AA:BB:CC:DD:EE:FF not available\n")
+                return _Completed(stdout="Connection successful\n")
             if cmd[:2] == ["bash", "-lc"] and "bluetoothctl --timeout 20" in cmd[2]:
                 return _Completed(
                     stdout=(
-                        "[NEW] Device AA:BB:CC:DD:EE:FF HexeRecovery\n"
-                        "Device AA:BB:CC:DD:EE:FF not available\n"
-                        "Connection successful\n"
-                        + read_output(
+                        read_output(
                             {
                                 "target_node_id": "hexe-pe-1",
                                 "endpoint_ephemeral_public_key": self.endpoint_public_key,
@@ -242,10 +260,11 @@ class TestSupervisorBluetoothBroker(unittest.TestCase):
             return _Completed()
 
         with patch("app.supervisor.service.shutil.which", return_value="/usr/bin/bluetoothctl"):
-            with patch("app.supervisor.service.subprocess.run", side_effect=fake_run):
-                response = self.client.post(
-                    "/api/supervisor/hardware/bluetooth/ble/identity",
-                    json={
+            with patch("app.supervisor.service.subprocess.Popen", side_effect=_ScanProcess):
+                with patch("app.supervisor.service.subprocess.run", side_effect=fake_run):
+                    response = self.client.post(
+                        "/api/supervisor/hardware/bluetooth/ble/identity",
+                        json={
                         "node_id": "node-1",
                         "lease_token": self._lease_token(operation="ble.read_identity"),
                         "adapter": "hci0",
@@ -266,11 +285,11 @@ class TestSupervisorBluetoothBroker(unittest.TestCase):
         self.assertIn("device_identity", payload["characteristics"])
         self.assertIn("pairing_nonce", payload["characteristics"])
         self.assertTrue(payload["discovery_refreshed"])
-        self.assertEqual(calls[0][:2], ["bash", "-lc"])
-        self.assertIn("scan le", calls[0][2])
-        self.assertIn("connect AA:BB:CC:DD:EE:FF", calls[0][2])
-        self.assertGreater(calls[0][2].count("connect AA:BB:CC:DD:EE:FF"), 1)
-        self.assertIn("disconnect AA:BB:CC:DD:EE:FF", calls[0][2])
+        self.assertEqual(calls[0], ["bluetoothctl", "--timeout", "20", "scan", "le"])
+        self.assertEqual(calls[1], ["bluetoothctl", "connect", "AA:BB:CC:DD:EE:FF"])
+        self.assertEqual(calls[2], ["bluetoothctl", "connect", "AA:BB:CC:DD:EE:FF"])
+        self.assertEqual(calls[3][:2], ["bash", "-lc"])
+        self.assertIn("disconnect AA:BB:CC:DD:EE:FF", calls[3][2])
 
     def test_ble_pairing_advert_accepts_endpoint_identity_and_stops(self) -> None:
         backend = _PairingAdvertBackend()
