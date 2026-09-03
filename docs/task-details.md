@@ -996,3 +996,88 @@ Original task details:
 - Verification: Run `python tools/check_env_registry.py --check-docs` if env settings are added.
 - Verification: Run `python tools/check_mirror_drift.py`.
 - Verification: Run a live or dry-run remote update check against a test Supervisor or explicitly document why live verification was not safe.
+
+## Task 997
+Original task details:
+- User request: Make endpoint onboarding work the other way around: Core/Supervisor publishes a BLE advert for an Add Device pairing session, and the endpoint discovers that advert and connects.
+- Goal: Define the inverted BLE onboarding contract before implementation.
+- Reuse the existing Hexe BLE onboarding UUID block if it remains semantically clear; otherwise reserve a nearby host-advert role characteristic while preserving backward compatibility with the current endpoint-advert flow.
+- Define the BLE roles explicitly:
+  - Core owns pairing-session creation, expiry, policy, audit, and UI state.
+  - Supervisor owns host BLE advertisement and the host-side GATT service.
+  - Endpoint firmware owns scanning for the Hexe pairing advert, connecting to the Supervisor, and writing/reading only the session-bound onboarding data.
+- Define what is safe in the BLE advertisement: service UUID, contract version, role/pairing-session flags, and a short-lived session hint only. Do not advertise Wi-Fi credentials, trust tokens, endpoint secrets, or long-lived node identity material.
+- Define the GATT payloads for the host-published pairing session:
+  - pairing offer/session id
+  - contract version
+  - Core/Supervisor identity hint
+  - expiry
+  - requested endpoint capability/schema
+  - endpoint identity write payload including board profile, firmware version, node hardware id, endpoint public key, and supported provisioning schemas
+  - provisioning status and ack/error states
+- Define replay protection, expiry behavior, operator cancellation, session ownership, and what happens if multiple Supervisors advertise the same session.
+- Define compatibility with the current device-advertises UUID flow as a fallback/debug path.
+- Acceptance: The contract names the reused or newly reserved UUIDs, characteristic permissions, payload schemas, state machine, and role ownership.
+- Acceptance: The board type/board profile is required in the endpoint identity write payload.
+- Acceptance: The contract preserves credential protection and does not put secrets in advertisements.
+- Verification: Update JSON Schema artifacts if applicable.
+- Verification: Run documentation link validation if contract docs are added or changed.
+- Verification: Run `python tools/check_mirror_drift.py`.
+
+## Task 998
+Original task details:
+- Depends on: Task 997.
+- Goal: Implement Core pairing-session lifecycle and Supervisor BLE host advertising for endpoint onboarding.
+- Add Core APIs to create, inspect, cancel, expire, and audit short-lived BLE pairing sessions from the Add Device flow.
+- Add Core policy checks so only authorized operators/trusted setup flows can create pairing sessions.
+- Add Supervisor broker support for advertising the Hexe pairing service as a BLE peripheral/GATT server when Core grants a pairing session.
+- Support fan-out to all online Bluetooth-capable Supervisors, with deterministic per-Supervisor status and cleanup.
+- Ensure Supervisor advertising stops on session expiry, cancellation, successful endpoint claim, service restart, or loss of Core authorization.
+- Keep host advertising separate from generic Bluetooth access; do not grant raw DBus or unrestricted host Bluetooth access to nodes.
+- Add fail-closed behavior for missing Bluetooth adapter, stale Supervisor, policy disabled, unsupported host GATT backend, duplicate active session, malformed endpoint identity, expired session, and wrong session binding.
+- Add redacted audit events for session created, advert started/stopped, endpoint identity received, provisioning advanced, failure, cancellation, and expiry.
+- Preserve Core/Supervisor mirror alignment.
+- Acceptance: Core can create one short-lived pairing session and request host BLE adverts from any eligible Supervisor with Bluetooth.
+- Acceptance: Supervisor advertises only non-secret pairing metadata and accepts endpoint identity only for the active session.
+- Acceptance: Pairing session state is visible to Core without leaking secrets.
+- Verification: Add focused Core/Supervisor tests using fake Bluetooth/GATT backends.
+- Verification: Run targeted hardware/BLE/session tests.
+- Verification: Run `python tools/update_openapi_snapshot.py --check`.
+- Verification: Run `python tools/check_mirror_drift.py`.
+
+## Task 999
+Original task details:
+- Depends on: Tasks 997 and 998.
+- Goal: Make the Core Add Device / onboarding popup user friendly for BLE pairing sessions.
+- Add a UI flow where the operator clicks Add Endpoint, starts a BLE pairing session, sees a clear waiting/found/provisioning/success/failure state, and does not need to manually enter target node id, board profile, pairing nonce, endpoint public key, or session details.
+- Show discovered endpoint identity in human terms such as board type, firmware version, and suggested display name.
+- Keep advanced/debug details available without making them required for the normal flow.
+- Support retry, cancel, timeout, and manual fallback to the existing endpoint-advertises scan path.
+- Ensure Wi-Fi/backend credential fields are only shown at the point they are needed and are never returned in API responses after submission.
+- Add operator-readable errors for no Bluetooth Supervisors, no endpoint response, multiple endpoint responses, unsupported board profile, expired session, provision failure, and endpoint connects but does not come online.
+- Acceptance: The popup can create a pairing session and poll Core until an endpoint identity appears.
+- Acceptance: Board type is auto-filled from endpoint identity and used to choose/display the right provisioning expectations.
+- Acceptance: The normal operator flow requires selecting the endpoint and entering Wi-Fi/backend settings only, not copying BLE internals.
+- Verification: Add frontend/API tests for session start, polling, found endpoint, timeout, cancellation, retry, and fallback.
+- Verification: Run frontend build/typecheck and focused backend tests.
+
+## Task 1000
+Original task details:
+- Depends on: Tasks 997, 998, 999, and the matching HexeVoice endpoint firmware tasks.
+- Goal: Validate and document the inverted BLE onboarding flow end to end.
+- Update Core and Supervisor docs with the host-advert pairing-session flow, BLE role ownership, UUID reuse decision, GATT payloads, session lifecycle, security boundaries, and operational troubleshooting.
+- Add a live-validation checklist for HA Voice PE minimal firmware:
+  - operator starts Add Endpoint
+  - one or more Supervisors advertise the Hexe pairing session
+  - endpoint discovers the advert and connects
+  - endpoint writes board profile and identity
+  - UI shows the endpoint without manual BLE fields
+  - credentials are sent through the approved encrypted path
+  - endpoint joins Wi-Fi and appears in the normal onboarding/trust flow
+- Include coexistence/fallback checks for the current endpoint-advertises flow.
+- Document radio/timing behavior, including expected scan windows and how disappearing endpoint adverts are handled by the inverted flow.
+- Acceptance: A physical HA Voice PE can complete or reach a deterministic documented blocker in the inverted flow.
+- Acceptance: Docs separate advertisements, GATT session data, credential payloads, Core state, Supervisor state, and endpoint state.
+- Verification: Run targeted backend/frontend tests and physical BLE scan/provision checks.
+- Verification: Run documentation validation and OpenAPI checks if API docs changed.
+- Verification: Run `python tools/check_mirror_drift.py`.

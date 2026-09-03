@@ -57,3 +57,7 @@ Do not edit above this line:
 [STOP] Review guardrail coverage before broad documentation consolidation.
 [TODO] Task 983: Consolidate duplicate Supervisor documentation into the root docs source of truth
 [TODO] Task 984: Repair schema documentation links and ownership references
+[TODO] Task 997: Define the Core-published BLE pairing session contract using the Hexe onboarding UUID block
+[TODO] Task 998: Implement Core pairing-session lifecycle and Supervisor BLE host advertising for endpoint onboarding
+[TODO] Task 999: Add Core APIs and UI state for user-friendly BLE pairing-session onboarding
+[TODO] Task 1000: Validate and document the inverted BLE onboarding flow across Supervisor and endpoint roles
