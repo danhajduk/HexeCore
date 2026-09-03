@@ -1013,12 +1013,15 @@ Original task details:
   - Core/Supervisor identity hint
   - expiry
   - requested endpoint capability/schema
-  - endpoint identity write payload including board profile, firmware version, node hardware id, endpoint public key, and supported provisioning schemas
+  - endpoint identity write payload including stable device id, board profile, firmware version, node hardware id, endpoint public key, and supported provisioning schemas
   - provisioning status and ack/error states
+- Define the stable device id as the onboarding handoff key: the endpoint sends it during BLE pairing, the operator approves that exact id, the provisioning response binds credentials to the pairing session and device id, and the endpoint presents the same session id plus device id when it connects over Wi-Fi.
+- Define how HexeVoice/Core reject Wi-Fi follow-up onboarding when the session id is missing, expired, already consumed, or does not match the BLE-provided device id.
 - Define replay protection, expiry behavior, operator cancellation, session ownership, and what happens if multiple Supervisors advertise the same session.
 - Define compatibility with the current device-advertises UUID flow as a fallback/debug path.
 - Acceptance: The contract names the reused or newly reserved UUIDs, characteristic permissions, payload schemas, state machine, and role ownership.
 - Acceptance: The board type/board profile is required in the endpoint identity write payload.
+- Acceptance: The endpoint device id is required during BLE identity exchange and is cryptographically/session-bound to the later Wi-Fi onboarding approval.
 - Acceptance: The contract preserves credential protection and does not put secrets in advertisements.
 - Verification: Update JSON Schema artifacts if applicable.
 - Verification: Run documentation link validation if contract docs are added or changed.
@@ -1035,11 +1038,14 @@ Original task details:
 - Ensure Supervisor advertising stops on session expiry, cancellation, successful endpoint claim, service restart, or loss of Core authorization.
 - Keep host advertising separate from generic Bluetooth access; do not grant raw DBus or unrestricted host Bluetooth access to nodes.
 - Add fail-closed behavior for missing Bluetooth adapter, stale Supervisor, policy disabled, unsupported host GATT backend, duplicate active session, malformed endpoint identity, expired session, and wrong session binding.
+- Persist the BLE-provided device id with the pairing session and bind any credential/provisioning grant to that device id.
+- Expose a consumed/approved handoff state so HexeVoice can approve the endpoint only when it reconnects over Wi-Fi with the same provisioning session id and device id.
 - Add redacted audit events for session created, advert started/stopped, endpoint identity received, provisioning advanced, failure, cancellation, and expiry.
 - Preserve Core/Supervisor mirror alignment.
 - Acceptance: Core can create one short-lived pairing session and request host BLE adverts from any eligible Supervisor with Bluetooth.
 - Acceptance: Supervisor advertises only non-secret pairing metadata and accepts endpoint identity only for the active session.
 - Acceptance: Pairing session state is visible to Core without leaking secrets.
+- Acceptance: Core/Supervisor prevent a different device id from claiming or consuming another device's approved pairing session.
 - Verification: Add focused Core/Supervisor tests using fake Bluetooth/GATT backends.
 - Verification: Run targeted hardware/BLE/session tests.
 - Verification: Run `python tools/update_openapi_snapshot.py --check`.
@@ -1051,12 +1057,15 @@ Original task details:
 - Goal: Make the Core Add Device / onboarding popup user friendly for BLE pairing sessions.
 - Add a UI flow where the operator clicks Add Endpoint, starts a BLE pairing session, sees a clear waiting/found/provisioning/success/failure state, and does not need to manually enter target node id, board profile, pairing nonce, endpoint public key, or session details.
 - Show discovered endpoint identity in human terms such as board type, firmware version, and suggested display name.
+- Require explicit operator approval of the discovered device id before sending Wi-Fi/backend credentials.
+- After provisioning, poll for or receive the endpoint's Wi-Fi onboarding request and match it by the provisioning session id plus device id before marking the device approved.
 - Keep advanced/debug details available without making them required for the normal flow.
 - Support retry, cancel, timeout, and manual fallback to the existing endpoint-advertises scan path.
 - Ensure Wi-Fi/backend credential fields are only shown at the point they are needed and are never returned in API responses after submission.
 - Add operator-readable errors for no Bluetooth Supervisors, no endpoint response, multiple endpoint responses, unsupported board profile, expired session, provision failure, and endpoint connects but does not come online.
 - Acceptance: The popup can create a pairing session and poll Core until an endpoint identity appears.
 - Acceptance: Board type is auto-filled from endpoint identity and used to choose/display the right provisioning expectations.
+- Acceptance: The UI clearly shows which device id will be approved, and HexeVoice only approves the endpoint that later presents the same session id and device id.
 - Acceptance: The normal operator flow requires selecting the endpoint and entering Wi-Fi/backend settings only, not copying BLE internals.
 - Verification: Add frontend/API tests for session start, polling, found endpoint, timeout, cancellation, retry, and fallback.
 - Verification: Run frontend build/typecheck and focused backend tests.
@@ -1071,13 +1080,16 @@ Original task details:
   - one or more Supervisors advertise the Hexe pairing session
   - endpoint discovers the advert and connects
   - endpoint writes board profile and identity
+  - operator approves the BLE-reported device id
   - UI shows the endpoint without manual BLE fields
   - credentials are sent through the approved encrypted path
-  - endpoint joins Wi-Fi and appears in the normal onboarding/trust flow
+  - endpoint joins Wi-Fi and starts HexeVoice onboarding with the same provisioning session id and device id
+  - HexeVoice approves only that matching device id/session pair
 - Include coexistence/fallback checks for the current endpoint-advertises flow.
 - Document radio/timing behavior, including expected scan windows and how disappearing endpoint adverts are handled by the inverted flow.
 - Acceptance: A physical HA Voice PE can complete or reach a deterministic documented blocker in the inverted flow.
 - Acceptance: Docs separate advertisements, GATT session data, credential payloads, Core state, Supervisor state, and endpoint state.
+- Acceptance: Physical validation proves the BLE device id and Wi-Fi onboarding device id are the same before approval.
 - Verification: Run targeted backend/frontend tests and physical BLE scan/provision checks.
 - Verification: Run documentation validation and OpenAPI checks if API docs changed.
 - Verification: Run `python tools/check_mirror_drift.py`.
