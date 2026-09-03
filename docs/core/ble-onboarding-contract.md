@@ -10,10 +10,11 @@ BLE onboarding gives an already trusted requester a narrow, Core-governed way to
 The first provisioning profile is the Voice node Wi-Fi/backend profile. The payload contract is node-profile extensible: other node types can publish their own provisioning payload schema while reusing the same BLE service, lease scope, pairing, status, and error model.
 
 The preferred operator flow is Core-published pairing: the operator starts an
-Add Device session, eligible Supervisors advertise the Hexe onboarding service,
-and an unprovisioned endpoint discovers that advert, connects, and sends its
-identity before credentials are released. The existing endpoint-advertises flow
-remains a fallback/debug path for physical validation and recovery.
+Add Device session from the HexeVoice node UI, eligible Supervisors advertise
+the Hexe onboarding service, and an unprovisioned endpoint discovers that
+advert, connects, and sends its identity before credentials are released. The
+existing endpoint-advertises flow remains a fallback/debug path for physical
+validation and recovery.
 
 ## Ownership Decisions
 
@@ -262,7 +263,8 @@ HexeVoice/Core must reject the follow-up if:
 
 ## Core/Supervisor Pairing APIs
 
-Core exposes operator-owned BLE pairing sessions:
+Core exposes operator-owned BLE pairing sessions for the HexeVoice node UI to
+consume:
 
 - `POST /api/system/hardware/bluetooth/ble/pairing-sessions`
 - `GET /api/system/hardware/bluetooth/ble/pairing-sessions`
