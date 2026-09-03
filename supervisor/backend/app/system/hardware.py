@@ -25,7 +25,7 @@ BLE_PROVISIONING_ENCRYPTION_ALGORITHM = "aes-256-gcm"
 BLE_PROVISIONING_KEY_AGREEMENT = "x25519-hkdf-sha256"
 VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID = "hexe.voice_node.wifi_backend.v1"
 SUPPORTED_HARDWARE_RESOURCES = {"bluetooth"}
-SUPPORTED_BLUETOOTH_OPERATIONS = {"ble.status", "ble.scan", "ble.read_identity", "ble.provision_wifi"}
+SUPPORTED_BLUETOOTH_OPERATIONS = {"ble.status", "ble.scan", "ble.read_identity", "ble.provision_wifi", BLE_PAIRING_ADVERT_OPERATION}
 
 VOICE_WIFI_PROVISIONING_PAYLOAD_SCHEMA: dict[str, Any] = {
     "schema_id": VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID,
@@ -301,7 +301,7 @@ class HardwareAccessRequestBody(BaseModel):
 
     node_id: str = Field(..., min_length=1, description="Trusted node id requesting hardware access.")
     resource_type: Literal["bluetooth"] = Field(default="bluetooth", description="Host hardware resource type.")
-    operation: Literal["ble.status", "ble.scan", "ble.read_identity", "ble.provision_wifi"] = Field(
+    operation: Literal["ble.status", "ble.scan", "ble.read_identity", "ble.provision_wifi", "ble.host_pairing_advert"] = Field(
         default="ble.scan",
         description="Bluetooth operation the node is requesting a Core-governed lease for.",
     )
@@ -348,7 +348,7 @@ class HardwareLeaseValidationBody(BaseModel):
     node_id: str = Field(..., min_length=1)
     lease_token: str = Field(..., min_length=1)
     resource_type: Literal["bluetooth"] = "bluetooth"
-    operation: Literal["ble.status", "ble.scan", "ble.read_identity", "ble.provision_wifi"] = "ble.scan"
+    operation: Literal["ble.status", "ble.scan", "ble.read_identity", "ble.provision_wifi", "ble.host_pairing_advert"] = "ble.scan"
     supervisor_id: str | None = None
     adapter: str | None = None
     provisioning: HardwareProvisioningContext | None = None
@@ -398,6 +398,10 @@ class HardwareBlePairingSessionCreateBody(BaseModel):
     reason: str | None = Field(default=None, max_length=240)
 
 
+class HardwareNodeBlePairingSessionCreateBody(HardwareBlePairingSessionCreateBody):
+    node_id: str = Field(..., min_length=1, description="Trusted node id requesting a Core-governed BLE pairing session.")
+
+
 class HardwareBlePairingSessionCancelBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -409,6 +413,14 @@ class HardwareBlePairingSessionApproveBody(BaseModel):
 
     device_id: str = Field(..., min_length=1, max_length=128)
     reason: str | None = Field(default=None, max_length=240)
+
+
+class HardwareNodeBlePairingSessionApproveBody(HardwareBlePairingSessionApproveBody):
+    node_id: str = Field(..., min_length=1)
+
+
+class HardwareNodeBlePairingSessionCancelBody(HardwareBlePairingSessionCancelBody):
+    node_id: str = Field(..., min_length=1)
 
 
 def hardware_access_request_schema_payload() -> dict[str, Any]:
@@ -465,6 +477,7 @@ class HardwareBlePairingSessionRecord:
     created_at: str
     updated_at: str
     expires_at: str
+    requesting_node_id: str | None = None
     supervisor_id: str | None = None
     adapter: str | None = None
     reason: str | None = None
@@ -492,6 +505,7 @@ class HardwareBlePairingSessionRecord:
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "expires_at": self.expires_at,
+            "requesting_node_id": self.requesting_node_id,
             "approved_device_id": self.approved_device_id,
             "approved_at": self.approved_at,
             "canceled_at": self.canceled_at,
@@ -543,6 +557,7 @@ class HardwareBlePairingSessionStore:
                 created_at=clean_text(item.get("created_at"), utcnow_iso()),
                 updated_at=clean_text(item.get("updated_at"), utcnow_iso()),
                 expires_at=clean_text(item.get("expires_at"), utcnow_iso()),
+                requesting_node_id=clean_text(item.get("requesting_node_id")) or None,
                 approved_device_id=clean_text(item.get("approved_device_id")) or None,
                 approved_at=clean_text(item.get("approved_at")) or None,
                 canceled_at=clean_text(item.get("canceled_at")) or None,
@@ -584,13 +599,21 @@ class HardwareBlePairingSessionService:
         self._store = store
         self._supervisor_store = supervisor_store
 
-    def create_session(self, body: HardwareBlePairingSessionCreateBody) -> HardwareBlePairingSessionRecord:
+    def create_session(
+        self,
+        body: HardwareBlePairingSessionCreateBody,
+        *,
+        requesting_node_id: str | None = None,
+        allowed_supervisor_ids: set[str] | None = None,
+    ) -> HardwareBlePairingSessionRecord:
         self._expire_old_sessions()
         now = datetime.now(timezone.utc)
         session_id = f"blepair_{secrets.token_urlsafe(12)}"
         expires_at = (now + timedelta(seconds=int(body.duration_s))).replace(microsecond=0).isoformat()
         session_hint = secrets.token_urlsafe(6)[:8]
         candidates = active_bluetooth_supervisors(self._supervisor_store)
+        if allowed_supervisor_ids is not None:
+            candidates = [record for record in candidates if clean_text(getattr(record, "supervisor_id", "")) in allowed_supervisor_ids]
         supervisor_filter = clean_text(body.supervisor_id)
         if supervisor_filter:
             candidates = [record for record in candidates if clean_text(getattr(record, "supervisor_id", "")) == supervisor_filter]
@@ -615,6 +638,7 @@ class HardwareBlePairingSessionService:
             node_profile_id=body.node_profile_id,
             payload_schema_id=body.payload_schema_id,
             claim_code_required=body.claim_code_required,
+            requesting_node_id=clean_text(requesting_node_id) or None,
             supervisor_id=supervisor_filter or None,
             adapter=clean_text(body.adapter) or None,
             reason=clean_text(body.reason) or None,
