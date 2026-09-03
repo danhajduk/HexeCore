@@ -647,6 +647,63 @@ class TestNodeHardwareAccessApi(unittest.TestCase):
         self.assertEqual(sum(1 for call in calls if call["url"].endswith("/pairing-advert/start")), 1)
         self.assertEqual(sum(1 for call in calls if call["url"].endswith("/pairing-advert/status")), 1)
 
+    def test_node_ble_pairing_start_replaces_stale_active_session(self) -> None:
+        calls: list[dict] = []
+
+        def fake_post(url: str, *, json: dict, timeout: float):
+            calls.append({"url": url, "json": dict(json), "timeout": timeout})
+            session_id = str(json.get("onboarding_session_id"))
+            if url.endswith("/pairing-advert/start"):
+                return httpx.Response(
+                    200,
+                    json={
+                        "ok": True,
+                        "status": "advertising",
+                        "operation": "ble.host_pairing_advert",
+                        "supervisor_id": "sup-1",
+                        "adapter": {"adapter": json.get("adapter") or "hci0", "present": True, "powered": True},
+                        "onboarding_session_id": session_id,
+                        "session_hint": json.get("session_hint"),
+                        "advertising": True,
+                    },
+                )
+            if url.endswith("/pairing-advert/status"):
+                return httpx.Response(
+                    200,
+                    json={
+                        "ok": False,
+                        "status": "not_found",
+                        "operation": "ble.host_pairing_advert",
+                        "supervisor_id": "sup-1",
+                        "adapter": {"adapter": json.get("adapter") or "hci0", "present": True, "powered": True},
+                        "onboarding_session_id": session_id,
+                        "error": "ble_pairing_advert_session_not_found",
+                        "advertising": False,
+                    },
+                )
+            raise AssertionError(f"unexpected url: {url}")
+
+        with patch("app.api.system_legacy.httpx.post", side_effect=fake_post):
+            created = self.client.post(
+                "/api/system/nodes/hardware/bluetooth/ble/pairing-sessions",
+                headers={"X-Node-Trust-Token": "node-token"},
+                json={"node_id": "node-1", "adapter": "hci0", "duration_s": 300, "reason": "test add device"},
+            )
+            repeated = self.client.post(
+                "/api/system/nodes/hardware/bluetooth/ble/pairing-sessions",
+                headers={"X-Node-Trust-Token": "node-token"},
+                json={"node_id": "node-1", "adapter": "hci0", "duration_s": 300, "reason": "test add device"},
+            )
+
+        self.assertEqual(created.status_code, 200, created.text)
+        self.assertEqual(repeated.status_code, 200, repeated.text)
+        created_session = created.json()["pairing_session"]
+        repeated_session = repeated.json()["pairing_session"]
+        self.assertNotEqual(repeated_session["session_id"], created_session["session_id"])
+        self.assertEqual(repeated_session["status"], "waiting")
+        self.assertEqual(sum(1 for call in calls if call["url"].endswith("/pairing-advert/start")), 2)
+        self.assertEqual(sum(1 for call in calls if call["url"].endswith("/pairing-advert/status")), 1)
+
     def test_ble_identity_uses_local_client_and_releases_lease(self) -> None:
         self._supervisor(
             policy="allowed",

@@ -744,10 +744,14 @@ class HardwareBlePairingSessionService:
         if identity:
             self._apply_endpoint_identity(record, identity, supervisor_id=supervisor_id, at=now)
         elif record.status not in {"found", "approved", "canceled", "expired", "consumed"}:
-            if any(item.get("status") in {"advertising", "endpoint_identity_received"} for item in record.supervisor_results):
+            supervisor_statuses = {clean_text(item.get("status")).lower() for item in record.supervisor_results}
+            if supervisor_statuses & {"advertising", "endpoint_identity_received"}:
                 record.status = "waiting"
                 record.error = None
-            elif record.supervisor_results and all(item.get("status") == "failed" for item in record.supervisor_results):
+            elif "pending" in supervisor_statuses:
+                record.status = "waiting"
+                record.error = None
+            elif record.supervisor_results and supervisor_statuses <= {"failed", "not_found", "stopped", "expired"}:
                 record.status = "failed"
                 record.error = "ble_pairing_advert_unavailable"
         record.updated_at = now
