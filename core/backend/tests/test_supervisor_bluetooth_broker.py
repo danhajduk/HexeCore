@@ -16,7 +16,14 @@ from fastapi.testclient import TestClient
 
 from app.supervisor import SupervisorDomainService, build_supervisor_router
 from app.system.auth.tokens import sign_hs256
-from app.system.hardware import BLE_PROVISIONING_CONTRACT_VERSION, BLE_PROVISIONING_KEY_AGREEMENT
+from app.system.hardware import (
+    BLE_PAIRING_ADVERT_OPERATION,
+    BLE_PAIRING_ADVERT_SCOPE,
+    BLE_PROVISIONING_CONTRACT_VERSION,
+    BLE_PROVISIONING_KEY_AGREEMENT,
+    HARDWARE_LEASE_AUDIENCE,
+    VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID,
+)
 
 
 def _b64url_encode(raw: bytes) -> str:
@@ -54,6 +61,20 @@ class _ProvisioningBackend:
 class _FailingProvisioningBackend:
     def provision_wifi(self, *, adapter, validation, envelope, target_address, timeout_s):
         raise RuntimeError(f"write_timeout:{envelope['ciphertext']}:correct-password")
+
+
+class _PairingAdvertBackend:
+    def __init__(self) -> None:
+        self.started: list[dict] = []
+        self.stopped: list[dict] = []
+
+    def start_pairing_advert(self, *, adapter, pairing_offer, timeout_s):
+        self.started.append({"adapter": dict(adapter), "pairing_offer": dict(pairing_offer), "timeout_s": timeout_s})
+        return {"ok": True, "status": "advertising", "advertising": True}
+
+    def stop_pairing_advert(self, *, adapter, onboarding_session_id):
+        self.stopped.append({"adapter": dict(adapter), "onboarding_session_id": onboarding_session_id})
+        return {"ok": True, "status": "stopped", "advertising": False}
 
 
 class TestSupervisorBluetoothBroker(unittest.TestCase):
@@ -149,6 +170,31 @@ class TestSupervisorBluetoothBroker(unittest.TestCase):
             claims["provisioning"] = dict(provisioning)
         return sign_hs256({"alg": "HS256", "typ": "JWT", "kid": "hardware-v1"}, claims, secret="test-hardware-secret")
 
+    def _pairing_session_token(
+        self,
+        *,
+        onboarding_session_id: str = "blepair-test",
+        session_hint: str = "PE-123456",
+        adapter: str | None = "hci0",
+        supervisor_id: str = "sup-1",
+    ) -> str:
+        now = int(time.time())
+        claims = {
+            "sub": "core",
+            "aud": HARDWARE_LEASE_AUDIENCE,
+            "scp": [BLE_PAIRING_ADVERT_SCOPE],
+            "iat": now,
+            "exp": now + 600,
+            "jti": "blepairtoken-test",
+            "operation": BLE_PAIRING_ADVERT_OPERATION,
+            "supervisor_id": supervisor_id,
+            "adapter": adapter,
+            "onboarding_session_id": onboarding_session_id,
+            "session_hint": session_hint,
+            "payload_schema_id": VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID,
+        }
+        return sign_hs256({"alg": "HS256", "typ": "JWT", "kid": "hardware-v1"}, claims, secret="test-hardware-secret")
+
     def test_ble_scan_requires_matching_lease_scope(self) -> None:
         response = self.client.post(
             "/api/supervisor/hardware/bluetooth/ble/scan",
@@ -167,11 +213,10 @@ class TestSupervisorBluetoothBroker(unittest.TestCase):
 
         def fake_run(cmd, **kwargs):
             calls.append(list(cmd))
-            if cmd[:3] == ["bluetoothctl", "--timeout", "15"] and cmd[3:] == ["scan", "le"]:
-                return _Completed(stdout="[NEW] Device AA:BB:CC:DD:EE:FF HexeRecovery\n")
             if cmd[:2] == ["bash", "-lc"] and "bluetoothctl --timeout 20" in cmd[2]:
                 return _Completed(
                     stdout=(
+                        "[NEW] Device AA:BB:CC:DD:EE:FF HexeRecovery\n"
                         "Connection successful\n"
                         + read_output(
                             {
@@ -220,10 +265,77 @@ class TestSupervisorBluetoothBroker(unittest.TestCase):
         self.assertIn("device_identity", payload["characteristics"])
         self.assertIn("pairing_nonce", payload["characteristics"])
         self.assertTrue(payload["discovery_refreshed"])
-        self.assertEqual(calls[0], ["bluetoothctl", "--timeout", "15", "scan", "le"])
-        self.assertEqual(calls[1][:2], ["bash", "-lc"])
-        self.assertIn("connect AA:BB:CC:DD:EE:FF", calls[1][2])
-        self.assertIn("disconnect AA:BB:CC:DD:EE:FF", calls[1][2])
+        self.assertEqual(calls[0][:2], ["bash", "-lc"])
+        self.assertIn("scan le", calls[0][2])
+        self.assertIn("connect AA:BB:CC:DD:EE:FF", calls[0][2])
+        self.assertIn("disconnect AA:BB:CC:DD:EE:FF", calls[0][2])
+
+    def test_ble_pairing_advert_accepts_endpoint_identity_and_stops(self) -> None:
+        backend = _PairingAdvertBackend()
+        self.service._ble_pairing_advert_backend = backend
+        token = self._pairing_session_token()
+
+        started = self.client.post(
+            "/api/supervisor/hardware/bluetooth/ble/pairing-advert/start",
+            json={
+                "session_token": token,
+                "adapter": "hci0",
+                "onboarding_session_id": "blepair-test",
+                "session_hint": "PE-123456",
+                "expires_at": _future_iso(),
+                "node_profile_id": "voice",
+                "payload_schema_id": VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID,
+            },
+        )
+        self.assertEqual(started.status_code, 200, started.text)
+        start_payload = started.json()
+        self.assertTrue(start_payload["ok"])
+        self.assertEqual(start_payload["status"], "advertising")
+        self.assertEqual(start_payload["pairing_offer"]["session_role"], "host_pairing_advert")
+        self.assertEqual(start_payload["pairing_offer"]["payload_schema_id"], VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID)
+        self.assertEqual(backend.started[0]["pairing_offer"]["onboarding_session_id"], "blepair-test")
+
+        identity = self.client.post(
+            "/api/supervisor/hardware/bluetooth/ble/pairing-advert/endpoint-identity",
+            json={
+                "session_token": token,
+                "adapter": "hci0",
+                "onboarding_session_id": "blepair-test",
+                "contract_version": "1.0",
+                "device_id": "hexe-pe-a0-85-e3-f0-e1-6e",
+                "node_hardware_id": "A0:85:E3:F0:E1:6E",
+                "target_node_id": "voice-node-a0",
+                "board_profile": "ha_voice_pe",
+                "firmware_version": "min-fw-test",
+                "application_type": "hexe_voice",
+                "provisioning_mode": "core_published_pairing",
+                "endpoint_ephemeral_public_key": self.endpoint_public_key,
+                "supported_payload_schemas": [VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID],
+                "provisioning_state": "awaiting_credentials",
+            },
+        )
+        self.assertEqual(identity.status_code, 200, identity.text)
+        identity_payload = identity.json()
+        self.assertTrue(identity_payload["ok"])
+        self.assertEqual(identity_payload["status"], "endpoint_identity_received")
+        self.assertEqual(identity_payload["endpoint_identity"]["device_id"], "hexe-pe-a0-85-e3-f0-e1-6e")
+        self.assertEqual(identity_payload["endpoint_identity"]["board_profile"], "ha_voice_pe")
+
+        status = self.client.post(
+            "/api/supervisor/hardware/bluetooth/ble/pairing-advert/status",
+            json={"session_token": token, "adapter": "hci0", "onboarding_session_id": "blepair-test"},
+        )
+        self.assertEqual(status.status_code, 200, status.text)
+        self.assertEqual(status.json()["endpoint_identity"]["device_id"], "hexe-pe-a0-85-e3-f0-e1-6e")
+
+        stopped = self.client.post(
+            "/api/supervisor/hardware/bluetooth/ble/pairing-advert/stop",
+            json={"session_token": token, "adapter": "hci0", "onboarding_session_id": "blepair-test", "reason": "operator closed"},
+        )
+        self.assertEqual(stopped.status_code, 200, stopped.text)
+        self.assertEqual(stopped.json()["status"], "stopped")
+        self.assertFalse(stopped.json()["advertising"])
+        self.assertEqual(backend.stopped[0]["onboarding_session_id"], "blepair-test")
 
     def test_ble_scan_uses_brokered_bluetoothctl_surface(self) -> None:
         calls: list[list[str]] = []

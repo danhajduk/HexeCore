@@ -52,6 +52,7 @@ class TestNodeHardwareAccessApi(unittest.TestCase):
             {
                 "HEXE_ADMIN_TOKEN": "admin-token",
                 "HEXE_HARDWARE_ACCESS_DB": str(base / "hardware_access.json"),
+                "HEXE_BLE_PAIRING_SESSIONS_DB": str(base / "ble_pairing_sessions.json"),
                 "HEXE_HARDWARE_LEASE_SECRET": "test-hardware-secret",
             },
             clear=False,
@@ -326,6 +327,126 @@ class TestNodeHardwareAccessApi(unittest.TestCase):
         self.assertEqual(payload["devices"][0]["supervisor_id"], "hxe-supervisor")
         self.assertEqual(local_client.requests[0]["path"], "/api/supervisor/hardware/bluetooth/ble/scan")
         self.assertEqual(local_client.requests[0]["timeout_s"], 70.0)
+
+    def test_ble_pairing_session_lifecycle_uses_bluetooth_supervisor(self) -> None:
+        calls: list[dict] = []
+
+        def endpoint_identity(session_id: str) -> dict:
+            return {
+                "contract_version": "1.0",
+                "onboarding_session_id": session_id,
+                "device_id": "hexe-pe-a0-85-e3-f0-e1-6e",
+                "node_hardware_id": "A0:85:E3:F0:E1:6E",
+                "target_node_id": "voice-node-a0",
+                "board_profile": "ha_voice_pe",
+                "firmware_version": "min-fw-test",
+                "application_type": "hexe_voice",
+                "provisioning_mode": "core_published_pairing",
+                "endpoint_ephemeral_public_key": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+                "supported_payload_schemas": ["hexe.voice_node.wifi_backend.v1"],
+                "provisioning_state": "awaiting_credentials",
+            }
+
+        def fake_post(url: str, *, json: dict, timeout: float):
+            calls.append({"url": url, "json": dict(json), "timeout": timeout})
+            session_id = str(json.get("onboarding_session_id"))
+            if url.endswith("/pairing-advert/start"):
+                return httpx.Response(
+                    200,
+                    json={
+                        "ok": True,
+                        "status": "advertising",
+                        "operation": "ble.host_pairing_advert",
+                        "supervisor_id": "sup-1",
+                        "adapter": {"adapter": json.get("adapter") or "hci0", "present": True, "powered": True},
+                        "onboarding_session_id": session_id,
+                        "session_hint": json.get("session_hint"),
+                        "advertising": True,
+                    },
+                )
+            if url.endswith("/pairing-advert/status"):
+                return httpx.Response(
+                    200,
+                    json={
+                        "ok": True,
+                        "status": "endpoint_identity_received",
+                        "operation": "ble.host_pairing_advert",
+                        "supervisor_id": "sup-1",
+                        "adapter": {"adapter": json.get("adapter") or "hci0", "present": True, "powered": True},
+                        "onboarding_session_id": session_id,
+                        "endpoint_identity": endpoint_identity(session_id),
+                        "advertising": True,
+                    },
+                )
+            if url.endswith("/pairing-advert/stop"):
+                return httpx.Response(
+                    200,
+                    json={
+                        "ok": True,
+                        "status": "stopped",
+                        "operation": "ble.host_pairing_advert",
+                        "supervisor_id": "sup-1",
+                        "adapter": {"adapter": json.get("adapter") or "hci0", "present": True, "powered": True},
+                        "onboarding_session_id": session_id,
+                        "advertising": False,
+                    },
+                )
+            raise AssertionError(f"unexpected url: {url}")
+
+        with patch("app.api.system_legacy.httpx.post", side_effect=fake_post):
+            created = self.client.post(
+                "/api/system/hardware/bluetooth/ble/pairing-sessions",
+                headers={"X-Admin-Token": "admin-token"},
+                json={"adapter": "hci0", "duration_s": 300, "reason": "test add device"},
+            )
+
+            self.assertEqual(created.status_code, 200, created.text)
+            session = created.json()["pairing_session"]
+            session_id = session["session_id"]
+            self.assertTrue(session_id.startswith("blepair_"))
+            self.assertEqual(session["status"], "waiting")
+            self.assertEqual(session["supervisor_results"][0]["status"], "advertising")
+            self.assertNotIn("session_token", session["supervisor_results"][0])
+            self.assertEqual(calls[0]["url"], "http://127.0.0.1:57665/api/supervisor/hardware/bluetooth/ble/pairing-advert/start")
+            self.assertTrue(calls[0]["json"]["session_token"])
+            self.assertEqual(calls[0]["json"]["payload_schema_id"], "hexe.voice_node.wifi_backend.v1")
+
+            found = self.client.get(
+                f"/api/system/hardware/bluetooth/ble/pairing-sessions/{session_id}",
+                headers={"X-Admin-Token": "admin-token"},
+            )
+            self.assertEqual(found.status_code, 200, found.text)
+            found_session = found.json()["pairing_session"]
+            self.assertEqual(found_session["status"], "found")
+            self.assertEqual(found_session["endpoint_identity"]["device_id"], "hexe-pe-a0-85-e3-f0-e1-6e")
+            self.assertEqual(found_session["endpoint_identity"]["board_profile"], "ha_voice_pe")
+
+            approved = self.client.post(
+                f"/api/system/hardware/bluetooth/ble/pairing-sessions/{session_id}/approve",
+                headers={"X-Admin-Token": "admin-token"},
+                json={"device_id": "hexe-pe-a0-85-e3-f0-e1-6e"},
+            )
+            self.assertEqual(approved.status_code, 200, approved.text)
+            approved_session = approved.json()["pairing_session"]
+            self.assertEqual(approved_session["status"], "approved")
+            self.assertEqual(approved_session["approved_device_id"], "hexe-pe-a0-85-e3-f0-e1-6e")
+
+            canceled_created = self.client.post(
+                "/api/system/hardware/bluetooth/ble/pairing-sessions",
+                headers={"X-Admin-Token": "admin-token"},
+                json={"adapter": "hci0", "duration_s": 300, "reason": "test cancel"},
+            )
+            cancel_session_id = canceled_created.json()["pairing_session"]["session_id"]
+            canceled = self.client.post(
+                f"/api/system/hardware/bluetooth/ble/pairing-sessions/{cancel_session_id}/cancel",
+                headers={"X-Admin-Token": "admin-token"},
+                json={"reason": "operator closed dialog"},
+            )
+
+        self.assertEqual(canceled.status_code, 200, canceled.text)
+        canceled_session = canceled.json()["pairing_session"]
+        self.assertEqual(canceled_session["status"], "canceled")
+        self.assertTrue(any(call["url"].endswith("/pairing-advert/stop") for call in calls))
 
     def test_ble_identity_uses_local_client_and_releases_lease(self) -> None:
         self._supervisor(

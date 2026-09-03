@@ -7,7 +7,7 @@ import socket
 import secrets
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Literal
 
@@ -17,6 +17,8 @@ from app.system.auth.tokens import ServiceTokenError, sign_hs256, validate_claim
 
 HARDWARE_ACCESS_SCHEMA_VERSION = "1"
 HARDWARE_LEASE_AUDIENCE = "hexe.hardware.bluetooth"
+BLE_PAIRING_ADVERT_OPERATION = "ble.host_pairing_advert"
+BLE_PAIRING_ADVERT_SCOPE = f"hardware.bluetooth.{BLE_PAIRING_ADVERT_OPERATION}"
 BLE_PROVISIONING_CONTRACT_VERSION = "1.0"
 BLE_PROVISIONING_ENVELOPE_SCHEMA_VERSION = "1.0"
 BLE_PROVISIONING_ENCRYPTION_ALGORITHM = "aes-256-gcm"
@@ -384,6 +386,31 @@ class HardwareBleIdentityRequestBody(BaseModel):
     reason: str | None = Field(default=None, max_length=240, description="Optional operator-readable reason for the identity read.")
 
 
+class HardwareBlePairingSessionCreateBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    supervisor_id: str | None = Field(default=None, max_length=120, description="Optional supervisor filter.")
+    adapter: str | None = Field(default=None, max_length=64, description="Optional Bluetooth adapter id such as hci0.")
+    duration_s: int = Field(default=300, ge=60, le=600, description="Pairing session lifetime in seconds.")
+    node_profile_id: Literal["voice"] = Field(default="voice", description="Target endpoint profile.")
+    payload_schema_id: Literal["hexe.voice_node.wifi_backend.v1"] = Field(default=VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID)
+    claim_code_required: bool = False
+    reason: str | None = Field(default=None, max_length=240)
+
+
+class HardwareBlePairingSessionCancelBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str | None = Field(default=None, max_length=240)
+
+
+class HardwareBlePairingSessionApproveBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    device_id: str = Field(..., min_length=1, max_length=128)
+    reason: str | None = Field(default=None, max_length=240)
+
+
 def hardware_access_request_schema_payload() -> dict[str, Any]:
     return {
         "ok": True,
@@ -425,6 +452,329 @@ def hardware_ble_provisioning_schema_payload(node_profile_id: str = "voice") -> 
             "replay_protection": ["sequence", "expires_at"],
         },
     }
+
+
+@dataclass
+class HardwareBlePairingSessionRecord:
+    session_id: str
+    session_hint: str
+    status: str
+    node_profile_id: str
+    payload_schema_id: str
+    claim_code_required: bool
+    created_at: str
+    updated_at: str
+    expires_at: str
+    supervisor_id: str | None = None
+    adapter: str | None = None
+    reason: str | None = None
+    approved_device_id: str | None = None
+    approved_at: str | None = None
+    canceled_at: str | None = None
+    consumed_at: str | None = None
+    error: str | None = None
+    endpoint_identity: dict[str, Any] | None = None
+    supervisor_results: list[dict[str, Any]] = field(default_factory=list)
+    audit: list[dict[str, Any]] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": "1.0",
+            "session_id": self.session_id,
+            "session_hint": self.session_hint,
+            "status": self.status,
+            "node_profile_id": self.node_profile_id,
+            "payload_schema_id": self.payload_schema_id,
+            "claim_code_required": self.claim_code_required,
+            "supervisor_id": self.supervisor_id,
+            "adapter": self.adapter,
+            "reason": self.reason,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "expires_at": self.expires_at,
+            "approved_device_id": self.approved_device_id,
+            "approved_at": self.approved_at,
+            "canceled_at": self.canceled_at,
+            "consumed_at": self.consumed_at,
+            "error": self.error,
+            "endpoint_identity": dict(self.endpoint_identity) if isinstance(self.endpoint_identity, dict) else None,
+            "supervisor_results": [dict(item) for item in self.supervisor_results],
+            "audit": [dict(item) for item in self.audit],
+        }
+
+    def to_api_dict(self, *, include_audit: bool = False) -> dict[str, Any]:
+        payload = self.to_dict()
+        if not include_audit:
+            payload.pop("audit", None)
+        return payload
+
+
+class HardwareBlePairingSessionStore:
+    def __init__(self, path: Path | None = None) -> None:
+        configured = clean_text(os.getenv("HEXE_BLE_PAIRING_SESSIONS_DB"))
+        self._path = path or (Path(configured) if configured else repo_root() / "data" / "ble_pairing_sessions.json")
+        self._records: dict[str, HardwareBlePairingSessionRecord] = {}
+        self._load()
+
+    def _load(self) -> None:
+        if not self._path.exists():
+            return
+        try:
+            raw = json.loads(self._path.read_text(encoding="utf-8"))
+        except Exception:
+            return
+        items = raw.get("items") if isinstance(raw, dict) and isinstance(raw.get("items"), list) else []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            session_id = clean_text(item.get("session_id"))
+            if not session_id:
+                continue
+            self._records[session_id] = HardwareBlePairingSessionRecord(
+                session_id=session_id,
+                session_hint=clean_text(item.get("session_hint")),
+                status=clean_text(item.get("status"), "waiting"),
+                node_profile_id=clean_text(item.get("node_profile_id"), "voice"),
+                payload_schema_id=clean_text(item.get("payload_schema_id"), VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID),
+                claim_code_required=bool(item.get("claim_code_required")),
+                supervisor_id=clean_text(item.get("supervisor_id")) or None,
+                adapter=clean_text(item.get("adapter")) or None,
+                reason=clean_text(item.get("reason")) or None,
+                created_at=clean_text(item.get("created_at"), utcnow_iso()),
+                updated_at=clean_text(item.get("updated_at"), utcnow_iso()),
+                expires_at=clean_text(item.get("expires_at"), utcnow_iso()),
+                approved_device_id=clean_text(item.get("approved_device_id")) or None,
+                approved_at=clean_text(item.get("approved_at")) or None,
+                canceled_at=clean_text(item.get("canceled_at")) or None,
+                consumed_at=clean_text(item.get("consumed_at")) or None,
+                error=clean_text(item.get("error")) or None,
+                endpoint_identity=dict(item.get("endpoint_identity")) if isinstance(item.get("endpoint_identity"), dict) else None,
+                supervisor_results=[dict(row) for row in item.get("supervisor_results", []) if isinstance(row, dict)]
+                if isinstance(item.get("supervisor_results"), list)
+                else [],
+                audit=[dict(row) for row in item.get("audit", []) if isinstance(row, dict)] if isinstance(item.get("audit"), list) else [],
+            )
+
+    def _save(self) -> None:
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "schema_version": "1.0",
+            "items": [record.to_dict() for record in sorted(self._records.values(), key=lambda item: item.created_at)],
+        }
+        self._path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    def upsert(self, record: HardwareBlePairingSessionRecord) -> HardwareBlePairingSessionRecord:
+        self._records[record.session_id] = record
+        self._save()
+        return record
+
+    def get(self, session_id: str) -> HardwareBlePairingSessionRecord | None:
+        return self._records.get(clean_text(session_id))
+
+    def list(self, *, status: str | None = None) -> list[HardwareBlePairingSessionRecord]:
+        status_key = clean_text(status).lower()
+        records = sorted(self._records.values(), key=lambda item: item.created_at, reverse=True)
+        if status_key:
+            records = [record for record in records if record.status == status_key]
+        return records
+
+
+class HardwareBlePairingSessionService:
+    def __init__(self, store: HardwareBlePairingSessionStore, supervisor_store: object | None) -> None:
+        self._store = store
+        self._supervisor_store = supervisor_store
+
+    def create_session(self, body: HardwareBlePairingSessionCreateBody) -> HardwareBlePairingSessionRecord:
+        self._expire_old_sessions()
+        now = datetime.now(timezone.utc)
+        session_id = f"blepair_{secrets.token_urlsafe(12)}"
+        expires_at = (now + timedelta(seconds=int(body.duration_s))).replace(microsecond=0).isoformat()
+        session_hint = secrets.token_urlsafe(6)[:8]
+        candidates = active_bluetooth_supervisors(self._supervisor_store)
+        supervisor_filter = clean_text(body.supervisor_id)
+        if supervisor_filter:
+            candidates = [record for record in candidates if clean_text(getattr(record, "supervisor_id", "")) == supervisor_filter]
+        supervisor_results: list[dict[str, Any]] = []
+        for supervisor in candidates:
+            policy = supervisor_bluetooth_policy(supervisor)
+            supervisor_id = clean_text(getattr(supervisor, "supervisor_id", ""))
+            result: dict[str, Any] = {
+                "supervisor_id": supervisor_id,
+                "status": "pending",
+                "adapter": clean_text(body.adapter) or None,
+                "policy": policy,
+            }
+            if policy == "disabled":
+                result.update({"status": "failed", "error": "bluetooth_policy_disabled"})
+            supervisor_results.append(result)
+        status = "waiting" if any(item.get("status") == "pending" for item in supervisor_results) else "failed"
+        record = HardwareBlePairingSessionRecord(
+            session_id=session_id,
+            session_hint=session_hint,
+            status=status,
+            node_profile_id=body.node_profile_id,
+            payload_schema_id=body.payload_schema_id,
+            claim_code_required=body.claim_code_required,
+            supervisor_id=supervisor_filter or None,
+            adapter=clean_text(body.adapter) or None,
+            reason=clean_text(body.reason) or None,
+            created_at=now.replace(microsecond=0).isoformat(),
+            updated_at=now.replace(microsecond=0).isoformat(),
+            expires_at=expires_at,
+            supervisor_results=supervisor_results,
+            error=None if supervisor_results else "bluetooth_supervisor_unavailable",
+            audit=[{"event": "created", "at": now.replace(microsecond=0).isoformat(), "supervisor_count": len(candidates)}],
+        )
+        if record.error:
+            record.audit.append({"event": "failed", "at": record.updated_at, "reason": record.error})
+        return self._store.upsert(record)
+
+    def get_session(self, session_id: str) -> HardwareBlePairingSessionRecord | None:
+        self._expire_old_sessions()
+        return self._store.get(session_id)
+
+    def list_sessions(self, *, status: str | None = None) -> list[HardwareBlePairingSessionRecord]:
+        self._expire_old_sessions()
+        return self._store.list(status=status)
+
+    def pairing_offer(self, record: HardwareBlePairingSessionRecord, *, supervisor_id: str, adapter: str | None) -> dict[str, Any]:
+        return {
+            "contract_version": BLE_PROVISIONING_CONTRACT_VERSION,
+            "onboarding_session_id": record.session_id,
+            "session_role": "host_pairing_advert",
+            "session_hint": record.session_hint,
+            "supervisor_id": supervisor_id,
+            "expires_at": record.expires_at,
+            "requested_profile": record.node_profile_id,
+            "payload_schema_id": record.payload_schema_id,
+            "claim_code_required": record.claim_code_required,
+            "adapter": adapter,
+        }
+
+    def pairing_session_token(self, record: HardwareBlePairingSessionRecord, *, supervisor_id: str, adapter: str | None) -> str:
+        secret = hardware_lease_secret()
+        if not secret:
+            raise RuntimeError("hardware_lease_secret_unconfigured")
+        expires = datetime.fromisoformat(record.expires_at.replace("Z", "+00:00"))
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+        now_ts = utc_ts()
+        claims = {
+            "sub": "core",
+            "aud": HARDWARE_LEASE_AUDIENCE,
+            "scp": [BLE_PAIRING_ADVERT_SCOPE],
+            "iat": now_ts,
+            "exp": int(expires.timestamp()),
+            "jti": f"blepairtoken_{secrets.token_urlsafe(12)}",
+            "operation": BLE_PAIRING_ADVERT_OPERATION,
+            "supervisor_id": supervisor_id,
+            "adapter": adapter,
+            "onboarding_session_id": record.session_id,
+            "session_hint": record.session_hint,
+            "payload_schema_id": record.payload_schema_id,
+        }
+        return sign_hs256({"alg": "HS256", "typ": "JWT", "kid": "hardware-v1"}, claims, secret=secret)
+
+    def update_supervisor_result(self, session_id: str, supervisor_id: str, result: dict[str, Any]) -> HardwareBlePairingSessionRecord:
+        record = self._store.get(session_id)
+        if record is None:
+            raise KeyError("ble_pairing_session_not_found")
+        now = utcnow_iso()
+        updated = False
+        for item in record.supervisor_results:
+            if clean_text(item.get("supervisor_id")) == clean_text(supervisor_id):
+                item.update({key: value for key, value in result.items() if key != "session_token"})
+                updated = True
+                break
+        if not updated:
+            record.supervisor_results.append({key: value for key, value in result.items() if key != "session_token"})
+        identity = result.get("endpoint_identity") if isinstance(result.get("endpoint_identity"), dict) else None
+        if identity:
+            self._apply_endpoint_identity(record, identity, supervisor_id=supervisor_id, at=now)
+        elif record.status not in {"found", "approved", "canceled", "expired", "consumed"}:
+            if any(item.get("status") in {"advertising", "endpoint_identity_received"} for item in record.supervisor_results):
+                record.status = "waiting"
+                record.error = None
+            elif record.supervisor_results and all(item.get("status") == "failed" for item in record.supervisor_results):
+                record.status = "failed"
+                record.error = "ble_pairing_advert_unavailable"
+        record.updated_at = now
+        record.audit.append({"event": "supervisor_result", "at": now, "supervisor_id": supervisor_id, "status": result.get("status")})
+        return self._store.upsert(record)
+
+    def approve(self, session_id: str, body: HardwareBlePairingSessionApproveBody) -> HardwareBlePairingSessionRecord:
+        record = self._store.get(session_id)
+        if record is None:
+            raise KeyError("ble_pairing_session_not_found")
+        self._expire_record_if_needed(record)
+        if record.status == "expired":
+            self._store.upsert(record)
+            raise ValueError("ble_pairing_session_expired")
+        if record.status in {"canceled", "consumed"}:
+            raise ValueError(f"ble_pairing_session_{record.status}")
+        identity = record.endpoint_identity if isinstance(record.endpoint_identity, dict) else None
+        if not identity:
+            raise ValueError("ble_pairing_endpoint_identity_missing")
+        device_id = clean_text(body.device_id)
+        if clean_text(identity.get("device_id")) != device_id:
+            raise ValueError("ble_pairing_device_id_mismatch")
+        now = utcnow_iso()
+        record.status = "approved"
+        record.approved_device_id = device_id
+        record.approved_at = now
+        record.updated_at = now
+        record.audit.append({"event": "approved", "at": now, "device_id": device_id, "reason": clean_text(body.reason) or None})
+        return self._store.upsert(record)
+
+    def cancel(self, session_id: str, body: HardwareBlePairingSessionCancelBody) -> HardwareBlePairingSessionRecord:
+        record = self._store.get(session_id)
+        if record is None:
+            raise KeyError("ble_pairing_session_not_found")
+        now = utcnow_iso()
+        record.status = "canceled"
+        record.canceled_at = now
+        record.updated_at = now
+        record.audit.append({"event": "canceled", "at": now, "reason": clean_text(body.reason) or None})
+        return self._store.upsert(record)
+
+    def _apply_endpoint_identity(
+        self,
+        record: HardwareBlePairingSessionRecord,
+        identity: dict[str, Any],
+        *,
+        supervisor_id: str,
+        at: str,
+    ) -> None:
+        if clean_text(identity.get("onboarding_session_id")) != record.session_id:
+            return
+        device_id = clean_text(identity.get("device_id"))
+        board_profile = clean_text(identity.get("board_profile"))
+        if not device_id or not board_profile:
+            return
+        record.endpoint_identity = dict(identity)
+        record.status = "found" if record.status not in {"approved", "consumed"} else record.status
+        record.error = None
+        record.audit.append({"event": "endpoint_identity_received", "at": at, "supervisor_id": supervisor_id, "device_id": device_id})
+
+    def _expire_old_sessions(self) -> None:
+        for record in self._store.list():
+            self._expire_record_if_needed(record)
+            if record.status == "expired":
+                self._store.upsert(record)
+
+    def _expire_record_if_needed(self, record: HardwareBlePairingSessionRecord) -> None:
+        if record.status in {"approved", "canceled", "consumed", "expired"}:
+            return
+        try:
+            expires = datetime.fromisoformat(record.expires_at.replace("Z", "+00:00"))
+        except Exception:
+            return
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+        if expires <= datetime.now(timezone.utc):
+            record.status = "expired"
+            record.updated_at = utcnow_iso()
+            record.audit.append({"event": "expired", "at": record.updated_at})
 
 
 @dataclass

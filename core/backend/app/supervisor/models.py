@@ -74,6 +74,46 @@ class SupervisorBluetoothBleIdentityRequest(SupervisorBluetoothLeaseRequest):
     timeout_s: int = Field(default=20, ge=1, le=60)
 
 
+class SupervisorBluetoothPairingAdvertStartRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    session_token: str = Field(..., min_length=1)
+    adapter: str | None = None
+    onboarding_session_id: str = Field(..., min_length=1)
+    session_hint: str = Field(..., min_length=6, max_length=32)
+    expires_at: str = Field(..., min_length=1)
+    node_profile_id: Literal["voice"] = "voice"
+    payload_schema_id: Literal["hexe.voice_node.wifi_backend.v1"] = VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID
+    claim_code_required: bool = False
+    reason: str | None = Field(default=None, max_length=240)
+
+
+class SupervisorBluetoothPairingAdvertStatusRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    session_token: str = Field(..., min_length=1)
+    adapter: str | None = None
+    onboarding_session_id: str = Field(..., min_length=1)
+
+
+class SupervisorBluetoothPairingAdvertStopRequest(SupervisorBluetoothPairingAdvertStatusRequest):
+    reason: str | None = Field(default=None, max_length=240)
+
+
+class SupervisorBluetoothPairingEndpointIdentityRequest(SupervisorBluetoothPairingAdvertStatusRequest):
+    contract_version: Literal["1.0"] = BLE_PROVISIONING_CONTRACT_VERSION
+    device_id: str = Field(..., min_length=1, max_length=128)
+    node_hardware_id: str = Field(..., min_length=1, max_length=128)
+    target_node_id: str = Field(..., min_length=1, max_length=128)
+    board_profile: str = Field(..., min_length=1, max_length=80)
+    firmware_version: str = Field(..., min_length=1, max_length=120)
+    application_type: str = Field(..., min_length=1, max_length=80)
+    provisioning_mode: str = Field(..., min_length=1, max_length=80)
+    endpoint_ephemeral_public_key: str = Field(..., min_length=43, max_length=128)
+    supported_payload_schemas: list[str] = Field(..., min_length=1)
+    provisioning_state: str = Field(..., min_length=1, max_length=80)
+
+
 class SupervisorVoiceWifiProvisioningPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

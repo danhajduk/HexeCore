@@ -1,5 +1,5 @@
 {
-  "path_count": 235,
+  "path_count": 239,
   "paths": {
     "/api/addons": [
       "get"
@@ -244,6 +244,19 @@
       "get"
     ],
     "/api/system/hardware/access-requests/{request_id}/decision": [
+      "post"
+    ],
+    "/api/system/hardware/bluetooth/ble/pairing-sessions": [
+      "get",
+      "post"
+    ],
+    "/api/system/hardware/bluetooth/ble/pairing-sessions/{session_id}": [
+      "get"
+    ],
+    "/api/system/hardware/bluetooth/ble/pairing-sessions/{session_id}/approve": [
+      "post"
+    ],
+    "/api/system/hardware/bluetooth/ble/pairing-sessions/{session_id}/cancel": [
       "post"
     ],
     "/api/system/hardware/leases/validate": [

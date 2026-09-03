@@ -26,11 +26,14 @@ from app.system.onboarding import NodeRegistrationsStore
 from app.core.env import getenv
 from app.system.auth.tokens import ServiceTokenError, validate_claims, verify_hs256
 from app.system.hardware import (
+    BLE_PAIRING_ADVERT_OPERATION,
+    BLE_PAIRING_ADVERT_SCOPE,
     BLE_PROVISIONING_CONTRACT_VERSION,
     BLE_PROVISIONING_ENCRYPTION_ALGORITHM,
     BLE_PROVISIONING_ENVELOPE_SCHEMA_VERSION,
     BLE_PROVISIONING_KEY_AGREEMENT,
     HARDWARE_LEASE_AUDIENCE,
+    VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID,
     hardware_lease_secret,
 )
 from app.system.runtime import StandaloneRuntimeService
@@ -47,6 +50,10 @@ from .models import (
     SupervisorBluetoothBleIdentityRequest,
     SupervisorBluetoothBleScanRequest,
     SupervisorBluetoothLeaseRequest,
+    SupervisorBluetoothPairingAdvertStartRequest,
+    SupervisorBluetoothPairingAdvertStatusRequest,
+    SupervisorBluetoothPairingAdvertStopRequest,
+    SupervisorBluetoothPairingEndpointIdentityRequest,
     SupervisorBluetoothProvisionWifiRequest,
     SupervisorCoreRuntimeActionResult,
     SupervisorCoreRuntimeHeartbeatRequest,
@@ -101,6 +108,32 @@ class DisabledBleProvisioningBackend:
         }
 
 
+class DisabledBlePairingAdvertBackend:
+    def start_pairing_advert(
+        self,
+        *,
+        adapter: dict[str, Any],
+        pairing_offer: dict[str, Any],
+        timeout_s: int,
+    ) -> dict[str, Any]:
+        return {
+            "ok": False,
+            "status": "failed",
+            "advertising": False,
+            "error": "ble_pairing_advert_backend_unavailable",
+            "message": "No Supervisor BLE pairing advertisement backend is configured.",
+        }
+
+    def stop_pairing_advert(self, *, adapter: dict[str, Any], onboarding_session_id: str) -> dict[str, Any]:
+        return {
+            "ok": True,
+            "status": "stopped",
+            "advertising": False,
+            "onboarding_session_id": onboarding_session_id,
+            "adapter": adapter,
+        }
+
+
 class SupervisorDomainService:
     def __init__(
         self,
@@ -111,6 +144,7 @@ class SupervisorDomainService:
         resource_monitor: SupervisorResourceMonitor | None = None,
         resource_history_store: SupervisorResourceHistoryStore | None = None,
         ble_provisioning_backend: object | None = None,
+        ble_pairing_advert_backend: object | None = None,
         install_root: Path | None = None,
     ) -> None:
         self._runtime_service = runtime_service or StandaloneRuntimeService()
@@ -120,8 +154,10 @@ class SupervisorDomainService:
         self._resource_monitor = resource_monitor or SupervisorResourceMonitor()
         self._resource_history_store = resource_history_store or SupervisorResourceHistoryStore()
         self._ble_provisioning_backend = ble_provisioning_backend or DisabledBleProvisioningBackend()
+        self._ble_pairing_advert_backend = ble_pairing_advert_backend or DisabledBlePairingAdvertBackend()
         self._install_root_override = install_root
         self._ble_provisioning_events: list[dict[str, Any]] = []
+        self._ble_pairing_advert_sessions: dict[str, dict[str, Any]] = {}
         self._boot_loop_status: dict[str, Any] = {
             "state": "idle",
             "updated_at": self._now_iso(),
@@ -832,6 +868,226 @@ class SupervisorDomainService:
             return {"X-Supervisor-Id": self._supervisor_id(), "X-Supervisor-Token": token}
         return {"X-Admin-Token": token}
 
+    def _validate_ble_pairing_advert_token(
+        self,
+        body: SupervisorBluetoothPairingAdvertStatusRequest,
+    ) -> dict[str, Any]:
+        secret = hardware_lease_secret()
+        if not secret:
+            raise HTTPException(status_code=503, detail={"error": "hardware_lease_secret_unconfigured"})
+        try:
+            _header, claims_payload = verify_hs256(body.session_token, [{"kid": "hardware-v1", "secret": secret}])
+            claims = validate_claims(
+                claims_payload,
+                audience=HARDWARE_LEASE_AUDIENCE,
+                required_scopes=[BLE_PAIRING_ADVERT_SCOPE],
+            )
+        except ServiceTokenError as exc:
+            raise HTTPException(status_code=403, detail={"error": str(exc)}) from None
+        if str(claims_payload.get("operation") or "").strip() != BLE_PAIRING_ADVERT_OPERATION:
+            raise HTTPException(status_code=403, detail={"error": "ble_pairing_operation_mismatch"})
+        if str(claims_payload.get("supervisor_id") or "").strip() != self._supervisor_id():
+            raise HTTPException(status_code=403, detail={"error": "hardware_access_supervisor_mismatch"})
+        if str(claims_payload.get("onboarding_session_id") or "").strip() != str(body.onboarding_session_id or "").strip():
+            raise HTTPException(status_code=403, detail={"error": "ble_pairing_session_mismatch"})
+        token_adapter = str(claims_payload.get("adapter") or "").strip()
+        requested_adapter = str(body.adapter or "").strip()
+        if token_adapter and requested_adapter and token_adapter != requested_adapter:
+            raise HTTPException(status_code=403, detail={"error": "hardware_access_adapter_mismatch"})
+        return {"ok": True, "valid": True, "claims": claims.to_dict(), "payload": claims_payload}
+
+    def _ble_pairing_offer(self, body: SupervisorBluetoothPairingAdvertStartRequest) -> dict[str, Any]:
+        return {
+            "contract_version": BLE_PROVISIONING_CONTRACT_VERSION,
+            "onboarding_session_id": body.onboarding_session_id,
+            "session_role": "host_pairing_advert",
+            "session_hint": body.session_hint,
+            "supervisor_id": self._supervisor_id(),
+            "expires_at": body.expires_at,
+            "requested_profile": body.node_profile_id,
+            "payload_schema_id": body.payload_schema_id,
+            "claim_code_required": body.claim_code_required,
+        }
+
+    @staticmethod
+    def _ble_pairing_session_expired(session: dict[str, Any]) -> bool:
+        try:
+            expires = datetime.fromisoformat(str(session.get("expires_at") or "").replace("Z", "+00:00"))
+        except Exception:
+            return False
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+        return expires <= datetime.now(timezone.utc)
+
+    def _ble_pairing_status_payload(self, session: dict[str, Any], *, adapter: dict[str, Any]) -> dict[str, Any]:
+        payload = {
+            "ok": session.get("status") in {"advertising", "endpoint_identity_received"},
+            "status": session.get("status"),
+            "operation": BLE_PAIRING_ADVERT_OPERATION,
+            "supervisor_id": self._supervisor_id(),
+            "adapter": adapter,
+            "onboarding_session_id": session.get("onboarding_session_id"),
+            "session_hint": session.get("session_hint"),
+            "expires_at": session.get("expires_at"),
+            "pairing_offer": dict(session.get("pairing_offer") or {}),
+            "endpoint_identity": dict(session.get("endpoint_identity") or {}) if isinstance(session.get("endpoint_identity"), dict) else None,
+            "advertising": session.get("status") in {"advertising", "endpoint_identity_received"},
+            "error": session.get("error"),
+        }
+        return payload
+
+    def bluetooth_ble_pairing_advert_start(self, body: SupervisorBluetoothPairingAdvertStartRequest) -> dict[str, Any]:
+        self._validate_ble_pairing_advert_token(body)
+        adapter, adapters = self._bluetooth_adapter_for_request(body.adapter)
+        adapter_id = str(adapter.get("adapter") or body.adapter or "").strip()
+        for session_id, session in list(self._ble_pairing_advert_sessions.items()):
+            if self._ble_pairing_session_expired(session):
+                session["status"] = "expired"
+                session["updated_at"] = self._now_iso()
+                continue
+            if session_id != body.onboarding_session_id and str(session.get("adapter") or "") == adapter_id and session.get("status") in {
+                "advertising",
+                "endpoint_identity_received",
+            }:
+                return {
+                    "ok": False,
+                    "status": "failed",
+                    "operation": BLE_PAIRING_ADVERT_OPERATION,
+                    "error": "ble_pairing_advert_session_active",
+                    "supervisor_id": self._supervisor_id(),
+                    "adapter": adapter,
+                    "adapters": adapters,
+                    "onboarding_session_id": body.onboarding_session_id,
+                }
+
+        pairing_offer = self._ble_pairing_offer(body)
+        backend = self._ble_pairing_advert_backend
+        try:
+            expires = datetime.fromisoformat(body.expires_at.replace("Z", "+00:00"))
+            if expires.tzinfo is None:
+                expires = expires.replace(tzinfo=timezone.utc)
+            timeout_s = max(1, int((expires - datetime.now(timezone.utc)).total_seconds()))
+        except Exception:
+            timeout_s = 300
+        start = backend.start_pairing_advert(
+            adapter=adapter,
+            pairing_offer=pairing_offer,
+            timeout_s=timeout_s,
+        )
+        status = "advertising" if bool(start.get("ok")) else "failed"
+        session = {
+            "status": status,
+            "operation": BLE_PAIRING_ADVERT_OPERATION,
+            "supervisor_id": self._supervisor_id(),
+            "adapter": adapter_id,
+            "adapters": adapters,
+            "onboarding_session_id": body.onboarding_session_id,
+            "session_hint": body.session_hint,
+            "expires_at": body.expires_at,
+            "pairing_offer": pairing_offer,
+            "endpoint_identity": None,
+            "created_at": self._now_iso(),
+            "updated_at": self._now_iso(),
+            "backend_result": {key: value for key, value in start.items() if key != "session_token"},
+            "error": None if status == "advertising" else start.get("error") or "ble_pairing_advert_start_failed",
+        }
+        self._ble_pairing_advert_sessions[body.onboarding_session_id] = session
+        return {
+            **self._ble_pairing_status_payload(session, adapter=adapter),
+            "adapters": adapters,
+            "backend_result": session["backend_result"],
+        }
+
+    def bluetooth_ble_pairing_advert_status(self, body: SupervisorBluetoothPairingAdvertStatusRequest) -> dict[str, Any]:
+        self._validate_ble_pairing_advert_token(body)
+        adapter, adapters = self._bluetooth_adapter_for_request(body.adapter)
+        session = self._ble_pairing_advert_sessions.get(body.onboarding_session_id)
+        if session is None:
+            return {
+                "ok": False,
+                "status": "not_found",
+                "operation": BLE_PAIRING_ADVERT_OPERATION,
+                "error": "ble_pairing_advert_session_not_found",
+                "supervisor_id": self._supervisor_id(),
+                "adapter": adapter,
+                "adapters": adapters,
+                "onboarding_session_id": body.onboarding_session_id,
+            }
+        if self._ble_pairing_session_expired(session) and session.get("status") not in {"stopped", "expired"}:
+            session["status"] = "expired"
+            session["error"] = "ble_pairing_session_expired"
+            session["updated_at"] = self._now_iso()
+        return {**self._ble_pairing_status_payload(session, adapter=adapter), "adapters": adapters}
+
+    def bluetooth_ble_pairing_advert_stop(self, body: SupervisorBluetoothPairingAdvertStopRequest) -> dict[str, Any]:
+        self._validate_ble_pairing_advert_token(body)
+        adapter, adapters = self._bluetooth_adapter_for_request(body.adapter)
+        session = self._ble_pairing_advert_sessions.get(body.onboarding_session_id)
+        if session is None:
+            return {
+                "ok": True,
+                "status": "stopped",
+                "operation": BLE_PAIRING_ADVERT_OPERATION,
+                "supervisor_id": self._supervisor_id(),
+                "adapter": adapter,
+                "adapters": adapters,
+                "onboarding_session_id": body.onboarding_session_id,
+                "advertising": False,
+            }
+        backend = self._ble_pairing_advert_backend
+        stop = backend.stop_pairing_advert(adapter=adapter, onboarding_session_id=body.onboarding_session_id)
+        session["status"] = "stopped"
+        session["advertising"] = False
+        session["stopped_at"] = self._now_iso()
+        session["updated_at"] = self._now_iso()
+        session["stop_reason"] = str(body.reason or "").strip() or None
+        session["backend_stop_result"] = {key: value for key, value in stop.items() if key != "session_token"}
+        return {**self._ble_pairing_status_payload(session, adapter=adapter), "adapters": adapters, "backend_result": session["backend_stop_result"]}
+
+    def bluetooth_ble_pairing_endpoint_identity(self, body: SupervisorBluetoothPairingEndpointIdentityRequest) -> dict[str, Any]:
+        self._validate_ble_pairing_advert_token(body)
+        adapter, adapters = self._bluetooth_adapter_for_request(body.adapter)
+        session = self._ble_pairing_advert_sessions.get(body.onboarding_session_id)
+        if session is None or session.get("status") not in {"advertising", "endpoint_identity_received"}:
+            return {
+                "ok": False,
+                "status": "failed",
+                "operation": BLE_PAIRING_ADVERT_OPERATION,
+                "error": "ble_pairing_advert_session_not_active",
+                "supervisor_id": self._supervisor_id(),
+                "adapter": adapter,
+                "adapters": adapters,
+                "onboarding_session_id": body.onboarding_session_id,
+            }
+        if self._ble_pairing_session_expired(session):
+            session["status"] = "expired"
+            session["updated_at"] = self._now_iso()
+            return {
+                **self._ble_pairing_status_payload(session, adapter=adapter),
+                "adapters": adapters,
+                "error": "ble_pairing_session_expired",
+            }
+        pairing_offer = session.get("pairing_offer") if isinstance(session.get("pairing_offer"), dict) else {}
+        requested_schema = str(pairing_offer.get("payload_schema_id") or VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID).strip()
+        if requested_schema not in body.supported_payload_schemas:
+            return {
+                "ok": False,
+                "status": "failed",
+                "operation": BLE_PAIRING_ADVERT_OPERATION,
+                "error": "unsupported_payload_schema",
+                "supervisor_id": self._supervisor_id(),
+                "adapter": adapter,
+                "adapters": adapters,
+                "onboarding_session_id": body.onboarding_session_id,
+            }
+        identity = body.model_dump(mode="json")
+        identity.pop("session_token", None)
+        identity["supervisor_id"] = self._supervisor_id()
+        session["endpoint_identity"] = identity
+        session["status"] = "endpoint_identity_received"
+        session["updated_at"] = self._now_iso()
+        return {**self._ble_pairing_status_payload(session, adapter=adapter), "adapters": adapters}
+
     def _validate_bluetooth_lease(self, body: SupervisorBluetoothLeaseRequest, *, operation: str) -> dict[str, Any]:
         payload = {
             "node_id": str(body.node_id or "").strip(),
@@ -1285,9 +1541,9 @@ class SupervisorDomainService:
         characteristics: dict[str, str],
         *,
         timeout_s: float,
-    ) -> tuple[dict[str, Any], dict[str, str]]:
+    ) -> tuple[dict[str, Any], dict[str, str], bool]:
         timeout_value = max(1, int(timeout_s))
-        commands: list[tuple[str, float]] = [(f"connect {target_address}", 4.0), ("menu gatt", 0.2)]
+        commands: list[tuple[str, float]] = [("scan le", float(timeout_value)), (f"connect {target_address}", 4.0), ("menu gatt", 0.2)]
         for uuid in characteristics.values():
             commands.append((f"select-attribute {uuid}", 0.2))
             commands.append(("read", 2.0))
@@ -1305,6 +1561,7 @@ class SupervisorDomainService:
         )
         read_output = (read.stdout or "") + "\n" + (read.stderr or "")
         read_error_text = read_output.strip().lower()
+        discovery_refreshed = target_address.lower() in read_output.lower()
         values = self._parse_bluetoothctl_gatt_json_values(read_output)
         payloads: dict[str, Any] = {}
         errors: dict[str, str] = {}
@@ -1315,7 +1572,7 @@ class SupervisorDomainService:
             message = read_output.strip() or "bluetoothctl identity session failed"
             for name in names:
                 errors.setdefault(name, message)
-            return payloads, errors
+            return payloads, errors, discovery_refreshed
         if "no device connected" in read_error_text or "no attribute selected" in read_error_text or "not found" in read_error_text:
             message = read_output.strip() or "gatt_attribute_read_failed"
             for name in names:
@@ -1323,7 +1580,7 @@ class SupervisorDomainService:
         for name in names:
             if name not in payloads:
                 errors.setdefault(name, "read_attribute_invalid_json")
-        return payloads, errors
+        return payloads, errors, discovery_refreshed
 
     def bluetooth_ble_identity(self, body: SupervisorBluetoothBleIdentityRequest) -> dict[str, Any]:
         validation = self._validate_bluetooth_lease(body, operation="ble.read_identity")
@@ -1353,11 +1610,7 @@ class SupervisorDomainService:
         errors: dict[str, str] = {}
         discovery_refreshed = False
         try:
-            discovery_timeout = min(timeout_s, 15)
-            discovery = self._bluetoothctl_run(["scan", "le"], timeout_s=discovery_timeout)
-            discovery_output = (discovery.stdout or "") + "\n" + (discovery.stderr or "")
-            discovery_refreshed = target_address.lower() in discovery_output.lower()
-            payloads, errors = self._read_bluetoothctl_gatt_identity(
+            payloads, errors, discovery_refreshed = self._read_bluetoothctl_gatt_identity(
                 target_address,
                 characteristics,
                 timeout_s=timeout_s,

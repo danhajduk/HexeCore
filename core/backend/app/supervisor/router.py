@@ -11,6 +11,10 @@ from .models import (
     SupervisorBluetoothBleIdentityRequest,
     SupervisorBluetoothBleScanRequest,
     SupervisorBluetoothLeaseRequest,
+    SupervisorBluetoothPairingAdvertStartRequest,
+    SupervisorBluetoothPairingAdvertStatusRequest,
+    SupervisorBluetoothPairingAdvertStopRequest,
+    SupervisorBluetoothPairingEndpointIdentityRequest,
     SupervisorBluetoothProvisionWifiRequest,
     SupervisorCoreRuntimeActionResult,
     SupervisorCoreRuntimeHeartbeatRequest,
@@ -60,6 +64,24 @@ def build_supervisor_router(service: SupervisorDomainService | None = None) -> A
     @router.post("/supervisor/hardware/bluetooth/ble/identity")
     def read_supervisor_bluetooth_ble_identity(body: SupervisorBluetoothBleIdentityRequest) -> dict[str, Any]:
         return supervisor.bluetooth_ble_identity(body)
+
+    @router.post("/supervisor/hardware/bluetooth/ble/pairing-advert/start")
+    def start_supervisor_bluetooth_ble_pairing_advert(body: SupervisorBluetoothPairingAdvertStartRequest) -> dict[str, Any]:
+        return supervisor.bluetooth_ble_pairing_advert_start(body)
+
+    @router.post("/supervisor/hardware/bluetooth/ble/pairing-advert/status")
+    def get_supervisor_bluetooth_ble_pairing_advert_status(body: SupervisorBluetoothPairingAdvertStatusRequest) -> dict[str, Any]:
+        return supervisor.bluetooth_ble_pairing_advert_status(body)
+
+    @router.post("/supervisor/hardware/bluetooth/ble/pairing-advert/stop")
+    def stop_supervisor_bluetooth_ble_pairing_advert(body: SupervisorBluetoothPairingAdvertStopRequest) -> dict[str, Any]:
+        return supervisor.bluetooth_ble_pairing_advert_stop(body)
+
+    @router.post("/supervisor/hardware/bluetooth/ble/pairing-advert/endpoint-identity")
+    def receive_supervisor_bluetooth_ble_pairing_endpoint_identity(
+        body: SupervisorBluetoothPairingEndpointIdentityRequest,
+    ) -> dict[str, Any]:
+        return supervisor.bluetooth_ble_pairing_endpoint_identity(body)
 
     @router.post("/supervisor/hardware/bluetooth/ble/provision-wifi")
     def provision_supervisor_bluetooth_ble_wifi(body: SupervisorBluetoothProvisionWifiRequest) -> dict[str, Any]:

@@ -1,6 +1,6 @@
 # BLE Onboarding Contract
 
-Status: Implemented endpoint-advert contract; Core-published pairing session contract defined for next implementation
+Status: Core-published pairing session lifecycle implemented; Supervisor BLE host-advert backend surface implemented
 Last Updated: 2026-09-03
 
 ## Purpose
@@ -259,6 +259,31 @@ HexeVoice/Core must reject the follow-up if:
 - the `device_id` does not match the BLE-approved identity
 - the endpoint omits the session id or device id
 - the board profile or payload schema is incompatible with the approved session
+
+## Core/Supervisor Pairing APIs
+
+Core exposes operator-owned BLE pairing sessions:
+
+- `POST /api/system/hardware/bluetooth/ble/pairing-sessions`
+- `GET /api/system/hardware/bluetooth/ble/pairing-sessions`
+- `GET /api/system/hardware/bluetooth/ble/pairing-sessions/{session_id}`
+- `POST /api/system/hardware/bluetooth/ble/pairing-sessions/{session_id}/approve`
+- `POST /api/system/hardware/bluetooth/ble/pairing-sessions/{session_id}/cancel`
+
+Supervisor exposes the brokered host-advert session surface used by Core:
+
+- `POST /api/supervisor/hardware/bluetooth/ble/pairing-advert/start`
+- `POST /api/supervisor/hardware/bluetooth/ble/pairing-advert/status`
+- `POST /api/supervisor/hardware/bluetooth/ble/pairing-advert/stop`
+- `POST /api/supervisor/hardware/bluetooth/ble/pairing-advert/endpoint-identity`
+
+Core-issued pairing session tokens are scoped to
+`hardware.bluetooth.ble.host_pairing_advert` and bind the Supervisor,
+adapter, onboarding session id, session hint, expiry, and payload schema.
+Supervisor strips tokens from status data before returning it. The default
+Supervisor advert backend fails closed with
+`ble_pairing_advert_backend_unavailable` until a host BLE GATT advertising
+backend is configured.
 
 ## Voice Payload Baseline
 

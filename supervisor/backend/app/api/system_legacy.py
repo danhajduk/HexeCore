@@ -25,6 +25,11 @@ from ..system.audit import AuditLogStore
 from ..system.hardware import (
     HardwareAccessDecisionBody,
     HardwareBleIdentityRequestBody,
+    HardwareBlePairingSessionApproveBody,
+    HardwareBlePairingSessionCancelBody,
+    HardwareBlePairingSessionCreateBody,
+    HardwareBlePairingSessionService,
+    HardwareBlePairingSessionStore,
     HardwareOperatorBleScanRequestBody,
     HardwareBleScanRequestBody,
     HardwareAccessRequestBody,
@@ -555,6 +560,7 @@ def build_system_router(
     model_routing_registry_service: ModelRoutingRegistryService | None = None,
     supervisor_fleet_store=None,
     hardware_access_service: HardwareAccessService | None = None,
+    ble_pairing_session_service: HardwareBlePairingSessionService | None = None,
     audit_store: AuditLogStore | None = None,
 ) -> APIRouter:
     router = APIRouter()
@@ -569,6 +575,10 @@ def build_system_router(
         else None
     )
     hardware_access = hardware_access_service or HardwareAccessService(HardwareAccessStore(), supervisor_fleet_store)
+    ble_pairing_sessions = ble_pairing_session_service or HardwareBlePairingSessionService(
+        HardwareBlePairingSessionStore(),
+        supervisor_fleet_store,
+    )
 
     async def _reconcile_mqtt_authority(reason: str) -> None:
         if mqtt_runtime_reconciler is None:
@@ -2235,6 +2245,166 @@ def build_system_router(
         except KeyError:
             raise HTTPException(status_code=404, detail={"error": "unsupported_node_provisioning_profile"})
 
+    @router.post("/system/hardware/bluetooth/ble/pairing-sessions")
+    def create_ble_pairing_session(
+        body: HardwareBlePairingSessionCreateBody,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        session = ble_pairing_sessions.create_session(body)
+        for result in list(session.supervisor_results):
+            supervisor_id = clean_text(result.get("supervisor_id"))
+            if not supervisor_id or result.get("status") != "pending":
+                continue
+            supervisor = supervisor_fleet_store.get(supervisor_id) if supervisor_fleet_store is not None and hasattr(supervisor_fleet_store, "get") else None
+            if supervisor is None:
+                session = ble_pairing_sessions.update_supervisor_result(
+                    session.session_id,
+                    supervisor_id,
+                    {"supervisor_id": supervisor_id, "status": "failed", "error": "bluetooth_supervisor_unavailable"},
+                )
+                continue
+            adapter = clean_text(result.get("adapter")) or session.adapter
+            try:
+                session_token = ble_pairing_sessions.pairing_session_token(session, supervisor_id=supervisor_id, adapter=adapter)
+            except RuntimeError as exc:
+                session = ble_pairing_sessions.update_supervisor_result(
+                    session.session_id,
+                    supervisor_id,
+                    {"supervisor_id": supervisor_id, "status": "failed", "error": str(exc)},
+                )
+                continue
+            start_payload = {
+                "session_token": session_token,
+                "adapter": adapter,
+                "onboarding_session_id": session.session_id,
+                "session_hint": session.session_hint,
+                "expires_at": session.expires_at,
+                "node_profile_id": session.node_profile_id,
+                "payload_schema_id": session.payload_schema_id,
+                "claim_code_required": session.claim_code_required,
+                "reason": session.reason,
+            }
+            start_payload = {key: value for key, value in start_payload.items() if value is not None}
+            supervisor_result = _call_supervisor_ble_pairing_advert(request, supervisor, "start", start_payload)
+            supervisor_result.setdefault("supervisor_id", supervisor_id)
+            session = ble_pairing_sessions.update_supervisor_result(session.session_id, supervisor_id, supervisor_result)
+        _record_audit(
+            audit_store,
+            event_type="ble_pairing_session_created",
+            actor_role="admin",
+            actor_id=_admin_actor(x_admin_token),
+            details={
+                "session_id": session.session_id,
+                "status": session.status,
+                "supervisor_count": len(session.supervisor_results),
+                "node_profile_id": session.node_profile_id,
+            },
+        )
+        return {"ok": session.status not in {"failed", "expired", "canceled"}, "pairing_session": session.to_api_dict()}
+
+    @router.get("/system/hardware/bluetooth/ble/pairing-sessions")
+    def list_ble_pairing_sessions(
+        request: Request,
+        status: str | None = Query(default=None),
+        refresh: bool = Query(default=False),
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        sessions = ble_pairing_sessions.list_sessions(status=status)
+        if refresh:
+            sessions = [_refresh_ble_pairing_session_from_supervisors(session, request) for session in sessions]
+        return {"ok": True, "items": [session.to_api_dict() for session in sessions]}
+
+    @router.get("/system/hardware/bluetooth/ble/pairing-sessions/{session_id}")
+    def get_ble_pairing_session(
+        session_id: str,
+        request: Request,
+        refresh: bool = Query(default=True),
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        session = ble_pairing_sessions.get_session(session_id)
+        if session is None:
+            raise HTTPException(status_code=404, detail={"error": "ble_pairing_session_not_found"})
+        if refresh:
+            session = _refresh_ble_pairing_session_from_supervisors(session, request)
+        return {"ok": True, "pairing_session": session.to_api_dict()}
+
+    @router.post("/system/hardware/bluetooth/ble/pairing-sessions/{session_id}/approve")
+    def approve_ble_pairing_session(
+        session_id: str,
+        body: HardwareBlePairingSessionApproveBody,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        session = ble_pairing_sessions.get_session(session_id)
+        if session is None:
+            raise HTTPException(status_code=404, detail={"error": "ble_pairing_session_not_found"})
+        session = _refresh_ble_pairing_session_from_supervisors(session, request)
+        try:
+            session = ble_pairing_sessions.approve(session_id, body)
+        except KeyError:
+            raise HTTPException(status_code=404, detail={"error": "ble_pairing_session_not_found"})
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail={"error": str(exc)})
+        _record_audit(
+            audit_store,
+            event_type="ble_pairing_session_approved",
+            actor_role="admin",
+            actor_id=_admin_actor(x_admin_token),
+            details={"session_id": session.session_id, "device_id": session.approved_device_id},
+        )
+        return {"ok": True, "pairing_session": session.to_api_dict()}
+
+    @router.post("/system/hardware/bluetooth/ble/pairing-sessions/{session_id}/cancel")
+    def cancel_ble_pairing_session(
+        session_id: str,
+        body: HardwareBlePairingSessionCancelBody,
+        request: Request,
+        x_admin_token: str | None = Header(default=None),
+    ):
+        require_admin_token(x_admin_token, request)
+        session = ble_pairing_sessions.get_session(session_id)
+        if session is None:
+            raise HTTPException(status_code=404, detail={"error": "ble_pairing_session_not_found"})
+        for result in list(session.supervisor_results):
+            supervisor_id = clean_text(result.get("supervisor_id"))
+            if not supervisor_id:
+                continue
+            supervisor = supervisor_fleet_store.get(supervisor_id) if supervisor_fleet_store is not None and hasattr(supervisor_fleet_store, "get") else None
+            if supervisor is None:
+                continue
+            adapter = clean_text(result.get("adapter")) or session.adapter
+            try:
+                session_token = ble_pairing_sessions.pairing_session_token(session, supervisor_id=supervisor_id, adapter=adapter)
+            except RuntimeError:
+                continue
+            stop_payload = {
+                "session_token": session_token,
+                "adapter": adapter,
+                "onboarding_session_id": session.session_id,
+                "reason": body.reason,
+            }
+            stop_payload = {key: value for key, value in stop_payload.items() if value is not None}
+            supervisor_result = _call_supervisor_ble_pairing_advert(request, supervisor, "stop", stop_payload)
+            supervisor_result.setdefault("supervisor_id", supervisor_id)
+            session = ble_pairing_sessions.update_supervisor_result(session.session_id, supervisor_id, supervisor_result)
+        try:
+            session = ble_pairing_sessions.cancel(session_id, body)
+        except KeyError:
+            raise HTTPException(status_code=404, detail={"error": "ble_pairing_session_not_found"})
+        _record_audit(
+            audit_store,
+            event_type="ble_pairing_session_canceled",
+            actor_role="admin",
+            actor_id=_admin_actor(x_admin_token),
+            details={"session_id": session.session_id, "reason": body.reason},
+        )
+        return {"ok": True, "pairing_session": session.to_api_dict()}
+
     def _supervisor_id(record: object) -> str:
         return clean_text(getattr(record, "supervisor_id", ""))
 
@@ -2325,6 +2495,73 @@ def build_system_router(
         except ValueError:
             return {"ok": False, "status": "failed", "error": "supervisor_ble_identity_invalid_json"}
         return result if isinstance(result, dict) else {"ok": False, "status": "failed", "error": "supervisor_ble_identity_invalid_payload"}
+
+    def _call_supervisor_ble_pairing_advert(
+        request: Request,
+        supervisor: object,
+        action: str,
+        payload: dict[str, object],
+        *,
+        timeout_s: float = 15.0,
+    ) -> dict[str, object]:
+        path = f"/api/supervisor/hardware/bluetooth/ble/pairing-advert/{action}"
+        if _supervisor_is_local(supervisor):
+            client = getattr(request.app.state, "supervisor_client", None)
+            request_json = getattr(client, "request_json", None)
+            if callable(request_json):
+                try:
+                    result = request_json("POST", path, payload=payload, timeout_s=timeout_s)
+                except TypeError:
+                    result = request_json("POST", path, payload=payload)
+                if isinstance(result, dict):
+                    return result
+                return {"ok": False, "status": "failed", "error": f"supervisor_local_ble_pairing_advert_{action}_unavailable"}
+
+        broker_url = supervisor_broker_url(supervisor)
+        if not broker_url:
+            return {"ok": False, "status": "failed", "error": "supervisor_broker_url_unavailable"}
+        try:
+            response = httpx.post(f"{broker_url}/pairing-advert/{action}", json=payload, timeout=timeout_s)
+        except httpx.HTTPError:
+            return {"ok": False, "status": "failed", "error": f"supervisor_ble_pairing_advert_{action}_unavailable"}
+        if response.status_code >= 400:
+            return {"ok": False, "status": "failed", "error": f"supervisor_ble_pairing_advert_{action}_http_{response.status_code}"}
+        try:
+            result = response.json()
+        except ValueError:
+            return {"ok": False, "status": "failed", "error": f"supervisor_ble_pairing_advert_{action}_invalid_json"}
+        return result if isinstance(result, dict) else {"ok": False, "status": "failed", "error": f"supervisor_ble_pairing_advert_{action}_invalid_payload"}
+
+    def _refresh_ble_pairing_session_from_supervisors(
+        session,
+        request: Request,
+    ):
+        for result in list(session.supervisor_results):
+            supervisor_id = clean_text(result.get("supervisor_id"))
+            if not supervisor_id:
+                continue
+            supervisor = None
+            if supervisor_fleet_store is not None and hasattr(supervisor_fleet_store, "get"):
+                supervisor = supervisor_fleet_store.get(supervisor_id)
+            if supervisor is None:
+                continue
+            try:
+                session_token = ble_pairing_sessions.pairing_session_token(
+                    session,
+                    supervisor_id=supervisor_id,
+                    adapter=clean_text(result.get("adapter")) or session.adapter,
+                )
+            except RuntimeError:
+                continue
+            status_payload = {
+                "session_token": session_token,
+                "adapter": clean_text(result.get("adapter")) or session.adapter,
+                "onboarding_session_id": session.session_id,
+            }
+            status_payload = {key: value for key, value in status_payload.items() if value is not None}
+            supervisor_result = _call_supervisor_ble_pairing_advert(request, supervisor, "status", status_payload)
+            session = ble_pairing_sessions.update_supervisor_result(session.session_id, supervisor_id, supervisor_result)
+        return session
 
     @router.post("/system/nodes/hardware/bluetooth/ble/scan")
     def scan_node_hardware_ble(
