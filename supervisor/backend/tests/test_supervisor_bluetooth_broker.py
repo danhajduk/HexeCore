@@ -234,6 +234,8 @@ class TestSupervisorBluetoothBroker(unittest.TestCase):
                 if connect_attempts == 1:
                     return _Completed(stdout="Device AA:BB:CC:DD:EE:FF not available\n")
                 return _Completed(stdout="Connection successful\n")
+            if cmd == ["bluetoothctl", "info", "AA:BB:CC:DD:EE:FF"]:
+                return _Completed(stdout="Device AA:BB:CC:DD:EE:FF not available\n")
             if cmd[:2] == ["bash", "-lc"] and "bluetoothctl --timeout 20" in cmd[2]:
                 return _Completed(
                     stdout=(
@@ -287,9 +289,10 @@ class TestSupervisorBluetoothBroker(unittest.TestCase):
         self.assertTrue(payload["discovery_refreshed"])
         self.assertEqual(calls[0], ["bluetoothctl", "--timeout", "20", "scan", "le"])
         self.assertEqual(calls[1], ["bluetoothctl", "connect", "AA:BB:CC:DD:EE:FF"])
-        self.assertEqual(calls[2], ["bluetoothctl", "connect", "AA:BB:CC:DD:EE:FF"])
-        self.assertEqual(calls[3][:2], ["bash", "-lc"])
-        self.assertIn("disconnect AA:BB:CC:DD:EE:FF", calls[3][2])
+        self.assertEqual(calls[2], ["bluetoothctl", "info", "AA:BB:CC:DD:EE:FF"])
+        self.assertEqual(calls[3], ["bluetoothctl", "connect", "AA:BB:CC:DD:EE:FF"])
+        self.assertEqual(calls[4][:2], ["bash", "-lc"])
+        self.assertIn("disconnect AA:BB:CC:DD:EE:FF", calls[4][2])
 
     def test_ble_pairing_advert_accepts_endpoint_identity_and_stops(self) -> None:
         backend = _PairingAdvertBackend()

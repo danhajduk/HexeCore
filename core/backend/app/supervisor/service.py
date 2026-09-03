@@ -1555,19 +1555,39 @@ class SupervisorDomainService:
         try:
             deadline = time.monotonic() + timeout_value
             while time.monotonic() < deadline:
-                connect = subprocess.run(
-                    ["bluetoothctl", "connect", target_address],
-                    capture_output=True,
-                    text=True,
-                    timeout=6.0,
-                    check=False,
-                )
-                connect_output = (connect.stdout or "") + "\n" + (connect.stderr or "")
+                try:
+                    connect = subprocess.run(
+                        ["bluetoothctl", "connect", target_address],
+                        capture_output=True,
+                        text=True,
+                        timeout=12.0,
+                        check=False,
+                    )
+                    connect_output = (connect.stdout or "") + "\n" + (connect.stderr or "")
+                except subprocess.TimeoutExpired as exc:
+                    stdout = exc.stdout.decode("utf-8", errors="replace") if isinstance(exc.stdout, bytes) else (exc.stdout or "")
+                    stderr = exc.stderr.decode("utf-8", errors="replace") if isinstance(exc.stderr, bytes) else (exc.stderr or "")
+                    connect_output = stdout + "\n" + stderr + "\nbluetoothctl connect timed out"
                 session_output.append(connect_output)
                 connect_text = connect_output.lower()
                 if target_address.lower() in connect_text:
                     discovery_refreshed = True
                 if "connection successful" in connect_text or "already connected" in connect_text:
+                    connected_successfully = True
+                    break
+                info = subprocess.run(
+                    ["bluetoothctl", "info", target_address],
+                    capture_output=True,
+                    text=True,
+                    timeout=3.0,
+                    check=False,
+                )
+                info_output = (info.stdout or "") + "\n" + (info.stderr or "")
+                session_output.append(info_output)
+                info_text = info_output.lower()
+                if target_address.lower() in info_text:
+                    discovery_refreshed = True
+                if "connected: yes" in info_text:
                     connected_successfully = True
                     break
                 time.sleep(1.0)
@@ -1614,6 +1634,7 @@ class SupervisorDomainService:
             payloads[names[index]] = payload
         if read_returncode != 0 or not connected_successfully:
             message = read_output.strip() or "bluetoothctl identity session failed"
+            subprocess.run(["bluetoothctl", "disconnect", target_address], capture_output=True, text=True, timeout=5.0, check=False)
             for name in names:
                 errors.setdefault(name, message)
             return payloads, errors, discovery_refreshed
