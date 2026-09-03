@@ -217,6 +217,7 @@ class TestSupervisorBluetoothBroker(unittest.TestCase):
                 return _Completed(
                     stdout=(
                         "[NEW] Device AA:BB:CC:DD:EE:FF HexeRecovery\n"
+                        "Device AA:BB:CC:DD:EE:FF not available\n"
                         "Connection successful\n"
                         + read_output(
                             {
@@ -268,6 +269,7 @@ class TestSupervisorBluetoothBroker(unittest.TestCase):
         self.assertEqual(calls[0][:2], ["bash", "-lc"])
         self.assertIn("scan le", calls[0][2])
         self.assertIn("connect AA:BB:CC:DD:EE:FF", calls[0][2])
+        self.assertGreater(calls[0][2].count("connect AA:BB:CC:DD:EE:FF"), 1)
         self.assertIn("disconnect AA:BB:CC:DD:EE:FF", calls[0][2])
 
     def test_ble_pairing_advert_accepts_endpoint_identity_and_stops(self) -> None:

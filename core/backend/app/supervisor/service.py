@@ -1543,10 +1543,13 @@ class SupervisorDomainService:
         timeout_s: float,
     ) -> tuple[dict[str, Any], dict[str, str], bool]:
         timeout_value = max(1, int(timeout_s))
-        commands: list[tuple[str, float]] = [("scan le", float(timeout_value)), (f"connect {target_address}", 4.0), ("menu gatt", 0.2)]
+        connect_attempts = max(1, min(15, (timeout_value + 3) // 4))
+        commands: list[tuple[str, float]] = [("scan le", 2.0)]
+        commands.extend((f"connect {target_address}", 4.0) for _ in range(connect_attempts))
+        commands.append(("menu gatt", 0.5))
         for uuid in characteristics.values():
-            commands.append((f"select-attribute {uuid}", 0.2))
-            commands.append(("read", 2.0))
+            commands.append((f"select-attribute {uuid}", 0.5))
+            commands.append(("read", 3.0))
         commands.extend([("back", 0.2), (f"disconnect {target_address}", 0.5), ("quit", 0.0)])
         feed = "; ".join(
             f"printf '%s\\n' {shlex.quote(command)}; sleep {delay:g}" for command, delay in commands
@@ -1556,7 +1559,7 @@ class SupervisorDomainService:
             ["bash", "-lc", script],
             capture_output=True,
             text=True,
-            timeout=timeout_value + 20.0,
+            timeout=timeout_value + 35.0,
             check=False,
         )
         read_output = (read.stdout or "") + "\n" + (read.stderr or "")
@@ -1568,12 +1571,17 @@ class SupervisorDomainService:
         names = list(characteristics)
         for index, payload in enumerate(values[: len(names)]):
             payloads[names[index]] = payload
-        if read.returncode != 0 or "failed to connect" in read_error_text:
+        connected_successfully = "connection successful" in read_error_text
+        if read.returncode != 0 or ("failed to connect" in read_error_text and not connected_successfully):
             message = read_output.strip() or "bluetoothctl identity session failed"
             for name in names:
                 errors.setdefault(name, message)
             return payloads, errors, discovery_refreshed
-        if "no device connected" in read_error_text or "no attribute selected" in read_error_text or "not found" in read_error_text:
+        if len(payloads) < len(names) and (
+            "no device connected" in read_error_text
+            or "no attribute selected" in read_error_text
+            or "not found" in read_error_text
+        ):
             message = read_output.strip() or "gatt_attribute_read_failed"
             for name in names:
                 errors.setdefault(name, message)
