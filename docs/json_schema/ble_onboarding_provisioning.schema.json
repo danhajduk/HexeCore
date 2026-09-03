@@ -11,6 +11,7 @@
     "operation",
     "encryption_model",
     "service",
+    "core_published_pairing_session_schema",
     "payload_schemas",
     "provisioning_envelope_schema"
   ],
@@ -66,6 +67,9 @@
     },
     "service": {
       "$ref": "#/$defs/gatt_service"
+    },
+    "core_published_pairing_session_schema": {
+      "$ref": "#/$defs/core_published_pairing_session_schema"
     },
     "payload_schemas": {
       "type": "object",
@@ -139,6 +143,212 @@
         }
       }
     },
+    "core_published_pairing_session_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_id",
+        "service_uuid",
+        "advertisement_schema",
+        "pairing_offer_schema",
+        "endpoint_identity_schema",
+        "wifi_handoff_required_fields"
+      ],
+      "properties": {
+        "schema_id": {
+          "const": "hexe.ble_onboarding.core_published_pairing.v1"
+        },
+        "service_uuid": {
+          "const": "7f9c0000-5f04-4d8b-9a46-7c0f7a100000"
+        },
+        "advertisement_schema": {
+          "$ref": "#/$defs/host_pairing_advertisement"
+        },
+        "pairing_offer_schema": {
+          "$ref": "#/$defs/host_pairing_offer"
+        },
+        "endpoint_identity_schema": {
+          "$ref": "#/$defs/endpoint_identity_write"
+        },
+        "wifi_handoff_required_fields": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "const": "onboarding_session_id"
+            },
+            {
+              "const": "device_id"
+            }
+          ],
+          "items": false
+        }
+      }
+    },
+    "host_pairing_advertisement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "session_role",
+        "session_hint"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": "1.0"
+        },
+        "session_role": {
+          "const": "host_pairing_advert"
+        },
+        "session_hint": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 32
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "capability_flags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "host_pairing_offer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "onboarding_session_id",
+        "session_role",
+        "session_hint",
+        "supervisor_id",
+        "expires_at",
+        "requested_profile",
+        "payload_schema_id",
+        "claim_code_required"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": "1.0"
+        },
+        "onboarding_session_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "session_role": {
+          "const": "host_pairing_advert"
+        },
+        "session_hint": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 32
+        },
+        "supervisor_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "core_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "requested_profile": {
+          "const": "voice"
+        },
+        "payload_schema_id": {
+          "const": "hexe.voice_node.wifi_backend.v1"
+        },
+        "claim_code_required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "endpoint_identity_write": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "onboarding_session_id",
+        "device_id",
+        "node_hardware_id",
+        "target_node_id",
+        "board_profile",
+        "firmware_version",
+        "application_type",
+        "provisioning_mode",
+        "endpoint_ephemeral_public_key",
+        "supported_payload_schemas",
+        "provisioning_state"
+      ],
+      "properties": {
+        "contract_version": {
+          "const": "1.0"
+        },
+        "onboarding_session_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "device_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "node_hardware_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "target_node_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "board_profile": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "firmware_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "application_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "provisioning_mode": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "endpoint_ephemeral_public_key": {
+          "type": "string",
+          "minLength": 43,
+          "maxLength": 128
+        },
+        "supported_payload_schemas": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "provisioning_state": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        }
+      }
+    },
     "provisioning_envelope_schema": {
       "type": "object",
       "additionalProperties": false,
@@ -190,6 +400,11 @@
         "onboarding_session_id": {
           "type": "string",
           "minLength": 1
+        },
+        "device_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
         },
         "target_node_id": {
           "type": "string",

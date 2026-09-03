@@ -34,3 +34,4 @@ Task 993: Add Core Supervisor update orchestration and authorization - Completed
 Task 994: Add Core-host source sync update mode for remote Supervisors - Completed on 09/02/2026 08:43
 Task 995: Surface Supervisor update state and actions in Core UI - Completed on 09/02/2026 08:47
 Task 996: Document and verify remote Supervisor update workflows - Completed on 09/02/2026 08:50
+Task 997: Define the Core-published BLE pairing session contract using the Hexe onboarding UUID block - Completed on 09/03/2026 12:16

@@ -160,6 +160,11 @@ class TestNodeHardwareAccessApi(unittest.TestCase):
         self.assertEqual(payload["resource_types"], ["bluetooth"])
         self.assertEqual(payload["operations"], ["ble.provision_wifi", "ble.read_identity", "ble.scan", "ble.status"])
         self.assertIn("voice", payload["provisioning_payload_schemas"])
+        pairing_schema = payload["core_published_pairing_session_schema"]
+        self.assertEqual(pairing_schema["service_uuid"], "7f9c0000-5f04-4d8b-9a46-7c0f7a100000")
+        self.assertEqual(pairing_schema["advertisement_schema"]["properties"]["session_role"]["const"], "host_pairing_advert")
+        self.assertIn("device_id", pairing_schema["endpoint_identity_schema"]["required"])
+        self.assertEqual(pairing_schema["wifi_handoff_required_fields"], ["onboarding_session_id", "device_id"])
 
         schema = payload["request_schema"]
         self.assertEqual(schema["additionalProperties"], False)
@@ -181,6 +186,9 @@ class TestNodeHardwareAccessApi(unittest.TestCase):
         self.assertTrue(payload["ok"])
         self.assertEqual(payload["operation"], "ble.provision_wifi")
         self.assertEqual(payload["node_profile_id"], "voice")
+        pairing_schema = payload["core_published_pairing_session_schema"]
+        self.assertIn("device_id", pairing_schema["endpoint_identity_schema"]["required"])
+        self.assertEqual(pairing_schema["pairing_offer_schema"]["properties"]["payload_schema_id"]["const"], "hexe.voice_node.wifi_backend.v1")
         schema = payload["payload_schema"]["json_schema"]
         self.assertIn("wifi_ssid", schema["required"])
         self.assertIn("backend_host", schema["required"])
