@@ -81,6 +81,7 @@ Bluetooth broker routes:
 - `POST /api/supervisor/hardware/bluetooth/ble/status` validates a Core-issued hardware lease and returns adapter state.
 - `POST /api/supervisor/hardware/bluetooth/ble/scan` validates a Core-issued hardware lease and runs bounded LE discovery through Supervisor-managed `bluetoothctl`.
 - `POST /api/supervisor/hardware/bluetooth/ble/provision-wifi` validates a Core-issued `ble.provision_wifi` lease, checks the Voice node provisioning payload, encrypts it into a provisioning envelope with endpoint/Supervisor ephemeral X25519 keys plus AES-256-GCM, and delegates only that envelope to a Supervisor BLE GATT backend. If no backend is configured, it fails closed with `gatt_backend_unavailable`.
+- `POST /api/supervisor/hardware/bluetooth/ble/pairing-advert/start` validates a Core-issued `ble.host_pairing_advert` session token and starts a BlueZ DBus advert/GATT helper for the selected adapter. The helper advertises the Hexe provisioning service UUID with the `HXPA` host-pairing marker, serves the pairing-offer JSON, and stores endpoint identity written by the device for the pairing-session status path.
 
 Bluetooth presence reporting does not grant node access. Nodes must request a Core hardware lease first; see [node-hardware-access.md](../core/node-hardware-access.md).
 
@@ -90,6 +91,7 @@ Bluetooth/BLE deployment checklist:
 - Set the same `HEXE_HARDWARE_LEASE_SECRET` on Core and on any Supervisor that may validate leases locally.
 - Prefer Core-backed validation by configuring Supervisor reporting with `HEXE_SUPERVISOR_CORE_URL` and `HEXE_SUPERVISOR_CORE_TOKEN`, or by setting `HEXE_HARDWARE_LEASE_VALIDATE_URL` explicitly.
 - Ensure the Supervisor service user can run `bluetoothctl` and observe `/sys/class/bluetooth`.
+- Ensure the Supervisor service user can register BlueZ DBus GATT applications and LE advertisements, and install the backend requirements so `dbus-next` is available.
 - Use `ble.status` before `ble.scan` when debugging adapter presence or power state.
 - Configure a real BLE provisioning backend before using `ble.provision_wifi` with physical nodes; the API route and lease checks are active even when the GATT backend is unavailable.
 - Treat `revocation_check=local_token_only` as a fallback mode: token expiry is enforced locally, but Core-side release/revocation is only observed when Core validation is available.

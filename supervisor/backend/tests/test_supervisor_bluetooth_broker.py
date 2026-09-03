@@ -67,6 +67,7 @@ class _PairingAdvertBackend:
     def __init__(self) -> None:
         self.started: list[dict] = []
         self.stopped: list[dict] = []
+        self.identity: dict | None = None
 
     def start_pairing_advert(self, *, adapter, pairing_offer, timeout_s):
         self.started.append({"adapter": dict(adapter), "pairing_offer": dict(pairing_offer), "timeout_s": timeout_s})
@@ -75,6 +76,12 @@ class _PairingAdvertBackend:
     def stop_pairing_advert(self, *, adapter, onboarding_session_id):
         self.stopped.append({"adapter": dict(adapter), "onboarding_session_id": onboarding_session_id})
         return {"ok": True, "status": "stopped", "advertising": False}
+
+    def pairing_advert_status(self, *, onboarding_session_id):
+        return {"ok": True, "status": "advertising", "advertising": True, "onboarding_session_id": onboarding_session_id}
+
+    def endpoint_identity(self, *, onboarding_session_id):
+        return self.identity
 
 
 class TestSupervisorBluetoothBroker(unittest.TestCase):
@@ -360,6 +367,43 @@ class TestSupervisorBluetoothBroker(unittest.TestCase):
         self.assertEqual(stopped.json()["status"], "stopped")
         self.assertFalse(stopped.json()["advertising"])
         self.assertEqual(backend.stopped[0]["onboarding_session_id"], "blepair-test")
+
+    def test_ble_pairing_advert_status_accepts_minimal_recovery_identity(self) -> None:
+        backend = _PairingAdvertBackend()
+        backend.identity = {
+            "device_id": "esp-pe-1",
+            "board_profile": "ha_voice_pe",
+            "firmware_version": "min-z-test",
+            "application_type": "recovery",
+            "provisioning_mode": "local_recovery",
+        }
+        self.service._ble_pairing_advert_backend = backend
+        token = self._pairing_session_token(onboarding_session_id="blepair-recovery")
+
+        started = self.client.post(
+            "/api/supervisor/hardware/bluetooth/ble/pairing-advert/start",
+            json={
+                "session_token": token,
+                "adapter": "hci0",
+                "onboarding_session_id": "blepair-recovery",
+                "session_hint": "PE-123456",
+                "expires_at": _future_iso(),
+                "node_profile_id": "voice",
+                "payload_schema_id": VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID,
+            },
+        )
+        self.assertEqual(started.status_code, 200, started.text)
+
+        status = self.client.post(
+            "/api/supervisor/hardware/bluetooth/ble/pairing-advert/status",
+            json={"session_token": token, "adapter": "hci0", "onboarding_session_id": "blepair-recovery"},
+        )
+        self.assertEqual(status.status_code, 200, status.text)
+        payload = status.json()
+        self.assertEqual(payload["status"], "endpoint_identity_received")
+        self.assertEqual(payload["endpoint_identity"]["device_id"], "esp-pe-1")
+        self.assertEqual(payload["endpoint_identity"]["board_profile"], "ha_voice_pe")
+        self.assertFalse(payload["endpoint_identity"]["provisioning_capable"])
 
     def test_ble_scan_uses_brokered_bluetoothctl_surface(self) -> None:
         calls: list[list[str]] = []

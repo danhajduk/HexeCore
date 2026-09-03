@@ -282,10 +282,12 @@ Supervisor exposes the brokered host-advert session surface used by Core:
 Core-issued pairing session tokens are scoped to
 `hardware.bluetooth.ble.host_pairing_advert` and bind the Supervisor,
 adapter, onboarding session id, session hint, expiry, and payload schema.
-Supervisor strips tokens from status data before returning it. The default
-Supervisor advert backend fails closed with
-`ble_pairing_advert_backend_unavailable` until a host BLE GATT advertising
-backend is configured.
+Supervisor strips tokens from status data before returning it. The Supervisor
+host-advert backend uses BlueZ DBus to publish the Hexe provisioning service
+UUID with the `HXPA` host-pairing marker, exposes the pairing offer over GATT,
+and records the endpoint identity written back by the device. If BlueZ DBus or
+the Python DBus dependency is unavailable, the backend fails closed with a
+specific `ble_pairing_advert_*` error.
 
 ## Voice Payload Baseline
 

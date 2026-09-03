@@ -421,6 +421,7 @@ class TestNodeHardwareAccessApi(unittest.TestCase):
             self.assertEqual(found_session["status"], "found")
             self.assertEqual(found_session["endpoint_identity"]["device_id"], "hexe-pe-a0-85-e3-f0-e1-6e")
             self.assertEqual(found_session["endpoint_identity"]["board_profile"], "ha_voice_pe")
+            self.assertEqual(calls[1]["json"]["adapter"], "hci0")
 
             approved = self.client.post(
                 f"/api/system/hardware/bluetooth/ble/pairing-sessions/{session_id}/approve",
@@ -448,6 +449,7 @@ class TestNodeHardwareAccessApi(unittest.TestCase):
         canceled_session = canceled.json()["pairing_session"]
         self.assertEqual(canceled_session["status"], "canceled")
         self.assertTrue(any(call["url"].endswith("/pairing-advert/stop") for call in calls))
+        self.assertTrue(all(not isinstance(call["json"].get("adapter"), dict) for call in calls))
 
     def test_node_ble_pairing_session_lifecycle_uses_trusted_node_governance(self) -> None:
         self._trusted_node("node-2", "node-2-token")

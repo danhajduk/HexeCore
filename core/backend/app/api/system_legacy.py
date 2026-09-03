@@ -2249,6 +2249,12 @@ def build_system_router(
         except KeyError:
             raise HTTPException(status_code=404, detail={"error": "unsupported_node_provisioning_profile"})
 
+    def _ble_pairing_result_adapter_id(result: dict[str, object], fallback: str | None) -> str | None:
+        adapter = result.get("adapter")
+        if isinstance(adapter, dict):
+            return clean_text(adapter.get("adapter")) or clean_text(fallback)
+        return clean_text(adapter) or clean_text(fallback)
+
     def _start_ble_pairing_session_adverts(session, request: Request):
         for result in list(session.supervisor_results):
             supervisor_id = clean_text(result.get("supervisor_id"))
@@ -2262,7 +2268,7 @@ def build_system_router(
                     {"supervisor_id": supervisor_id, "status": "failed", "error": "bluetooth_supervisor_unavailable"},
                 )
                 continue
-            adapter = clean_text(result.get("adapter")) or session.adapter
+            adapter = _ble_pairing_result_adapter_id(result, session.adapter)
             try:
                 session_token = ble_pairing_sessions.pairing_session_token(session, supervisor_id=supervisor_id, adapter=adapter)
             except RuntimeError as exc:
@@ -2297,7 +2303,7 @@ def build_system_router(
             supervisor = supervisor_fleet_store.get(supervisor_id) if supervisor_fleet_store is not None and hasattr(supervisor_fleet_store, "get") else None
             if supervisor is None:
                 continue
-            adapter = clean_text(result.get("adapter")) or session.adapter
+            adapter = _ble_pairing_result_adapter_id(result, session.adapter)
             try:
                 session_token = ble_pairing_sessions.pairing_session_token(session, supervisor_id=supervisor_id, adapter=adapter)
             except RuntimeError:
@@ -2716,13 +2722,13 @@ def build_system_router(
                 session_token = ble_pairing_sessions.pairing_session_token(
                     session,
                     supervisor_id=supervisor_id,
-                    adapter=clean_text(result.get("adapter")) or session.adapter,
+                    adapter=_ble_pairing_result_adapter_id(result, session.adapter),
                 )
             except RuntimeError:
                 continue
             status_payload = {
                 "session_token": session_token,
-                "adapter": clean_text(result.get("adapter")) or session.adapter,
+                "adapter": _ble_pairing_result_adapter_id(result, session.adapter),
                 "onboarding_session_id": session.session_id,
             }
             status_payload = {key: value for key, value in status_payload.items() if value is not None}

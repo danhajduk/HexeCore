@@ -4,7 +4,9 @@ import os
 import socket
 import base64
 import hashlib
+import importlib.util
 import json
+import select
 import shlex
 import shutil
 import subprocess
@@ -134,6 +136,195 @@ class DisabledBlePairingAdvertBackend:
         }
 
 
+class BluezPairingAdvertBackend:
+    _service_uuid = "7f9c0000-5f04-4d8b-9a46-7c0f7a100000"
+    _manufacturer_company_id = 0xFFFF
+    _host_role_payload = b"HXPA" + bytes([0x01])
+
+    def __init__(self, *, state_root: Path | None = None, startup_timeout_s: float = 5.0) -> None:
+        self._processes: dict[str, subprocess.Popen[str]] = {}
+        self._state_root = state_root
+        self._startup_timeout_s = startup_timeout_s
+
+    def _state_dir(self) -> Path:
+        root = self._state_root or Path(__file__).resolve().parents[3] / "var" / "supervisor" / "ble-pairing-adverts"
+        root.mkdir(parents=True, exist_ok=True)
+        return root
+
+    def _identity_path(self, onboarding_session_id: str) -> Path:
+        safe_session = "".join(ch if ch.isalnum() or ch in {"-", "_"} else "_" for ch in onboarding_session_id)[:96]
+        return self._state_dir() / f"{safe_session}.identity.json"
+
+    def _local_name(self, pairing_offer: dict[str, Any]) -> str:
+        session_hint = str(pairing_offer.get("session_hint") or "").strip()
+        return f"HexePair-{session_hint[:18]}" if session_hint else "HexePair"
+
+    def _helper_path(self) -> Path:
+        return Path(__file__).resolve().parent / "bluez_pairing_advert.py"
+
+    def _cleanup_process(self, onboarding_session_id: str) -> None:
+        proc = self._processes.pop(onboarding_session_id, None)
+        if proc is None or proc.poll() is not None:
+            return
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
+
+    def _read_startup_event(self, proc: subprocess.Popen[str]) -> dict[str, Any]:
+        deadline = time.monotonic() + self._startup_timeout_s
+        while time.monotonic() < deadline:
+            if proc.stdout is not None:
+                readable, _, _ = select.select([proc.stdout], [], [], 0.1)
+                if readable:
+                    line = proc.stdout.readline()
+                    if line == "":
+                        stderr = proc.stderr.read() if proc.stderr is not None else ""
+                        return {
+                            "ok": False,
+                            "error": "ble_pairing_advert_helper_exited",
+                            "message": stderr.strip()[-800:] or "BlueZ pairing advert helper closed stdout before reporting startup.",
+                            "returncode": proc.poll(),
+                        }
+                    try:
+                        event = json.loads(line)
+                    except json.JSONDecodeError:
+                        return {"ok": False, "error": "ble_pairing_advert_start_invalid_output", "message": line.strip()}
+                    return event if isinstance(event, dict) else {"ok": False, "error": "ble_pairing_advert_start_invalid_output"}
+            if proc.poll() is not None:
+                stderr = proc.stderr.read() if proc.stderr is not None else ""
+                return {
+                    "ok": False,
+                    "error": "ble_pairing_advert_helper_exited",
+                    "message": stderr.strip()[-800:] or "BlueZ pairing advert helper exited before reporting startup.",
+                    "returncode": proc.returncode,
+                }
+        return {"ok": False, "error": "ble_pairing_advert_start_timeout", "message": "Timed out waiting for BlueZ pairing advert helper startup."}
+
+    def start_pairing_advert(
+        self,
+        *,
+        adapter: dict[str, Any],
+        pairing_offer: dict[str, Any],
+        timeout_s: int,
+    ) -> dict[str, Any]:
+        if importlib.util.find_spec("dbus_next") is None:
+            return {
+                "ok": False,
+                "status": "failed",
+                "advertising": False,
+                "error": "ble_pairing_advert_backend_dependency_missing",
+                "message": "Supervisor BLE pairing advertisement requires the dbus-next Python package.",
+                "backend": "bluez_dbus",
+            }
+        helper_path = self._helper_path()
+        if not helper_path.exists():
+            return {
+                "ok": False,
+                "status": "failed",
+                "advertising": False,
+                "error": "ble_pairing_advert_helper_missing",
+                "message": f"BlueZ pairing advert helper not found: {helper_path}",
+                "backend": "bluez_dbus",
+            }
+        onboarding_session_id = str(pairing_offer.get("onboarding_session_id") or "").strip()
+        if not onboarding_session_id:
+            return {
+                "ok": False,
+                "status": "failed",
+                "advertising": False,
+                "error": "ble_pairing_advert_session_missing",
+                "backend": "bluez_dbus",
+            }
+        self._cleanup_process(onboarding_session_id)
+        identity_path = self._identity_path(onboarding_session_id)
+        identity_path.unlink(missing_ok=True)
+        request = {
+            "adapter": str(adapter.get("adapter") or "hci0"),
+            "service_uuid": self._service_uuid,
+            "local_name": self._local_name(pairing_offer),
+            "manufacturer_company_id": self._manufacturer_company_id,
+            "manufacturer_data_b64": base64.b64encode(self._host_role_payload).decode("ascii"),
+            "pairing_offer": pairing_offer,
+            "identity_path": str(identity_path),
+            "timeout_s": max(1, min(int(timeout_s), 900)),
+        }
+        proc = subprocess.Popen(
+            [sys.executable, str(helper_path), json.dumps(request, sort_keys=True, separators=(",", ":"))],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            start_new_session=True,
+        )
+        event = self._read_startup_event(proc)
+        if not event.get("ok"):
+            self._cleanup_process(onboarding_session_id)
+            return {
+                "ok": False,
+                "status": "failed",
+                "advertising": False,
+                "backend": "bluez_dbus",
+                "error": event.get("error") or "ble_pairing_advert_start_failed",
+                "message": event.get("message"),
+                "returncode": event.get("returncode"),
+            }
+        self._processes[onboarding_session_id] = proc
+        return {
+            "ok": True,
+            "status": "advertising",
+            "advertising": True,
+            "backend": "bluez_dbus",
+            "pid": proc.pid,
+            "local_name": request["local_name"],
+            "service_uuid": self._service_uuid,
+            "manufacturer_company_id": self._manufacturer_company_id,
+            "manufacturer_data_hex": f"{self._manufacturer_company_id:04x}{self._host_role_payload.hex()}",
+            "identity_path": str(identity_path),
+        }
+
+    def stop_pairing_advert(self, *, adapter: dict[str, Any], onboarding_session_id: str) -> dict[str, Any]:
+        self._cleanup_process(onboarding_session_id)
+        return {
+            "ok": True,
+            "status": "stopped",
+            "advertising": False,
+            "onboarding_session_id": onboarding_session_id,
+            "adapter": adapter,
+            "backend": "bluez_dbus",
+        }
+
+    def pairing_advert_status(self, *, onboarding_session_id: str) -> dict[str, Any]:
+        proc = self._processes.get(onboarding_session_id)
+        if proc is None:
+            return {"ok": True, "advertising": False, "status": "not_started", "backend": "bluez_dbus"}
+        if proc.poll() is None:
+            return {"ok": True, "advertising": True, "status": "advertising", "backend": "bluez_dbus", "pid": proc.pid}
+        stderr = proc.stderr.read() if proc.stderr is not None else ""
+        self._processes.pop(onboarding_session_id, None)
+        return {
+            "ok": False,
+            "advertising": False,
+            "status": "failed",
+            "backend": "bluez_dbus",
+            "error": "ble_pairing_advert_process_exited",
+            "message": stderr.strip()[-800:] or "BlueZ pairing advert helper exited.",
+            "returncode": proc.returncode,
+        }
+
+    def endpoint_identity(self, *, onboarding_session_id: str) -> dict[str, Any] | None:
+        identity_path = self._identity_path(onboarding_session_id)
+        if not identity_path.exists():
+            return None
+        try:
+            payload = json.loads(identity_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        identity = payload.get("identity") if isinstance(payload, dict) else None
+        return identity if isinstance(identity, dict) else None
+
+
 class SupervisorDomainService:
     def __init__(
         self,
@@ -154,7 +345,7 @@ class SupervisorDomainService:
         self._resource_monitor = resource_monitor or SupervisorResourceMonitor()
         self._resource_history_store = resource_history_store or SupervisorResourceHistoryStore()
         self._ble_provisioning_backend = ble_provisioning_backend or DisabledBleProvisioningBackend()
-        self._ble_pairing_advert_backend = ble_pairing_advert_backend or DisabledBlePairingAdvertBackend()
+        self._ble_pairing_advert_backend = ble_pairing_advert_backend or BluezPairingAdvertBackend()
         self._install_root_override = install_root
         self._ble_provisioning_events: list[dict[str, Any]] = []
         self._ble_pairing_advert_sessions: dict[str, dict[str, Any]] = {}
@@ -936,6 +1127,81 @@ class SupervisorDomainService:
         }
         return payload
 
+    def _normalize_ble_pairing_endpoint_identity(self, identity: dict[str, Any], session: dict[str, Any]) -> dict[str, Any] | None:
+        pairing_offer = session.get("pairing_offer") if isinstance(session.get("pairing_offer"), dict) else {}
+        requested_schema = str(pairing_offer.get("payload_schema_id") or VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID).strip()
+        onboarding_session_id = str(session.get("onboarding_session_id") or "").strip()
+        identity_session = str(identity.get("onboarding_session_id") or onboarding_session_id).strip()
+        if identity_session != onboarding_session_id:
+            session["error"] = "endpoint_identity_session_mismatch"
+            return None
+        contract_version = str(identity.get("contract_version") or BLE_PROVISIONING_CONTRACT_VERSION).strip()
+        if contract_version != BLE_PROVISIONING_CONTRACT_VERSION:
+            session["error"] = "unsupported_endpoint_identity"
+            return None
+        device_id = str(identity.get("device_id") or "").strip()
+        board_profile = str(identity.get("board_profile") or "").strip()
+        if not device_id or not board_profile:
+            session["error"] = "invalid_endpoint_identity"
+            return None
+        supported_schemas_raw = identity.get("supported_payload_schemas")
+        supported_schemas = [str(item).strip() for item in supported_schemas_raw if str(item).strip()] if isinstance(supported_schemas_raw, list) else []
+        endpoint_public_key = str(identity.get("endpoint_ephemeral_public_key") or "").strip()
+        provisioning_capable = requested_schema in supported_schemas and len(endpoint_public_key) >= 43
+        normalized = {
+            "adapter": session.get("adapter"),
+            "onboarding_session_id": onboarding_session_id,
+            "contract_version": contract_version,
+            "device_id": device_id,
+            "node_hardware_id": str(identity.get("node_hardware_id") or device_id).strip(),
+            "target_node_id": str(identity.get("target_node_id") or device_id).strip(),
+            "board_profile": board_profile,
+            "firmware_version": str(identity.get("firmware_version") or "unknown").strip(),
+            "application_type": str(identity.get("application_type") or "unknown").strip(),
+            "provisioning_mode": str(identity.get("provisioning_mode") or "unknown").strip(),
+            "endpoint_ephemeral_public_key": endpoint_public_key or None,
+            "supported_payload_schemas": supported_schemas,
+            "provisioning_state": str(identity.get("provisioning_state") or "identity_received").strip(),
+            "provisioning_capable": provisioning_capable,
+            "provisioning_error": None if provisioning_capable else "endpoint_identity_missing_encrypted_provisioning_fields",
+            "supervisor_id": self._supervisor_id(),
+            "received_via": "ble_gatt",
+        }
+        return normalized
+
+    def _refresh_ble_pairing_advert_backend_state(self, session: dict[str, Any]) -> None:
+        if session.get("status") not in {"advertising", "endpoint_identity_received"}:
+            return
+        onboarding_session_id = str(session.get("onboarding_session_id") or "").strip()
+        backend = self._ble_pairing_advert_backend
+        if hasattr(backend, "pairing_advert_status"):
+            try:
+                backend_status = backend.pairing_advert_status(onboarding_session_id=onboarding_session_id)
+            except Exception as exc:
+                backend_status = {"ok": False, "error": "ble_pairing_advert_status_failed", "message": str(exc)}
+            session["backend_status_result"] = backend_status
+            if not bool(backend_status.get("ok")):
+                session["status"] = "failed"
+                session["error"] = backend_status.get("error") or "ble_pairing_advert_backend_failed"
+                session["updated_at"] = self._now_iso()
+                return
+        if session.get("endpoint_identity") is not None or not hasattr(backend, "endpoint_identity"):
+            return
+        try:
+            identity = backend.endpoint_identity(onboarding_session_id=onboarding_session_id)
+        except Exception:
+            identity = None
+        if not isinstance(identity, dict):
+            return
+        normalized = self._normalize_ble_pairing_endpoint_identity(identity, session)
+        if normalized is None:
+            session["status"] = "failed"
+            session["updated_at"] = self._now_iso()
+            return
+        session["endpoint_identity"] = normalized
+        session["status"] = "endpoint_identity_received"
+        session["updated_at"] = self._now_iso()
+
     def bluetooth_ble_pairing_advert_start(self, body: SupervisorBluetoothPairingAdvertStartRequest) -> dict[str, Any]:
         self._validate_ble_pairing_advert_token(body)
         adapter, adapters = self._bluetooth_adapter_for_request(body.adapter)
@@ -1017,6 +1283,7 @@ class SupervisorDomainService:
             session["status"] = "expired"
             session["error"] = "ble_pairing_session_expired"
             session["updated_at"] = self._now_iso()
+        self._refresh_ble_pairing_advert_backend_state(session)
         return {**self._ble_pairing_status_payload(session, adapter=adapter), "adapters": adapters}
 
     def bluetooth_ble_pairing_advert_stop(self, body: SupervisorBluetoothPairingAdvertStopRequest) -> dict[str, Any]:
