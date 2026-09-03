@@ -1673,7 +1673,6 @@ class SupervisorDomainService:
         characteristics = {
             "device_identity": "7f9c0000-5f04-4d8b-9a46-7c0f7a100001",
             "pairing_nonce": "7f9c0000-5f04-4d8b-9a46-7c0f7a100002",
-            "provisioning_status": "7f9c0000-5f04-4d8b-9a46-7c0f7a100003",
         }
         payloads: dict[str, Any] = {}
         errors: dict[str, str] = {}
