@@ -37,3 +37,4 @@ Task 996: Document and verify remote Supervisor update workflows - Completed on 
 Task 997: Define the Core-published BLE pairing session contract using the Hexe onboarding UUID block - Completed on 09/03/2026 12:16
 Task 998: Implement Core pairing-session lifecycle and Supervisor BLE host advertising for endpoint onboarding - Completed on 09/03/2026 12:29
 Task 978: Enforce provider and model governance constraints during node service resolution - Completed on 09/03/2026 18:05
+Task 979: Clarify Core versus standalone Supervisor API route ownership - Completed on 09/03/2026 18:05

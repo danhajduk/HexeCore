@@ -1,6 +1,9 @@
 # Hexe Core API Reference
 
-All routes are mounted by `backend/app/main.py`.
+Core routes are mounted by `core/backend/app/main.py` and are represented in
+`openapi-paths.snapshot.json`. Standalone Supervisor routes under
+`/api/supervisor/*` are mounted by the Supervisor API service, not by Core; they
+are listed here only where Core wraps or depends on them operationally.
 
 ## Conventions
 
@@ -103,9 +106,7 @@ Status: Implemented
   - `GET /api/nodes`
   - `GET /api/nodes/{node_id}`
   - `GET /api/nodes/{node_id}/ui-manifest` (admin session/token required; Core fetches `GET /api/node/ui-manifest` from trusted nodes, validates it, and returns an operator-readable fetch state)
-- Supervisor fleet:
-  - `GET /api/supervisor/resources/history/maintenance` (local Supervisor resource history storage status, including DB path, size, counts, retention, and prune interval)
-  - `POST /api/supervisor/resources/history/maintenance` (local Supervisor resource history maintenance; JSON body `{"action":"prune|checkpoint|vacuum|compact"}`)
+- Core Supervisor fleet/runtime:
   - `GET /api/system/supervisor/resources/history` (admin session/token required; local configured Supervisor host resource history)
   - `GET /api/system/supervisor/runtimes/{node_id}/resources/history` (admin session/token required; local configured Supervisor runtime resource history)
   - `GET /api/system/supervisors` (admin session/token required; hides long-offline remote Supervisors by default)

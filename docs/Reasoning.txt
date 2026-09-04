@@ -283,3 +283,11 @@ Chosen fix: Document provider/model allowlists as advisory metadata for now, whi
 What changed: Updated node service resolution docs and completed the task queue entry.
 Verification: Confirmed no remaining hard-filter wording for governance provider/model allowlists in the active resolution docs.
 ###########
+
+Task #979
+Step objective: Clarify Core versus standalone Supervisor route ownership.
+Issue cause: Architecture and API docs mixed Core-mounted route language with standalone Supervisor `/api/supervisor/*` routes.
+Chosen fix: Rewrote ownership wording so Core owns `/api/system/supervisor*` and `/api/system/supervisors*`, while standalone Supervisor owns `/api/supervisor/*`.
+What changed: Updated architecture, Supervisor README, Core API reference, router ownership docs, and refreshed the OpenAPI path snapshot for existing BLE pairing-session routes.
+Verification: OpenAPI snapshot validation passed; route-ownership wording scan passed; mirror drift guard passed.
+###########

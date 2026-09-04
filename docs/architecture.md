@@ -10,11 +10,11 @@ Compatibility note: public display names and active MQTT topic roots now use Hex
 
 Status: Implemented
 
-Core is assembled in `backend/app/main.py` and currently spans:
+Core is assembled in `core/backend/app/main.py` and currently spans:
 
-- `backend/app/core/`
-- `backend/app/api/`
-- `backend/app/system/`
+- `core/backend/app/core/`
+- `core/backend/app/api/`
+- `core/backend/app/system/`
 - `frontend/`
 
 Current Core responsibilities include:
@@ -32,11 +32,15 @@ Status: Implemented
 
 Supervisor is the host-local runtime realization boundary and currently spans:
 
-- `backend/hexe_supervisor/`
-- `backend/app/system/runtime/`
-- `backend/app/supervisor/`
+- `core/backend/hexe_supervisor/`
+- `core/backend/app/system/runtime/`
+- `core/backend/app/supervisor/`
+- `supervisor/backend/app/supervisor/`
 
-Current top-level routes:
+Standalone Supervisor API routes are served by
+`core/backend/app/supervisor/server.py` or the mirrored
+`supervisor/backend/app/supervisor/server.py`, not by the Core process.
+Current top-level standalone Supervisor routes include:
 
 - `GET /api/supervisor/health`
 - `GET /api/supervisor/info`
@@ -103,21 +107,29 @@ Major active Core subsystems remain:
 - MQTT platform services
 - auth, users, policy, telemetry, audit, and settings
 
-## Foundation Route Map
+## Route Ownership
 
-The migration foundation currently adds:
+Core's generated OpenAPI snapshot covers Core-mounted routes. Supervisor-local
+routes are documented with Supervisor because they are mounted by the standalone
+Supervisor API server.
+
+Core-owned routes include:
 
 - `GET /api/architecture`
-- `GET /api/supervisor/health`
-- `GET /api/supervisor/info`
+- `GET /api/system/supervisor/summary`
+- `GET /api/system/supervisor/resources/history`
+- `GET /api/system/supervisors`
+- `GET /api/system/supervisors/{supervisor_id}`
 - `GET /api/nodes`
 - `GET /api/nodes/{node_id}`
 
-These routes are mounted in `backend/app/main.py` and are implemented through the new wrappers in:
+These routes are mounted in `core/backend/app/main.py` and are implemented
+through Core domain modules such as:
 
-- `backend/app/architecture/`
-- `backend/app/supervisor/`
-- `backend/app/nodes/`
+- `core/backend/app/architecture/`
+- `core/backend/app/api/`
+- `core/backend/app/system/`
+- `core/backend/app/nodes/`
 
 ## Related Docs
 

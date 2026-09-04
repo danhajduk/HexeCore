@@ -14,7 +14,10 @@ Supervisor currently spans:
 - `backend/app/supervisor/server.py`
 - `systemd/user/hexe-supervisor-api.service.in`
 
-Supervisor API routes are served by the standalone Supervisor service rather than the Core process.
+Supervisor API routes under `/api/supervisor/*` are served by the standalone
+Supervisor API service rather than the Core process. Core exposes
+Supervisor-related fleet wrappers under `/api/system/supervisor*` and
+`/api/system/supervisors*`.
 
 ## Current Responsibilities
 
@@ -49,7 +52,9 @@ Supervisor API routes are served by the standalone Supervisor service rather tha
 
 ## Service Configuration
 
-The Supervisor API service reads its binding and transport settings from environment variables. These values are used by the standalone Supervisor API server and are safe to apply on Core or Node hosts.
+The Supervisor API service reads its binding and transport settings from
+environment variables. These values are used by the standalone Supervisor API
+server and are safe to apply on Core or Node hosts.
 
 Core uses a Supervisor API client with its own environment-backed settings (see [service-configuration.md](./service-configuration.md)).
 

@@ -48,8 +48,6 @@ Standards reference:
 Do not edit above this line:
 #######################################################################
 
-[STOP] Review provider/model governance enforcement semantics before continuing.
-[TODO] Task 979: Clarify Core versus standalone Supervisor API route ownership
 [TODO] Task 980: Repair stale repository paths and broken documentation links
 [TODO] Task 981: Generate API reference coverage from OpenAPI and document runtime proxy surfaces
 [TODO] Task 982: Extend environment registry validation for helper-read variables
