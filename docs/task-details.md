@@ -1093,3 +1093,96 @@ Original task details:
 - Verification: Run targeted backend/frontend tests and physical BLE scan/provision checks.
 - Verification: Run documentation validation and OpenAPI checks if API docs changed.
 - Verification: Run `python tools/check_mirror_drift.py`.
+
+## Task 1001
+Original task details:
+- User request: Let Core inspect local and remote Supervisor versions every 10 minutes.
+- Depends on: Tasks 992, 993, 994, 995, and 996.
+- Goal: Add a Core-owned scheduled Supervisor version audit that classifies every visible Supervisor without triggering updates yet.
+- Add a `SupervisorVersionAudit` service that runs on startup and then every 10 minutes.
+- Inspect the local Core-attached Supervisor through the local Supervisor client/socket and remote Supervisors through each trusted online fleet record's registered `api_base_url`.
+- Call each Supervisor's `GET /api/supervisor/update/status` when reachable and preserve a sanitized status snapshot in the Core Supervisor fleet metadata.
+- Normalize each Supervisor into operator-readable states: `current`, `outdated`, `unknown`, `unreachable`, `unsupported`, and `update_running`.
+- Compare `reported_version`, git/source commit fields when present, supported update modes, update API capability, freshness, and API reachability.
+- Keep liveness/freshness separate from version state; an online Supervisor can still be outdated, and an outdated Supervisor can still be healthy.
+- Add schedule configuration with a safe default:
+  - `HEXE_SUPERVISOR_VERSION_AUDIT_ENABLED=true`
+  - `HEXE_SUPERVISOR_VERSION_AUDIT_INTERVAL_S=600`
+- Record redacted audit events for audit start, per-Supervisor classification changes, API failures, and audit completion.
+- Acceptance: Core refreshes Supervisor version status automatically every 10 minutes.
+- Acceptance: Core stores current/outdated/unknown state without exposing tokens, environment values, raw update logs, or private paths beyond already-sanitized update status fields.
+- Acceptance: Remote Supervisors with missing `api_base_url`, stale heartbeats, missing update API, invalid JSON, or unsupported update status responses fail closed into explicit non-current states.
+- Verification: Add focused unit tests for scheduler cadence, local client inspection, remote HTTP inspection, stale/offline classification, sanitized metadata storage, and audit events.
+- Verification: Run targeted Supervisor fleet/update tests.
+- Verification: Run `python tools/update_openapi_snapshot.py --check` if API payloads or routes change.
+- Verification: Run `python tools/check_mirror_drift.py`.
+
+## Task 1002
+Original task details:
+- User request: Make sure the local Supervisor version/source is latest according to git before remote update checks can trigger.
+- Depends on: Task 1001.
+- Goal: Add a Core local-source gate so remote Supervisor updates are never triggered from a stale or ambiguous Core-host source tree.
+- Resolve the desired Supervisor source from `HEXE_SUPERVISOR_PACKAGE_SOURCE_ROOT` or the local mirrored `supervisor` tree used by Core-host package mode.
+- Inspect the local source tree with bounded git commands:
+  - current branch
+  - `HEAD` commit
+  - upstream branch
+  - upstream commit
+  - ahead/behind counts
+  - dirty/untracked state relevant to package contents
+  - fetch timestamp/result
+- Add configuration for the local git freshness check:
+  - `HEXE_SUPERVISOR_LOCAL_GIT_CHECK_ENABLED=true`
+  - `HEXE_SUPERVISOR_LOCAL_GIT_FETCH_ENABLED=true`
+  - `HEXE_SUPERVISOR_LOCAL_GIT_FETCH_TIMEOUT_S=20`
+- Classify local desired source as `current`, `behind`, `ahead`, `diverged`, `dirty`, `not_git`, `fetch_failed`, or `unknown`.
+- When the local source is not `current`, Core must not trigger remote Supervisor updates automatically; it should record the reason and surface an operator-readable blocker.
+- Do not auto-pull or mutate the Core host git checkout in this task. Updating the Core host source remains an operator or deployment responsibility unless a later task explicitly defines safe Core self-update behavior.
+- Preserve Core/Supervisor mirror alignment checks for package-mode updates; a locally current git checkout is not sufficient if mirrored Supervisor package contents drift.
+- Acceptance: Core can prove the local Supervisor source is current with upstream before treating it as the desired fleet version.
+- Acceptance: Core blocks remote auto-update decisions when local source is behind, dirty, diverged, not a git checkout, fetch failed, or mirror drift is detected.
+- Acceptance: The block state includes the exact safe reason but no secrets or credential-bearing remote URLs.
+- Verification: Add focused tests for clean/current, behind, ahead, diverged, dirty, no-upstream, not-git, fetch-timeout/failure, and mirror-drift states.
+- Verification: Run targeted local git gate tests.
+- Verification: Run `python tools/check_env_registry.py --check-docs` if env settings are added.
+- Verification: Run `python tools/check_mirror_drift.py`.
+
+## Task 1003
+Original task details:
+- User request: If the local Supervisor source is current, check and trigger remote Supervisor updates when remote Supervisors are not current.
+- Depends on: Tasks 1001 and 1002.
+- Goal: Add policy-controlled remote Supervisor update triggering driven by the scheduled version audit.
+- Extend the scheduled audit worker so it evaluates remote Supervisors only after the local-source gate reports `current`.
+- Add a conservative update policy with manual-first defaults:
+  - detect outdated Supervisors automatically
+  - record and display recommended update actions automatically
+  - trigger remote updates only when explicitly enabled
+- Add configuration:
+  - `HEXE_SUPERVISOR_AUTO_UPDATE_ENABLED=false`
+  - `HEXE_SUPERVISOR_AUTO_UPDATE_SOURCE_MODE=core_host`
+  - `HEXE_SUPERVISOR_AUTO_UPDATE_MAX_PARALLEL=1`
+  - `HEXE_SUPERVISOR_AUTO_UPDATE_ALLOWED_IDS`
+  - `HEXE_SUPERVISOR_AUTO_UPDATE_DENIED_IDS`
+  - `HEXE_SUPERVISOR_AUTO_UPDATE_REQUIRE_HEALTHY=true`
+- Only trigger updates for trusted, online, reachable remote Supervisors that:
+  - expose `api_base_url`
+  - report the update API
+  - are classified `outdated`
+  - advertise the requested update mode
+  - are not already updating
+  - are not in an active BLE onboarding/pairing/provisioning session
+  - pass host-health gates when required
+- Reuse the existing Core fleet update route/service path so Core remains the authorizer and the remote Supervisor remains the host-local executor.
+- Use idempotency keys per Supervisor/version/source commit to avoid duplicate update starts during repeated 10-minute audits.
+- Store a sanitized update decision record with reason, selected source mode, target version/source commit, update request id, and last trigger time.
+- Add failure backoff so an unreachable or failing Supervisor is not hammered every audit interval.
+- Keep operator override available through the existing UI/API path even when automatic triggering is disabled.
+- Acceptance: With auto-update disabled, Core marks outdated remote Supervisors and recommends an update without starting one.
+- Acceptance: With auto-update enabled and the local-source gate current, Core starts remote updates only for allowed eligible Supervisors.
+- Acceptance: Core never starts a remote update when local source is stale/dirty/unknown, the remote is stale/offline, the remote has no reachable API, the update mode is unsupported, or a BLE onboarding session is active.
+- Acceptance: Repeated audits do not create duplicate update starts for the same Supervisor/version/source target.
+- Verification: Add focused tests for manual-only detection, auto-enabled trigger, local-gate block, allow/deny filters, max-parallel limit, idempotent retry, failure backoff, active BLE session block, unsupported mode block, and successful post-update status refresh.
+- Verification: Run targeted Supervisor fleet/update/scheduler tests.
+- Verification: Run `python tools/update_openapi_snapshot.py --check` if API payloads or routes change.
+- Verification: Run `python tools/check_env_registry.py --check-docs` if env settings are added.
+- Verification: Run `python tools/check_mirror_drift.py`.

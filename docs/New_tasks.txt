@@ -59,3 +59,6 @@ Do not edit above this line:
 [TODO] Task 984: Repair schema documentation links and ownership references
 [TODO] Task 999: Finalize Core pairing-session APIs for HexeVoice node-side BLE onboarding UI
 [TODO] Task 1000: Validate and document the inverted BLE onboarding flow across Supervisor and endpoint roles
+[TODO] Task 1001: Add scheduled Supervisor version inspection in Core
+[TODO] Task 1002: Gate Supervisor fleet updates on current local git source
+[TODO] Task 1003: Trigger remote Supervisor updates after local source is verified current
