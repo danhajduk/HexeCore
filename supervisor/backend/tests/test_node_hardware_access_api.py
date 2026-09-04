@@ -165,6 +165,7 @@ class TestNodeHardwareAccessApi(unittest.TestCase):
         self.assertEqual(pairing_schema["service_uuid"], "7f9c0000-5f04-4d8b-9a46-7c0f7a100000")
         self.assertEqual(pairing_schema["advertisement_schema"]["properties"]["session_role"]["const"], "host_pairing_advert")
         self.assertIn("device_id", pairing_schema["endpoint_identity_schema"]["required"])
+        self.assertIn("pairing_nonce", pairing_schema["endpoint_identity_schema"]["required"])
         self.assertEqual(pairing_schema["wifi_handoff_required_fields"], ["onboarding_session_id", "device_id"])
 
         schema = payload["request_schema"]
@@ -344,6 +345,7 @@ class TestNodeHardwareAccessApi(unittest.TestCase):
                 "application_type": "hexe_voice",
                 "provisioning_mode": "core_published_pairing",
                 "endpoint_ephemeral_public_key": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+                "pairing_nonce": "nonce-123456",
                 "supported_payload_schemas": ["hexe.voice_node.wifi_backend.v1"],
                 "provisioning_state": "awaiting_credentials",
             }
@@ -467,6 +469,7 @@ class TestNodeHardwareAccessApi(unittest.TestCase):
                 "application_type": "hexe_voice",
                 "provisioning_mode": "core_published_pairing",
                 "endpoint_ephemeral_public_key": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+                "pairing_nonce": "nonce-123456",
                 "supported_payload_schemas": ["hexe.voice_node.wifi_backend.v1"],
                 "provisioning_state": "awaiting_credentials",
             }
@@ -589,6 +592,7 @@ class TestNodeHardwareAccessApi(unittest.TestCase):
                 "application_type": "hexe_voice",
                 "provisioning_mode": "core_published_pairing",
                 "endpoint_ephemeral_public_key": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+                "pairing_nonce": "nonce-123456",
                 "supported_payload_schemas": ["hexe.voice_node.wifi_backend.v1"],
                 "provisioning_state": "awaiting_credentials",
             }

@@ -135,6 +135,14 @@ class DisabledBlePairingAdvertBackend:
             "adapter": adapter,
         }
 
+    def store_pairing_credentials(self, *, onboarding_session_id: str, envelope: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "ok": False,
+            "status": "failed",
+            "error": "ble_pairing_credentials_backend_unavailable",
+            "onboarding_session_id": onboarding_session_id,
+        }
+
 
 class BluezPairingAdvertBackend:
     _service_uuid = "7f9c0000-5f04-4d8b-9a46-7c0f7a100000"
@@ -154,6 +162,10 @@ class BluezPairingAdvertBackend:
     def _identity_path(self, onboarding_session_id: str) -> Path:
         safe_session = "".join(ch if ch.isalnum() or ch in {"-", "_"} else "_" for ch in onboarding_session_id)[:96]
         return self._state_dir() / f"{safe_session}.identity.json"
+
+    def _credentials_path(self, onboarding_session_id: str) -> Path:
+        safe_session = "".join(ch if ch.isalnum() or ch in {"-", "_"} else "_" for ch in onboarding_session_id)[:96]
+        return self._state_dir() / f"{safe_session}.credentials.json"
 
     def _local_name(self, pairing_offer: dict[str, Any]) -> str:
         session_hint = str(pairing_offer.get("session_hint") or "").strip()
@@ -241,6 +253,8 @@ class BluezPairingAdvertBackend:
         self._cleanup_process(onboarding_session_id)
         identity_path = self._identity_path(onboarding_session_id)
         identity_path.unlink(missing_ok=True)
+        credential_path = self._credentials_path(onboarding_session_id)
+        credential_path.unlink(missing_ok=True)
         request = {
             "adapter": str(adapter.get("adapter") or "hci0"),
             "service_uuid": self._service_uuid,
@@ -249,6 +263,7 @@ class BluezPairingAdvertBackend:
             "manufacturer_data_b64": base64.b64encode(self._host_role_payload).decode("ascii"),
             "pairing_offer": pairing_offer,
             "identity_path": str(identity_path),
+            "credential_path": str(credential_path),
             "timeout_s": max(1, min(int(timeout_s), 900)),
         }
         proc = subprocess.Popen(
@@ -282,6 +297,7 @@ class BluezPairingAdvertBackend:
             "manufacturer_company_id": self._manufacturer_company_id,
             "manufacturer_data_hex": f"{self._manufacturer_company_id:04x}{self._host_role_payload.hex()}",
             "identity_path": str(identity_path),
+            "credential_path": str(credential_path),
         }
 
     def stop_pairing_advert(self, *, adapter: dict[str, Any], onboarding_session_id: str) -> dict[str, Any]:
@@ -323,6 +339,30 @@ class BluezPairingAdvertBackend:
             return None
         identity = payload.get("identity") if isinstance(payload, dict) else None
         return identity if isinstance(identity, dict) else None
+
+    def store_pairing_credentials(self, *, onboarding_session_id: str, envelope: dict[str, Any]) -> dict[str, Any]:
+        proc = self._processes.get(onboarding_session_id)
+        if proc is None or proc.poll() is not None:
+            return {
+                "ok": False,
+                "status": "failed",
+                "error": "ble_pairing_advert_not_running",
+                "onboarding_session_id": onboarding_session_id,
+                "backend": "bluez_dbus",
+            }
+        credential_path = self._credentials_path(onboarding_session_id)
+        credential_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = credential_path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(envelope, sort_keys=True, separators=(",", ":")), encoding="utf-8")
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, credential_path)
+        return {
+            "ok": True,
+            "status": "queued",
+            "onboarding_session_id": onboarding_session_id,
+            "credential_path": str(credential_path),
+            "backend": "bluez_dbus",
+        }
 
 
 class SupervisorDomainService:
@@ -1122,6 +1162,7 @@ class SupervisorDomainService:
             "expires_at": session.get("expires_at"),
             "pairing_offer": dict(session.get("pairing_offer") or {}),
             "endpoint_identity": dict(session.get("endpoint_identity") or {}) if isinstance(session.get("endpoint_identity"), dict) else None,
+            "credential_status": session.get("credential_status"),
             "advertising": session.get("status") in {"advertising", "endpoint_identity_received"},
             "error": session.get("error"),
         }
@@ -1147,7 +1188,8 @@ class SupervisorDomainService:
         supported_schemas_raw = identity.get("supported_payload_schemas")
         supported_schemas = [str(item).strip() for item in supported_schemas_raw if str(item).strip()] if isinstance(supported_schemas_raw, list) else []
         endpoint_public_key = str(identity.get("endpoint_ephemeral_public_key") or "").strip()
-        provisioning_capable = requested_schema in supported_schemas and len(endpoint_public_key) >= 43
+        pairing_nonce = str(identity.get("pairing_nonce") or "").strip()
+        provisioning_capable = requested_schema in supported_schemas and len(endpoint_public_key) >= 43 and len(pairing_nonce) >= 8
         normalized = {
             "adapter": session.get("adapter"),
             "onboarding_session_id": onboarding_session_id,
@@ -1160,6 +1202,7 @@ class SupervisorDomainService:
             "application_type": str(identity.get("application_type") or "unknown").strip(),
             "provisioning_mode": str(identity.get("provisioning_mode") or "unknown").strip(),
             "endpoint_ephemeral_public_key": endpoint_public_key or None,
+            "pairing_nonce": pairing_nonce or None,
             "supported_payload_schemas": supported_schemas,
             "provisioning_state": str(identity.get("provisioning_state") or "identity_received").strip(),
             "provisioning_capable": provisioning_capable,
@@ -2076,22 +2119,61 @@ class SupervisorDomainService:
             sequence=envelope["sequence"],
             envelope_key_id=envelope["key_id"],
         )
-        try:
-            result = self._ble_provisioning_backend.provision_wifi(
-                adapter=adapter,
-                validation=validation,
-                envelope=envelope,
-                target_address=body.target_address,
-                timeout_s=body.timeout_s,
-            )
-        except Exception as exc:
-            result = {
-                "ok": False,
-                "status": "failed",
-                "ack": False,
-                "error": "gatt_backend_failed",
-                "message": self._redact_message(str(exc), body, envelope),
-            }
+        target_address = str(body.target_address or "").strip()
+        if not target_address:
+            session = self._ble_pairing_advert_sessions.get(body.onboarding_session_id)
+            identity = session.get("endpoint_identity") if isinstance(session, dict) and isinstance(session.get("endpoint_identity"), dict) else None
+            if session is None:
+                result = {"ok": False, "status": "failed", "ack": False, "error": "ble_pairing_advert_session_not_found"}
+            elif self._ble_pairing_session_expired(session):
+                session["status"] = "expired"
+                session["error"] = "ble_pairing_session_expired"
+                session["updated_at"] = self._now_iso()
+                result = {"ok": False, "status": "failed", "ack": False, "error": "ble_pairing_session_expired"}
+            elif not isinstance(identity, dict):
+                result = {"ok": False, "status": "failed", "ack": False, "error": "ble_pairing_endpoint_identity_missing"}
+            elif str(identity.get("endpoint_ephemeral_public_key") or "").strip() != str(body.endpoint_ephemeral_public_key or "").strip():
+                result = {"ok": False, "status": "failed", "ack": False, "error": "ble_pairing_endpoint_key_mismatch"}
+            elif str(identity.get("pairing_nonce") or "").strip() != str(body.pairing_nonce or "").strip():
+                result = {"ok": False, "status": "failed", "ack": False, "error": "ble_pairing_nonce_mismatch"}
+            elif str(identity.get("target_node_id") or identity.get("device_id") or "").strip() != str(body.target_node_id or "").strip():
+                result = {"ok": False, "status": "failed", "ack": False, "error": "ble_pairing_target_node_mismatch"}
+            else:
+                try:
+                    result = self._ble_pairing_advert_backend.store_pairing_credentials(
+                        onboarding_session_id=body.onboarding_session_id,
+                        envelope=envelope,
+                    )
+                except Exception as exc:
+                    result = {
+                        "ok": False,
+                        "status": "failed",
+                        "ack": False,
+                        "error": "ble_pairing_credentials_store_failed",
+                        "message": self._redact_message(str(exc), body, envelope),
+                    }
+                if isinstance(result, dict) and bool(result.get("ok")):
+                    session["credential_status"] = "queued"
+                    session["credential_key_id"] = envelope["key_id"]
+                    session["updated_at"] = self._now_iso()
+                    result = {**result, "status": "completed", "ack": False, "message": "Encrypted credentials queued for pairing-session read."}
+        else:
+            try:
+                result = self._ble_provisioning_backend.provision_wifi(
+                    adapter=adapter,
+                    validation=validation,
+                    envelope=envelope,
+                    target_address=target_address,
+                    timeout_s=body.timeout_s,
+                )
+            except Exception as exc:
+                result = {
+                    "ok": False,
+                    "status": "failed",
+                    "ack": False,
+                    "error": "gatt_backend_failed",
+                    "message": self._redact_message(str(exc), body, envelope),
+                }
         ok = bool(result.get("ok")) if isinstance(result, dict) else False
         status = str(result.get("status") or ("completed" if ok else "failed")) if isinstance(result, dict) else "failed"
         error = str(result.get("error") or "") if isinstance(result, dict) else "gatt_backend_failed"
@@ -2109,7 +2191,7 @@ class SupervisorDomainService:
             "supervisor_id": self._supervisor_id(),
             "adapter": adapter,
             "adapters": adapters,
-            "target_address": body.target_address,
+            "target_address": target_address or None,
             "provisioning": provisioning,
             "credential_payload": self._redacted_voice_payload(body),
             "provisioning_envelope": {
