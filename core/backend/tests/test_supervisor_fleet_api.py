@@ -553,7 +553,7 @@ class TestSupervisorFleetApi(unittest.TestCase):
                 )
             return httpx.Response(404, json={"detail": "not_found"})
 
-        with patch.dict(os.environ, {"HEXE_SUPERVISOR_PACKAGE_SOURCE_ROOT": str(source), "HEXE_CORE_VERSION": "0.6.0"}), patch(
+        with patch.dict(os.environ, {"HEXE_SUPERVISOR_PACKAGE_SOURCE_ROOT": str(source), "HEXE_CORE_VERSION": "0.6.1"}), patch(
             "app.system.supervisors.httpx.request",
             side_effect=fake_request,
         ):
