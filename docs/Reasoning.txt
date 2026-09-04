@@ -275,3 +275,11 @@ Chosen fix: Added a dedicated remote update workflow document and linked it from
 What changed: Documented update detection, admin authorization, git mode, Core-host package mode, idempotency, failure/rollback, UI behavior, and recommended verification commands.
 Verification: Dry-run Core-host package build from the local `supervisor` tree succeeded with 369 files and a 565295 byte archive. Live remote mutation was not run because target Supervisors must first be running the new receive/apply API from Tasks 992-994.
 ###########
+
+Task #978
+Step objective: Align provider/model governance documentation with advisory semantics.
+Issue cause: Docs said governance provider/model allowlists filtered resolver candidates, but the implemented resolver only hard-enforces allowed task families and explicit request preferences.
+Chosen fix: Document provider/model allowlists as advisory metadata for now, while preserving allowed task families as the direct resolver gate.
+What changed: Updated node service resolution docs and completed the task queue entry.
+Verification: Confirmed no remaining hard-filter wording for governance provider/model allowlists in the active resolution docs.
+###########

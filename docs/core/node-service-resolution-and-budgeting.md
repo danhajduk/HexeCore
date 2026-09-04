@@ -188,10 +188,16 @@ Candidates are filtered by:
 - provider capability matching: candidate capabilities must include the requested task family
 - matching `task_family` in service capabilities
 - service health
-- governance allowed providers
-- governance allowed models
 - preferred provider/model when requested
 - admissible current budget grant on the selected provider node
+
+`routing_policy_constraints.allowed_providers` and
+`routing_policy_constraints.allowed_models` are advisory policy metadata in the
+current resolver. Core carries them in the governance bundle for operator
+visibility and downstream policy consumers, but `resolve_for_node(...)` does not
+currently reject candidates solely because their provider or model is absent
+from those advisory fields. Preferred provider/model fields remain caller
+selection filters when explicitly requested.
 
 Example:
 
