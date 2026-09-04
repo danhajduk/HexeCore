@@ -17,6 +17,7 @@ Documentation policy:
 
 - `docs/` is the canonical repository documentation tree.
 - `core/docs` and `supervisor/docs` must not contain tracked files.
+- Local ignored files under `supervisor/docs` are archive/operator notes only; active task queues and current contracts belong under root `docs/`.
 
 Intentional exceptions:
 

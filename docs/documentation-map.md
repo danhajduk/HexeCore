@@ -23,6 +23,7 @@ This repository uses root `docs/` as the canonical documentation tree. Use this 
 - `docs/Upgrades/`: prior upgrade/design material retained for context.
 - `docs/addons/standalone-archive/`: historical standalone-addon design and incident material.
 - `docs/temp-ai-node/`: temporary AI-node mapping and gap reports retained as source context, not as current Core contracts.
+- Ignored local `supervisor/docs/` files: archive/operator notes from the Supervisor mirror. These files are not tracked source of truth and must not carry active task workflow state.
 
 ## Future Planning
 

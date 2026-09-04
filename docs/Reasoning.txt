@@ -315,3 +315,11 @@ Chosen fix: Added helper-read scan patterns, mirrored scanner tests, registry en
 What changed: Updated env checker, mirrored env registry tests, config registry, and generated environment docs.
 Verification: Env registry check passed; focused mirrored env registry tests passed individually; mirror drift, Markdown links, and OpenAPI checks passed.
 ###########
+
+Task #983
+Step objective: Consolidate duplicate Supervisor documentation into the root docs source of truth.
+Issue cause: `supervisor/docs/` is ignored and untracked, but the Supervisor README still linked to local `docs/` paths and could make ignored archive notes look active.
+Chosen fix: Pointed the Supervisor entrypoint at root `../docs/`, documented ignored `supervisor/docs/` as archive/operator notes only, and expanded active Markdown link validation to cover `supervisor/README.md`.
+What changed: Updated Supervisor README links, documentation map, development guide, mirror guard docs, and Markdown link checker defaults.
+Verification: Markdown link check passed; mirror drift guard passed; active tracked references now only mention `supervisor/docs/` as ignored/archive-only.
+###########

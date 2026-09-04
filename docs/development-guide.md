@@ -64,6 +64,7 @@ Status: Implemented
 
 - Prefer updating canonical docs over creating new overlapping top-level docs.
 - Use `docs/archive/` only after useful content has been transferred.
+- Do not use ignored `supervisor/docs/` or `core/docs/` trees for active documentation or task workflow state.
 - Keep planned vs implemented behavior clearly separated.
 - Avoid one-off top-level docs unless they represent a durable reference.
 

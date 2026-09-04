@@ -10,7 +10,7 @@ from urllib.parse import unquote, urlsplit
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_ROOTS = [REPO_ROOT / "README.md", REPO_ROOT / "docs"]
+DEFAULT_ROOTS = [REPO_ROOT / "README.md", REPO_ROOT / "supervisor" / "README.md", REPO_ROOT / "docs"]
 HISTORICAL_PARTS = {
     "migration",
     "standalone-archive",

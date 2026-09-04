@@ -6,13 +6,13 @@ Compatibility note: Hexe is now the canonical product and operator-facing name. 
 
 ## Start Here
 
-- [docs/index.md](docs/index.md)
-- [docs/overview.md](docs/overview.md)
-- [docs/architecture.md](docs/architecture.md)
-- [docs/core/README.md](docs/core/README.md)
-- [docs/supervisor/README.md](docs/supervisor/README.md)
-- [docs/nodes/README.md](docs/nodes/README.md)
-- [docs/mqtt/README.md](docs/mqtt/README.md)
+- [docs/index.md](../docs/index.md)
+- [docs/overview.md](../docs/overview.md)
+- [docs/architecture.md](../docs/architecture.md)
+- [docs/core/README.md](../docs/core/README.md)
+- [docs/supervisor/README.md](../docs/supervisor/README.md)
+- [docs/nodes/README.md](../docs/nodes/README.md)
+- [docs/mqtt/README.md](../docs/mqtt/README.md)
 
 ## Domain Summary
 
@@ -95,10 +95,14 @@ These routes reuse the existing canonical node registration payload shape.
 - `backend/app/`: FastAPI app, Core control-plane services, and migration domain routers
 - `backend/hexe_supervisor/`: standalone runtime supervision and desired/runtime reconciliation
 - `frontend/`: React operator UI
-- `docs/`: canonical repository documentation
-- `docs/standards/Node/tomplate/`: starter modular template for creating a new Hexe node
+- `../docs/`: canonical repository documentation
+- `../docs/standards/Node/tomplate/`: starter modular template for creating a new Hexe node
 - `scripts/`: development and bootstrap helpers
 - `systemd/`: service templates and runtime integration
+
+`supervisor/docs/` is intentionally ignored and is not an active documentation
+source. Treat any local files there as archived migration/operator notes; update
+root `../docs/` for current contracts.
 
 ## Local Development
 
