@@ -40,8 +40,11 @@ DYNAMIC_ENV_NAMES = {
 
 ENV_PATTERNS = (
     re.compile(r"(?:os\.getenv|os\.environ\.get|getenv)\(\s*[\"']([A-Z][A-Z0-9_]+)[\"']"),
+    re.compile(r"\b_env_[A-Za-z0-9_]+\(\s*[\"']([A-Z][A-Z0-9_]+)[\"']"),
     re.compile(r"os\.environ\[[\"']([A-Z][A-Z0-9_]+)[\"']\]"),
     re.compile(r"(?:process|import\.meta)\.env\.([A-Z][A-Z0-9_]+)"),
+    re.compile(r"\bhexe_env\s+[\"']?([A-Z][A-Z0-9_]+)[\"']?"),
+    re.compile(r"\bwrite_env_if_set\s+[\"']([A-Z][A-Z0-9_]+)[\"']"),
     re.compile(r"\$\{([A-Z][A-Z0-9_]+)(?::[-=?][^}]*)?\}"),
     re.compile(r"(?<![A-Za-z0-9_])\$([A-Z][A-Z0-9_]+)(?![A-Za-z0-9_])"),
 )

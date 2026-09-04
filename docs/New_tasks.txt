@@ -48,7 +48,6 @@ Standards reference:
 Do not edit above this line:
 #######################################################################
 
-[TODO] Task 982: Extend environment registry validation for helper-read variables
 [STOP] Review guardrail coverage before broad documentation consolidation.
 [TODO] Task 983: Consolidate duplicate Supervisor documentation into the root docs source of truth
 [TODO] Task 984: Repair schema documentation links and ownership references

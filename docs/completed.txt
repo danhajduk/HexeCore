@@ -40,3 +40,4 @@ Task 978: Enforce provider and model governance constraints during node service 
 Task 979: Clarify Core versus standalone Supervisor API route ownership - Completed on 09/03/2026 18:05
 Task 980: Repair stale repository paths and broken documentation links - Completed on 09/03/2026 18:05
 Task 981: Generate API reference coverage from OpenAPI and document runtime proxy surfaces - Completed on 09/03/2026 18:05
+Task 982: Extend environment registry validation for helper-read variables - Completed on 09/03/2026 18:22

@@ -63,6 +63,34 @@
       "sensitive": false
     },
     {
+      "default": "3",
+      "description": "Failure count that opens the fallback addon proxy circuit when an addon does not provide per-addon proxy tuning.",
+      "name": "HEXE_ADDON_PROXY_CIRCUIT_FAIL_THRESHOLD",
+      "owner": "Store and addon runtime",
+      "sensitive": false
+    },
+    {
+      "default": "30",
+      "description": "Seconds the fallback addon proxy circuit remains open after repeated upstream failures.",
+      "name": "HEXE_ADDON_PROXY_CIRCUIT_OPEN_SECONDS",
+      "owner": "Store and addon runtime",
+      "sensitive": false
+    },
+    {
+      "default": "1",
+      "description": "Fallback retry count for addon UI/API proxy upstream requests when an addon does not provide per-addon proxy tuning.",
+      "name": "HEXE_ADDON_PROXY_RETRIES",
+      "owner": "Store and addon runtime",
+      "sensitive": false
+    },
+    {
+      "default": "10.0",
+      "description": "Fallback timeout in seconds for addon UI/API proxy upstream requests when an addon does not provide per-addon proxy tuning.",
+      "name": "HEXE_ADDON_PROXY_TIMEOUT_SECONDS",
+      "owner": "Store and addon runtime",
+      "sensitive": false
+    },
+    {
       "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
       "default": null,
       "description": "Controls admin login/session behavior or service-principal access. Registry key: `HEXE_ADMIN_COOKIE_SECURE`.",
@@ -167,6 +195,13 @@
       "sensitive": false
     },
     {
+      "default": "data/ble_pairing_sessions.json",
+      "description": "Path for persisted BLE pairing session records used by the hardware onboarding flow.",
+      "name": "HEXE_BLE_PAIRING_SESSIONS_DB",
+      "owner": "Node onboarding and governance",
+      "sensitive": false
+    },
+    {
       "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
       "default": "disabled",
       "description": "Bluetooth access policy advertised by Supervisor and enforced by Core hardware access requests. Supported values: disabled, ask, trusted_only, allowed.",
@@ -187,34 +222,6 @@
       "default": "60",
       "description": "Minimum seconds between Supervisor Bluetooth power-on retry attempts after a failed attempt.",
       "name": "HEXE_BLUETOOTH_POWER_RETRY_S",
-      "owner": "Supervisor runtime",
-      "sensitive": false
-    },
-    {
-      "default": "data/hardware_access.json",
-      "description": "Core persistence path for node hardware access requests, decisions, leases, releases, and audit metadata.",
-      "name": "HEXE_HARDWARE_ACCESS_DB",
-      "owner": "Node onboarding and governance",
-      "sensitive": false
-    },
-    {
-      "default": null,
-      "description": "Shared secret used by Core to sign hardware access lease tokens and by Supervisor to validate them when Core lease validation is unavailable.",
-      "name": "HEXE_HARDWARE_LEASE_SECRET",
-      "owner": "Node onboarding and governance",
-      "sensitive": true
-    },
-    {
-      "default": "600",
-      "description": "Default lifetime in seconds for Core-issued hardware access leases.",
-      "name": "HEXE_HARDWARE_LEASE_TTL_S",
-      "owner": "Node onboarding and governance",
-      "sensitive": false
-    },
-    {
-      "default": null,
-      "description": "Optional Core lease validation URL used by Supervisor hardware brokers. Defaults to HEXE_SUPERVISOR_CORE_URL plus /api/system/hardware/leases/validate.",
-      "name": "HEXE_HARDWARE_LEASE_VALIDATE_URL",
       "owner": "Supervisor runtime",
       "sensitive": false
     },
@@ -323,6 +330,13 @@
       "sensitive": false
     },
     {
+      "default": "hexe-backend.service",
+      "description": "Systemd unit name that a local Supervisor reports and may inspect for the Core backend service.",
+      "name": "HEXE_CORE_SYSTEMD_UNIT",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
       "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
       "default": "http://127.0.0.1:8000",
       "description": "Controls addon store persistence, catalog trust material, or standalone addon runtime paths. Registry key: `HEXE_CORE_URL`.",
@@ -392,6 +406,34 @@
       "description": "Controls Core API binding, CORS, dashboard, or frontend static serving. Registry key: `HEXE_FRONTEND_DIST_DIR`.",
       "name": "HEXE_FRONTEND_DIST_DIR",
       "owner": "Backend and frontend serving",
+      "sensitive": false
+    },
+    {
+      "default": "data/hardware_access.json",
+      "description": "Core persistence path for node hardware access requests, decisions, leases, releases, and audit metadata.",
+      "name": "HEXE_HARDWARE_ACCESS_DB",
+      "owner": "Node onboarding and governance",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "Shared secret used by Core to sign hardware access lease tokens and by Supervisor to validate them when Core lease validation is unavailable.",
+      "name": "HEXE_HARDWARE_LEASE_SECRET",
+      "owner": "Node onboarding and governance",
+      "sensitive": true
+    },
+    {
+      "default": "600",
+      "description": "Default lifetime in seconds for Core-issued hardware access leases.",
+      "name": "HEXE_HARDWARE_LEASE_TTL_S",
+      "owner": "Node onboarding and governance",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "Optional Core lease validation URL used by Supervisor hardware brokers. Defaults to HEXE_SUPERVISOR_CORE_URL plus /api/system/hardware/leases/validate.",
+      "name": "HEXE_HARDWARE_LEASE_VALIDATE_URL",
+      "owner": "Supervisor runtime",
       "sensitive": false
     },
     {
@@ -571,6 +613,13 @@
       "sensitive": false
     },
     {
+      "default": "10.0",
+      "description": "Timeout in seconds for proxied node UI/API upstream requests.",
+      "name": "HEXE_NODE_PROXY_TIMEOUT_SECONDS",
+      "owner": "Node onboarding and governance",
+      "sensitive": false
+    },
+    {
       "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
       "default": null,
       "description": "Controls node onboarding, reauth, trust bootstrap, governance, or capability filters. Registry key: `HEXE_NODE_REAUTH_APPROVAL_URL_BASE`.",
@@ -611,10 +660,31 @@
       "sensitive": false
     },
     {
+      "default": "2.0",
+      "description": "Timeout in seconds for node UI health probes before proxying browser traffic.",
+      "name": "HEXE_NODE_UI_HEALTH_TIMEOUT_SECONDS",
+      "owner": "Node onboarding and governance",
+      "sensitive": false
+    },
+    {
       "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
       "default": null,
       "description": "Controls node onboarding, reauth, trust bootstrap, governance, or capability filters. Registry key: `HEXE_NODE_UI_MANIFEST_DEBUG_LOG`.",
       "name": "HEXE_NODE_UI_MANIFEST_DEBUG_LOG",
+      "owner": "Node onboarding and governance",
+      "sensitive": false
+    },
+    {
+      "default": "30.0",
+      "description": "Cache age in seconds after which Core refreshes a trusted node rendered-UI manifest in the background.",
+      "name": "HEXE_NODE_UI_MANIFEST_REFRESH_AFTER_SECONDS",
+      "owner": "Node onboarding and governance",
+      "sensitive": false
+    },
+    {
+      "default": "5.0",
+      "description": "Timeout in seconds for fetching a trusted node rendered-UI manifest.",
+      "name": "HEXE_NODE_UI_MANIFEST_TIMEOUT_SECONDS",
       "owner": "Node onboarding and governance",
       "sensitive": false
     },
@@ -624,6 +694,20 @@
       "description": "Controls install, bootstrap, or update script behavior. Registry key: `HEXE_RAW_BASE_URL`.",
       "name": "HEXE_RAW_BASE_URL",
       "owner": "Install and update scripts",
+      "sensitive": false
+    },
+    {
+      "default": "false",
+      "description": "Enables HTTP health probing for managed runtime endpoints.",
+      "name": "HEXE_RUNTIME_HEALTH_PROBE_ENABLED",
+      "owner": "Core runtime",
+      "sensitive": false
+    },
+    {
+      "default": "2.0",
+      "description": "Timeout in seconds for managed runtime HTTP health probes.",
+      "name": "HEXE_RUNTIME_HEALTH_PROBE_TIMEOUT_S",
+      "owner": "Core runtime",
       "sensitive": false
     },
     {
@@ -691,10 +775,45 @@
       "sensitive": false
     },
     {
+      "default": "unset",
+      "description": "HTTP base URL used by Core when the local Supervisor client is configured for HTTP transport.",
+      "name": "HEXE_SUPERVISOR_API_BASE_URL",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "default": "/run/hexe/supervisor.sock",
+      "description": "Unix socket path used by the local Supervisor API client when socket transport is enabled.",
+      "name": "HEXE_SUPERVISOR_API_SOCKET",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "default": "hexe-supervisor-api.service",
+      "description": "Systemd unit name that a local Supervisor reports and may inspect for the standalone Supervisor API service.",
+      "name": "HEXE_SUPERVISOR_API_SYSTEMD_UNIT",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
       "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
       "default": null,
       "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_API_TIMEOUT_S`.",
       "name": "HEXE_SUPERVISOR_API_TIMEOUT_S",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "default": "socket",
+      "description": "Transport used by Core local Supervisor API client; expected values are socket, http, or disabled.",
+      "name": "HEXE_SUPERVISOR_API_TRANSPORT",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "default": "127.0.0.1",
+      "description": "Bind address for the standalone Supervisor HTTP API when HTTP transport is enabled.",
+      "name": "HEXE_SUPERVISOR_BIND",
       "owner": "Supervisor runtime",
       "sensitive": false
     },
@@ -739,27 +858,6 @@
       "sensitive": false
     },
     {
-      "default": null,
-      "description": "Core API base URL used by remote Supervisor reporting and hardware lease validation.",
-      "name": "HEXE_SUPERVISOR_CORE_URL",
-      "owner": "Supervisor runtime",
-      "sensitive": false
-    },
-    {
-      "default": null,
-      "description": "Supervisor reporting token used for remote heartbeat, registration, and Core hardware lease validation calls.",
-      "name": "HEXE_SUPERVISOR_CORE_TOKEN",
-      "owner": "Supervisor runtime",
-      "sensitive": true
-    },
-    {
-      "default": null,
-      "description": "Header selector for Supervisor-to-Core authentication. Supported values are supervisor and admin.",
-      "name": "HEXE_SUPERVISOR_CORE_TOKEN_KIND",
-      "owner": "Supervisor runtime",
-      "sensitive": false
-    },
-    {
       "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
       "default": null,
       "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_CORE_HEARTBEAT_OFFLINE_S`.",
@@ -782,6 +880,34 @@
       "name": "HEXE_SUPERVISOR_CORE_HEARTBEAT_STALE_S",
       "owner": "Supervisor runtime",
       "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "Supervisor reporting token used for remote heartbeat, registration, and Core hardware lease validation calls.",
+      "name": "HEXE_SUPERVISOR_CORE_TOKEN",
+      "owner": "Supervisor runtime",
+      "sensitive": true
+    },
+    {
+      "default": null,
+      "description": "Header selector for Supervisor-to-Core authentication. Supported values are supervisor and admin.",
+      "name": "HEXE_SUPERVISOR_CORE_TOKEN_KIND",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "Core API base URL used by remote Supervisor reporting and hardware lease validation.",
+      "name": "HEXE_SUPERVISOR_CORE_URL",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "default": "unset",
+      "description": "Enrollment token used by Supervisor install and registration flows.",
+      "name": "HEXE_SUPERVISOR_ENROLLMENT_TOKEN",
+      "owner": "Supervisor runtime",
+      "sensitive": true
     },
     {
       "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
@@ -832,10 +958,24 @@
       "sensitive": false
     },
     {
+      "default": "hostname",
+      "description": "Host identifier reported by the standalone Supervisor API.",
+      "name": "HEXE_SUPERVISOR_HOST_ID",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
       "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
       "default": null,
       "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_ID`.",
       "name": "HEXE_SUPERVISOR_ID",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "default": "unset",
+      "description": "Install mode selected by the Supervisor installer for local or remote service setup.",
+      "name": "HEXE_SUPERVISOR_INSTALL_MODE",
       "owner": "Supervisor runtime",
       "sensitive": false
     },
@@ -872,10 +1012,31 @@
       "sensitive": false
     },
     {
+      "default": "hexe-cloudflared.service,cloudflared.service",
+      "description": "Comma-separated auxiliary systemd units that a local Supervisor reports and may inspect.",
+      "name": "HEXE_SUPERVISOR_LOCAL_AUX_UNITS",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "default": "false",
+      "description": "Marks the Supervisor as co-located with Core so local runtime metadata is reported.",
+      "name": "HEXE_SUPERVISOR_LOCAL_CORE",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
       "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
       "default": "INFO",
       "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_LOG_LEVEL`.",
       "name": "HEXE_SUPERVISOR_LOG_LEVEL",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "default": "supervisor id",
+      "description": "Human-readable Supervisor name reported during install and resource reporting.",
+      "name": "HEXE_SUPERVISOR_NAME",
       "owner": "Supervisor runtime",
       "sensitive": false
     },
@@ -900,6 +1061,48 @@
       "default": "30",
       "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_NODE_SERVICE_ACTION_TIMEOUT_S`.",
       "name": "HEXE_SUPERVISOR_NODE_SERVICE_ACTION_TIMEOUT_S",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "default": "repository root",
+      "description": "Local source tree used by Core to build Supervisor update packages when explicitly configured.",
+      "name": "HEXE_SUPERVISOR_PACKAGE_SOURCE_ROOT",
+      "owner": "Install and update scripts",
+      "sensitive": false
+    },
+    {
+      "default": "57665",
+      "description": "Port for the standalone Supervisor HTTP API when HTTP transport is enabled.",
+      "name": "HEXE_SUPERVISOR_PORT",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "default": "unset",
+      "description": "Public or LAN-reachable Supervisor API URL reported to Core by the Supervisor.",
+      "name": "HEXE_SUPERVISOR_PUBLIC_URL",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "default": "true",
+      "description": "Enables periodic Supervisor resource and health reports when Core enrollment settings are present.",
+      "name": "HEXE_SUPERVISOR_REPORT_ENABLED",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "default": "15.0",
+      "description": "Interval in seconds between periodic Supervisor resource and health reports.",
+      "name": "HEXE_SUPERVISOR_REPORT_INTERVAL_S",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "default": "5.0",
+      "description": "Timeout in seconds for Supervisor resource and health report submissions.",
+      "name": "HEXE_SUPERVISOR_REPORT_TIMEOUT_S",
       "owner": "Supervisor runtime",
       "sensitive": false
     },
@@ -944,10 +1147,31 @@
       "sensitive": false
     },
     {
+      "default": "/run/hexe/supervisor.sock",
+      "description": "Unix socket path served by the standalone Supervisor API when socket transport is enabled.",
+      "name": "HEXE_SUPERVISOR_SOCKET",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
       "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
       "default": null,
       "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_SUMMARY_CACHE_S`.",
       "name": "HEXE_SUPERVISOR_SUMMARY_CACHE_S",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "default": "hexe-supervisor.service",
+      "description": "Systemd unit name that a local Supervisor reports and may inspect for the Supervisor worker service.",
+      "name": "HEXE_SUPERVISOR_SYSTEMD_UNIT",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "default": "socket",
+      "description": "Transport served by the standalone Supervisor API; expected values are socket, http, or disabled.",
+      "name": "HEXE_SUPERVISOR_TRANSPORT",
       "owner": "Supervisor runtime",
       "sensitive": false
     },
@@ -991,6 +1215,13 @@
       "default": null,
       "description": "Controls MQTT broker runtime, credentials, authority state, or bootstrap ports. Registry key: `MQTT_INTEGRATION_STATE_PATH`.",
       "name": "MQTT_INTEGRATION_STATE_PATH",
+      "owner": "MQTT runtime and authority",
+      "sensitive": false
+    },
+    {
+      "default": "true",
+      "description": "Enables the Core MQTT listener when MQTT broker configuration is available.",
+      "name": "MQTT_LISTENER_ENABLED",
       "owner": "MQTT runtime and authority",
       "sensitive": false
     },
@@ -1100,6 +1331,27 @@
       "sensitive": false
     },
     {
+      "default": "3",
+      "description": "Number of store data backups retained by lifecycle maintenance.",
+      "name": "STORE_BACKUP_RETENTION",
+      "owner": "Store and addon runtime",
+      "sensitive": false
+    },
+    {
+      "default": "5000000",
+      "description": "Maximum downloaded byte size accepted for remote store catalogs.",
+      "name": "STORE_CATALOG_MAX_BYTES",
+      "owner": "Store and addon runtime",
+      "sensitive": false
+    },
+    {
+      "default": "3",
+      "description": "Maximum redirect count followed while downloading remote store catalogs.",
+      "name": "STORE_CATALOG_MAX_REDIRECTS",
+      "owner": "Store and addon runtime",
+      "sensitive": false
+    },
+    {
       "default": null,
       "description": "Inline public publisher-key trust material for store catalog verification.",
       "name": "STORE_CATALOG_PUBLIC_KEYS_JSON",
@@ -1114,6 +1366,13 @@
       "sensitive": false
     },
     {
+      "default": "12.0",
+      "description": "Timeout in seconds for downloading remote store catalogs.",
+      "name": "STORE_CATALOG_TIMEOUT_S",
+      "owner": "Store and addon runtime",
+      "sensitive": false
+    },
+    {
       "default": null,
       "description": "Path to persisted addon install/status metadata.",
       "name": "STORE_INSTALL_STATE_PATH",
@@ -1124,6 +1383,13 @@
       "default": null,
       "description": "Path to store source configuration state.",
       "name": "STORE_SOURCES_DB",
+      "owner": "Store and addon runtime",
+      "sensitive": false
+    },
+    {
+      "default": "60",
+      "description": "Minutes staged store packages are retained before lifecycle cleanup removes them.",
+      "name": "STORE_STAGING_TTL_MINUTES",
       "owner": "Store and addon runtime",
       "sensitive": false
     }

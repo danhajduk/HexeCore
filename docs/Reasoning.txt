@@ -307,3 +307,11 @@ Chosen fix: Added a generated OpenAPI path appendix, a checker/generator script,
 What changed: Added `docs/core/api/generated-openapi-paths.md`, `tools/update_api_route_appendix.py`, API docs, and repo health validation.
 Verification: OpenAPI snapshot validation passed; generated appendix validation passed; Markdown link check passed.
 ###########
+
+Task #982
+Step objective: Extend environment registry validation for helper-read variables.
+Issue cause: Env registry scanning missed helper-wrapper reads and shell helper writes, leaving active Supervisor/proxy/store variables undocumented.
+Chosen fix: Added helper-read scan patterns, mirrored scanner tests, registry entries for newly detected active variables, and regenerated environment docs.
+What changed: Updated env checker, mirrored env registry tests, config registry, and generated environment docs.
+Verification: Env registry check passed; focused mirrored env registry tests passed individually; mirror drift, Markdown links, and OpenAPI checks passed.
+###########
