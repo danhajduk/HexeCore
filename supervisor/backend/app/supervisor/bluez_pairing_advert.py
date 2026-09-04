@@ -57,6 +57,18 @@ def _variant_props(props: dict[str, Any]) -> dict[str, Variant]:
     return variants
 
 
+def _read_value_offset(options: dict[str, Any]) -> int:
+    raw_offset = options.get("offset") if isinstance(options, dict) else None
+    offset = getattr(raw_offset, "value", raw_offset)
+    if offset is None:
+        return 0
+    try:
+        parsed = int(offset)
+    except (TypeError, ValueError):
+        return 0
+    return max(parsed, 0)
+
+
 class PairingAdvertisement(ServiceInterface):
     def __init__(self, service_uuid: str, local_name: str, manufacturer_company_id: int, manufacturer_data: bytes) -> None:
         super().__init__(ADV_IFACE)
@@ -155,16 +167,20 @@ class PairingCharacteristic(ServiceInterface):
 
     @method()
     def ReadValue(self, options: "a{sv}") -> "ay":
-        del options
         if self._credential_path is not None:
             if not self._credential_path.exists():
-                return json.dumps(
+                payload = json.dumps(
                     {"status": "pending", "error": "ble_pairing_credentials_pending"},
                     sort_keys=True,
                     separators=(",", ":"),
                 ).encode("utf-8")
-            return self._credential_path.read_bytes()
-        return self._read_value or b""
+            else:
+                payload = self._credential_path.read_bytes()
+            offset = _read_value_offset(options)
+            return payload[offset:]
+        payload = self._read_value or b""
+        offset = _read_value_offset(options)
+        return payload[offset:]
 
     @method()
     def WriteValue(self, value: "ay", options: "a{sv}"):

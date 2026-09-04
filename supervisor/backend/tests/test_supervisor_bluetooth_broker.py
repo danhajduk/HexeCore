@@ -7,6 +7,7 @@ import json
 import unittest
 from unittest.mock import patch
 
+from dbus_next import Variant
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import x25519
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -15,6 +16,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.supervisor import SupervisorDomainService, build_supervisor_router
+from app.supervisor.bluez_pairing_advert import _read_value_offset
 from app.system.auth.tokens import sign_hs256
 from app.system.hardware import (
     BLE_PAIRING_ADVERT_OPERATION,
@@ -638,6 +640,10 @@ class TestSupervisorBluetoothBroker(unittest.TestCase):
         decrypted = self._decrypt_envelope(envelope)
         self.assertEqual(decrypted["credential_payload"]["wifi_password"], "correct-password")
         self.assertNotIn("correct-password", json.dumps(payload))
+
+    def test_pairing_characteristic_read_value_honors_gatt_offset(self) -> None:
+        self.assertEqual(_read_value_offset({"offset": Variant("q", 4)}), 4)
+        self.assertEqual(_read_value_offset({}), 0)
 
     def _decrypt_envelope(self, envelope: dict) -> dict:
         supervisor_public_key = x25519.X25519PublicKey.from_public_bytes(_b64url_decode(envelope["supervisor_ephemeral_public_key"]))
