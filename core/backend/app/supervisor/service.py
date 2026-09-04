@@ -930,7 +930,7 @@ class SupervisorDomainService:
             )
         units = self._regenerate_supervisor_units()
         restart_results: list[dict[str, Any]] = []
-        for unit in ("hexe-supervisor.service", "hexe-supervisor-api.service"):
+        for unit in ("hexe-supervisor.service",):
             result = self._run_systemctl_user(["try-restart", unit], timeout_s=15.0)
             restart_results.append({"unit": unit, "exit_code": result.returncode})
             if result.returncode != 0:
@@ -942,10 +942,63 @@ class SupervisorDomainService:
                         "message": self._redact_update_text(result.stderr or result.stdout),
                     },
                 )
+        restart_results.append(self._schedule_supervisor_api_restart())
         return {
             "dependency_install": {"exit_code": dependency.returncode},
             "units": units,
             "restarts": restart_results,
+        }
+
+    def _schedule_supervisor_api_restart(self) -> dict[str, Any]:
+        unit = "hexe-supervisor-api.service"
+        systemd_run = shutil.which("systemd-run")
+        if systemd_run:
+            timer_unit = f"hexe-supervisor-api-restart-{int(time.time())}"
+            result = subprocess.run(
+                [
+                    systemd_run,
+                    "--user",
+                    "--collect",
+                    "--unit",
+                    timer_unit,
+                    "--on-active=2",
+                    "systemctl",
+                    "--user",
+                    "try-restart",
+                    unit,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=15.0,
+                check=False,
+            )
+            if result.returncode == 0:
+                return {"unit": unit, "exit_code": 0, "deferred": True, "scheduler": "systemd-run", "timer_unit": timer_unit}
+            systemd_run_error = self._redact_update_text(result.stderr or result.stdout) or f"systemd_run_exit_{result.returncode}"
+        else:
+            systemd_run_error = "systemd_run_not_found"
+        try:
+            subprocess.Popen(
+                ["/bin/sh", "-c", f"sleep 2; systemctl --user try-restart {shlex.quote(unit)}"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500,
+                detail={
+                    "error": "supervisor_update_restart_failed",
+                    "unit": unit,
+                    "message": self._redact_update_text(exc) or type(exc).__name__,
+                },
+            ) from None
+        return {
+            "unit": unit,
+            "exit_code": 0,
+            "deferred": True,
+            "scheduler": "shell",
+            "systemd_run_error": systemd_run_error,
         }
 
     def _run_package_dependency_install(self) -> subprocess.CompletedProcess[str]:

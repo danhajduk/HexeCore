@@ -241,6 +241,51 @@ class TestSupervisorUpdateApi(unittest.TestCase):
             self.assertTrue(Path(last["backup_path"]).exists())
             self.assertNotIn("leaked", last["error"])
 
+    def test_start_core_host_service_update_defers_api_restart(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            install_root = self._install_root(tmp, git=False, updater=False)
+            (install_root / "backend").mkdir(exist_ok=True)
+            (install_root / "backend" / "requirements.txt").write_text("old\n", encoding="utf-8")
+            source = Path(tmp) / "source"
+            (source / "backend").mkdir(parents=True)
+            (source / "backend" / "requirements.txt").write_text("new\n", encoding="utf-8")
+            package = build_supervisor_update_package(source)
+            service = SupervisorDomainService(install_root=install_root)
+            systemctl_calls: list[list[str]] = []
+
+            def systemctl(args: list[str], *, timeout_s: float = 8.0) -> subprocess.CompletedProcess[str]:  # noqa: ARG001
+                systemctl_calls.append(args)
+                if args == ["daemon-reload"] or args == ["try-restart", "hexe-supervisor.service"]:
+                    return _completed(["systemctl", *args])
+                return _completed(["systemctl", *args], stderr="unexpected systemctl command", returncode=1)
+
+            with patch.object(service, "_run_package_dependency_install", return_value=_completed(["pip"])), patch.object(
+                service,
+                "_run_systemctl_user",
+                side_effect=systemctl,
+            ), patch.object(
+                service,
+                "_schedule_supervisor_api_restart",
+                return_value={"unit": "hexe-supervisor-api.service", "exit_code": 0, "deferred": True, "scheduler": "test"},
+            ) as schedule_api_restart:
+                result = service.start_supervisor_update(
+                    SupervisorUpdateStartRequest(
+                        source_mode="core_host",
+                        idempotency_key="service-update-1234",
+                        service_update=True,
+                        **package.to_request_payload(),
+                    )
+                )
+
+            self.assertTrue(result.accepted)
+            self.assertEqual(result.state, "succeeded")
+            self.assertIn(["try-restart", "hexe-supervisor.service"], systemctl_calls)
+            self.assertNotIn(["try-restart", "hexe-supervisor-api.service"], systemctl_calls)
+            schedule_api_restart.assert_called_once_with()
+            last = service._read_update_state()["last_update"]
+            self.assertEqual(last["state"], "succeeded")
+            self.assertEqual(last["service_update_results"]["restarts"][-1]["scheduler"], "test")
+
     def test_concurrent_update_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             service = SupervisorDomainService(install_root=self._install_root(tmp))
