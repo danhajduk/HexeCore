@@ -252,7 +252,7 @@ class _FakeSupervisorService:
     def supervisor_update_status(self) -> SupervisorUpdateStatusSummary:
         return SupervisorUpdateStatusSummary(
             supervisor_id="host-a",
-            reported_version="0.6.1",
+            reported_version="0.6.2",
             install_root="/opt/hexe/supervisor",
             source_path="/opt/hexe/supervisor",
             source_is_git_checkout=True,

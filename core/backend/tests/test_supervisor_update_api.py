@@ -67,7 +67,7 @@ class TestSupervisorUpdateApi(unittest.TestCase):
     def test_status_reports_git_capability_and_update_available(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             service = SupervisorDomainService(install_root=self._install_root(tmp))
-            with patch.dict(os.environ, {"HEXE_SUPERVISOR_ID": "sup-1", "HEXE_CORE_VERSION": "0.6.1"}), patch.object(
+            with patch.dict(os.environ, {"HEXE_SUPERVISOR_ID": "sup-1", "HEXE_CORE_VERSION": "0.6.2"}), patch.object(
                 service,
                 "_run_git",
                 side_effect=self._git_result,
@@ -79,7 +79,7 @@ class TestSupervisorUpdateApi(unittest.TestCase):
                 status = service.supervisor_update_status()
 
         self.assertEqual(status.supervisor_id, "sup-1")
-        self.assertEqual(status.reported_version, "0.6.1")
+        self.assertEqual(status.reported_version, "0.6.2")
         self.assertTrue(status.source_is_git_checkout)
         self.assertEqual(status.supported_modes, ["git", "core_host"])
         self.assertEqual(status.git["behind"], 1)
