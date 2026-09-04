@@ -12,8 +12,11 @@ from unittest.mock import patch
 import httpx
 
 from app.system.supervisor_version_audit import (
+    SupervisorAutoUpdateConfig,
+    SupervisorAutoUpdateTrigger,
     SupervisorVersionAudit,
     SupervisorVersionAuditConfig,
+    SupervisorVersionReference,
     supervisor_version_audit_loop,
 )
 from app.system.supervisors import SupervisorFleetStore, SupervisorHeartbeatRequest, SupervisorRegistrationRequest
@@ -57,10 +60,25 @@ class _FakeLocalSourceGate:
             "reason": self.reason,
             "auto_update_allowed": self.classification == "current",
             "source_root": "/tmp/repo/supervisor",
+            "head": "abc123",
         }
         if self.classification != "current":
             result["auto_update_blocker"] = self.reason
         return result
+
+
+class _FakePackage:
+    def __init__(self, package_id: str = "pkg-test") -> None:
+        self.package_id = package_id
+
+    def to_request_payload(self) -> dict[str, object]:
+        return {
+            "package_id": self.package_id,
+            "package_manifest": {"package_id": self.package_id},
+            "package_archive_base64": "YXJjaGl2ZQ==",
+            "package_archive_sha256": "sha256",
+            "package_archive_size": 7,
+        }
 
 
 class TestSupervisorVersionAudit(unittest.TestCase):
@@ -151,6 +169,8 @@ class TestSupervisorVersionAudit(unittest.TestCase):
         self.assertEqual(local.metadata["version_audit"]["classification"], "current")
         self.assertEqual(remote.metadata["version_audit"]["classification"], "outdated")
         self.assertEqual(remote.metadata["version_audit"]["reason"], "source_commit_differs_from_local")
+        self.assertEqual(remote.metadata["auto_update_decision"]["decision"], "recommended")
+        self.assertEqual(remote.metadata["auto_update_decision"]["reason"], "auto_update_disabled")
         serialized = str(remote.metadata["update_status"])
         self.assertNotIn("plain-token", serialized)
         self.assertNotIn("bearer secret", serialized)
@@ -275,6 +295,202 @@ class TestSupervisorVersionAudit(unittest.TestCase):
         self.assertEqual(remote.metadata["version_audit"]["classification"], "unknown")
         self.assertEqual(remote.metadata["version_audit"]["reason"], "local_source_not_current")
         self.assertEqual(remote.metadata["version_audit"]["auto_update_blocker"], "local_behind_upstream")
+        self.assertEqual(remote.metadata["auto_update_decision"]["decision"], "blocked")
+        self.assertEqual(remote.metadata["auto_update_decision"]["reason"], "local_source_not_current")
+
+    def _mark_remote_outdated(self, supervisor_id: str, *, supported_modes: list[str] | None = None) -> None:
+        self._register_online_remote(supervisor_id)
+        self.store.set_version_audit_status(
+            supervisor_id,
+            {
+                "schema_version": "1",
+                "supervisor_id": supervisor_id,
+                "classification": "outdated",
+                "reason": "source_commit_differs_from_local",
+                "freshness_state": "online",
+                "api_reachable": True,
+                "reported_version": "0.1.0",
+                "source_commit": "old456",
+                "supported_modes": supported_modes or ["core_host"],
+                "update_state": "idle",
+            },
+        )
+
+    def _reference(self) -> SupervisorVersionReference:
+        return SupervisorVersionReference(
+            reported_version="0.6.0",
+            source_commit="abc123",
+            local_source_gate=_FakeLocalSourceGate().inspect(),
+        )
+
+    def test_auto_update_enabled_starts_remote_and_refreshes_status(self) -> None:
+        self._mark_remote_outdated("host-remote")
+        calls: list[tuple[str, str, dict | None]] = []
+
+        def fake_request(method: str, url: str, *, json=None, timeout: float):  # noqa: ANN001, ARG001
+            calls.append((method, url, json))
+            if method == "POST":
+                self.assertEqual(json["source_mode"], "core_host")
+                self.assertEqual(json["package_id"], "pkg-test")
+                return httpx.Response(200, json={"accepted": True, "request_id": "upd-1", "status": {"update_state": "starting"}})
+            update_state = "running" if any(call[0] == "POST" for call in calls) else "idle"
+            return httpx.Response(
+                200,
+                json={
+                    "reported_version": "0.1.0",
+                    "supported_modes": ["core_host"],
+                    "update_state": update_state,
+                    "git": {"local_sha": "old456"},
+                    "current_update": {"request_id": "upd-1"} if update_state == "running" else None,
+                },
+            )
+
+        summary = SupervisorAutoUpdateTrigger(
+            self.store,
+            config=SupervisorAutoUpdateConfig(enabled=True),
+            http_request=fake_request,
+            package_builder=lambda *_args, **_kwargs: _FakePackage(),
+        ).run(self._reference(), local_source_gate=_FakeLocalSourceGate().inspect())
+
+        self.assertEqual(summary["started"], 1)
+        self.assertEqual([call[0] for call in calls], ["GET", "POST", "GET"])
+        record = self.store.get("host-remote")
+        self.assertEqual(record.metadata["auto_update_decision"]["decision"], "started")
+        self.assertEqual(record.metadata["auto_update_decision"]["update_request_id"], "upd-1")
+        self.assertEqual(record.metadata["update_status"]["update_state"], "running")
+
+    def test_auto_update_allow_and_deny_filters(self) -> None:
+        self._mark_remote_outdated("host-a")
+        self._mark_remote_outdated("host-b")
+        calls: list[str] = []
+
+        def fake_request(method: str, url: str, *, json=None, timeout: float):  # noqa: ANN001, ARG001
+            calls.append(f"{method} {url}")
+            if method == "POST":
+                return httpx.Response(200, json={"accepted": True, "request_id": "upd-allow"})
+            return httpx.Response(200, json={"supported_modes": ["core_host"], "update_state": "idle"})
+
+        SupervisorAutoUpdateTrigger(
+            self.store,
+            config=SupervisorAutoUpdateConfig(enabled=True, allowed_ids=frozenset({"host-a"}), denied_ids=frozenset({"host-b"})),
+            http_request=fake_request,
+            package_builder=lambda *_args, **_kwargs: _FakePackage(),
+        ).run(self._reference(), local_source_gate=_FakeLocalSourceGate().inspect())
+
+        self.assertEqual(self.store.get("host-a").metadata["auto_update_decision"]["decision"], "started")
+        self.assertEqual(self.store.get("host-b").metadata["auto_update_decision"]["reason"], "supervisor_auto_update_denied")
+        self.assertEqual(len([call for call in calls if call.startswith("POST ")]), 1)
+
+    def test_auto_update_respects_max_parallel(self) -> None:
+        self._mark_remote_outdated("host-a")
+        self._mark_remote_outdated("host-b")
+        calls: list[str] = []
+
+        def fake_request(method: str, url: str, *, json=None, timeout: float):  # noqa: ANN001, ARG001
+            calls.append(f"{method} {url}")
+            if method == "POST":
+                return httpx.Response(200, json={"accepted": True, "request_id": "upd-one"})
+            return httpx.Response(200, json={"supported_modes": ["core_host"], "update_state": "idle"})
+
+        summary = SupervisorAutoUpdateTrigger(
+            self.store,
+            config=SupervisorAutoUpdateConfig(enabled=True, max_parallel=1),
+            http_request=fake_request,
+            package_builder=lambda *_args, **_kwargs: _FakePackage(),
+        ).run(self._reference(), local_source_gate=_FakeLocalSourceGate().inspect())
+
+        self.assertEqual(summary["started"], 1)
+        self.assertEqual(self.store.get("host-a").metadata["auto_update_decision"]["decision"], "started")
+        self.assertEqual(self.store.get("host-b").metadata["auto_update_decision"]["reason"], "max_parallel_limit")
+        self.assertEqual(len([call for call in calls if call.startswith("POST ")]), 1)
+
+    def test_repeated_auto_update_does_not_start_duplicate_for_same_target(self) -> None:
+        self._mark_remote_outdated("host-remote")
+        calls: list[str] = []
+
+        def fake_request(method: str, url: str, *, json=None, timeout: float):  # noqa: ANN001, ARG001
+            calls.append(method)
+            if method == "POST":
+                return httpx.Response(200, json={"accepted": True, "request_id": "upd-idem"})
+            return httpx.Response(200, json={"supported_modes": ["core_host"], "update_state": "idle"})
+
+        trigger = SupervisorAutoUpdateTrigger(
+            self.store,
+            config=SupervisorAutoUpdateConfig(enabled=True),
+            http_request=fake_request,
+            package_builder=lambda *_args, **_kwargs: _FakePackage(),
+        )
+        trigger.run(self._reference(), local_source_gate=_FakeLocalSourceGate().inspect())
+        first_key = self.store.get("host-remote").metadata["auto_update_decision"]["idempotency_key"]
+        trigger.run(self._reference(), local_source_gate=_FakeLocalSourceGate().inspect())
+
+        decision = self.store.get("host-remote").metadata["auto_update_decision"]
+        self.assertEqual(decision["decision"], "skipped")
+        self.assertEqual(decision["reason"], "already_triggered_for_target")
+        self.assertEqual(decision["idempotency_key"], first_key)
+        self.assertEqual(calls.count("POST"), 1)
+
+    def test_auto_update_failure_backoff_blocks_retry(self) -> None:
+        self._mark_remote_outdated("host-remote")
+        calls: list[str] = []
+
+        def failing_request(method: str, url: str, *, json=None, timeout: float):  # noqa: ANN001, ARG001
+            calls.append(method)
+            raise httpx.ConnectError("unreachable")
+
+        trigger = SupervisorAutoUpdateTrigger(
+            self.store,
+            config=SupervisorAutoUpdateConfig(enabled=True),
+            http_request=failing_request,
+            package_builder=lambda *_args, **_kwargs: _FakePackage(),
+        )
+        trigger.run(self._reference(), local_source_gate=_FakeLocalSourceGate().inspect())
+        trigger.run(self._reference(), local_source_gate=_FakeLocalSourceGate().inspect())
+
+        decision = self.store.get("host-remote").metadata["auto_update_decision"]
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["reason"], "failure_backoff_active")
+        self.assertEqual(calls, ["GET"])
+
+    def test_auto_update_blocks_when_ble_pairing_session_active(self) -> None:
+        self._mark_remote_outdated("host-remote")
+        ble_sessions = SimpleNamespace(
+            list_sessions=lambda: [
+                SimpleNamespace(
+                    status="waiting",
+                    supervisor_id="host-remote",
+                    supervisor_results=[],
+                )
+            ]
+        )
+
+        trigger = SupervisorAutoUpdateTrigger(
+            self.store,
+            config=SupervisorAutoUpdateConfig(enabled=True),
+            ble_pairing_sessions=ble_sessions,
+            http_request=lambda *_args, **_kwargs: self.fail("update API should not be called"),
+            package_builder=lambda *_args, **_kwargs: _FakePackage(),
+        )
+        trigger.run(self._reference(), local_source_gate=_FakeLocalSourceGate().inspect())
+
+        decision = self.store.get("host-remote").metadata["auto_update_decision"]
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["reason"], "ble_pairing_session_active")
+
+    def test_auto_update_blocks_unsupported_mode(self) -> None:
+        self._mark_remote_outdated("host-remote", supported_modes=["git"])
+
+        trigger = SupervisorAutoUpdateTrigger(
+            self.store,
+            config=SupervisorAutoUpdateConfig(enabled=True, source_mode="core_host"),
+            http_request=lambda *_args, **_kwargs: self.fail("update API should not be called"),
+            package_builder=lambda *_args, **_kwargs: _FakePackage(),
+        )
+        trigger.run(self._reference(), local_source_gate=_FakeLocalSourceGate().inspect())
+
+        decision = self.store.get("host-remote").metadata["auto_update_decision"]
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["reason"], "supervisor_update_mode_unsupported")
 
 
 if __name__ == "__main__":

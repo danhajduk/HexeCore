@@ -1047,6 +1047,48 @@
       "sensitive": false
     },
     {
+      "default": "",
+      "description": "Comma-separated Supervisor IDs allowed for scheduled remote auto-update starts; empty allows all non-denied eligible Supervisors.",
+      "name": "HEXE_SUPERVISOR_AUTO_UPDATE_ALLOWED_IDS",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "default": "",
+      "description": "Comma-separated Supervisor IDs that the scheduled remote auto-update policy must never start automatically.",
+      "name": "HEXE_SUPERVISOR_AUTO_UPDATE_DENIED_IDS",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "default": "false",
+      "description": "Enables scheduled Core-triggered remote Supervisor update starts after local source and remote eligibility gates pass.",
+      "name": "HEXE_SUPERVISOR_AUTO_UPDATE_ENABLED",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "default": "1",
+      "description": "Maximum number of remote Supervisor update starts the scheduled audit may trigger per run.",
+      "name": "HEXE_SUPERVISOR_AUTO_UPDATE_MAX_PARALLEL",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "default": "true",
+      "description": "Requires a healthy remote Supervisor heartbeat before the scheduled audit may trigger an update start.",
+      "name": "HEXE_SUPERVISOR_AUTO_UPDATE_REQUIRE_HEALTHY",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "default": "core_host",
+      "description": "Update source mode used by scheduled remote Supervisor auto-update starts.",
+      "name": "HEXE_SUPERVISOR_AUTO_UPDATE_SOURCE_MODE",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
       "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
       "default": "INFO",
       "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_LOG_LEVEL`.",

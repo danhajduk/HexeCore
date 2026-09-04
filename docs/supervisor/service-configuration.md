@@ -99,12 +99,33 @@ Local git gate settings:
 - `HEXE_SUPERVISOR_LOCAL_GIT_FETCH_TIMEOUT_S=20`
 
 Version audit states are `current`, `outdated`, `unknown`, `unreachable`,
-`unsupported`, and `update_running`. The audit does not start remote updates.
+`unsupported`, and `update_running`. The audit records a sanitized
+`metadata.auto_update_decision` for each remote Supervisor. By default this is
+advisory: outdated remote Supervisors get a recommended update decision, but
+Core does not start updates unless automatic triggering is explicitly enabled.
 When the local source gate is not `current`, remote version audit records keep
 their sanitized update status but surface `local_source_not_current` and an
 `auto_update_blocker` reason. Freshness still comes from heartbeat timestamps,
 so a healthy online Supervisor can be outdated and an outdated Supervisor can
 still be otherwise healthy.
+
+Remote auto-update policy settings:
+
+- `HEXE_SUPERVISOR_AUTO_UPDATE_ENABLED=false`
+- `HEXE_SUPERVISOR_AUTO_UPDATE_SOURCE_MODE=core_host`
+- `HEXE_SUPERVISOR_AUTO_UPDATE_MAX_PARALLEL=1`
+- `HEXE_SUPERVISOR_AUTO_UPDATE_ALLOWED_IDS`
+- `HEXE_SUPERVISOR_AUTO_UPDATE_DENIED_IDS`
+- `HEXE_SUPERVISOR_AUTO_UPDATE_REQUIRE_HEALTHY=true`
+
+When enabled, the scheduled audit starts remote updates only for trusted,
+online, reachable, healthy Supervisors classified as `outdated` that advertise
+the selected update mode and are not already updating. Core also blocks
+automatic starts while an active BLE pairing/onboarding session targets the
+Supervisor. Starts use a deterministic idempotency key for the
+Supervisor/version/source commit target, so repeated audit runs do not create
+duplicate update starts. Operators can still use the manual Core fleet update
+route even when automatic triggering is disabled.
 
 Bluetooth broker routes:
 

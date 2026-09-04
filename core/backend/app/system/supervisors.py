@@ -727,6 +727,16 @@ class SupervisorFleetStore:
         self._save()
         return record
 
+    def set_auto_update_decision(self, supervisor_id: str, decision: dict[str, Any]) -> SupervisorFleetRecord:
+        record = self.get(supervisor_id)
+        if record is None:
+            raise HTTPException(status_code=404, detail="supervisor_not_found")
+        record.metadata = {**dict(record.metadata or {}), "auto_update_decision": _sanitize_update_payload(decision)}
+        record.updated_at = _utcnow_iso()
+        self._records[record.supervisor_id] = record
+        self._save()
+        return record
+
     def set_version_audit_status(
         self,
         supervisor_id: str,

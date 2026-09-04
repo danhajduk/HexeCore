@@ -105,6 +105,7 @@ from app.system.telemetry import UsageTelemetryStore, build_telemetry_router
 from app.system.audit import AuditLogStore
 from app.system.users import UsersStore, build_users_router
 from app.system.runtime import StandaloneRuntimeService
+from app.system.hardware import HardwareAccessService, HardwareAccessStore, HardwareBlePairingSessionService, HardwareBlePairingSessionStore
 from app.system.repo_status import router as repo_status_router
 from app.system.stack_health import build_stack_health_router, speed_sampler_loop
 from app.system.supervisor_status import build_supervisor_status_router
@@ -1068,6 +1069,12 @@ def create_app() -> FastAPI:
     app.include_router(build_supervisor_status_router(), prefix="/api/system", tags=["supervisor"])
     supervisor_fleet_store = SupervisorFleetStore()
     app.state.supervisor_fleet_store = supervisor_fleet_store
+    hardware_access_service = HardwareAccessService(HardwareAccessStore(), supervisor_fleet_store)
+    app.state.hardware_access_service = hardware_access_service
+    hardware_ble_pairing_session_store = HardwareBlePairingSessionStore()
+    app.state.hardware_ble_pairing_session_store = hardware_ble_pairing_session_store
+    hardware_ble_pairing_session_service = HardwareBlePairingSessionService(hardware_ble_pairing_session_store, supervisor_fleet_store)
+    app.state.hardware_ble_pairing_session_service = hardware_ble_pairing_session_service
     app.include_router(
         build_supervisors_router(supervisor_fleet_store, audit_store=audit_store),
         prefix="/api/system",
@@ -1245,6 +1252,8 @@ def create_app() -> FastAPI:
             provider_model_policy_service=provider_model_policy_service,
             model_routing_registry_service=model_routing_registry_service,
             supervisor_fleet_store=supervisor_fleet_store,
+            hardware_access_service=hardware_access_service,
+            ble_pairing_session_service=hardware_ble_pairing_session_service,
             audit_store=audit_store,
         ),
         prefix="/api",

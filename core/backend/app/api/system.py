@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from ..system.hardware import HardwareAccessService
+from ..system.hardware import HardwareAccessService, HardwareBlePairingSessionService
 from . import system_legacy as _legacy
 from .system_domains import compose_system_domain_router
 from .system_legacy import *  # noqa: F401,F403
@@ -33,6 +33,7 @@ def build_system_router(
     model_routing_registry_service: ModelRoutingRegistryService | None = None,
     supervisor_fleet_store=None,
     hardware_access_service: HardwareAccessService | None = None,
+    ble_pairing_session_service: HardwareBlePairingSessionService | None = None,
     audit_store: AuditLogStore | None = None,
 ) -> APIRouter:
     source_router = _legacy.build_system_router(
@@ -58,6 +59,7 @@ def build_system_router(
         model_routing_registry_service=model_routing_registry_service,
         supervisor_fleet_store=supervisor_fleet_store,
         hardware_access_service=hardware_access_service,
+        ble_pairing_session_service=ble_pairing_session_service,
         audit_store=audit_store,
     )
     return compose_system_domain_router(source_router)

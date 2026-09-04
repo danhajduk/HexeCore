@@ -49,4 +49,3 @@ Do not edit above this line:
 #######################################################################
 
 [TODO] Task 1000: Validate and document the inverted BLE onboarding flow across Supervisor and endpoint roles
-[TODO] Task 1003: Trigger remote Supervisor updates after local source is verified current

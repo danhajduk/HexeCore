@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import os
 from dataclasses import dataclass
@@ -9,6 +10,7 @@ from typing import Any
 
 import httpx
 
+from app.supervisor.update_package import SupervisorUpdatePackageError, build_supervisor_update_package
 from app.system.supervisor_local_source import SupervisorLocalSourceGate
 from app.system.supervisors import (
     SupervisorFleetRecord,
@@ -18,6 +20,8 @@ from app.system.supervisors import (
     _freshness_state,
     _is_local_supervisor_record,
     _sanitize_update_payload,
+    _source_commit_sha,
+    _supervisor_package_source_root,
     _supervisor_history_timeout_s,
 )
 
@@ -43,6 +47,33 @@ def _env_interval_s(name: str, default: float) -> float:
         return default
 
 
+def _env_positive_int(name: str, default: int, *, upper: int | None = None) -> int:
+    raw = str(os.getenv(name, str(default))).strip()
+    try:
+        value = max(1, int(raw))
+    except Exception:
+        value = default
+    return min(value, upper) if upper is not None else value
+
+
+def _env_id_set(name: str) -> frozenset[str]:
+    raw = str(os.getenv(name, "")).strip()
+    if not raw:
+        return frozenset()
+    return frozenset(item.strip() for item in raw.split(",") if item.strip())
+
+
+def _parse_iso(value: object) -> datetime | None:
+    text = _clean_text(value)
+    if not text:
+        return None
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except Exception:
+        return None
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+
+
 @dataclass(frozen=True)
 class SupervisorVersionAuditConfig:
     enabled: bool = True
@@ -63,6 +94,349 @@ class SupervisorVersionReference:
     local_source_gate: dict[str, Any] | None = None
 
 
+@dataclass(frozen=True)
+class SupervisorAutoUpdateConfig:
+    enabled: bool = False
+    source_mode: str = "core_host"
+    max_parallel: int = 1
+    allowed_ids: frozenset[str] = frozenset()
+    denied_ids: frozenset[str] = frozenset()
+    require_healthy: bool = True
+    failure_backoff_s: int = 30 * 60
+
+    @classmethod
+    def from_env(cls) -> "SupervisorAutoUpdateConfig":
+        source_mode = _clean_text(os.getenv("HEXE_SUPERVISOR_AUTO_UPDATE_SOURCE_MODE"), "core_host").lower()
+        if source_mode not in {"git", "core_host"}:
+            source_mode = "core_host"
+        return cls(
+            enabled=_env_bool("HEXE_SUPERVISOR_AUTO_UPDATE_ENABLED", False),
+            source_mode=source_mode,
+            max_parallel=_env_positive_int("HEXE_SUPERVISOR_AUTO_UPDATE_MAX_PARALLEL", 1, upper=20),
+            allowed_ids=_env_id_set("HEXE_SUPERVISOR_AUTO_UPDATE_ALLOWED_IDS"),
+            denied_ids=_env_id_set("HEXE_SUPERVISOR_AUTO_UPDATE_DENIED_IDS"),
+            require_healthy=_env_bool("HEXE_SUPERVISOR_AUTO_UPDATE_REQUIRE_HEALTHY", True),
+        )
+
+
+class SupervisorAutoUpdateTrigger:
+    def __init__(
+        self,
+        registry: SupervisorFleetStore,
+        *,
+        audit_store: object | None = None,
+        ble_pairing_sessions: object | None = None,
+        config: SupervisorAutoUpdateConfig | None = None,
+        timeout_s: float | None = None,
+        http_request: object | None = None,
+        package_builder: object | None = None,
+    ) -> None:
+        self.registry = registry
+        self.audit_store = audit_store
+        self.ble_pairing_sessions = ble_pairing_sessions
+        self.config = config or SupervisorAutoUpdateConfig.from_env()
+        self.timeout_s = timeout_s or _supervisor_history_timeout_s()
+        self.http_request = http_request or httpx.request
+        self.package_builder = package_builder or build_supervisor_update_package
+
+    def run(self, reference: SupervisorVersionReference, *, local_source_gate: dict[str, Any]) -> dict[str, Any]:
+        started = 0
+        decisions: list[dict[str, Any]] = []
+        for record in self.registry.list(include_historical=False):
+            if _is_local_supervisor_record(record):
+                continue
+            can_start_more = started < self.config.max_parallel
+            decision = self._decision_for_record(record, reference, local_source_gate, can_start_more=can_start_more)
+            if decision.get("action") == "start":
+                started += 1
+            decisions.append(decision)
+            self.registry.set_auto_update_decision(record.supervisor_id, decision)
+            self._record_event(record.supervisor_id, decision)
+        counts: dict[str, int] = {}
+        for decision in decisions:
+            status = _clean_text(decision.get("decision"), "unknown")
+            counts[status] = counts.get(status, 0) + 1
+        return {
+            "enabled": self.config.enabled,
+            "source_mode": self.config.source_mode,
+            "max_parallel": self.config.max_parallel,
+            "started": started,
+            "count": len(decisions),
+            "counts": counts,
+        }
+
+    def _decision_for_record(
+        self,
+        record: SupervisorFleetRecord,
+        reference: SupervisorVersionReference,
+        local_source_gate: dict[str, Any],
+        *,
+        can_start_more: bool,
+    ) -> dict[str, Any]:
+        checked_at = _utcnow_iso()
+        base = {
+            "schema_version": "1",
+            "supervisor_id": record.supervisor_id,
+            "source_mode": self.config.source_mode,
+            "target_version": reference.reported_version,
+            "target_source_commit": self._target_source_commit(reference, local_source_gate),
+            "checked_at": checked_at,
+            "auto_update_enabled": self.config.enabled,
+        }
+        blocker = self._preflight_blocker(record, local_source_gate)
+        if blocker:
+            return {**base, "decision": "blocked", "reason": blocker}
+
+        version_audit = dict(record.metadata.get("version_audit") or {}) if isinstance(record.metadata, dict) else {}
+        if _clean_text(version_audit.get("classification")) != "outdated":
+            return {**base, "decision": "skipped", "reason": f"supervisor_not_outdated:{_clean_text(version_audit.get('classification'), 'unknown')}"}
+
+        supported_modes = version_audit.get("supported_modes") if isinstance(version_audit.get("supported_modes"), list) else []
+        if self.config.source_mode not in {str(item) for item in supported_modes}:
+            return {**base, "decision": "blocked", "reason": "supervisor_update_mode_unsupported"}
+
+        if _clean_text(version_audit.get("update_state"), "idle").lower() in {"starting", "running"}:
+            return {**base, "decision": "blocked", "reason": "update_running"}
+
+        if not self.config.enabled:
+            return {**base, "decision": "recommended", "reason": "auto_update_disabled"}
+
+        prior = dict(record.metadata.get("auto_update_decision") or {}) if isinstance(record.metadata, dict) else {}
+        idempotency_key = self._idempotency_key(record, base)
+        if self._same_target(prior, base) and _clean_text(prior.get("idempotency_key")) == idempotency_key:
+            if _clean_text(prior.get("decision")) in {"started", "replayed"}:
+                return {**base, "decision": "skipped", "reason": "already_triggered_for_target", "idempotency_key": idempotency_key}
+            if self._failure_backoff_active(prior):
+                return {**base, "decision": "blocked", "reason": "failure_backoff_active", "idempotency_key": idempotency_key}
+
+        if not can_start_more:
+            return {**base, "decision": "blocked", "reason": "max_parallel_limit"}
+
+        try:
+            status = self._request_update_status(record)
+        except SupervisorAutoUpdateError as exc:
+            return {**base, "decision": "failed", "reason": exc.reason, "idempotency_key": idempotency_key, "last_failure_at": checked_at}
+        refreshed_modes = status.get("supported_modes") if isinstance(status.get("supported_modes"), list) else []
+        if self.config.source_mode not in {str(item) for item in refreshed_modes}:
+            return {**base, "decision": "blocked", "reason": "supervisor_update_mode_unsupported", "idempotency_key": idempotency_key}
+        if _clean_text(status.get("update_state"), "idle").lower() in {"starting", "running"}:
+            self.registry.set_update_status(record.supervisor_id, status)
+            return {**base, "decision": "blocked", "reason": "update_running", "idempotency_key": idempotency_key}
+
+        try:
+            payload = self._start_payload(record, idempotency_key)
+            result = self._request_update_start(record, payload)
+        except SupervisorAutoUpdateError as exc:
+            return {**base, "decision": "failed", "reason": exc.reason, "idempotency_key": idempotency_key, "last_failure_at": checked_at}
+        post_status = dict(result.get("status") or {}) if isinstance(result.get("status"), dict) else {}
+        post_refresh_error = None
+        try:
+            post_status = self._request_update_status(record)
+        except SupervisorAutoUpdateError as exc:
+            post_refresh_error = exc.reason
+        if post_status:
+            self.registry.set_update_status(record.supervisor_id, post_status)
+
+        accepted = bool(result.get("accepted"))
+        request_id = self._update_request_id(result, post_status)
+        decision = {
+            **base,
+            "decision": "started" if accepted else "replayed",
+            "reason": "remote_update_started" if accepted else "remote_update_replayed",
+            "action": "start",
+            "idempotency_key": idempotency_key,
+            "update_request_id": request_id,
+            "package_id": payload.get("package_id") if self.config.source_mode == "core_host" else None,
+            "last_triggered_at": checked_at,
+        }
+        if post_refresh_error:
+            decision["post_update_status_refresh"] = "failed"
+            decision["post_update_status_refresh_reason"] = post_refresh_error
+        else:
+            decision["post_update_status_refresh"] = "success"
+        return decision
+
+    def _preflight_blocker(self, record: SupervisorFleetRecord, local_source_gate: dict[str, Any]) -> str | None:
+        if _clean_text(local_source_gate.get("classification")) != "current":
+            return "local_source_not_current"
+        if _clean_text(record.trust_status, "trusted") != "trusted":
+            return "supervisor_not_trusted"
+        freshness = _freshness_state(record.last_seen_at)
+        if freshness != "online":
+            return f"supervisor_not_online:{freshness}"
+        if not _clean_text(record.api_base_url):
+            return "supervisor_api_base_url_missing"
+        if record.supervisor_id in self.config.denied_ids:
+            return "supervisor_auto_update_denied"
+        if self.config.allowed_ids and record.supervisor_id not in self.config.allowed_ids:
+            return "supervisor_auto_update_not_allowed"
+        if self.config.require_healthy and _clean_text(record.health_status, "unknown").lower() not in {"healthy", "ok"}:
+            return "supervisor_health_not_healthy"
+        if self._has_active_ble_pairing_session(record.supervisor_id):
+            return "ble_pairing_session_active"
+        return None
+
+    def _request_update_status(self, record: SupervisorFleetRecord) -> dict[str, Any]:
+        result = self._request_remote(record, "GET", "/api/supervisor/update/status")
+        if not isinstance(result.get("supported_modes", []), list):
+            raise SupervisorAutoUpdateError("supervisor_update_status_invalid_payload")
+        return result
+
+    def _request_update_start(self, record: SupervisorFleetRecord, payload: dict[str, Any]) -> dict[str, Any]:
+        return self._request_remote(record, "POST", "/api/supervisor/update/start", payload=payload)
+
+    def _request_remote(
+        self,
+        record: SupervisorFleetRecord,
+        method: str,
+        path: str,
+        *,
+        payload: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        base_url = _clean_text(record.api_base_url).rstrip("/")
+        if not base_url:
+            raise SupervisorAutoUpdateError("supervisor_api_base_url_missing")
+        try:
+            response = self.http_request(method.upper(), f"{base_url}{path}", json=payload, timeout=self.timeout_s)
+        except httpx.HTTPError as exc:
+            raise SupervisorAutoUpdateError("supervisor_update_api_unavailable") from exc
+        if response.status_code == 404:
+            raise SupervisorAutoUpdateError("supervisor_update_api_not_found")
+        if response.status_code >= 400:
+            raise SupervisorAutoUpdateError("supervisor_update_api_error")
+        try:
+            result = response.json()
+        except ValueError as exc:
+            raise SupervisorAutoUpdateError("supervisor_update_api_invalid_json") from exc
+        if not isinstance(result, dict):
+            raise SupervisorAutoUpdateError("supervisor_update_api_invalid_payload")
+        return result
+
+    def _start_payload(self, record: SupervisorFleetRecord, idempotency_key: str) -> dict[str, Any]:
+        payload = {
+            "source_mode": self.config.source_mode,
+            "idempotency_key": idempotency_key,
+            "service_update": True,
+        }
+        if self.config.source_mode != "core_host":
+            return payload
+        source_root = _supervisor_package_source_root()
+        try:
+            package = self.package_builder(
+                source_root,
+                source_version=_clean_text(os.getenv("HEXE_CORE_VERSION")) or None,
+                commit_sha=_source_commit_sha(),
+                compatibility={
+                    "target_supervisor_id": record.supervisor_id,
+                    "target_supervisor_version": record.supervisor_version,
+                    "source": "core_host",
+                },
+            )
+        except SupervisorUpdatePackageError as exc:
+            raise SupervisorAutoUpdateError(f"supervisor_update_package_build_failed:{exc}") from exc
+        except Exception as exc:
+            raise SupervisorAutoUpdateError("supervisor_update_package_build_failed") from exc
+        return {**payload, **package.to_request_payload()}
+
+    def _idempotency_key(self, record: SupervisorFleetRecord, base: dict[str, Any]) -> str:
+        raw = "|".join(
+            [
+                record.supervisor_id,
+                self.config.source_mode,
+                _clean_text(base.get("target_version")),
+                _clean_text(base.get("target_source_commit")),
+            ]
+        )
+        return f"supervisor-auto-update-{hashlib.sha256(raw.encode('utf-8')).hexdigest()[:32]}"
+
+    @staticmethod
+    def _target_source_commit(reference: SupervisorVersionReference, local_source_gate: dict[str, Any]) -> str | None:
+        return _clean_text(local_source_gate.get("head")) or reference.source_commit
+
+    @staticmethod
+    def _same_target(prior: dict[str, Any], base: dict[str, Any]) -> bool:
+        return (
+            _clean_text(prior.get("source_mode")) == _clean_text(base.get("source_mode"))
+            and _clean_text(prior.get("target_version")) == _clean_text(base.get("target_version"))
+            and _clean_text(prior.get("target_source_commit")) == _clean_text(base.get("target_source_commit"))
+        )
+
+    def _failure_backoff_active(self, prior: dict[str, Any]) -> bool:
+        last_failure = _parse_iso(prior.get("last_failure_at"))
+        if last_failure is None:
+            return False
+        return (datetime.now(timezone.utc) - last_failure).total_seconds() < self.config.failure_backoff_s
+
+    def _has_active_ble_pairing_session(self, supervisor_id: str) -> bool:
+        sessions = self._list_ble_pairing_sessions()
+        for session in sessions:
+            status = _clean_text(self._session_value(session, "status")).lower()
+            if status not in {"waiting", "found", "approved"}:
+                continue
+            session_supervisor_id = _clean_text(self._session_value(session, "supervisor_id"))
+            if session_supervisor_id and session_supervisor_id == supervisor_id:
+                return True
+            results = self._session_value(session, "supervisor_results")
+            if not isinstance(results, list):
+                continue
+            for item in results:
+                if not isinstance(item, dict):
+                    continue
+                if _clean_text(item.get("supervisor_id")) != supervisor_id:
+                    continue
+                if _clean_text(item.get("status"), "pending").lower() in {"pending", "advertising", "endpoint_identity_received"}:
+                    return True
+        return False
+
+    def _list_ble_pairing_sessions(self) -> list[Any]:
+        if self.ble_pairing_sessions is None:
+            return []
+        list_sessions = getattr(self.ble_pairing_sessions, "list_sessions", None)
+        if callable(list_sessions):
+            try:
+                return list(list_sessions())
+            except Exception:
+                return []
+        list_records = getattr(self.ble_pairing_sessions, "list", None)
+        if callable(list_records):
+            try:
+                return list(list_records())
+            except Exception:
+                return []
+        return []
+
+    @staticmethod
+    def _session_value(session: object, key: str) -> Any:
+        if isinstance(session, dict):
+            return session.get(key)
+        return getattr(session, key, None)
+
+    @staticmethod
+    def _update_request_id(result: dict[str, Any], post_status: dict[str, Any]) -> str | None:
+        for source in (result, dict(result.get("status") or {}), post_status, dict(post_status.get("current_update") or {})):
+            request_id = _clean_text(source.get("request_id") if isinstance(source, dict) else None)
+            if request_id:
+                return request_id
+        return None
+
+    def _record_event(self, supervisor_id: str, decision: dict[str, Any]) -> None:
+        record_sync = getattr(self.audit_store, "record_sync", None)
+        if not callable(record_sync):
+            return
+        record_sync(
+            event_type="supervisor_auto_update_decision",
+            actor_role="system",
+            actor_id="supervisor-version-audit",
+            details=_sanitize_update_payload({"supervisor_id": supervisor_id, **decision}),
+        )
+
+
+class SupervisorAutoUpdateError(RuntimeError):
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
 class SupervisorVersionAudit:
     def __init__(
         self,
@@ -71,12 +445,14 @@ class SupervisorVersionAudit:
         local_client: object | None = None,
         audit_store: object | None = None,
         local_source_gate: SupervisorLocalSourceGate | None = None,
+        auto_update_trigger: SupervisorAutoUpdateTrigger | None = None,
         timeout_s: float | None = None,
     ) -> None:
         self.registry = registry
         self.local_client = local_client
         self.audit_store = audit_store
         self.local_source_gate = local_source_gate or SupervisorLocalSourceGate()
+        self.auto_update_trigger = auto_update_trigger
         self.timeout_s = timeout_s or _supervisor_history_timeout_s()
 
     def run_once(self) -> dict[str, Any]:
@@ -119,6 +495,12 @@ class SupervisorVersionAudit:
             "counts": counts,
             "local_source_gate": local_source_gate,
         }
+        trigger = self.auto_update_trigger or SupervisorAutoUpdateTrigger(
+            self.registry,
+            audit_store=self.audit_store,
+            timeout_s=self.timeout_s,
+        )
+        completed["auto_update"] = trigger.run(reference, local_source_gate=local_source_gate)
         self._record_event("supervisor_version_audit_completed", details=completed)
         return completed
 
@@ -440,6 +822,12 @@ async def supervisor_version_audit_loop(app: Any, config: SupervisorVersionAudit
                     local_client=getattr(app.state, "supervisor_client", None),
                     audit_store=getattr(app.state, "audit_store", None),
                     local_source_gate=getattr(app.state, "supervisor_local_source_gate", None),
+                    auto_update_trigger=SupervisorAutoUpdateTrigger(
+                        registry,
+                        audit_store=getattr(app.state, "audit_store", None),
+                        ble_pairing_sessions=getattr(app.state, "hardware_ble_pairing_session_service", None)
+                        or getattr(app.state, "hardware_ble_pairing_session_store", None),
+                    ),
                 ).run_once()
         except Exception:
             log.exception("Supervisor version audit loop failed")

@@ -185,6 +185,12 @@ Sensitive values are marked in the registry and must not be logged or exposed th
 | `HEXE_SUPERVISOR_API_SYSTEMD_UNIT` | `hexe-supervisor-api.service` | no | Systemd unit name that a local Supervisor reports and may inspect for the standalone Supervisor API service. |
 | `HEXE_SUPERVISOR_API_TIMEOUT_S` | `unset` | no | Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_API_TIMEOUT_S`. |
 | `HEXE_SUPERVISOR_API_TRANSPORT` | `socket` | no | Transport used by Core local Supervisor API client; expected values are socket, http, or disabled. |
+| `HEXE_SUPERVISOR_AUTO_UPDATE_ALLOWED_IDS` | `unset` | no | Comma-separated Supervisor IDs allowed for scheduled remote auto-update starts; empty allows all non-denied eligible Supervisors. |
+| `HEXE_SUPERVISOR_AUTO_UPDATE_DENIED_IDS` | `unset` | no | Comma-separated Supervisor IDs that the scheduled remote auto-update policy must never start automatically. |
+| `HEXE_SUPERVISOR_AUTO_UPDATE_ENABLED` | `false` | no | Enables scheduled Core-triggered remote Supervisor update starts after local source and remote eligibility gates pass. |
+| `HEXE_SUPERVISOR_AUTO_UPDATE_MAX_PARALLEL` | `1` | no | Maximum number of remote Supervisor update starts the scheduled audit may trigger per run. |
+| `HEXE_SUPERVISOR_AUTO_UPDATE_REQUIRE_HEALTHY` | `true` | no | Requires a healthy remote Supervisor heartbeat before the scheduled audit may trigger an update start. |
+| `HEXE_SUPERVISOR_AUTO_UPDATE_SOURCE_MODE` | `core_host` | no | Update source mode used by scheduled remote Supervisor auto-update starts. |
 | `HEXE_SUPERVISOR_BIND` | `127.0.0.1` | no | Bind address for the standalone Supervisor HTTP API when HTTP transport is enabled. |
 | `HEXE_SUPERVISOR_BOOT_LOG` | `var/supervisor/boot.log` | no | Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_BOOT_LOG`. |
 | `HEXE_SUPERVISOR_BOOT_POLL_S` | `2` | no | Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_BOOT_POLL_S`. |
