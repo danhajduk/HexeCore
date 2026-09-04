@@ -10,6 +10,28 @@ are listed here only where Core wraps or depends on them operationally.
 - Admin-protected endpoints require admin authentication/session.
 - Some route families include compatibility aliases for legacy clients.
 - MQTT routes are mounted under `/api/system`.
+- [Generated OpenAPI Paths](./generated-openapi-paths.md) lists every path in
+  the deterministic Core OpenAPI snapshot.
+
+## Runtime Proxy Surfaces
+
+Status: Implemented
+
+Dynamic proxy routes are runtime surfaces, but they are intentionally not treated
+as stable generated-client operations in the OpenAPI path snapshot. Their target
+paths are resolved from trusted node registration metadata or addon registry
+metadata at request time.
+
+- Node UI proxy: `/nodes/{node_id}/ui/` and `/nodes/{node_id}/ui/{path}`
+- Node API proxy: `/api/nodes/{node_id}/{path}`
+- Addon UI proxy: `/addons/{addon_id}/` and `/addons/{addon_id}/{path}`
+- Addon API proxy: `/api/addons/{addon_id}/{path}`
+- Legacy UI redirects: `/ui/nodes/...` and `/ui/addons/...`
+
+The detailed proxy contract is documented in
+[Proxied UI Contract](../frontend/proxied-ui-contract.md),
+[Proxied UI Metadata](./proxied-ui-metadata.md), and
+[Frontend And UI](../frontend/frontend-and-ui.md).
 
 ## Core System APIs
 

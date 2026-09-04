@@ -31,6 +31,7 @@ def _commands(*, include_backend_tests: bool) -> list[HealthCommand]:
         HealthCommand("Markdown links", [sys.executable, "tools/check_markdown_links.py"]),
         HealthCommand("environment registry", [sys.executable, "tools/check_env_registry.py", "--check-docs"]),
         HealthCommand("OpenAPI snapshot", [sys.executable, "tools/update_openapi_snapshot.py", "--check"]),
+        HealthCommand("OpenAPI path appendix", [sys.executable, "tools/update_api_route_appendix.py", "--check"]),
     ]
     if include_backend_tests:
         core_backend = REPO_ROOT / "core" / "backend"

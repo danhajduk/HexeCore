@@ -299,3 +299,11 @@ Chosen fix: Added an active Markdown link checker, wired it into repo health, co
 What changed: Updated active docs, README path names, operator health-check wording, and `tools/check_repo_health.py`.
 Verification: Markdown link check passed; raw stale active path scan passed; repo health still fails only on env registry drift scheduled for Task 982.
 ###########
+
+Task #981
+Step objective: Generate API reference coverage from the OpenAPI snapshot and document proxy surfaces.
+Issue cause: The hand-written API reference could drift from the generated OpenAPI path snapshot and did not clearly separate dynamic proxy catch-all routes.
+Chosen fix: Added a generated OpenAPI path appendix, a checker/generator script, repo-health integration, and API-reference proxy surface documentation.
+What changed: Added `docs/core/api/generated-openapi-paths.md`, `tools/update_api_route_appendix.py`, API docs, and repo health validation.
+Verification: OpenAPI snapshot validation passed; generated appendix validation passed; Markdown link check passed.
+###########
