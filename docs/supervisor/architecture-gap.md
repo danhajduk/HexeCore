@@ -17,8 +17,8 @@ This document compares the current Hexe Supervisor implementation with the targe
 - Target architecture draft:
   - `docs/Upgrades/hexe-core-supervisor-node-design.md`
 - Canonical architecture alignment:
-  - `/home/dan/Projects/Hexe/docs/supervisor/README.md`
-  - `/home/dan/Projects/Hexe/docs/supervisor/runtime-and-supervision.md`
+  - `docs/supervisor/README.md`
+  - `docs/supervisor/runtime-and-supervision.md`
 
 ## Target Architecture Summary
 

@@ -56,8 +56,8 @@ Status: Implemented
 
 ## See Also
 
-- [../architecture.md](../architecture.md)
-- [Runtime and Supervision](../supervisor/runtime-and-supervision.md)
-- [Notifications Bus](../mqtt/notifications.md)
+- [../../architecture.md](../../architecture.md)
+- [Runtime and Supervision](../../supervisor/runtime-and-supervision.md)
+- [Notifications Bus](../../mqtt/notifications.md)
 - [API Reference](./api-reference.md)
 - [Auth and Identity](./auth-and-identity.md)

@@ -42,13 +42,12 @@ if it is not present and should be core-owned create a ticket for the req. data 
 if it is not present and should be node-owned create a file with the new data in the core docs
 
 Standards reference:
-- Main standard entrypoint: `/home/dan/Projects/Hexe/docs/standards/Node/README.md`
-- Detailed standards folder: `/home/dan/Projects/Hexe/docs/standards/Node/`
+- Main standard entrypoint: `docs/standards/Node/README.md`
+- Detailed standards folder: `docs/standards/Node/`
 
 Do not edit above this line:
 #######################################################################
 
-[TODO] Task 980: Repair stale repository paths and broken documentation links
 [TODO] Task 981: Generate API reference coverage from OpenAPI and document runtime proxy surfaces
 [TODO] Task 982: Extend environment registry validation for helper-read variables
 [STOP] Review guardrail coverage before broad documentation consolidation.

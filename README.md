@@ -36,7 +36,7 @@ Status: Implemented
 
 Supervisor currently spans:
 
-- `core/backend/synthia_supervisor/`
+- `core/backend/hexe_supervisor/`
 - `core/backend/app/system/runtime/`
 - `core/backend/app/supervisor/`
 
@@ -96,7 +96,7 @@ These routes reuse the existing canonical node registration payload shape.
 - `supervisor/`: Supervisor checkout content preserved as a first-class top-level directory
 - `docs/`: canonical repository documentation
 - `core/backend/app/`: FastAPI app, Core control-plane services, and migration domain routers
-- `core/backend/synthia_supervisor/`: standalone runtime supervision and desired/runtime reconciliation
+- `core/backend/hexe_supervisor/`: standalone runtime supervision and desired/runtime reconciliation
 - `core/frontend/`: React operator UI
 - `docs/standards/Node/tomplate/`: starter modular template for creating a new Hexe node
 - `core/scripts/`: development and bootstrap helpers

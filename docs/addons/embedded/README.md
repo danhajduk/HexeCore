@@ -18,8 +18,8 @@ Status: Implemented
 
 ## See Also
 
-- [../addons/README.md](../addons/README.md)
-- [../addons/addon-platform.md](../addons/addon-platform.md)
+- [../README.md](../README.md)
+- [../addon-platform.md](../addon-platform.md)
 - [../../core/frontend/frontend-and-ui.md](../../core/frontend/frontend-and-ui.md)
 - [../../nodes/README.md](../../nodes/README.md)
 - [../standalone-archive/README.md](../standalone-archive/README.md)

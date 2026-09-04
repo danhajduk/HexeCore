@@ -86,4 +86,4 @@ The canonical reserved-prefix list also includes `hexe/#` and `$SYS/#`.
 
 - [mqtt-platform.md](./mqtt-platform.md)
 - [notifications.md](./notifications.md)
-- [../fastapi/auth-and-identity.md](../fastapi/auth-and-identity.md)
+- [../core/api/auth-and-identity.md](../core/api/auth-and-identity.md)

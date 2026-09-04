@@ -26,8 +26,8 @@ Current implemented behavior is:
 
 This is implemented in:
 
-- [backend/app/api/system.py](/home/dan/Projects/Hexe/backend/app/api/system.py)
-- [backend/app/system/onboarding/node_budgeting.py](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py)
+- [backend/app/api/system.py](../../core/backend/app/api/system.py)
+- [backend/app/system/onboarding/node_budgeting.py](../../core/backend/app/system/onboarding/node_budgeting.py)
 
 ## Problem
 
@@ -131,5 +131,5 @@ Requested addition:
 
 ## Related Requests
 
-- [feature-request-probation-grants-and-provider-grant-updates.md](/home/dan/Projects/Hexe/docs/core/feature-request-probation-grants-and-provider-grant-updates.md)
-- [node-budget-assignment-flow.md](/home/dan/Projects/Hexe/docs/core/node-budget-assignment-flow.md)
+- [feature-request-probation-grants-and-provider-grant-updates.md](./feature-request-probation-grants-and-provider-grant-updates.md)
+- [node-budget-assignment-flow.md](./node-budget-assignment-flow.md)

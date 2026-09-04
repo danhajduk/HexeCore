@@ -27,7 +27,9 @@ Repository health check from the Core checkout:
 python tools/check_repo_health.py
 ```
 
-This verifies Core/Supervisor mirror drift, environment docs, OpenAPI snapshot drift, and targeted backend guard tests without requiring other nodes.
+This verifies Core/Supervisor mirror drift, active Markdown links, environment
+docs, OpenAPI snapshot drift, and targeted backend guard tests without requiring
+other nodes.
 
 If local ignored artifacts make the checkout hard to inspect, report them first:
 
@@ -142,7 +144,7 @@ Troubleshooting checklist:
 
 - [MQTT Platform](./mqtt/mqtt-platform.md)
 - [Runtime and Supervision](./supervisor/runtime-and-supervision.md)
-- [API Reference](./fastapi/api-reference.md)
+- [API Reference](./core/api/api-reference.md)
 - [Node Onboarding API Contract](./nodes/node-onboarding-api-contract.md)
 - [Node Onboarding Migration Guide](./nodes/node-onboarding-migration-guide.md)
 - [Document Index](./index.md)

@@ -281,6 +281,6 @@ Expected observable results:
 ## See Also
 
 - [MQTT Platform](./mqtt-platform.md)
-- [Core Platform](../fastapi/core-platform.md)
-- [API Reference](../fastapi/api-reference.md)
+- [Core Platform](../core/api/core-platform.md)
+- [API Reference](../core/api/api-reference.md)
 - [Development Guide](../development-guide.md)

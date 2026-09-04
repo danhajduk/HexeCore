@@ -30,5 +30,5 @@ Status: Implemented
 
 ## See Also
 
-- [../fastapi/core-platform.md](../fastapi/core-platform.md)
+- [../core/api/core-platform.md](../core/api/core-platform.md)
 - [../supervisor/runtime-and-supervision.md](../supervisor/runtime-and-supervision.md)

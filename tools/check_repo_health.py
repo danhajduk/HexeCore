@@ -28,6 +28,7 @@ def _python_for(root: Path) -> str:
 def _commands(*, include_backend_tests: bool) -> list[HealthCommand]:
     commands = [
         HealthCommand("mirror drift guard", [sys.executable, "tools/check_mirror_drift.py"]),
+        HealthCommand("Markdown links", [sys.executable, "tools/check_markdown_links.py"]),
         HealthCommand("environment registry", [sys.executable, "tools/check_env_registry.py", "--check-docs"]),
         HealthCommand("OpenAPI snapshot", [sys.executable, "tools/update_openapi_snapshot.py", "--check"]),
     ]

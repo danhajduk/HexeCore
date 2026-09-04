@@ -131,8 +131,8 @@ This request builds on earlier identified gaps:
 
 Related tracked work:
 
-- [feature-request-service-node-daily-budget-reporting.md](/home/dan/Projects/Hexe/docs/core/feature-request-service-node-daily-budget-reporting.md)
-- [node-budget-assignment-flow.md](/home/dan/Projects/Hexe/docs/core/node-budget-assignment-flow.md)
+- [feature-request-service-node-daily-budget-reporting.md](./feature-request-service-node-daily-budget-reporting.md)
+- [node-budget-assignment-flow.md](./node-budget-assignment-flow.md)
 
 ## Suggested Acceptance Criteria
 

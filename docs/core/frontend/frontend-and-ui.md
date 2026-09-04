@@ -120,6 +120,6 @@ Status: Implemented
 ## See Also
 
 - [API Reference](../api/api-reference.md)
-- [Addon Platform](../addons/addon-platform.md)
-- [MQTT Platform](../mqtt/mqtt-platform.md)
-- [Operators Guide](../operators-guide.md)
+- [Addon Platform](../../addons/addon-platform.md)
+- [MQTT Platform](../../mqtt/mqtt-platform.md)
+- [Operators Guide](../../operators-guide.md)

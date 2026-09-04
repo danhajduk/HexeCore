@@ -55,8 +55,8 @@ Current behavior:
 Status: Implemented
 
 - Desired/runtime schema references:
-  - [`desired.schema.json`](./desired.schema.json)
-  - [`runtime.schema.json`](./runtime.schema.json)
+  - [`store.standalone-desired.models.schema.json`](../../json_schema/store.standalone-desired.models.schema.json)
+  - [`runtime.models.schema.json`](../../json_schema/runtime.models.schema.json)
 - Core writes desired intent for runtime realization.
 - Supervisor/runtime layers realize runtime state.
 
@@ -64,7 +64,7 @@ Status: Implemented
 
 Status: Implemented
 
-- Canonical schema: [`addon-manifest.schema.json`](./addon-manifest.schema.json)
+- Canonical schema: [`addons.models.schema.json`](../../json_schema/addons.models.schema.json)
 - Used by store/addon lifecycle validation and metadata handling.
 
 ## Authority State
@@ -78,7 +78,7 @@ Status: Implemented
 
 Status: Implemented
 
-- JSON schemas in `docs/*.schema.json` are canonical references for contract shape.
+- JSON schemas in `docs/json_schema/` are canonical references for contract shape.
 - Canonical docs reference schemas rather than duplicating full schema bodies.
 
 ## Planned
@@ -91,6 +91,6 @@ Status: Not developed
 ## See Also
 
 - [Core Platform](./core-platform.md)
-- [Runtime and Supervision](../supervisor/runtime-and-supervision.md)
-- [MQTT Platform](../mqtt/mqtt-platform.md)
-- [Addon Platform](../addons/addon-platform.md)
+- [Runtime and Supervision](../../supervisor/runtime-and-supervision.md)
+- [MQTT Platform](../../mqtt/mqtt-platform.md)
+- [Addon Platform](../../addons/addon-platform.md)

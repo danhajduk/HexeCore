@@ -6,8 +6,8 @@ Last Updated: 2026-04-04 US/Pacific
 
 Create a canonical Hexe node standard that requires the least adaptation across both currently inspected repositories:
 
-- `HexeAiNode` at `/home/dan/Projects/HexeAiNode`
-- `HexeEmail` at `/home/dan/Projects/HexeEmail`
+- `HexeAiNode`
+- `HexeEmail`
 
 This file is a task list for the standard-definition work. It is not the standard itself.
 

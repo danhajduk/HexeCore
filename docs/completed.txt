@@ -38,3 +38,4 @@ Task 997: Define the Core-published BLE pairing session contract using the Hexe 
 Task 998: Implement Core pairing-session lifecycle and Supervisor BLE host advertising for endpoint onboarding - Completed on 09/03/2026 12:29
 Task 978: Enforce provider and model governance constraints during node service resolution - Completed on 09/03/2026 18:05
 Task 979: Clarify Core versus standalone Supervisor API route ownership - Completed on 09/03/2026 18:05
+Task 980: Repair stale repository paths and broken documentation links - Completed on 09/03/2026 18:05

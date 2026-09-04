@@ -26,11 +26,11 @@ This is the concrete flow behind the high-level sequence:
 
 This behavior is currently implemented by:
 
-- [backend/app/api/system.py](/home/dan/Projects/Hexe/backend/app/api/system.py)
-- [backend/app/system/services/node_resolution.py](/home/dan/Projects/Hexe/backend/app/system/services/node_resolution.py)
-- [backend/app/system/onboarding/node_budgeting.py](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py)
-- [backend/app/nodes/models_resolution.py](/home/dan/Projects/Hexe/backend/app/nodes/models_resolution.py)
-- [backend/tests/test_node_service_resolution_api.py](/home/dan/Projects/Hexe/backend/tests/test_node_service_resolution_api.py)
+- [backend/app/api/system.py](../../core/backend/app/api/system.py)
+- [backend/app/system/services/node_resolution.py](../../core/backend/app/system/services/node_resolution.py)
+- [backend/app/system/onboarding/node_budgeting.py](../../core/backend/app/system/onboarding/node_budgeting.py)
+- [backend/app/nodes/models_resolution.py](../../core/backend/app/nodes/models_resolution.py)
+- [backend/tests/test_node_service_resolution_api.py](../../core/backend/tests/test_node_service_resolution_api.py)
 
 ## Short Answer
 
@@ -48,7 +48,7 @@ The important rule is:
 - if the selected service belongs to another provider node, Core evaluates budget on that provider node’s budget configuration
 - if no external provider node is identified, Core evaluates budget on the requesting node itself
 
-That selection rule is implemented in [backend/app/system/services/node_resolution.py#L284](/home/dan/Projects/Hexe/backend/app/system/services/node_resolution.py#L284) through [backend/app/system/services/node_resolution.py#L295](/home/dan/Projects/Hexe/backend/app/system/services/node_resolution.py#L295).
+That selection rule is implemented in [backend/app/system/services/node_resolution.py#L284](../../core/backend/app/system/services/node_resolution.py#L284) through [backend/app/system/services/node_resolution.py#L295](../../core/backend/app/system/services/node_resolution.py#L295).
 
 ## Main Actors
 
@@ -88,7 +88,7 @@ Depending on the candidate, the execution target may be:
 - a service registered in the service catalog
 - a node-derived candidate synthesized from trusted node declarations when no catalog candidate exists
 
-Catalog-first with node-declaration fallback is implemented in [backend/app/system/services/node_resolution.py#L329](/home/dan/Projects/Hexe/backend/app/system/services/node_resolution.py#L329) through [backend/app/system/services/node_resolution.py#L339](/home/dan/Projects/Hexe/backend/app/system/services/node_resolution.py#L339).
+Catalog-first with node-declaration fallback is implemented in [backend/app/system/services/node_resolution.py#L329](../../core/backend/app/system/services/node_resolution.py#L329) through [backend/app/system/services/node_resolution.py#L339](../../core/backend/app/system/services/node_resolution.py#L339).
 
 ## The End-To-End Sequence
 
@@ -120,11 +120,11 @@ Core -> Core: store usage under the grant owner node
 
 The node starts with `POST /api/system/nodes/services/resolve`.
 
-The route handler is implemented in [backend/app/api/system.py#L1731](/home/dan/Projects/Hexe/backend/app/api/system.py#L1731) through [backend/app/api/system.py#L1788](/home/dan/Projects/Hexe/backend/app/api/system.py#L1788).
+The route handler is implemented in [backend/app/api/system.py#L1731](../../core/backend/app/api/system.py#L1731) through [backend/app/api/system.py#L1788](../../core/backend/app/api/system.py#L1788).
 
 ### What The Node Sends
 
-The request model is `TaskExecutionResolutionRequest` in [backend/app/nodes/models_resolution.py#L8](/home/dan/Projects/Hexe/backend/app/nodes/models_resolution.py#L8).
+The request model is `TaskExecutionResolutionRequest` in [backend/app/nodes/models_resolution.py#L8](../../core/backend/app/nodes/models_resolution.py#L8).
 
 The required fields are:
 
@@ -145,7 +145,7 @@ The request model applies two important normalization rules:
 1. top-level `type` is merged into `task_context.type`
 2. if both are present and disagree, validation fails with `task_type_conflict`
 
-This is implemented in [backend/app/nodes/models_resolution.py#L33](/home/dan/Projects/Hexe/backend/app/nodes/models_resolution.py#L33) through [backend/app/nodes/models_resolution.py#L44](/home/dan/Projects/Hexe/backend/app/nodes/models_resolution.py#L44).
+This is implemented in [backend/app/nodes/models_resolution.py#L33](../../core/backend/app/nodes/models_resolution.py#L33) through [backend/app/nodes/models_resolution.py#L44](../../core/backend/app/nodes/models_resolution.py#L44).
 
 ### Canonical Task Family Rules
 
@@ -157,7 +157,7 @@ Examples rejected by validation:
 - `task.summarization.email` when `content_type=email`
 - `task.summarization.email` when `type=email`
 
-This is implemented in [backend/app/nodes/models_resolution.py#L46](/home/dan/Projects/Hexe/backend/app/nodes/models_resolution.py#L46) through [backend/app/nodes/models_resolution.py#L58](/home/dan/Projects/Hexe/backend/app/nodes/models_resolution.py#L58), with coverage in [backend/tests/test_node_service_resolution_api.py](/home/dan/Projects/Hexe/backend/tests/test_node_service_resolution_api.py).
+This is implemented in [backend/app/nodes/models_resolution.py#L46](../../core/backend/app/nodes/models_resolution.py#L46) through [backend/app/nodes/models_resolution.py#L58](../../core/backend/app/nodes/models_resolution.py#L58), with coverage in [backend/tests/test_node_service_resolution_api.py](../../core/backend/tests/test_node_service_resolution_api.py).
 
 ## Phase 2: Core Admission Checks Before Budget Assignment
 
@@ -174,19 +174,19 @@ Before Core even tries to assign a budget, the resolve route checks:
 - governance freshness must not be `outdated`
 - a governance bundle must already exist
 
-These checks are implemented in [backend/app/api/system.py#L1737](/home/dan/Projects/Hexe/backend/app/api/system.py#L1737) through [backend/app/api/system.py#L1759](/home/dan/Projects/Hexe/backend/app/api/system.py#L1759).
+These checks are implemented in [backend/app/api/system.py#L1737](../../core/backend/app/api/system.py#L1737) through [backend/app/api/system.py#L1759](../../core/backend/app/api/system.py#L1759).
 
 ### Governance Freshness Block
 
 If governance freshness is `outdated`, Core rejects new resolution and authorization requests with HTTP `409` and `error=node_governance_outdated`.
 
-That block is enforced by `_reject_if_outdated_for_new_contracts(...)` in [backend/app/api/system.py#L644](/home/dan/Projects/Hexe/backend/app/api/system.py#L644) through [backend/app/api/system.py#L655](/home/dan/Projects/Hexe/backend/app/api/system.py#L655).
+That block is enforced by `_reject_if_outdated_for_new_contracts(...)` in [backend/app/api/system.py#L644](../../core/backend/app/api/system.py#L644) through [backend/app/api/system.py#L655](../../core/backend/app/api/system.py#L655).
 
 ## Phase 3: Candidate Discovery
 
 After admission succeeds, Core calls `NodeServiceResolutionService.resolve_for_node(...)`.
 
-That method is implemented in [backend/app/system/services/node_resolution.py](/home/dan/Projects/Hexe/backend/app/system/services/node_resolution.py).
+That method is implemented in [backend/app/system/services/node_resolution.py](../../core/backend/app/system/services/node_resolution.py).
 
 ### Candidate Sources
 
@@ -195,7 +195,7 @@ Core builds candidates from two sources:
 1. service catalog entries from the service catalog store
 2. if no catalog candidates survive filtering, synthesized candidates from trusted node declarations
 
-This fallback behavior is implemented in [backend/app/system/services/node_resolution.py#L329](/home/dan/Projects/Hexe/backend/app/system/services/node_resolution.py#L329) through [backend/app/system/services/node_resolution.py#L339](/home/dan/Projects/Hexe/backend/app/system/services/node_resolution.py#L339).
+This fallback behavior is implemented in [backend/app/system/services/node_resolution.py#L329](../../core/backend/app/system/services/node_resolution.py#L329) through [backend/app/system/services/node_resolution.py#L339](../../core/backend/app/system/services/node_resolution.py#L339).
 
 ### Candidate Filtering
 
@@ -207,7 +207,7 @@ For each candidate source, Core keeps the candidate only if all of the following
 - if `preferred_model` is given, the candidate’s model list is narrowed to that model and must remain non-empty
 - the computed budget view is not in `no_matching_grant`, `not_configured`, `revoked`, or `expired`
 
-This filtering logic is implemented in [backend/app/system/services/node_resolution.py#L261](/home/dan/Projects/Hexe/backend/app/system/services/node_resolution.py#L261) through [backend/app/system/services/node_resolution.py#L298](/home/dan/Projects/Hexe/backend/app/system/services/node_resolution.py#L298).
+This filtering logic is implemented in [backend/app/system/services/node_resolution.py#L261](../../core/backend/app/system/services/node_resolution.py#L261) through [backend/app/system/services/node_resolution.py#L298](../../core/backend/app/system/services/node_resolution.py#L298).
 
 ### Governance Constraint Verified Here
 
@@ -238,7 +238,7 @@ It first tries to determine whether the selected candidate belongs to a provider
 - model-routing registry matches
 - registered node API base URLs matched against candidate endpoint/base URL
 
-This logic is implemented in [backend/app/system/services/node_resolution.py](/home/dan/Projects/Hexe/backend/app/system/services/node_resolution.py) near `_resolve_provider_node_id(...)`.
+This logic is implemented in [backend/app/system/services/node_resolution.py](../../core/backend/app/system/services/node_resolution.py) near `_resolve_provider_node_id(...)`.
 
 ### The Budget Owner Rule
 
@@ -264,7 +264,7 @@ Here, “use that node’s budget” means:
 - use that node’s allocatable compute limits
 - select the grant that represents the allowed slice of those resources for the request
 
-That exact rule is implemented in [backend/app/system/services/node_resolution.py#L290](/home/dan/Projects/Hexe/backend/app/system/services/node_resolution.py#L290) through [backend/app/system/services/node_resolution.py#L295](/home/dan/Projects/Hexe/backend/app/system/services/node_resolution.py#L295).
+That exact rule is implemented in [backend/app/system/services/node_resolution.py#L290](../../core/backend/app/system/services/node_resolution.py#L290) through [backend/app/system/services/node_resolution.py#L295](../../core/backend/app/system/services/node_resolution.py#L295).
 
 ### What This Means Operationally
 
@@ -281,13 +281,13 @@ Case 2: delegated execution to another provider node
 - the provider node’s budget is evaluated
 - the grant id returned to the requesting node belongs to the provider node’s budget space
 
-This delegated-budget behavior is covered by [backend/tests/test_node_service_resolution_api.py](/home/dan/Projects/Hexe/backend/tests/test_node_service_resolution_api.py), specifically the test that confirms the delegating node receives a candidate whose `budget_view.budget_node_id` is the provider node.
+This delegated-budget behavior is covered by [backend/tests/test_node_service_resolution_api.py](../../core/backend/tests/test_node_service_resolution_api.py), specifically the test that confirms the delegating node receives a candidate whose `budget_view.budget_node_id` is the provider node.
 
 ## Phase 5: Grant Selection Inside The Budget Service
 
 The actual grant selection happens in `NodeBudgetService.effective_budget_view(...)`.
 
-That method is implemented in [backend/app/system/onboarding/node_budgeting.py#L856](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L856) through [backend/app/system/onboarding/node_budgeting.py#L954](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L954).
+That method is implemented in [backend/app/system/onboarding/node_budgeting.py#L856](../../core/backend/app/system/onboarding/node_budgeting.py#L856) through [backend/app/system/onboarding/node_budgeting.py#L954](../../core/backend/app/system/onboarding/node_budgeting.py#L954).
 
 ### Step 1: Require Budget Configuration
 
@@ -299,7 +299,7 @@ If there is no config, it returns:
 - `admissible=false`
 - `reason=node_budget_not_configured`
 
-That happens in [backend/app/system/onboarding/node_budgeting.py#L865](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L865) through [backend/app/system/onboarding/node_budgeting.py#L879](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L879).
+That happens in [backend/app/system/onboarding/node_budgeting.py#L865](../../core/backend/app/system/onboarding/node_budgeting.py#L865) through [backend/app/system/onboarding/node_budgeting.py#L879](../../core/backend/app/system/onboarding/node_budgeting.py#L879).
 
 ### Step 2: Derive Grants
 
@@ -322,7 +322,7 @@ If a `provider` is present in the request:
 
 - Core first looks for a `scope_kind=provider` grant whose `subject_id` matches that provider
 
-That lookup is implemented in [backend/app/system/onboarding/node_budgeting.py#L883](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L883) through [backend/app/system/onboarding/node_budgeting.py#L893](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L893).
+That lookup is implemented in [backend/app/system/onboarding/node_budgeting.py#L883](../../core/backend/app/system/onboarding/node_budgeting.py#L883) through [backend/app/system/onboarding/node_budgeting.py#L893](../../core/backend/app/system/onboarding/node_budgeting.py#L893).
 
 ### Step 4: Enforce Hard Provider Slices When Configured
 
@@ -334,13 +334,13 @@ Instead it returns:
 - `admissible=false`
 - `reason=provider_budget_allocation_required`
 
-That rule is implemented in [backend/app/system/onboarding/node_budgeting.py#L894](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L894) through [backend/app/system/onboarding/node_budgeting.py#L904](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L904).
+That rule is implemented in [backend/app/system/onboarding/node_budgeting.py#L894](../../core/backend/app/system/onboarding/node_budgeting.py#L894) through [backend/app/system/onboarding/node_budgeting.py#L904](../../core/backend/app/system/onboarding/node_budgeting.py#L904).
 
 ### Step 5: Fall Back To The Node-Scoped Grant
 
 If no provider-scoped grant is selected, Core falls back to the node-scoped grant.
 
-That happens in [backend/app/system/onboarding/node_budgeting.py#L905](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L905) through [backend/app/system/onboarding/node_budgeting.py#L917](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L917).
+That happens in [backend/app/system/onboarding/node_budgeting.py#L905](../../core/backend/app/system/onboarding/node_budgeting.py#L905) through [backend/app/system/onboarding/node_budgeting.py#L917](../../core/backend/app/system/onboarding/node_budgeting.py#L917).
 
 ### Step 6: Compute Consumption And Remaining Budget
 
@@ -357,7 +357,7 @@ So the effective grant calculation is fundamentally:
 - subtract previously reported usage
 - decide whether enough allocatable resource remains to admit more work
 
-This happens in [backend/app/system/onboarding/node_budgeting.py#L919](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L919) through [backend/app/system/onboarding/node_budgeting.py#L930](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L930).
+This happens in [backend/app/system/onboarding/node_budgeting.py#L919](../../core/backend/app/system/onboarding/node_budgeting.py#L919) through [backend/app/system/onboarding/node_budgeting.py#L930](../../core/backend/app/system/onboarding/node_budgeting.py#L930).
 
 ### Step 7: Decide Admissibility
 
@@ -366,7 +366,7 @@ The selected grant is admissible only when:
 - grant `status` is `active`
 - every computed remaining limit is still greater than zero
 
-This rule is implemented in [backend/app/system/onboarding/node_budgeting.py#L931](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L931) through [backend/app/system/onboarding/node_budgeting.py#L953](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L953).
+This rule is implemented in [backend/app/system/onboarding/node_budgeting.py#L931](../../core/backend/app/system/onboarding/node_budgeting.py#L931) through [backend/app/system/onboarding/node_budgeting.py#L953](../../core/backend/app/system/onboarding/node_budgeting.py#L953).
 
 If the grant exists but remaining budget is exhausted, Core returns:
 
@@ -391,7 +391,7 @@ Each candidate may include:
 - `grant_id`
 - `budget_view`
 
-The candidate and budget view shapes are defined in [backend/app/nodes/models_resolution.py#L61](/home/dan/Projects/Hexe/backend/app/nodes/models_resolution.py#L61) through [backend/app/nodes/models_resolution.py#L101](/home/dan/Projects/Hexe/backend/app/nodes/models_resolution.py#L101).
+The candidate and budget view shapes are defined in [backend/app/nodes/models_resolution.py#L61](../../core/backend/app/nodes/models_resolution.py#L61) through [backend/app/nodes/models_resolution.py#L101](../../core/backend/app/nodes/models_resolution.py#L101).
 
 Important detail:
 
@@ -402,7 +402,7 @@ Important detail:
 
 After choosing a candidate, the node calls `POST /api/system/nodes/services/authorize`.
 
-The route handler is implemented in [backend/app/api/system.py#L1790](/home/dan/Projects/Hexe/backend/app/api/system.py#L1790) through [backend/app/api/system.py#L1874](/home/dan/Projects/Hexe/backend/app/api/system.py#L1874).
+The route handler is implemented in [backend/app/api/system.py#L1790](../../core/backend/app/api/system.py#L1790) through [backend/app/api/system.py#L1874](../../core/backend/app/api/system.py#L1874).
 
 ### Important Design Rule
 
@@ -412,7 +412,7 @@ Instead, it recomputes resolution from current state by calling `resolve_for_nod
 
 That means budget assignment is checked again at authorization time, not only at discovery time.
 
-This recomputation happens in [backend/app/api/system.py#L1819](/home/dan/Projects/Hexe/backend/app/api/system.py#L1819) through [backend/app/api/system.py#L1823](/home/dan/Projects/Hexe/backend/app/api/system.py#L1823).
+This recomputation happens in [backend/app/api/system.py#L1819](../../core/backend/app/api/system.py#L1819) through [backend/app/api/system.py#L1823](../../core/backend/app/api/system.py#L1823).
 
 ### Candidate Match Rules During Authorization
 
@@ -427,7 +427,7 @@ If no candidate matches, Core rejects the request with:
 - HTTP `403`
 - `error=service_candidate_not_authorized`
 
-This logic is implemented in [backend/app/api/system.py#L1826](/home/dan/Projects/Hexe/backend/app/api/system.py#L1826) through [backend/app/api/system.py#L1840](/home/dan/Projects/Hexe/backend/app/api/system.py#L1840).
+This logic is implemented in [backend/app/api/system.py#L1826](../../core/backend/app/api/system.py#L1826) through [backend/app/api/system.py#L1840](../../core/backend/app/api/system.py#L1840).
 
 ### Final Budget Gate
 
@@ -441,7 +441,7 @@ Otherwise Core returns:
 - HTTP `403`
 - `error=budget_not_admissible`
 
-That final gate is implemented in [backend/app/api/system.py#L1841](/home/dan/Projects/Hexe/backend/app/api/system.py#L1841) through [backend/app/api/system.py#L1842](/home/dan/Projects/Hexe/backend/app/api/system.py#L1842).
+That final gate is implemented in [backend/app/api/system.py#L1841](../../core/backend/app/api/system.py#L1841) through [backend/app/api/system.py#L1842](../../core/backend/app/api/system.py#L1842).
 
 ## Phase 8: What Core Returns On Grant
 
@@ -463,7 +463,7 @@ The token issuer uses:
 - `aud = candidate.service_id`
 - `scp = candidate.required_scopes`
 
-That token issuance happens through `_issue_service_token_for_node(...)` in [backend/app/api/system.py#L566](/home/dan/Projects/Hexe/backend/app/api/system.py#L566) through [backend/app/api/system.py#L584](/home/dan/Projects/Hexe/backend/app/api/system.py#L584), and is used by the authorize route at [backend/app/api/system.py#L1843](/home/dan/Projects/Hexe/backend/app/api/system.py#L1843) through [backend/app/api/system.py#L1847](/home/dan/Projects/Hexe/backend/app/api/system.py#L1847).
+That token issuance happens through `_issue_service_token_for_node(...)` in [backend/app/api/system.py#L566](../../core/backend/app/api/system.py#L566) through [backend/app/api/system.py#L584](../../core/backend/app/api/system.py#L584), and is used by the authorize route at [backend/app/api/system.py#L1843](../../core/backend/app/api/system.py#L1843) through [backend/app/api/system.py#L1847](../../core/backend/app/api/system.py#L1847).
 
 ### Why The Response Contains Both Token And Grant
 
@@ -493,7 +493,7 @@ The key budget-assignment rule here is that Core stores usage under the grant ow
 
 `grant_owner_node_id(...)` parses grant ids shaped like `grant:<node_id>:...`.
 
-That helper is implemented in [backend/app/system/onboarding/node_budgeting.py#L956](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L956) through [backend/app/system/onboarding/node_budgeting.py#L964](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L964).
+That helper is implemented in [backend/app/system/onboarding/node_budgeting.py#L956](../../core/backend/app/system/onboarding/node_budgeting.py#L956) through [backend/app/system/onboarding/node_budgeting.py#L964](../../core/backend/app/system/onboarding/node_budgeting.py#L964).
 
 ### How Usage Is Stored
 
@@ -503,9 +503,9 @@ When usage is reported:
 - if the reporting node is different, usage is still stored under the owner node
 - Core adds `reported_by_node_id` to metadata when reporter and owner differ
 
-This is implemented in [backend/app/system/onboarding/node_budgeting.py#L966](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L966) through [backend/app/system/onboarding/node_budgeting.py#L1008](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L1008).
+This is implemented in [backend/app/system/onboarding/node_budgeting.py#L966](../../core/backend/app/system/onboarding/node_budgeting.py#L966) through [backend/app/system/onboarding/node_budgeting.py#L1008](../../core/backend/app/system/onboarding/node_budgeting.py#L1008).
 
-This behavior is covered by the delegated-resolution test in [backend/tests/test_node_service_resolution_api.py](/home/dan/Projects/Hexe/backend/tests/test_node_service_resolution_api.py), where a delegating node reports usage and Core stores it under the provider node while preserving `reported_by_node_id`.
+This behavior is covered by the delegated-resolution test in [backend/tests/test_node_service_resolution_api.py](../../core/backend/tests/test_node_service_resolution_api.py), where a delegating node reports usage and Core stores it under the provider node while preserving `reported_by_node_id`.
 
 ## Requested Follow-Up
 
@@ -522,7 +522,7 @@ Reason for request:
 - this leaves service-node-side execution and provider-side accounting dependent on client-originated summaries
 - a service-node-originated daily report would provide an operator-facing reconciliation path and a provider-side source of truth for actual served grant usage
 
-See the tracked request in [feature-request-service-node-daily-budget-reporting.md](/home/dan/Projects/Hexe/docs/core/feature-request-service-node-daily-budget-reporting.md).
+See the tracked request in [feature-request-service-node-daily-budget-reporting.md](./feature-request-service-node-daily-budget-reporting.md).
 
 ## Grant Lifecycle
 
@@ -583,7 +583,7 @@ Grants are produced by `derive_grants(...)` from:
 - customer allocations
 - provider allocations
 
-This is implemented in [backend/app/system/onboarding/node_budgeting.py#L796](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L796) through [backend/app/system/onboarding/node_budgeting.py#L851](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L851).
+This is implemented in [backend/app/system/onboarding/node_budgeting.py#L796](../../core/backend/app/system/onboarding/node_budgeting.py#L796) through [backend/app/system/onboarding/node_budgeting.py#L851](../../core/backend/app/system/onboarding/node_budgeting.py#L851).
 
 Important detail:
 
@@ -594,7 +594,7 @@ Important detail:
 
 Derived grants are included in the node budget policy returned by `budget_policy(...)`.
 
-That happens in [backend/app/system/onboarding/node_budgeting.py#L748](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L748) through [backend/app/system/onboarding/node_budgeting.py#L794](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L794).
+That happens in [backend/app/system/onboarding/node_budgeting.py#L748](../../core/backend/app/system/onboarding/node_budgeting.py#L748) through [backend/app/system/onboarding/node_budgeting.py#L794](../../core/backend/app/system/onboarding/node_budgeting.py#L794).
 
 So a grant becomes visible to a node when:
 
@@ -605,7 +605,7 @@ So a grant becomes visible to a node when:
 
 During service resolution and authorization, Core selects one derived grant and returns its `grant_id` in the candidate/authorization payload if that grant is currently admissible.
 
-That selection happens in [backend/app/system/onboarding/node_budgeting.py#L856](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L856) through [backend/app/system/onboarding/node_budgeting.py#L954](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L954).
+That selection happens in [backend/app/system/onboarding/node_budgeting.py#L856](../../core/backend/app/system/onboarding/node_budgeting.py#L856) through [backend/app/system/onboarding/node_budgeting.py#L954](../../core/backend/app/system/onboarding/node_budgeting.py#L954).
 
 ### Stage 4: Accumulates Usage
 
@@ -618,7 +618,7 @@ Core stores usage summaries keyed by:
 - grant id
 - period window
 
-This happens in [backend/app/system/onboarding/node_budgeting.py#L966](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L966) through [backend/app/system/onboarding/node_budgeting.py#L1008](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L1008).
+This happens in [backend/app/system/onboarding/node_budgeting.py#L966](../../core/backend/app/system/onboarding/node_budgeting.py#L966) through [backend/app/system/onboarding/node_budgeting.py#L1008](../../core/backend/app/system/onboarding/node_budgeting.py#L1008).
 
 ### Stage 5: May Become Non-Admissible Before Expiry
 
@@ -648,7 +648,7 @@ When the grant record is built, Core marks it:
 - `active` if `period_end` is still in the future
 - `expired` if `period_end` is in the past or at the current time
 
-That status assignment happens in `_grant_record(...)` in [backend/app/system/onboarding/node_budgeting.py#L1505](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L1505), specifically [backend/app/system/onboarding/node_budgeting.py#L1528](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L1528).
+That status assignment happens in `_grant_record(...)` in [backend/app/system/onboarding/node_budgeting.py#L1505](../../core/backend/app/system/onboarding/node_budgeting.py#L1505), specifically [backend/app/system/onboarding/node_budgeting.py#L1528](../../core/backend/app/system/onboarding/node_budgeting.py#L1528).
 
 ### Revocation Versus Expiry
 
@@ -663,7 +663,7 @@ Revocation:
 - is currently communicated through revocation payloads and retained topics when budget policy is removed or changed
 - is not the main steady-state lifecycle stored in the derived grant list returned by `derive_grants(...)`
 
-Revocation payload generation is implemented in [backend/app/system/onboarding/node_budgeting.py#L1433](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L1433) through [backend/app/system/onboarding/node_budgeting.py#L1458](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L1458).
+Revocation payload generation is implemented in [backend/app/system/onboarding/node_budgeting.py#L1433](../../core/backend/app/system/onboarding/node_budgeting.py#L1433) through [backend/app/system/onboarding/node_budgeting.py#L1458](../../core/backend/app/system/onboarding/node_budgeting.py#L1458).
 
 ## Worked Example
 
@@ -723,10 +723,10 @@ This is the current implementation-backed answer to whether the system protects 
 
 These controls are implemented in:
 
-- [backend/app/api/system.py#L1687](/home/dan/Projects/Hexe/backend/app/api/system.py#L1687) through [backend/app/api/system.py#L1874](/home/dan/Projects/Hexe/backend/app/api/system.py#L1874)
-- [backend/app/api/system.py#L566](/home/dan/Projects/Hexe/backend/app/api/system.py#L566) through [backend/app/api/system.py#L586](/home/dan/Projects/Hexe/backend/app/api/system.py#L586)
-- [backend/app/system/auth/tokens.py#L149](/home/dan/Projects/Hexe/backend/app/system/auth/tokens.py#L149) through [backend/app/system/auth/tokens.py#L181](/home/dan/Projects/Hexe/backend/app/system/auth/tokens.py#L181)
-- [backend/app/system/onboarding/node_budgeting.py#L856](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L856) through [backend/app/system/onboarding/node_budgeting.py#L954](/home/dan/Projects/Hexe/backend/app/system/onboarding/node_budgeting.py#L954)
+- [backend/app/api/system.py#L1687](../../core/backend/app/api/system.py#L1687) through [backend/app/api/system.py#L1874](../../core/backend/app/api/system.py#L1874)
+- [backend/app/api/system.py#L566](../../core/backend/app/api/system.py#L566) through [backend/app/api/system.py#L586](../../core/backend/app/api/system.py#L586)
+- [backend/app/system/auth/tokens.py#L149](../../core/backend/app/system/auth/tokens.py#L149) through [backend/app/system/auth/tokens.py#L181](../../core/backend/app/system/auth/tokens.py#L181)
+- [backend/app/system/onboarding/node_budgeting.py#L856](../../core/backend/app/system/onboarding/node_budgeting.py#L856) through [backend/app/system/onboarding/node_budgeting.py#L954](../../core/backend/app/system/onboarding/node_budgeting.py#L954)
 
 ### Current Gaps For Abusive Clients
 
@@ -854,7 +854,7 @@ Core no longer keeps a queue-based reservation path in the budgeting subsystem; 
 
 ## See Also
 
-- [node-service-resolution-and-budgeting.md](/home/dan/Projects/Hexe/docs/core/node-service-resolution-and-budgeting.md)
-- [node-budget-management-contract.md](/home/dan/Projects/Hexe/docs/nodes/node-budget-management-contract.md)
-- [feature-request-service-node-daily-budget-reporting.md](/home/dan/Projects/Hexe/docs/core/feature-request-service-node-daily-budget-reporting.md)
-- [feature-request-probation-grants-and-provider-grant-updates.md](/home/dan/Projects/Hexe/docs/core/feature-request-probation-grants-and-provider-grant-updates.md)
+- [node-service-resolution-and-budgeting.md](./node-service-resolution-and-budgeting.md)
+- [node-budget-management-contract.md](../nodes/node-budget-management-contract.md)
+- [feature-request-service-node-daily-budget-reporting.md](./feature-request-service-node-daily-budget-reporting.md)
+- [feature-request-probation-grants-and-provider-grant-updates.md](./feature-request-probation-grants-and-provider-grant-updates.md)

@@ -291,3 +291,11 @@ Chosen fix: Rewrote ownership wording so Core owns `/api/system/supervisor*` and
 What changed: Updated architecture, Supervisor README, Core API reference, router ownership docs, and refreshed the OpenAPI path snapshot for existing BLE pairing-session routes.
 Verification: OpenAPI snapshot validation passed; route-ownership wording scan passed; mirror drift guard passed.
 ###########
+
+Task #980
+Step objective: Repair stale active documentation paths and add link validation.
+Issue cause: Active docs still had broken relative links, old `fastapi` doc folder targets, stale `/home/dan/Projects/Hexe` links, and old `synthia_supervisor` path references.
+Chosen fix: Added an active Markdown link checker, wired it into repo health, converted active links to repo-relative targets, and left migration/archive/temp docs historical.
+What changed: Updated active docs, README path names, operator health-check wording, and `tools/check_repo_health.py`.
+Verification: Markdown link check passed; raw stale active path scan passed; repo health still fails only on env registry drift scheduled for Task 982.
+###########

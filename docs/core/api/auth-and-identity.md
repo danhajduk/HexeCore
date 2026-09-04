@@ -112,7 +112,7 @@ Status: Implemented
 
 ## See Also
 
-- [MQTT Platform](../mqtt/mqtt-platform.md)
+- [MQTT Platform](../../mqtt/mqtt-platform.md)
 - [Core Platform](./core-platform.md)
 - [API Reference](./api-reference.md)
 - [Telemetry And Usage](./telemetry-and-usage.md)
