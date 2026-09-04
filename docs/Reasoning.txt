@@ -347,3 +347,11 @@ Chosen fix: Added a Core-owned Supervisor version audit loop that runs on startu
 What changed: Added mirrored audit service/tests, startup wiring, fleet metadata helper, env registry entries/examples, and Supervisor update docs.
 Verification: Focused Core/Supervisor version audit, fleet API, and Supervisor API client tests passed; repo health, env registry, mirror drift, OpenAPI snapshot, Markdown links, and py_compile checks passed.
 ###########
+
+Task #1002
+Step objective: Gate Supervisor fleet updates on current local git source.
+Issue cause: Core needed to prove its local Supervisor package source was current before any later remote auto-update trigger could safely treat it as the desired fleet source.
+Chosen fix: Added a local Supervisor source gate that resolves the package source tree, runs bounded git/fetch checks, classifies source state, runs mirror drift validation before `current`, and stores sanitized blocker metadata in scheduled version audit results.
+What changed: Added mirrored local source gate service/tests, wired gate metadata into the scheduled version audit, added env registry/example entries, and documented the advisory/blocking behavior.
+Verification: Focused Core/Supervisor local source gate, version audit, fleet API, and Supervisor API client tests passed; repo health, env registry, mirror drift, OpenAPI snapshot, Markdown links, and py_compile checks passed.
+###########

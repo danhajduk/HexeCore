@@ -9,9 +9,35 @@ Core stores reported Supervisor version, heartbeat freshness, and sanitized upda
 - `GET /api/system/supervisors` returns fleet freshness and any stored `metadata.update_status` and `metadata.version_audit`.
 - `GET /api/system/supervisors/{supervisor_id}/update/status` refreshes update capability from an online Supervisor.
 - Core runs an advisory scheduled Supervisor version audit on startup and every 10 minutes by default. The audit classifies visible Supervisors as `current`, `outdated`, `unknown`, `unreachable`, `unsupported`, or `update_running` without triggering updates.
+- Core also records `metadata.local_source_gate` for the Core-host Supervisor package source. Remote auto-update decisions must treat any non-`current` local gate as blocked.
 - Update status does not imply liveness. Freshness still comes from Supervisor registration and heartbeat timestamps.
 
 Supervisor-local status is exposed at `GET /api/supervisor/update/status` and includes reported version, install root, source path, git checkout state, updater availability, package staging/backup availability, supported update modes, and current or last update state.
+
+## Local Source Gate
+
+Before Core treats its local Supervisor package source as the desired fleet
+version, it checks the source tree resolved from
+`HEXE_SUPERVISOR_PACKAGE_SOURCE_ROOT` or the local mirrored `supervisor` tree.
+The gate runs bounded git commands for branch, `HEAD`, upstream, upstream
+commit, ahead/behind counts, dirty/untracked package contents, and optional
+fetch status. It does not pull, merge, checkout, or mutate package contents.
+
+Gate states:
+
+- `current`: clean, has upstream, zero ahead/behind, fetch succeeded when
+  enabled, and mirror drift guard passed.
+- `behind`: local source is behind upstream.
+- `ahead`: local source has commits not in upstream.
+- `diverged`: local source is both ahead and behind upstream.
+- `dirty`: package-relevant working tree changes or untracked files are present.
+- `not_git`: source root is missing or not inside a git checkout.
+- `fetch_failed`: bounded fetch failed or timed out.
+- `unknown`: upstream/counts are unavailable or mirror drift guard failed.
+
+The gate stores only safe classification fields and exit codes. It does not
+store remote URLs or raw git stderr. Remote update triggering remains blocked
+unless the gate is `current`.
 
 ## Authorization
 

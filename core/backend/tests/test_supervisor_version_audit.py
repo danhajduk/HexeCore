@@ -45,6 +45,24 @@ class _FakeAuditStore:
         self.records.append(kwargs)
 
 
+class _FakeLocalSourceGate:
+    def __init__(self, classification: str = "current", reason: str = "local_source_current") -> None:
+        self.classification = classification
+        self.reason = reason
+
+    def inspect(self) -> dict[str, object]:
+        result: dict[str, object] = {
+            "schema_version": "1",
+            "classification": self.classification,
+            "reason": self.reason,
+            "auto_update_allowed": self.classification == "current",
+            "source_root": "/tmp/repo/supervisor",
+        }
+        if self.classification != "current":
+            result["auto_update_blocker"] = self.reason
+        return result
+
+
 class TestSupervisorVersionAudit(unittest.TestCase):
     def setUp(self) -> None:
         self.tmpdir = tempfile.TemporaryDirectory()
@@ -120,6 +138,7 @@ class TestSupervisorVersionAudit(unittest.TestCase):
                 self.store,
                 local_client=_FakeLocalSupervisorClient(),
                 audit_store=audit_store,
+                local_source_gate=_FakeLocalSourceGate(),
                 timeout_s=1.0,
             ).run_once()
 
@@ -155,7 +174,11 @@ class TestSupervisorVersionAudit(unittest.TestCase):
         self._register_online_remote("host-missing-api", api_base_url=None)
 
         with patch("app.system.supervisor_version_audit.httpx.request") as request:
-            SupervisorVersionAudit(self.store, local_client=_FakeLocalSupervisorClient()).run_once()
+            SupervisorVersionAudit(
+                self.store,
+                local_client=_FakeLocalSupervisorClient(),
+                local_source_gate=_FakeLocalSourceGate(),
+            ).run_once()
 
         request.assert_not_called()
         stale_record = self.store.get("host-stale")
@@ -172,7 +195,11 @@ class TestSupervisorVersionAudit(unittest.TestCase):
             "app.system.supervisor_version_audit.httpx.request",
             return_value=httpx.Response(404, json={"detail": "not_found"}),
         ):
-            SupervisorVersionAudit(self.store, local_client=_FakeLocalSupervisorClient()).run_once()
+            SupervisorVersionAudit(
+                self.store,
+                local_client=_FakeLocalSupervisorClient(),
+                local_source_gate=_FakeLocalSourceGate(),
+            ).run_once()
 
         record = self.store.get("host-unsupported")
         self.assertEqual(record.metadata["version_audit"]["classification"], "unsupported")
@@ -182,7 +209,11 @@ class TestSupervisorVersionAudit(unittest.TestCase):
         self._register_online_remote("host-invalid")
 
         with patch("app.system.supervisor_version_audit.httpx.request", return_value=httpx.Response(200, json=[])):
-            SupervisorVersionAudit(self.store, local_client=_FakeLocalSupervisorClient()).run_once()
+            SupervisorVersionAudit(
+                self.store,
+                local_client=_FakeLocalSupervisorClient(),
+                local_source_gate=_FakeLocalSourceGate(),
+            ).run_once()
 
         record = self.store.get("host-invalid")
         self.assertEqual(record.metadata["version_audit"]["classification"], "unknown")
@@ -194,6 +225,7 @@ class TestSupervisorVersionAudit(unittest.TestCase):
             state=SimpleNamespace(
                 supervisor_fleet_store=self.store,
                 supervisor_client=_FakeLocalSupervisorClient(),
+                supervisor_local_source_gate=_FakeLocalSourceGate(),
                 audit_store=_FakeAuditStore(),
             )
         )
@@ -213,6 +245,36 @@ class TestSupervisorVersionAudit(unittest.TestCase):
         local = self.store.get("local-core-supervisor")
         self.assertEqual(local.metadata["version_audit"]["classification"], "current")
         self.assertEqual(sleeps, [600.0])
+
+    def test_audit_blocks_remote_currentness_when_local_source_gate_not_current(self) -> None:
+        self._register_local()
+        self._register_online_remote("host-remote")
+
+        with patch(
+            "app.system.supervisor_version_audit.httpx.request",
+            return_value=httpx.Response(
+                200,
+                json={
+                    "supervisor_id": "host-remote",
+                    "reported_version": "0.6.0",
+                    "supported_modes": ["core_host"],
+                    "update_state": "idle",
+                    "git": {"local_sha": "abc123", "behind": 0, "update_available": False},
+                },
+            ),
+        ):
+            result = SupervisorVersionAudit(
+                self.store,
+                local_client=_FakeLocalSupervisorClient(),
+                local_source_gate=_FakeLocalSourceGate("behind", "local_behind_upstream"),
+            ).run_once()
+
+        self.assertEqual(result["local_source_gate"]["classification"], "behind")
+        remote = self.store.get("host-remote")
+        self.assertEqual(remote.metadata["local_source_gate"]["classification"], "behind")
+        self.assertEqual(remote.metadata["version_audit"]["classification"], "unknown")
+        self.assertEqual(remote.metadata["version_audit"]["reason"], "local_source_not_current")
+        self.assertEqual(remote.metadata["version_audit"]["auto_update_blocker"], "local_behind_upstream")
 
 
 if __name__ == "__main__":

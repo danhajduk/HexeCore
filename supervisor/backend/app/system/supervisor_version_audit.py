@@ -9,6 +9,7 @@ from typing import Any
 
 import httpx
 
+from app.system.supervisor_local_source import SupervisorLocalSourceGate
 from app.system.supervisors import (
     SupervisorFleetRecord,
     SupervisorFleetStore,
@@ -59,6 +60,7 @@ class SupervisorVersionAuditConfig:
 class SupervisorVersionReference:
     reported_version: str | None = None
     source_commit: str | None = None
+    local_source_gate: dict[str, Any] | None = None
 
 
 class SupervisorVersionAudit:
@@ -68,22 +70,37 @@ class SupervisorVersionAudit:
         *,
         local_client: object | None = None,
         audit_store: object | None = None,
+        local_source_gate: SupervisorLocalSourceGate | None = None,
         timeout_s: float | None = None,
     ) -> None:
         self.registry = registry
         self.local_client = local_client
         self.audit_store = audit_store
+        self.local_source_gate = local_source_gate or SupervisorLocalSourceGate()
         self.timeout_s = timeout_s or _supervisor_history_timeout_s()
 
     def run_once(self) -> dict[str, Any]:
         started_at = _utcnow_iso()
+        local_source_gate = self.local_source_gate.inspect()
         self._record_event(
             "supervisor_version_audit_started",
-            details={"started_at": started_at},
+            details={"started_at": started_at, "local_source_gate": local_source_gate},
         )
+        if _clean_text(local_source_gate.get("classification")) != "current":
+            self._record_event(
+                "supervisor_local_source_gate_blocked",
+                status=_clean_text(local_source_gate.get("classification"), "unknown"),
+                details={
+                    "reason": local_source_gate.get("reason"),
+                    "auto_update_blocker": local_source_gate.get("auto_update_blocker"),
+                },
+            )
         records = self.registry.list(include_historical=False)
-        local_results = self._inspect_local_records([record for record in records if _is_local_supervisor_record(record)])
-        reference = self._reference_from_results(local_results)
+        local_results = self._inspect_local_records(
+            [record for record in records if _is_local_supervisor_record(record)],
+            local_source_gate=local_source_gate,
+        )
+        reference = self._reference_from_results(local_results, local_source_gate=local_source_gate)
         remote_results = [
             self._inspect_remote_record(record, reference)
             for record in self.registry.list(include_historical=False)
@@ -100,14 +117,30 @@ class SupervisorVersionAudit:
             "completed_at": _utcnow_iso(),
             "count": len(results),
             "counts": counts,
+            "local_source_gate": local_source_gate,
         }
         self._record_event("supervisor_version_audit_completed", details=completed)
         return completed
 
-    def _inspect_local_records(self, records: list[SupervisorFleetRecord]) -> list[dict[str, Any]]:
+    def _inspect_local_records(
+        self,
+        records: list[SupervisorFleetRecord],
+        *,
+        local_source_gate: dict[str, Any],
+    ) -> list[dict[str, Any]]:
         request_json = getattr(self.local_client, "request_json", None)
         if not callable(request_json):
-            return [self._store_audit_result(record, self._failure(record, "unreachable", "supervisor_client_unavailable")) for record in records]
+            return [
+                self._store_audit_result(
+                    record,
+                    self._apply_local_source_gate(
+                        self._failure(record, "unreachable", "supervisor_client_unavailable"),
+                        local_source_gate,
+                    ),
+                    local_source_gate=local_source_gate,
+                )
+                for record in records
+            ]
         if not records:
             status = self._request_local_status(request_json)
             if not isinstance(status, dict):
@@ -125,8 +158,18 @@ class SupervisorVersionAudit:
         results: list[dict[str, Any]] = []
         for record in records:
             status = self._request_local_status(request_json)
-            result = self._status_result(record, status, reference=None, source="local")
-            results.append(self._store_audit_result(record, result, update_status=status if isinstance(status, dict) else None))
+            result = self._apply_local_source_gate(
+                self._status_result(record, status, reference=None, source="local"),
+                local_source_gate,
+            )
+            results.append(
+                self._store_audit_result(
+                    record,
+                    result,
+                    update_status=status if isinstance(status, dict) else None,
+                    local_source_gate=local_source_gate,
+                )
+            )
         return results
 
     def _inspect_remote_record(self, record: SupervisorFleetRecord, reference: SupervisorVersionReference) -> dict[str, Any]:
@@ -164,9 +207,15 @@ class SupervisorVersionAudit:
             self._record_api_failure(record, result)
             return self._store_audit_result(record, result)
         result = self._status_result(record, status, reference=reference, source="remote")
+        result = self._apply_local_source_gate(result, reference.local_source_gate)
         if result.get("classification") in {"unknown", "unsupported"}:
             self._record_api_failure(record, result)
-        return self._store_audit_result(record, result, update_status=status if isinstance(status, dict) else None)
+        return self._store_audit_result(
+            record,
+            result,
+            update_status=status if isinstance(status, dict) else None,
+            local_source_gate=reference.local_source_gate,
+        )
 
     def _request_local_status(self, request_json: object) -> dict[str, Any] | None:
         try:
@@ -216,6 +265,20 @@ class SupervisorVersionAudit:
             "checked_at": _utcnow_iso(),
         }
 
+    def _apply_local_source_gate(self, result: dict[str, Any], local_source_gate: dict[str, Any] | None) -> dict[str, Any]:
+        if not local_source_gate:
+            return result
+        gated = {**result, "local_source_gate": local_source_gate}
+        if _clean_text(local_source_gate.get("classification")) == "current":
+            gated["local_source_gate_allows_remote_update"] = True
+            return gated
+        gated["local_source_gate_allows_remote_update"] = False
+        gated["auto_update_blocker"] = local_source_gate.get("auto_update_blocker") or local_source_gate.get("reason")
+        if _clean_text(gated.get("classification")) != "update_running":
+            gated["classification"] = "unknown"
+            gated["reason"] = "local_source_not_current"
+        return gated
+
     def _classify_currentness(
         self,
         status: dict[str, Any],
@@ -254,6 +317,7 @@ class SupervisorVersionAudit:
         result: dict[str, Any],
         *,
         update_status: dict[str, Any] | None = None,
+        local_source_gate: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         previous = {}
         current = self.registry.get(record.supervisor_id)
@@ -263,6 +327,7 @@ class SupervisorVersionAudit:
             record.supervisor_id,
             result,
             update_status=update_status,
+            local_source_gate=local_source_gate,
             supervisor_version=_clean_text(result.get("reported_version")) or None,
         )
         changed = _clean_text(previous.get("classification")) != _clean_text(result.get("classification"))
@@ -303,14 +368,23 @@ class SupervisorVersionAudit:
             **extra,
         }
 
-    def _reference_from_results(self, results: list[dict[str, Any]]) -> SupervisorVersionReference:
+    def _reference_from_results(
+        self,
+        results: list[dict[str, Any]],
+        *,
+        local_source_gate: dict[str, Any],
+    ) -> SupervisorVersionReference:
         for result in results:
             if _clean_text(result.get("classification")) in {"current", "update_running", "unknown", "unsupported"}:
                 return SupervisorVersionReference(
                     reported_version=_clean_text(result.get("reported_version")) or _clean_text(os.getenv("HEXE_CORE_VERSION")) or None,
                     source_commit=_clean_text(result.get("source_commit")) or None,
+                    local_source_gate=local_source_gate,
                 )
-        return SupervisorVersionReference(reported_version=_clean_text(os.getenv("HEXE_CORE_VERSION")) or None)
+        return SupervisorVersionReference(
+            reported_version=_clean_text(os.getenv("HEXE_CORE_VERSION")) or None,
+            local_source_gate=local_source_gate,
+        )
 
     @staticmethod
     def _status_commit(status: dict[str, Any]) -> str | None:
@@ -365,6 +439,7 @@ async def supervisor_version_audit_loop(app: Any, config: SupervisorVersionAudit
                     registry,
                     local_client=getattr(app.state, "supervisor_client", None),
                     audit_store=getattr(app.state, "audit_store", None),
+                    local_source_gate=getattr(app.state, "supervisor_local_source_gate", None),
                 ).run_once()
         except Exception:
             log.exception("Supervisor version audit loop failed")

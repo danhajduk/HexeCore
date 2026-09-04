@@ -733,6 +733,7 @@ class SupervisorFleetStore:
         version_audit: dict[str, Any],
         *,
         update_status: dict[str, Any] | None = None,
+        local_source_gate: dict[str, Any] | None = None,
         supervisor_version: str | None = None,
     ) -> SupervisorFleetRecord:
         record = self.get(supervisor_id)
@@ -741,6 +742,8 @@ class SupervisorFleetStore:
         metadata = {**dict(record.metadata or {}), "version_audit": _sanitize_update_payload(version_audit)}
         if update_status is not None:
             metadata["update_status"] = _sanitize_update_payload(update_status)
+        if local_source_gate is not None:
+            metadata["local_source_gate"] = _sanitize_update_payload(local_source_gate)
         record.metadata = metadata
         if _clean_text(supervisor_version):
             record.supervisor_version = _clean_text(supervisor_version)

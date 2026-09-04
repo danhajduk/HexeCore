@@ -44,3 +44,4 @@ Task 982: Extend environment registry validation for helper-read variables - Com
 Task 983: Consolidate duplicate Supervisor documentation into the root docs source of truth - Completed on 09/03/2026 18:28
 Task 984: Repair schema documentation links and ownership references - Completed on 09/03/2026 18:29
 Task 1001: Add scheduled Supervisor version inspection in Core - Completed on 09/03/2026 19:14
+Task 1002: Gate Supervisor fleet updates on current local git source - Completed on 09/03/2026 19:22

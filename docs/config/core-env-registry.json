@@ -1026,6 +1026,27 @@
       "sensitive": false
     },
     {
+      "default": "true",
+      "description": "Enables the local Supervisor package-source git gate used before remote auto-update decisions.",
+      "name": "HEXE_SUPERVISOR_LOCAL_GIT_CHECK_ENABLED",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "default": "true",
+      "description": "Allows the local Supervisor package-source git gate to run bounded git fetch before comparing upstream state.",
+      "name": "HEXE_SUPERVISOR_LOCAL_GIT_FETCH_ENABLED",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "default": "20",
+      "description": "Timeout in seconds for the bounded git fetch used by the local Supervisor package-source gate.",
+      "name": "HEXE_SUPERVISOR_LOCAL_GIT_FETCH_TIMEOUT_S",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
       "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
       "default": "INFO",
       "description": "Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_LOG_LEVEL`.",

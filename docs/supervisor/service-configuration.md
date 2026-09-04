@@ -83,10 +83,26 @@ Core-attached Supervisor through the configured local Supervisor client and
 remote trusted online Supervisors through each registered `api_base_url`.
 
 The scheduled audit stores sanitized `metadata.update_status` and
-`metadata.version_audit` snapshots in the Supervisor fleet registry. Version
-audit states are `current`, `outdated`, `unknown`, `unreachable`,
-`unsupported`, and `update_running`. This audit is advisory in Task 1001: it
-does not start remote updates. Freshness still comes from heartbeat timestamps,
+`metadata.version_audit` snapshots in the Supervisor fleet registry. Before
+treating the local source as the desired remote update source, Core checks the
+package source tree from `HEXE_SUPERVISOR_PACKAGE_SOURCE_ROOT` or the local
+mirrored `supervisor` tree. The local source gate runs bounded git checks and,
+when enabled, a bounded `git fetch`; it then classifies the source as `current`,
+`behind`, `ahead`, `diverged`, `dirty`, `not_git`, `fetch_failed`, or
+`unknown`. Core also runs the Core/Supervisor mirror drift guard before marking
+the source `current`.
+
+Local git gate settings:
+
+- `HEXE_SUPERVISOR_LOCAL_GIT_CHECK_ENABLED=true`
+- `HEXE_SUPERVISOR_LOCAL_GIT_FETCH_ENABLED=true`
+- `HEXE_SUPERVISOR_LOCAL_GIT_FETCH_TIMEOUT_S=20`
+
+Version audit states are `current`, `outdated`, `unknown`, `unreachable`,
+`unsupported`, and `update_running`. The audit does not start remote updates.
+When the local source gate is not `current`, remote version audit records keep
+their sanitized update status but surface `local_source_not_current` and an
+`auto_update_blocker` reason. Freshness still comes from heartbeat timestamps,
 so a healthy online Supervisor can be outdated and an outdated Supervisor can
 still be otherwise healthy.
 

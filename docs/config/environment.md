@@ -212,6 +212,9 @@ Sensitive values are marked in the registry and must not be logged or exposed th
 | `HEXE_SUPERVISOR_INTERVAL_S` | `unset` | no | Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_INTERVAL_S`. |
 | `HEXE_SUPERVISOR_LOCAL_AUX_UNITS` | `hexe-cloudflared.service,cloudflared.service` | no | Comma-separated auxiliary systemd units that a local Supervisor reports and may inspect. |
 | `HEXE_SUPERVISOR_LOCAL_CORE` | `false` | no | Marks the Supervisor as co-located with Core so local runtime metadata is reported. |
+| `HEXE_SUPERVISOR_LOCAL_GIT_CHECK_ENABLED` | `true` | no | Enables the local Supervisor package-source git gate used before remote auto-update decisions. |
+| `HEXE_SUPERVISOR_LOCAL_GIT_FETCH_ENABLED` | `true` | no | Allows the local Supervisor package-source git gate to run bounded git fetch before comparing upstream state. |
+| `HEXE_SUPERVISOR_LOCAL_GIT_FETCH_TIMEOUT_S` | `20` | no | Timeout in seconds for the bounded git fetch used by the local Supervisor package-source gate. |
 | `HEXE_SUPERVISOR_LOG_LEVEL` | `INFO` | no | Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_LOG_LEVEL`. |
 | `HEXE_SUPERVISOR_NAME` | `supervisor id` | no | Human-readable Supervisor name reported during install and resource reporting. |
 | `HEXE_SUPERVISOR_NODE_HEARTBEAT_OFFLINE_S` | `180` | no | Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_NODE_HEARTBEAT_OFFLINE_S`. |
