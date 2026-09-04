@@ -67,7 +67,7 @@ class TestSupervisorUpdateApi(unittest.TestCase):
     def test_status_reports_git_capability_and_update_available(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             service = SupervisorDomainService(install_root=self._install_root(tmp))
-            with patch.dict(os.environ, {"HEXE_SUPERVISOR_ID": "sup-1", "HEXE_CORE_VERSION": "0.6.2"}), patch.object(
+            with patch.dict(os.environ, {"HEXE_SUPERVISOR_ID": "sup-1", "HEXE_CORE_VERSION": "0.6.3"}), patch.object(
                 service,
                 "_run_git",
                 side_effect=self._git_result,
@@ -79,7 +79,7 @@ class TestSupervisorUpdateApi(unittest.TestCase):
                 status = service.supervisor_update_status()
 
         self.assertEqual(status.supervisor_id, "sup-1")
-        self.assertEqual(status.reported_version, "0.6.2")
+        self.assertEqual(status.reported_version, "0.6.3")
         self.assertTrue(status.source_is_git_checkout)
         self.assertEqual(status.supported_modes, ["git", "core_host"])
         self.assertEqual(status.git["behind"], 1)
@@ -91,11 +91,11 @@ class TestSupervisorUpdateApi(unittest.TestCase):
             install_root = self._install_root(tmp)
             (install_root / "config").mkdir()
             (install_root / "config" / "supervisor.json").write_text(
-                '{ "schema_version": "hexe.supervisor.config.v1", "version": "0.6.3" }\n',
+                '{ "schema_version": "hexe.supervisor.config.v1", "version": "0.6.4" }\n',
                 encoding="utf-8",
             )
             service = SupervisorDomainService(install_root=install_root)
-            with patch.dict(os.environ, {"HEXE_SUPERVISOR_ID": "sup-1", "HEXE_CORE_VERSION": "0.6.2"}), patch.object(
+            with patch.dict(os.environ, {"HEXE_SUPERVISOR_ID": "sup-1", "HEXE_CORE_VERSION": "0.6.3"}), patch.object(
                 service,
                 "_run_git",
                 side_effect=self._git_result,
@@ -106,7 +106,7 @@ class TestSupervisorUpdateApi(unittest.TestCase):
             ):
                 status = service.supervisor_update_status()
 
-        self.assertEqual(status.reported_version, "0.6.3")
+        self.assertEqual(status.reported_version, "0.6.4")
 
     def test_status_fails_closed_for_non_git_tree_and_missing_unit(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

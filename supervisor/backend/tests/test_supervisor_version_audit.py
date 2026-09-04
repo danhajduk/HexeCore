@@ -26,7 +26,7 @@ class _FakeLocalSupervisorClient:
     def __init__(self, status: dict | None = None) -> None:
         self.status = status or {
             "supervisor_id": "local-core-supervisor",
-            "reported_version": "0.6.2",
+            "reported_version": "0.6.3",
             "supported_modes": ["git", "core_host"],
             "update_state": "idle",
             "git": {"local_sha": "abc123", "update_available": False, "behind": 0},
@@ -93,7 +93,7 @@ class TestSupervisorVersionAudit(unittest.TestCase):
         self.store.register(
             SupervisorRegistrationRequest(
                 supervisor_id="local-core-supervisor",
-                supervisor_version="0.6.2",
+                supervisor_version="0.6.3",
                 transport="local",
                 metadata={"attached_to_core": True},
             )
@@ -276,7 +276,7 @@ class TestSupervisorVersionAudit(unittest.TestCase):
                 200,
                 json={
                     "supervisor_id": "host-remote",
-                    "reported_version": "0.6.2",
+                    "reported_version": "0.6.3",
                     "supported_modes": ["core_host"],
                     "update_state": "idle",
                     "git": {"local_sha": "abc123", "behind": 0, "update_available": False},
@@ -318,7 +318,7 @@ class TestSupervisorVersionAudit(unittest.TestCase):
 
     def _reference(self) -> SupervisorVersionReference:
         return SupervisorVersionReference(
-            reported_version="0.6.2",
+            reported_version="0.6.3",
             source_commit="abc123",
             local_source_gate=_FakeLocalSourceGate().inspect(),
         )

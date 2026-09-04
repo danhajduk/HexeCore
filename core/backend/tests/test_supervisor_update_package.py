@@ -30,7 +30,7 @@ class TestSupervisorUpdatePackage(unittest.TestCase):
         (root / "backend" / ".venv" / "secret.py").write_text("ignore\n", encoding="utf-8")
         (root / "backend" / "var" / "runtime.log").write_text("ignore\n", encoding="utf-8")
         (root / "config" / "supervisor.json").write_text(
-            '{ "schema_version": "hexe.supervisor.config.v1", "version": "0.6.2" }\n',
+            '{ "schema_version": "hexe.supervisor.config.v1", "version": "0.6.3" }\n',
             encoding="utf-8",
         )
         (root / "scripts" / "update.sh").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
@@ -41,7 +41,7 @@ class TestSupervisorUpdatePackage(unittest.TestCase):
 
     def test_build_package_excludes_runtime_artifacts_and_generates_checksum(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            package = build_supervisor_update_package(self._source_root(tmp), source_version="0.6.2", commit_sha="abc123")
+            package = build_supervisor_update_package(self._source_root(tmp), source_version="0.6.3", commit_sha="abc123")
 
         paths = {item["path"] for item in package.manifest["files"]}
         self.assertIn("backend/app/main.py", paths)
@@ -50,7 +50,7 @@ class TestSupervisorUpdatePackage(unittest.TestCase):
         self.assertNotIn("backend/.venv/secret.py", paths)
         self.assertNotIn("backend/var/runtime.log", paths)
         self.assertEqual(hashlib.sha256(package.archive).hexdigest(), package.archive_sha256)
-        self.assertEqual(package.manifest["source_version"], "0.6.2")
+        self.assertEqual(package.manifest["source_version"], "0.6.3")
         self.assertEqual(package.manifest["commit_sha"], "abc123")
 
     def test_decode_rejects_archive_checksum_mismatch(self) -> None:
