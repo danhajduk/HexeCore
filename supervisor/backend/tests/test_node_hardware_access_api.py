@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 
 from app.api.system import build_system_router
 from app.system.audit import AuditLogStore
+from app.system.hardware import HardwareBlePairingSessionCreateBody, HardwareBlePairingSessionService, HardwareBlePairingSessionStore
 from app.system.onboarding import NodeRegistrationsStore, NodeTrustIssuanceService, NodeTrustStore
 from app.system.onboarding.registrations import NodeRegistrationRecord
 from app.system.onboarding.trust import NodeTrustRecord
@@ -707,6 +708,24 @@ class TestNodeHardwareAccessApi(unittest.TestCase):
         self.assertEqual(repeated_session["status"], "waiting")
         self.assertEqual(sum(1 for call in calls if call["url"].endswith("/pairing-advert/start")), 2)
         self.assertEqual(sum(1 for call in calls if call["url"].endswith("/pairing-advert/status")), 1)
+
+    def test_node_ble_pairing_find_active_expires_approved_timed_out_session(self) -> None:
+        store = HardwareBlePairingSessionStore(path=Path(self.tmpdir.name) / "approved_pairing_sessions.json")
+        service = HardwareBlePairingSessionService(store, self.supervisors)
+        create_body = HardwareBlePairingSessionCreateBody(
+            adapter="hci0",
+            duration_s=300,
+            reason="test approved timeout",
+        )
+        record = service.create_session(create_body, requesting_node_id="node-1")
+        record.status = "approved"
+        record.approved_device_id = "esp-pe-1"
+        record.endpoint_identity = {"device_id": "esp-pe-1", "board_profile": "ha_voice_pe", "onboarding_session_id": record.session_id}
+        record.expires_at = "2026-01-01T00:00:00+00:00"
+        store.upsert(record)
+
+        self.assertIsNone(service.find_active_session(create_body, requesting_node_id="node-1"))
+        self.assertEqual(store.get(record.session_id).status, "expired")
 
     def test_ble_identity_uses_local_client_and_releases_lease(self) -> None:
         self._supervisor(

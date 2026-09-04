@@ -821,7 +821,7 @@ class HardwareBlePairingSessionService:
                 self._store.upsert(record)
 
     def _expire_record_if_needed(self, record: HardwareBlePairingSessionRecord) -> None:
-        if record.status in {"approved", "canceled", "consumed", "expired"}:
+        if record.status in {"canceled", "consumed", "expired"}:
             return
         try:
             expires = datetime.fromisoformat(record.expires_at.replace("Z", "+00:00"))
