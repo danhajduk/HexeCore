@@ -6,8 +6,9 @@ Remote Supervisor updates are Core-authorized but Supervisor-executed. Core can 
 
 Core stores reported Supervisor version, heartbeat freshness, and sanitized update status in the Supervisor fleet registry.
 
-- `GET /api/system/supervisors` returns fleet freshness and any stored `metadata.update_status`.
+- `GET /api/system/supervisors` returns fleet freshness and any stored `metadata.update_status` and `metadata.version_audit`.
 - `GET /api/system/supervisors/{supervisor_id}/update/status` refreshes update capability from an online Supervisor.
+- Core runs an advisory scheduled Supervisor version audit on startup and every 10 minutes by default. The audit classifies visible Supervisors as `current`, `outdated`, `unknown`, `unreachable`, `unsupported`, or `update_running` without triggering updates.
 - Update status does not imply liveness. Freshness still comes from Supervisor registration and heartbeat timestamps.
 
 Supervisor-local status is exposed at `GET /api/supervisor/update/status` and includes reported version, install root, source path, git checkout state, updater availability, package staging/backup availability, supported update modes, and current or last update state.

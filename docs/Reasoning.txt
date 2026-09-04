@@ -339,3 +339,11 @@ Chosen fix: Removed Task 999 from `docs/New_tasks.txt`, preserved the original t
 What changed: Updated task queue and task-detail dependency wording only.
 Verification: Markdown link check passed.
 ###########
+
+Task #1001
+Step objective: Add scheduled Supervisor version inspection in Core.
+Issue cause: Core could manually request Supervisor update status, but it did not automatically refresh fleet version/currentness metadata.
+Chosen fix: Added a Core-owned Supervisor version audit loop that runs on startup and every configured interval, inspects the local Supervisor client plus trusted online remote Supervisors, classifies currentness, stores sanitized metadata, and emits redacted audit events without starting updates.
+What changed: Added mirrored audit service/tests, startup wiring, fleet metadata helper, env registry entries/examples, and Supervisor update docs.
+Verification: Focused Core/Supervisor version audit, fleet API, and Supervisor API client tests passed; repo health, env registry, mirror drift, OpenAPI snapshot, Markdown links, and py_compile checks passed.
+###########

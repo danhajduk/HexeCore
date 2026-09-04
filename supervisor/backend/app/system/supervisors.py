@@ -727,6 +727,28 @@ class SupervisorFleetStore:
         self._save()
         return record
 
+    def set_version_audit_status(
+        self,
+        supervisor_id: str,
+        version_audit: dict[str, Any],
+        *,
+        update_status: dict[str, Any] | None = None,
+        supervisor_version: str | None = None,
+    ) -> SupervisorFleetRecord:
+        record = self.get(supervisor_id)
+        if record is None:
+            raise HTTPException(status_code=404, detail="supervisor_not_found")
+        metadata = {**dict(record.metadata or {}), "version_audit": _sanitize_update_payload(version_audit)}
+        if update_status is not None:
+            metadata["update_status"] = _sanitize_update_payload(update_status)
+        record.metadata = metadata
+        if _clean_text(supervisor_version):
+            record.supervisor_version = _clean_text(supervisor_version)
+        record.updated_at = _utcnow_iso()
+        self._records[record.supervisor_id] = record
+        self._save()
+        return record
+
     def verify_reporting_token(self, supervisor_id: str, token: str | None) -> bool:
         if not token:
             return False

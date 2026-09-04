@@ -1176,6 +1176,20 @@
       "sensitive": false
     },
     {
+      "default": "true",
+      "description": "Enables the Core-owned scheduled Supervisor version audit loop.",
+      "name": "HEXE_SUPERVISOR_VERSION_AUDIT_ENABLED",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
+      "default": "600",
+      "description": "Interval in seconds between scheduled Supervisor version audit runs.",
+      "name": "HEXE_SUPERVISOR_VERSION_AUDIT_INTERVAL_S",
+      "owner": "Supervisor runtime",
+      "sensitive": false
+    },
+    {
       "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
       "default": "0",
       "description": "Controls install, bootstrap, or update script behavior. Registry key: `HEXE_UPDATE_CLOUDFLARED_NATIVE`.",

@@ -109,6 +109,7 @@ from app.system.repo_status import router as repo_status_router
 from app.system.stack_health import build_stack_health_router, speed_sampler_loop
 from app.system.supervisor_status import build_supervisor_status_router
 from app.system.supervisors import SupervisorFleetStore, build_supervisors_router
+from app.system.supervisor_version_audit import supervisor_version_audit_loop
 from app.system.internal_scheduler import InternalScheduler
 from app.system.internal_scheduler_state_store import InternalSchedulerStateStore
 from app.store import CatalogCacheClient, build_store_models_router, StoreAuditLogStore, StoreSourcesStore, build_store_router
@@ -219,6 +220,7 @@ def create_app() -> FastAPI:
                 await asyncio.sleep(30.0)
 
         asyncio.create_task(addon_health_poll_loop())
+        asyncio.create_task(supervisor_version_audit_loop(app))
 
         def _load_core_runtime_overrides() -> list[dict[str, object]]:
             raw = str(os.getenv("HEXE_CORE_RUNTIME_DECLARATIONS_JSON", "")).strip()

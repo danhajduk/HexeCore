@@ -76,6 +76,20 @@ Core fleet update routes:
 - Core records `supervisor_update_status_checked`, `supervisor_update_status_failed`, `supervisor_update_requested`, and `supervisor_update_rejected` audit events when an audit store is configured. Update payloads are sanitized before storage or audit logging.
 - Core fails closed when a Supervisor is stale/offline, lacks `api_base_url`, lacks the update API, returns invalid JSON, or advertises no support for the requested update mode.
 
+Core also runs a scheduled Supervisor version audit on startup and then every
+`HEXE_SUPERVISOR_VERSION_AUDIT_INTERVAL_S` seconds, default `600`, when
+`HEXE_SUPERVISOR_VERSION_AUDIT_ENABLED=true`. The audit inspects the local
+Core-attached Supervisor through the configured local Supervisor client and
+remote trusted online Supervisors through each registered `api_base_url`.
+
+The scheduled audit stores sanitized `metadata.update_status` and
+`metadata.version_audit` snapshots in the Supervisor fleet registry. Version
+audit states are `current`, `outdated`, `unknown`, `unreachable`,
+`unsupported`, and `update_running`. This audit is advisory in Task 1001: it
+does not start remote updates. Freshness still comes from heartbeat timestamps,
+so a healthy online Supervisor can be outdated and an outdated Supervisor can
+still be otherwise healthy.
+
 Bluetooth broker routes:
 
 - `POST /api/supervisor/hardware/bluetooth/ble/status` validates a Core-issued hardware lease and returns adapter state.

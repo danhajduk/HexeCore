@@ -231,3 +231,5 @@ Sensitive values are marked in the registry and must not be logged or exposed th
 | `HEXE_SUPERVISOR_SUMMARY_CACHE_S` | `unset` | no | Controls Supervisor service identity, heartbeat windows, resource history, boot order, or host checks. Registry key: `HEXE_SUPERVISOR_SUMMARY_CACHE_S`. |
 | `HEXE_SUPERVISOR_SYSTEMD_UNIT` | `hexe-supervisor.service` | no | Systemd unit name that a local Supervisor reports and may inspect for the Supervisor worker service. |
 | `HEXE_SUPERVISOR_TRANSPORT` | `socket` | no | Transport served by the standalone Supervisor API; expected values are socket, http, or disabled. |
+| `HEXE_SUPERVISOR_VERSION_AUDIT_ENABLED` | `true` | no | Enables the Core-owned scheduled Supervisor version audit loop. |
+| `HEXE_SUPERVISOR_VERSION_AUDIT_INTERVAL_S` | `600` | no | Interval in seconds between scheduled Supervisor version audit runs. |

@@ -134,6 +134,7 @@ Status: Implemented
   - `GET /api/system/supervisors` (admin session/token required; hides long-offline remote Supervisors by default)
   - `GET /api/system/supervisors?include_historical=true` (admin session/token required; includes long-offline records marked with `visibility_state: "historical"`)
   - `GET /api/system/supervisors/{supervisor_id}` (admin session/token required)
+  - Core refreshes stored Supervisor version audit metadata on startup and every 10 minutes by default; `metadata.version_audit` is advisory and separate from freshness.
   - `GET /api/system/supervisors/{supervisor_id}/update/status` (admin session/token required; reads the Supervisor-local update status for an online local or remote Supervisor and stores a sanitized status snapshot in fleet metadata)
   - `POST /api/system/supervisors/{supervisor_id}/update/start` (admin session/token required; validates the online Supervisor's supported update modes, forwards a bounded git self-update request or builds/uploads a `core_host` Supervisor source package, and records a sanitized audit/status result)
   - `GET /api/system/supervisors/{supervisor_id}/resources/history` (admin session/token required; local or remote Supervisor host resource history)
