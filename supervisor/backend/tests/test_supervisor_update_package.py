@@ -22,12 +22,17 @@ class TestSupervisorUpdatePackage(unittest.TestCase):
         (root / "backend" / "app").mkdir(parents=True)
         (root / "backend" / ".venv").mkdir(parents=True)
         (root / "backend" / "var").mkdir(parents=True)
+        (root / "config").mkdir()
         (root / "scripts").mkdir()
         (root / "systemd" / "user").mkdir(parents=True)
         (root / "backend" / "app" / "main.py").write_text("print('ok')\n", encoding="utf-8")
         (root / "backend" / "requirements.txt").write_text("fastapi\n", encoding="utf-8")
         (root / "backend" / ".venv" / "secret.py").write_text("ignore\n", encoding="utf-8")
         (root / "backend" / "var" / "runtime.log").write_text("ignore\n", encoding="utf-8")
+        (root / "config" / "supervisor.json").write_text(
+            '{ "schema_version": "hexe.supervisor.config.v1", "version": "0.6.2" }\n',
+            encoding="utf-8",
+        )
         (root / "scripts" / "update.sh").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
         (root / "scripts" / "update.sh").chmod(0o755)
         (root / "systemd" / "user" / "hexe-supervisor.service.in").write_text("ExecStart=@INSTALL_DIR@\n", encoding="utf-8")
@@ -40,6 +45,7 @@ class TestSupervisorUpdatePackage(unittest.TestCase):
 
         paths = {item["path"] for item in package.manifest["files"]}
         self.assertIn("backend/app/main.py", paths)
+        self.assertIn("config/supervisor.json", paths)
         self.assertIn("scripts/update.sh", paths)
         self.assertNotIn("backend/.venv/secret.py", paths)
         self.assertNotIn("backend/var/runtime.log", paths)
@@ -85,6 +91,7 @@ class TestSupervisorUpdatePackage(unittest.TestCase):
             written = extract_update_package_archive(manifest, archive, destination)
 
             self.assertTrue((destination / "backend" / "app" / "main.py").exists())
+            self.assertTrue((destination / "config" / "supervisor.json").exists())
             self.assertTrue((destination / "scripts" / "update.sh").exists())
             self.assertGreaterEqual(len(written), 3)
 

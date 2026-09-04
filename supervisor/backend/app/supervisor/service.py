@@ -43,6 +43,7 @@ from app.system.stats.models import SystemStats, SystemStatsSnapshot
 from app.system.stats.service import collect_process_stats, collect_system_snapshot, collect_system_stats
 from hexe_supervisor.docker_compose import compose_down, compose_up
 
+from .config import supervisor_reported_version
 from .models import (
     HostIdentitySummary,
     HostResourceSummary,
@@ -430,8 +431,7 @@ class SupervisorDomainService:
         return raw in {"1", "true", "yes", "on"}
 
     def _supervisor_version(self) -> str | None:
-        value = str(getenv("HEXE_CORE_VERSION") or "").strip()
-        return value or None
+        return supervisor_reported_version(self._install_root())
 
     def _read_update_state(self) -> dict[str, Any]:
         path = self._update_state_path()

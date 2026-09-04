@@ -16,6 +16,7 @@ import httpx
 from fastapi import APIRouter, Header, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.supervisor.config import supervisor_reported_version
 from app.api.admin import require_admin_token
 from app.supervisor.update_package import SupervisorUpdatePackageError, build_supervisor_update_package
 
@@ -1099,7 +1100,7 @@ def build_supervisors_router(
         try:
             package = build_supervisor_update_package(
                 source_root,
-                source_version=_clean_text(os.getenv("HEXE_CORE_VERSION")) or None,
+                source_version=supervisor_reported_version(source_root) or _clean_text(os.getenv("HEXE_CORE_VERSION")) or None,
                 commit_sha=_source_commit_sha(),
                 compatibility={
                     "target_supervisor_id": record.supervisor_id,

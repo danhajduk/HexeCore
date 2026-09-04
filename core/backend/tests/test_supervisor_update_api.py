@@ -86,6 +86,28 @@ class TestSupervisorUpdateApi(unittest.TestCase):
         self.assertTrue(status.git["update_available"])
         self.assertTrue(status.package["supported"])
 
+    def test_status_reports_package_config_version_before_env(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            install_root = self._install_root(tmp)
+            (install_root / "config").mkdir()
+            (install_root / "config" / "supervisor.json").write_text(
+                '{ "schema_version": "hexe.supervisor.config.v1", "version": "0.6.3" }\n',
+                encoding="utf-8",
+            )
+            service = SupervisorDomainService(install_root=install_root)
+            with patch.dict(os.environ, {"HEXE_SUPERVISOR_ID": "sup-1", "HEXE_CORE_VERSION": "0.6.2"}), patch.object(
+                service,
+                "_run_git",
+                side_effect=self._git_result,
+            ), patch.object(
+                service,
+                "_run_systemctl_user",
+                return_value=_completed(["systemctl"], self._systemctl_show()),
+            ):
+                status = service.supervisor_update_status()
+
+        self.assertEqual(status.reported_version, "0.6.3")
+
     def test_status_fails_closed_for_non_git_tree_and_missing_unit(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             service = SupervisorDomainService(install_root=self._install_root(tmp, git=False))

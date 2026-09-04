@@ -10,6 +10,7 @@ from typing import Any
 
 import httpx
 
+from app.supervisor.config import supervisor_reported_version
 from app.supervisor.update_package import SupervisorUpdatePackageError, build_supervisor_update_package
 from app.system.supervisor_local_source import SupervisorLocalSourceGate
 from app.system.supervisors import (
@@ -324,7 +325,7 @@ class SupervisorAutoUpdateTrigger:
         try:
             package = self.package_builder(
                 source_root,
-                source_version=_clean_text(os.getenv("HEXE_CORE_VERSION")) or None,
+                source_version=supervisor_reported_version(source_root) or _clean_text(os.getenv("HEXE_CORE_VERSION")) or None,
                 commit_sha=_source_commit_sha(),
                 compatibility={
                     "target_supervisor_id": record.supervisor_id,

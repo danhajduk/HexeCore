@@ -19,7 +19,7 @@ from fastapi.responses import JSONResponse
 from app.core.env import getenv
 from app.system.runtime import StandaloneRuntimeService
 
-from .config import supervisor_api_config
+from .config import supervisor_api_config, supervisor_reported_version
 from .models import SupervisorCoreRuntimeHeartbeatRequest, SupervisorCoreRuntimeRegistrationRequest
 from .router import build_supervisor_router
 from .service import SupervisorDomainService
@@ -63,7 +63,7 @@ def _supervisor_identity() -> dict[str, str | None]:
     return {
         "supervisor_id": supervisor_id,
         "supervisor_name": _env_text("HEXE_SUPERVISOR_NAME") or supervisor_id,
-        "supervisor_version": _env_text("HEXE_CORE_VERSION", "0.1.0"),
+        "supervisor_version": supervisor_reported_version() or _env_text("HEXE_CORE_VERSION", "0.1.0"),
         "host_id": _env_text("HEXE_SUPERVISOR_HOST_ID") or hostname,
         "hostname": hostname,
         "api_base_url": _env_text("HEXE_SUPERVISOR_PUBLIC_URL") or _env_text("HEXE_SUPERVISOR_API_BASE_URL") or None,

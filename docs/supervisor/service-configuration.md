@@ -60,7 +60,7 @@ Resource history maintenance:
 
 Supervisor update routes:
 
-- `GET /api/supervisor/update/status` reports the install root, reported `HEXE_CORE_VERSION`, git checkout metadata, updater script/unit availability, supported update modes, and the current or most recent update attempt.
+- `GET /api/supervisor/update/status` reports the install root, package-controlled Supervisor version from `config/supervisor.json`, git checkout metadata, updater script/unit availability, supported update modes, and the current or most recent update attempt. If the JSON file is missing, older installs fall back to `HEXE_CORE_VERSION`.
 - `POST /api/supervisor/update/start` starts a git-based update through `systemctl --user start hexe-updater.service` when the Supervisor install root is a git checkout and the bounded updater script/unit are present.
 - The request body requires an `idempotency_key` and accepts `source_mode`. `git` uses the Supervisor-local updater unit. `core_host` requires a Core-built package with `package_manifest`, `package_archive_base64`, `package_archive_sha256`, and `package_id`.
 - The route never runs caller-supplied shell, never accepts caller-supplied filesystem paths, and stores only sanitized update metadata in `var/supervisor/update-state.json`.
@@ -75,6 +75,7 @@ Core fleet update routes:
 - `POST /api/system/supervisors/{supervisor_id}/update/start` requires an admin session or token, refreshes status first, verifies the requested `source_mode` is advertised by that Supervisor, then forwards the idempotent update request to `/api/supervisor/update/start`. For `core_host`, Core builds the package from `HEXE_SUPERVISOR_PACKAGE_SOURCE_ROOT` or the local sibling `supervisor` source tree before upload.
 - Core records `supervisor_update_status_checked`, `supervisor_update_status_failed`, `supervisor_update_requested`, and `supervisor_update_rejected` audit events when an audit store is configured. Update payloads are sanitized before storage or audit logging.
 - Core fails closed when a Supervisor is stale/offline, lacks `api_base_url`, lacks the update API, returns invalid JSON, or advertises no support for the requested update mode.
+- Core-host update packages include `config/supervisor.json`, so the update button advances the reported Supervisor version without changing host-local env files or credentials.
 
 Core also runs a scheduled Supervisor version audit on startup and then every
 `HEXE_SUPERVISOR_VERSION_AUDIT_INTERVAL_S` seconds, default `600`, when

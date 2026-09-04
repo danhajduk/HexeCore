@@ -15,7 +15,7 @@ from typing import Any
 PACKAGE_SCHEMA_VERSION = "hexe.supervisor.update_package.v1"
 PACKAGE_MANIFEST_NAME = "manifest.json"
 PACKAGE_FILES_PREFIX = "files/"
-DEFAULT_INCLUDE_ROOTS = ("backend", "scripts", "systemd", "shared", "addons")
+DEFAULT_INCLUDE_ROOTS = ("backend", "scripts", "systemd", "shared", "addons", "config")
 DEFAULT_EXCLUDED_DIRS = {
     ".git",
     ".mypy_cache",

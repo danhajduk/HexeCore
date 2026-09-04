@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 from app.core.env import getenv
 
@@ -10,6 +13,7 @@ DEFAULT_SUPERVISOR_BIND = "127.0.0.1"
 DEFAULT_SUPERVISOR_PORT = 57665
 DEFAULT_SUPERVISOR_SOCKET = "/run/hexe/supervisor.sock"
 DEFAULT_SUPERVISOR_TRANSPORT = "socket"
+SUPERVISOR_CONFIG_RELATIVE_PATH = Path("config") / "supervisor.json"
 
 
 @dataclass(frozen=True)
@@ -51,3 +55,30 @@ def supervisor_api_config() -> SupervisorApiConfig:
         port=_env_port("HEXE_SUPERVISOR_PORT", DEFAULT_SUPERVISOR_PORT),
         unix_socket=_env_text("HEXE_SUPERVISOR_SOCKET", DEFAULT_SUPERVISOR_SOCKET),
     )
+
+
+def supervisor_install_root() -> Path:
+    return Path(__file__).resolve().parents[3]
+
+
+def supervisor_package_config_path(install_root: Path | None = None) -> Path:
+    return (install_root or supervisor_install_root()) / SUPERVISOR_CONFIG_RELATIVE_PATH
+
+
+def read_supervisor_package_config(install_root: Path | None = None) -> dict[str, Any]:
+    path = supervisor_package_config_path(install_root)
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return dict(payload) if isinstance(payload, dict) else {}
+
+
+def supervisor_reported_version(install_root: Path | None = None) -> str | None:
+    payload = read_supervisor_package_config(install_root)
+    value = str(payload.get("version") or "").strip()
+    if value:
+        return value
+    fallback = getenv("HEXE_CORE_VERSION")
+    fallback_text = str(fallback or "").strip()
+    return fallback_text or None
