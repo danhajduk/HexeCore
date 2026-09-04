@@ -1070,18 +1070,27 @@ Original task details:
 - Verification: Add frontend/API tests for session start, polling, found endpoint, timeout, cancellation, retry, and fallback.
 - Verification: Run frontend build/typecheck and focused backend tests.
 
+Queue cleanup disposition:
+
+- Removed from the active queue on 09/03/2026 as obsolete for the current UI
+  boundary. The onboarding UI is node-hosted, so Core should expose
+  pairing-session APIs and state while the HexeVoice node owns the operator UI
+  flow.
+- Any remaining validation belongs in Task 1000 and the matching HexeVoice
+  node/firmware work, not a Core Add Device popup implementation task.
+
 ## Task 1000
 Original task details:
-- Depends on: Tasks 997, 998, 999, and the matching HexeVoice endpoint firmware tasks.
+- Depends on: Tasks 997, 998, and the matching HexeVoice node UI/endpoint firmware tasks.
 - Goal: Validate and document the inverted BLE onboarding flow end to end.
 - Update Core and Supervisor docs with the host-advert pairing-session flow, BLE role ownership, UUID reuse decision, GATT payloads, session lifecycle, security boundaries, and operational troubleshooting.
 - Add a live-validation checklist for HA Voice PE minimal firmware:
-  - operator starts Add Endpoint
+  - operator starts Add Endpoint from the HexeVoice node-hosted UI
   - one or more Supervisors advertise the Hexe pairing session
   - endpoint discovers the advert and connects
   - endpoint writes board profile and identity
   - operator approves the BLE-reported device id
-  - UI shows the endpoint without manual BLE fields
+  - HexeVoice UI shows the endpoint without manual BLE fields
   - credentials are sent through the approved encrypted path
   - endpoint joins Wi-Fi and starts HexeVoice onboarding with the same provisioning session id and device id
   - HexeVoice approves only that matching device id/session pair

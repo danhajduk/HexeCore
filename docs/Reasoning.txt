@@ -331,3 +331,11 @@ Chosen fix: Kept current Core-owned schema links under `docs/json_schema/`, mark
 What changed: Updated Core data/state docs, schema catalog README, and standalone-addon archive schema references.
 Verification: Active Markdown link check passed; historical standalone-archive Markdown link check passed; OpenAPI snapshot validation passed.
 ###########
+
+Task #999
+Step objective: Remove obsolete Core popup task from the active queue.
+Issue cause: Task 999 assumed Core would own the Add Device/onboarding popup, but the current boundary keeps the onboarding UI on the HexeVoice node.
+Chosen fix: Removed Task 999 from `docs/New_tasks.txt`, preserved the original task details with an obsolete disposition, and updated Task 1000 to depend on node-hosted UI/firmware work instead.
+What changed: Updated task queue and task-detail dependency wording only.
+Verification: Markdown link check passed.
+###########
