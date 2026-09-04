@@ -68,6 +68,7 @@ class _PairingAdvertBackend:
         self.started: list[dict] = []
         self.stopped: list[dict] = []
         self.identity: dict | None = None
+        self.credentials: list[dict] = []
 
     def start_pairing_advert(self, *, adapter, pairing_offer, timeout_s):
         self.started.append({"adapter": dict(adapter), "pairing_offer": dict(pairing_offer), "timeout_s": timeout_s})
@@ -82,6 +83,10 @@ class _PairingAdvertBackend:
 
     def endpoint_identity(self, *, onboarding_session_id):
         return self.identity
+
+    def store_pairing_credentials(self, *, onboarding_session_id, envelope):
+        self.credentials.append({"onboarding_session_id": onboarding_session_id, "envelope": envelope})
+        return {"ok": True, "status": "queued", "onboarding_session_id": onboarding_session_id}
 
 
 class TestSupervisorBluetoothBroker(unittest.TestCase):
@@ -341,6 +346,7 @@ class TestSupervisorBluetoothBroker(unittest.TestCase):
                 "application_type": "hexe_voice",
                 "provisioning_mode": "core_published_pairing",
                 "endpoint_ephemeral_public_key": self.endpoint_public_key,
+                "pairing_nonce": "nonce-123456",
                 "supported_payload_schemas": [VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID],
                 "provisioning_state": "awaiting_credentials",
             },
@@ -578,6 +584,60 @@ class TestSupervisorBluetoothBroker(unittest.TestCase):
         self.assertEqual(decrypted["credential_payload"]["backend_host"], "core.local")
         self.assertEqual(self.service._ble_provisioning_events[-1]["event"], "provision_wifi_completed")
         self.assertNotIn("correct-password", json.dumps(self.service._ble_provisioning_events))
+
+    def test_ble_provision_wifi_queues_envelope_for_active_pairing_advert_when_addressless(self) -> None:
+        pairing_backend = _PairingAdvertBackend()
+        self.service._ble_pairing_advert_backend = pairing_backend
+        token = self._pairing_session_token(onboarding_session_id="onboard-1")
+        start = self.client.post(
+            "/api/supervisor/hardware/bluetooth/ble/pairing-advert/start",
+            json={
+                "session_token": token,
+                "adapter": "hci0",
+                "onboarding_session_id": "onboard-1",
+                "session_hint": "PE-123456",
+                "expires_at": self.provisioning_expires_at,
+                "node_profile_id": "voice",
+                "payload_schema_id": VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID,
+            },
+        )
+        self.assertEqual(start.status_code, 200, start.text)
+        identity = self.client.post(
+            "/api/supervisor/hardware/bluetooth/ble/pairing-advert/endpoint-identity",
+            json={
+                "session_token": token,
+                "adapter": "hci0",
+                "onboarding_session_id": "onboard-1",
+                "contract_version": "1.0",
+                "device_id": "voice-node-1",
+                "node_hardware_id": "A0:85:E3:F0:E1:6E",
+                "target_node_id": "voice-node-1",
+                "board_profile": "ha_voice_pe",
+                "firmware_version": "min-fw-test",
+                "application_type": "recovery",
+                "provisioning_mode": "core_governed_pairing",
+                "endpoint_ephemeral_public_key": self.endpoint_public_key,
+                "pairing_nonce": "nonce-123456",
+                "supported_payload_schemas": [VOICE_PROVISIONING_PAYLOAD_SCHEMA_ID],
+                "provisioning_state": "awaiting_credentials",
+            },
+        )
+        self.assertEqual(identity.status_code, 200, identity.text)
+        request = self._provisioning_request()
+        request["target_address"] = None
+
+        response = self.client.post("/api/supervisor/hardware/bluetooth/ble/provision-wifi", json=request)
+
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["status"], "completed")
+        self.assertIsNone(payload["target_address"])
+        self.assertEqual(pairing_backend.credentials[0]["onboarding_session_id"], "onboard-1")
+        envelope = pairing_backend.credentials[0]["envelope"]
+        decrypted = self._decrypt_envelope(envelope)
+        self.assertEqual(decrypted["credential_payload"]["wifi_password"], "correct-password")
+        self.assertNotIn("correct-password", json.dumps(payload))
 
     def _decrypt_envelope(self, envelope: dict) -> dict:
         supervisor_public_key = x25519.X25519PublicKey.from_public_bytes(_b64url_decode(envelope["supervisor_ephemeral_public_key"]))

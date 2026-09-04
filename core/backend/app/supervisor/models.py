@@ -110,6 +110,7 @@ class SupervisorBluetoothPairingEndpointIdentityRequest(SupervisorBluetoothPairi
     application_type: str = Field(..., min_length=1, max_length=80)
     provisioning_mode: str = Field(..., min_length=1, max_length=80)
     endpoint_ephemeral_public_key: str = Field(..., min_length=43, max_length=128)
+    pairing_nonce: str | None = Field(default=None, min_length=8, max_length=128)
     supported_payload_schemas: list[str] = Field(..., min_length=1)
     provisioning_state: str = Field(..., min_length=1, max_length=80)
 

@@ -130,6 +130,7 @@ class PairingCharacteristic(ServiceInterface):
         flags: list[str],
         read_value: bytes | None = None,
         identity_path: Path | None = None,
+        credential_path: Path | None = None,
     ) -> None:
         super().__init__(GATT_CHR_IFACE)
         self.path = path
@@ -138,6 +139,7 @@ class PairingCharacteristic(ServiceInterface):
         self._flags = flags
         self._read_value = read_value
         self._identity_path = identity_path
+        self._credential_path = credential_path
 
     @dbus_property(access=PropertyAccess.READ)
     def UUID(self) -> "s":
@@ -154,6 +156,14 @@ class PairingCharacteristic(ServiceInterface):
     @method()
     def ReadValue(self, options: "a{sv}") -> "ay":
         del options
+        if self._credential_path is not None:
+            if not self._credential_path.exists():
+                return json.dumps(
+                    {"status": "pending", "error": "ble_pairing_credentials_pending"},
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            return self._credential_path.read_bytes()
         return self._read_value or b""
 
     @method()
@@ -180,6 +190,7 @@ async def _run(request: dict[str, Any]) -> None:
     manufacturer_data = base64.b64decode(str(request["manufacturer_data_b64"]))
     pairing_offer = request["pairing_offer"]
     identity_path = Path(str(request["identity_path"]))
+    credential_path = Path(str(request["credential_path"]))
     timeout_s = max(1, int(request.get("timeout_s") or 300))
     onboarding_session_id = str(pairing_offer["onboarding_session_id"])
     segment = _safe_path_segment(onboarding_session_id)
@@ -189,6 +200,7 @@ async def _run(request: dict[str, Any]) -> None:
     service_path = f"{root_path}/service0"
     offer_path = f"{service_path}/char0"
     identity_path_obj = f"{service_path}/char1"
+    credential_path_obj = f"{service_path}/char2"
     pairing_offer_json = json.dumps(pairing_offer, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
     bus = await MessageBus(bus_type=BusType.SYSTEM).connect()
@@ -213,6 +225,13 @@ async def _run(request: dict[str, Any]) -> None:
         flags=["write", "write-without-response"],
         identity_path=identity_path,
     )
+    credential_char = PairingCharacteristic(
+        path=credential_path_obj,
+        uuid="7f9c0000-5f04-4d8b-9a46-7c0f7a100004",
+        service_path=service_path,
+        flags=["read"],
+        credential_path=credential_path,
+    )
     objects = {
         service_path: {
             GATT_SERVICE_IFACE: _variant_props(
@@ -229,6 +248,11 @@ async def _run(request: dict[str, Any]) -> None:
                 {"UUID": identity_char.UUID, "Service": Variant("o", service_path), "Flags": identity_char.Flags}
             )
         },
+        credential_path_obj: {
+            GATT_CHR_IFACE: _variant_props(
+                {"UUID": credential_char.UUID, "Service": Variant("o", service_path), "Flags": credential_char.Flags}
+            )
+        },
     }
     app = GattApplication(objects)
     advert = PairingAdvertisement(service_uuid, local_name, manufacturer_company_id, manufacturer_data)
@@ -236,6 +260,7 @@ async def _run(request: dict[str, Any]) -> None:
     bus.export(service_path, service)
     bus.export(offer_path, offer_char)
     bus.export(identity_path_obj, identity_char)
+    bus.export(credential_path_obj, credential_char)
     bus.export(adv_path, advert)
 
     registered_gatt = False
