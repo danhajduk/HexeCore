@@ -13,6 +13,7 @@ This folder contains Core-owned JSON schema documents for the Hexe platform.
 - Node-owned schemas that belong in node repositories.
 - Secret-value stores whose shape is not a stable public contract.
 - YAML or non-JSON configuration files.
+- Historical SSAP standalone-addon schemas archived under `docs/addons/standalone-archive/`.
 
 ## Main Groups
 
@@ -59,3 +60,6 @@ This folder contains Core-owned JSON schema documents for the Hexe platform.
 - Generated catalog files may include a `skipped_models` section when a Pydantic model contains runtime-only objects that cannot be expressed as JSON Schema.
 - Store schemas document the owned on-disk payload shape used by Core persistence code. They are intended as contract references, not migration guarantees across all historical snapshots.
 - Node capability schemas use `provided_task_families[]` for provider-side executable task families and `requested_task_families[]` for delegated-service dependencies. `declared_task_families[]` and `declared_capabilities[]` are compatibility aliases for provider-side capability.
+- The archived `desired.schema.json`, `runtime.schema.json`, and
+  `addon-manifest.schema.json` files under `docs/addons/standalone-archive/`
+  are legacy SSAP references, not current Core schema catalog entries.

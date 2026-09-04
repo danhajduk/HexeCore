@@ -321,6 +321,17 @@ Addon must:
 
 # 12. SSAP JSON Schemas
 
+Status: Archived Legacy
+
+The following inline schemas describe the historical SSAP v1 standalone-addon
+contract. The archived schema files live beside this document:
+
+- [desired.schema.json](./desired.schema.json)
+- [runtime.schema.json](./runtime.schema.json)
+
+Current Core-owned runtime/addon schemas live under
+[`docs/json_schema/`](../../json_schema/README.md).
+
 desired.schema.json
 
 {

@@ -59,6 +59,9 @@ Status: Implemented
   - [`runtime.models.schema.json`](../../json_schema/runtime.models.schema.json)
 - Core writes desired intent for runtime realization.
 - Supervisor/runtime layers realize runtime state.
+- Historical SSAP v1 standalone-addon schemas remain archived under
+  [`docs/addons/standalone-archive/`](../../addons/standalone-archive/README.md)
+  and are not the current Core-owned desired/runtime model contracts.
 
 ## Addon Manifest Model
 
@@ -80,6 +83,8 @@ Status: Implemented
 
 - JSON schemas in `docs/json_schema/` are canonical references for contract shape.
 - Canonical docs reference schemas rather than duplicating full schema bodies.
+- Historical schemas under `docs/addons/standalone-archive/` document the legacy
+  standalone-addon protocol only.
 
 ## Planned
 

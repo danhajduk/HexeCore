@@ -42,3 +42,4 @@ Task 980: Repair stale repository paths and broken documentation links - Complet
 Task 981: Generate API reference coverage from OpenAPI and document runtime proxy surfaces - Completed on 09/03/2026 18:05
 Task 982: Extend environment registry validation for helper-read variables - Completed on 09/03/2026 18:22
 Task 983: Consolidate duplicate Supervisor documentation into the root docs source of truth - Completed on 09/03/2026 18:28
+Task 984: Repair schema documentation links and ownership references - Completed on 09/03/2026 18:29

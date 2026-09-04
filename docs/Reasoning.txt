@@ -323,3 +323,11 @@ Chosen fix: Pointed the Supervisor entrypoint at root `../docs/`, documented ign
 What changed: Updated Supervisor README links, documentation map, development guide, mirror guard docs, and Markdown link checker defaults.
 Verification: Markdown link check passed; mirror drift guard passed; active tracked references now only mention `supervisor/docs/` as ignored/archive-only.
 ###########
+
+Task #984
+Step objective: Repair schema documentation links and ownership references.
+Issue cause: Current Core schema docs and historical SSAP schema docs needed a clearer boundary so legacy standalone-addon schema names were not confused with current Core-owned catalog entries.
+Chosen fix: Kept current Core-owned schema links under `docs/json_schema/`, marked SSAP desired/runtime/addon-manifest schemas as archived legacy references, and added resolving archive links.
+What changed: Updated Core data/state docs, schema catalog README, and standalone-addon archive schema references.
+Verification: Active Markdown link check passed; historical standalone-archive Markdown link check passed; OpenAPI snapshot validation passed.
+###########

@@ -19,3 +19,16 @@ Status: Partially implemented
 - [../addon-lifecycle.md](../addon-lifecycle.md)
 - [../../supervisor/runtime-and-supervision.md](../../supervisor/runtime-and-supervision.md)
 - [./architecture.md](./architecture.md)
+
+## Archived Schemas
+
+Status: Archived Legacy
+
+These files document the historical SSAP standalone-addon contract only:
+
+- [desired.schema.json](./desired.schema.json)
+- [runtime.schema.json](./runtime.schema.json)
+- [addon-manifest.schema.json](./addon-manifest.schema.json)
+
+Current Core-owned schema references live under
+[`docs/json_schema/`](../../json_schema/README.md).
