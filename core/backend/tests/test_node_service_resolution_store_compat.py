@@ -130,6 +130,50 @@ class TestNodeServiceResolutionStoreCompat(unittest.TestCase):
 
             self.assertEqual(resolved.candidates, [])
 
+    def test_resolution_prefers_endpoint_provider_ids_over_node_enabled_providers(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "node_registrations.json"
+            payload = {
+                "schema_version": "4",
+                "items": [
+                    {
+                        "node_id": "node-voice",
+                        "node_type": "voice-node",
+                        "node_name": "voice",
+                        "node_software_version": "0.9.0",
+                        "trust_status": "trusted",
+                        "provided_task_families": ["voice.tts.synthesize"],
+                        "capability_endpoints": {
+                            "voice.tts.synthesize": {
+                                "method": "POST",
+                                "path": "/api/tts/synthesize",
+                                "url": "http://127.0.0.1:9004/api/tts/synthesize",
+                                "provider_ids": ["piper"],
+                            }
+                        },
+                        "enabled_providers": ["voice", "openwakeword", "piper"],
+                        "created_at": "2026-03-11T00:00:00+00:00",
+                        "updated_at": "2026-03-11T00:00:00+00:00",
+                    }
+                ],
+                "session_to_node": {},
+            }
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            registrations = NodeRegistrationsStore(path=path)
+            service = NodeServiceResolutionService(_EmptyCatalogStore(), node_registrations_store=registrations)
+
+            resolved = asyncio.run(
+                service.resolve_for_node(
+                    request=TaskExecutionResolutionRequest(node_id="node-interaction", task_family="voice.tts.synthesize"),
+                    governance_bundle={"routing_policy_constraints": {"allowed_task_families": ["voice.tts.synthesize"]}},
+                    budget_service=_PermissiveBudgetService(),
+                )
+            )
+
+            self.assertEqual(resolved.selected_service_id, "node-service:node-voice:piper")
+            self.assertEqual([candidate.provider for candidate in resolved.candidates], ["piper"])
+            self.assertEqual(resolved.candidates[0].execution_endpoint_url, "http://127.0.0.1:9004/api/tts/synthesize")
+
 
 if __name__ == "__main__":
     unittest.main()

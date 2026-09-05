@@ -93,6 +93,10 @@ Auth: `X-Node-Trust-Token`
 Current behavior:
 
 - resolution returns service/provider candidates filtered by governance routing policy and current admissible budget state
+- node-declared `capability_endpoints[task_family].provider_ids` or
+  `provider_id` restricts provider candidates for that specific task family;
+  Core falls back to node-wide `enabled_providers` only when endpoint-specific
+  providers are absent
 - delegated service resolution evaluates admissibility against the provider node budget that owns the selected candidate
 - authorization reuses the Core service-token issuer primitives and returns a short-lived token only when the selected candidate remains admissible
 

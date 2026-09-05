@@ -67,6 +67,21 @@ def _base_url_from_endpoint(endpoint: dict[str, Any]) -> str | None:
     return f"{parsed.scheme}://{parsed.netloc}"
 
 
+def _providers_from_endpoint(endpoint: dict[str, Any]) -> list[str]:
+    raw = endpoint.get("provider_ids")
+    if raw is None:
+        raw = endpoint.get("providers")
+    if raw is None:
+        raw = endpoint.get("provider_id") or endpoint.get("provider")
+    values = raw if isinstance(raw, list) else [raw]
+    providers: list[str] = []
+    for item in values:
+        provider = _clean_text(item, lower=True)
+        if provider and provider not in providers:
+            providers.append(provider)
+    return providers
+
+
 class NodeServiceResolutionService:
     def __init__(self, catalog_store, *, node_registrations_store=None, model_routing_registry_service=None) -> None:
         self._catalog_store = catalog_store
@@ -228,7 +243,7 @@ class NodeServiceResolutionService:
                 or _clean_text(getattr(registration, "api_base_url", None))
                 or _clean_text(getattr(registration, "requested_api_base_url", None))
             )
-            providers = [
+            providers = _providers_from_endpoint(capability_endpoint) or [
                 _clean_text(item, lower=True)
                 for item in list(getattr(registration, "enabled_providers", []) or [])
                 if _clean_text(item, lower=True)
