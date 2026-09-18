@@ -6,6 +6,14 @@ Trusted nodes publish domain events directly to the shared MQTT event namespace.
 
 The canonical payload schema is `docs/json_schema/node_originated_domain_event.schema.json`. The former `core_promoted_node_domain_event.schema.json` envelope remains only as a compatibility reference.
 
+Node development tools can retrieve the current contract remotely from Core:
+
+```http
+GET /api/system/mqtt/node-domain-events/contract
+```
+
+The endpoint is read-only and does not require admin credentials. It returns the topic template, delivery requirements, example event, and canonical JSON Schema.
+
 ## Topic Model
 
 Publish each event directly to:

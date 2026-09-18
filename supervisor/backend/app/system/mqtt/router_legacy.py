@@ -14,6 +14,7 @@ from fastapi import APIRouter, Body, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.api.admin import require_admin_token
+from app.core.node_domain_events import NodeOriginatedDomainEvent
 from app.system.auth import ServiceTokenError, ServiceTokenKeyStore, validate_claims, verify_hs256
 from app.system.onboarding import NodeRegistrationsStore, NodeTrustIssuanceService
 
@@ -2109,6 +2110,36 @@ def build_mqtt_router(
             if str(item.get("event_type") or "") == "node_domain_event_promotion"
         ][: max(1, min(1000, int(limit)))]
         return {"ok": True, "items": items}
+
+    @router.get("/mqtt/node-domain-events/contract")
+    async def mqtt_node_domain_event_contract():
+        return {
+            "ok": True,
+            "contract_version": 1,
+            "topic_template": "hexe/events/<domain>/<event_name>",
+            "event_type_rule": "The topic path after hexe/events/ must equal event_type with slashes replaced by dots.",
+            "qos": 1,
+            "retain": False,
+            "maximum_payload_bytes": 65536,
+            "dedupe_field": "event_id",
+            "schema": NodeOriginatedDomainEvent.model_json_schema(),
+            "example": {
+                "topic": "hexe/events/delivery/window/upserted",
+                "payload": {
+                    "schema_version": 1,
+                    "event_id": "evt-01JEXAMPLE",
+                    "event_type": "delivery.window.upserted",
+                    "source": {
+                        "node_id": "email-node-1",
+                        "component": "email-parser",
+                        "node_type": "email-node",
+                    },
+                    "subject": {"family": "delivery", "message_id": "msg-1"},
+                    "data": {"message_id": "msg-1", "sender_domain": "doordash.com"},
+                    "occurred_at": "2026-09-18T12:00:00Z",
+                },
+            },
+        }
 
     @router.get("/mqtt/audit")
     async def mqtt_authority_audit_events(

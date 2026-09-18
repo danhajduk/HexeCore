@@ -11,6 +11,7 @@ def build_observability_router(source_router: APIRouter) -> APIRouter:
         lambda path: path_is(
             path,
             "/mqtt/observability",
+            "/mqtt/node-domain-events/contract",
             "/mqtt/node-domain-events/decisions",
             "/mqtt/audit",
         ),

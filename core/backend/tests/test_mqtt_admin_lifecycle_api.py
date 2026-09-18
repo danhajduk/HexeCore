@@ -284,6 +284,19 @@ class TestMqttAdminLifecycleApi(unittest.TestCase):
         self.assertEqual(payload["items"][0]["event_type"], "node_domain_event_promotion")
         self.assertEqual(payload["items"][0]["metadata"]["decision"], "accepted")
 
+    def test_node_domain_event_contract_is_available_without_admin_credentials(self) -> None:
+        res = self.client.get("/api/system/mqtt/node-domain-events/contract")
+
+        self.assertEqual(res.status_code, 200, res.text)
+        payload = res.json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["topic_template"], "hexe/events/<domain>/<event_name>")
+        self.assertEqual(payload["qos"], 1)
+        self.assertFalse(payload["retain"])
+        self.assertEqual(payload["dedupe_field"], "event_id")
+        self.assertIn("event_id", payload["schema"]["required"])
+        self.assertEqual(payload["example"]["payload"]["event_type"], "delivery.window.upserted")
+
     def test_principal_actions_and_generic_user_lifecycle(self) -> None:
         create = self.client.post(
             "/api/system/mqtt/generic-users",
