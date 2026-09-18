@@ -24,7 +24,7 @@ This folder contains Core-owned JSON schema documents for the Hexe platform.
   - `node_ui_manifest.schema.json`
   - `notification_*`
   - `node_originated_domain_event.schema.json`
-  - `core_promoted_node_domain_event.schema.json`
+  - `core_promoted_node_domain_event.schema.json` (legacy promotion envelope)
   - `proxied_ui_*`
 - Core model catalogs:
   - `core.notifications.models.schema.json`

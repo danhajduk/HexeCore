@@ -216,6 +216,7 @@ class NodeBudgetOverrideRequest(BaseModel):
 
 
 NODE_BOOTSTRAP_TOPIC = "hexe/bootstrap/core"
+NODE_DOMAIN_EVENTS_PUBLISH_TOPIC = "hexe/events/#"
 NODE_DOMAIN_EVENTS_SUBSCRIBE_TOPIC = "hexe/events/#"
 
 
@@ -620,7 +621,7 @@ def build_system_router(
         principal.linked_node_id = node_id
         principal.username = identity
         principal.managed_by = "node_onboarding"
-        principal.publish_topics = [topic_scope]
+        principal.publish_topics = [NODE_DOMAIN_EVENTS_PUBLISH_TOPIC, topic_scope]
         principal.subscribe_topics = [NODE_BOOTSTRAP_TOPIC, NODE_DOMAIN_EVENTS_SUBSCRIBE_TOPIC, topic_scope]
         principal.notes = "managed by node onboarding trust activation"
         principal.last_activated_at = _utcnow_iso()

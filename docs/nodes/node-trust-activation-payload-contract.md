@@ -78,7 +78,9 @@ After successful finalize+consume:
 - linked node registration trust status is promoted to `trusted`.
 - trust activation records now also persist canonical trust-state metadata used by the trust-status contract.
 - Core provisions an MQTT principal for the node with:
-  - publish scope: `hexe/nodes/<node_id>/#`
+  - publish scopes:
+    - `hexe/events/#`
+    - `hexe/nodes/<node_id>/#`
   - subscribe scopes:
     - `hexe/bootstrap/core`
     - `hexe/events/#`

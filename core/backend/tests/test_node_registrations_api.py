@@ -282,7 +282,7 @@ class TestNodeRegistrationsApi(unittest.TestCase):
         self.assertEqual(principal.principal_type, "synthia_node")
         self.assertEqual(principal.status, "active")
         self.assertEqual(principal.username, activation["operational_mqtt_identity"])
-        self.assertEqual(principal.publish_topics, [f"hexe/nodes/{node_id}/#"])
+        self.assertEqual(principal.publish_topics, ["hexe/events/#", f"hexe/nodes/{node_id}/#"])
         self.assertEqual(principal.subscribe_topics, ["hexe/bootstrap/core", "hexe/events/#", f"hexe/nodes/{node_id}/#"])
 
         credential = self.mqtt_credential_store.get_principal_credential(f"node:{node_id}")

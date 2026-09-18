@@ -21,5 +21,5 @@ Capability declaration schemas use `provided_task_families[]` for task families 
 - Capabilities and governance: `node_capability_declaration_manifest.schema.json`, `node_capability_declaration_response.schema.json`, `node_capability_profiles.store.schema.json`, `node_governance_bundles.store.schema.json`, `node_governance_status.store.schema.json`
 - Runtime and registry views: `nodes.models.schema.json`, `nodes.models-resolution.schema.json`, `supervisor.runtime-nodes.schema.json`
 - Node UI: `node_ui_manifest.schema.json`, `node_ui_card_responses.schema.json`
-- Messaging and events: `node_notification_request.schema.json`, `node_notification_result.schema.json`, `node_originated_domain_event.schema.json`, `core_promoted_node_domain_event.schema.json`, `node_telemetry_events.store.schema.json`
+- Messaging and events: `node_notification_request.schema.json`, `node_notification_result.schema.json`, `node_originated_domain_event.schema.json`, legacy `core_promoted_node_domain_event.schema.json`, `node_telemetry_events.store.schema.json`
 - Budgets: `node_budgets.store.schema.json`

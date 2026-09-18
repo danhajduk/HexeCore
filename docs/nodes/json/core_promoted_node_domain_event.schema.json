@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://hexe.local/schemas/core_promoted_node_domain_event.schema.json",
   "title": "Core Promoted Node Domain Event",
-  "description": "Core-owned MQTT event envelope for validated node-originated domain events promoted from hexe/nodes/<node_id>/events/# to hexe/events/#.",
+  "description": "Legacy Core-promoted MQTT event envelope retained for compatibility reference. New node events use node_originated_domain_event.schema.json and publish directly to hexe/events/#.",
   "type": "object",
   "additionalProperties": false,
   "required": [

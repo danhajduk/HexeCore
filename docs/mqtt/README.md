@@ -15,7 +15,7 @@ The active MQTT namespace is `hexe/...`.
 - [node-bridge-topic-grants.md](./node-bridge-topic-grants.md)
   Trusted node bridge topic request, admin approval, and node credential claim flow.
 - [node-domain-event-promotion.md](./node-domain-event-promotion.md)
-  Proposed Core bridge for validating node-originated domain events and promoting them to `hexe/events/#`.
+  Direct trusted-node publication contract for shared domain events under `hexe/events/#`, including the retired promotion path.
 - [router-ownership.md](./router-ownership.md)
   Core MQTT API route ownership boundaries and composition guardrails.
 - [../nodes/node-notification-mqtt-contract.md](../nodes/node-notification-mqtt-contract.md)

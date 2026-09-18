@@ -1,178 +1,116 @@
-# Node Domain Event Promotion
+# Node Domain Events
 
-Status: Partially implemented
+Status: Implemented
 
-Implemented in Core:
+Trusted nodes publish domain events directly to the shared MQTT event namespace. Core no longer subscribes to node-owned event topics or republishes events through the node domain event promoter.
 
-- listener service: `backend/app/core/node_domain_events.py`
-- startup wiring: `backend/app/main.py`
-- recent operator decisions: `GET /api/system/mqtt/node-domain-events/decisions`
-- accepted generic input schema reference: `docs/json_schema/node_originated_domain_event.schema.json`
-- promoted output schema reference: `docs/json_schema/core_promoted_node_domain_event.schema.json`
-
-The current implementation validates a generic node-originated event envelope in Core. The Email-node-owned schema listed below remains a node repository contract and is not present in this repository.
-
-## Purpose
-
-Trusted nodes need a way to publish machine-actionable domain events that other nodes and Core components can consume without knowing every producer node id.
-
-Nodes already own `hexe/nodes/<node_id>/#`, while `hexe/events/#` is a reserved Core/platform namespace. This document defines the proposed bridge between those two scopes:
-
-- nodes publish raw domain events under their own namespace
-- Core validates, rate-limits, redacts, deduplicates, and promotes accepted events
-- consumers subscribe to Core-owned shared event topics
+The canonical payload schema is `docs/json_schema/node_originated_domain_event.schema.json`. The former `core_promoted_node_domain_event.schema.json` envelope remains only as a compatibility reference.
 
 ## Topic Model
 
-Node-originated input topic:
-
-```text
-hexe/nodes/<node_id>/events/<domain>/<event_name>
-```
-
-Core-promoted source-preserving topic:
-
-```text
-hexe/events/nodes/<node_id>/<domain>/<event_name>
-```
-
-Core-promoted domain topic:
+Publish each event directly to:
 
 ```text
 hexe/events/<domain>/<event_name>
 ```
 
-Example delivery flow:
+The topic path after `hexe/events/` must match the dotted `event_type` in the payload.
 
 ```text
-hexe/nodes/email-node-1/events/delivery/window/upserted
-hexe/events/nodes/email-node-1/delivery/window/upserted
-hexe/events/delivery/window/upserted
+topic:      hexe/events/delivery/window/upserted
+event_type: delivery.window.upserted
 ```
 
-Consumers such as a vision node should subscribe to the Core-promoted domain topic, for example:
+Consumers subscribe by domain and do not need to know the producer node id:
 
 ```text
 hexe/events/delivery/#
 ```
 
-They should not need to know the Email node id.
+Node publishers must use QoS 1 and `retain=false`. Events represent transient facts and must not become retained state.
 
 ## ACL Policy
 
-Default trusted node ACLs permit nodes to publish only in their node-owned subtree and subscribe to their own subtree plus Core-promoted domain events:
+Trusted node principals receive these operational scopes:
 
+- publish: `hexe/events/#`
 - publish: `hexe/nodes/<node_id>/#`
-- subscribe:
-  - `hexe/bootstrap/core`
-  - `hexe/events/#`
-  - `hexe/nodes/<node_id>/#`
+- subscribe: `hexe/bootstrap/core`
+- subscribe: `hexe/events/#`
+- subscribe: `hexe/nodes/<node_id>/#`
 
-Core owns `hexe/events/#`.
+Core adds `hexe/events/#` while compiling effective access, so existing active node principals receive the direct publish scope after MQTT runtime reconciliation without credential rotation. New and replayed trust activations also persist the scope on the principal.
 
-Trusted nodes must not receive broad publish access to `hexe/events/#` by default. Nodes consume Core-promoted events from `hexe/events/#`, but publish raw events only under `hexe/nodes/<node_id>/events/#`. Direct reserved publish access may be granted only for a narrow topic and only with explicit reserved approval.
+The shared namespace is intentionally broad to keep node development simple. A node must publish only event families it owns or is explicitly designed to produce. Broker authentication identifies the publishing principal, but MQTT consumers receive the payload and topic rather than a broker-attested node id; consumers must therefore treat `source.node_id` as producer-supplied metadata.
 
-## Core Bridge Responsibilities
+## Canonical Payload
 
-Core should run a node domain event promoter that subscribes to:
-
-```text
-hexe/nodes/+/events/#
+```json
+{
+  "schema_version": 1,
+  "event_id": "evt-01J...",
+  "event_type": "delivery.window.upserted",
+  "source": {
+    "node_id": "email-node-1",
+    "component": "email-parser",
+    "node_type": "email-node"
+  },
+  "subject": {
+    "family": "delivery",
+    "message_id": "msg-1"
+  },
+  "data": {
+    "message_id": "msg-1",
+    "sender_domain": "doordash.com"
+  },
+  "occurred_at": "2026-09-18T12:00:00Z"
+}
 ```
 
-For each received message, Core should:
+Required fields are `event_id`, `event_type`, `source`, and `data`. `source.node_id` is required. Publishers should generate globally unique event ids and consumers should deduplicate by `event_id`.
 
-1. Extract `<node_id>` from the topic.
-2. Verify the MQTT principal is an active `synthia_node` linked to that node id.
-3. Reject retained messages.
-4. Validate the payload against the node-originated event schema.
-5. Verify payload `source.node_id` matches the topic node id.
-6. Enforce privacy policy and redact if needed.
-7. Enforce noisy-node policy.
-8. Deduplicate using event id, source topic, and optional subject ids.
-9. Publish accepted events to the source-preserving and domain topics.
-10. Record accept/reject/limit decisions in Core observability.
+Promotion-only fields such as `promotion_id`, `promoted_event_type`, `received_at`, `promoted_at`, `core`, `routing`, and `policy` are not part of the direct event contract.
 
-## Required Schemas
+## Publisher Responsibilities
 
-Node-originated event schema:
+Removing the Core promotion hop moves these responsibilities to node implementations:
 
-- `docs/json_schema/node_originated_domain_event.schema.json`
-- `HexeEmail/docs/schemas/email-node-domain-event.schema.json`
+1. Validate the payload against the canonical schema before publishing.
+2. Ensure `event_type` matches the MQTT topic path.
+3. Set `source.node_id` to the node's trusted identity.
+4. Keep payloads at or below 64 KiB.
+5. Remove secrets and private raw content before publication.
+6. Rate-limit noisy event producers locally.
+7. Publish with QoS 1 and `retain=false`.
 
-Core-promoted event schema:
+Allowed shared data includes stable ids, classifications, confidence values, vendor or sender domains, delivery windows, high-level statuses, and review flags.
 
-- `docs/json_schema/core_promoted_node_domain_event.schema.json`
+Do not publish raw message bodies, OAuth tokens, API keys, session cookies, verification codes, full payment or bank account numbers, unapproved full street addresses, attachments, or large HTML payloads.
 
-Core currently treats the generic node-originated schema as the local validation contract and should also accept the Email-node schema when that node-owned repository contract is available. The promoted schema is the contract for events republished under `hexe/events/#`.
+## Consumer Responsibilities
 
-## Event Payload Policy
+Consumers should:
 
-Node-originated events must be small, structured, and safe for a shared automation bus.
+- validate the canonical payload before acting
+- reject events whose `event_type` does not match the topic
+- deduplicate by `event_id`
+- apply authorization and safety checks before triggering consequential actions
+- tolerate additional payload fields for forward compatibility
 
-Allowed:
+## Migration From Promotion
 
-- stable ids: `message_id`, `record_id`, `transaction_id`, `entity_ids`
-- classification family and confidence
-- vendor, carrier, sender domain
-- delivery window timestamps
-- high-level status and review-needed flags
-- redacted domain metadata needed for automation
-
-Forbidden:
-
-- raw email body
-- OAuth tokens, refresh tokens, API keys, session cookies
-- verification codes
-- full payment numbers or bank account numbers
-- full street addresses unless Core has an explicit address-sharing policy
-- attachments or large HTML payloads
-
-Core may reject or redact events that violate policy.
-
-## Noisy Node Policy
-
-Core should track node-domain event behavior per node and per topic family.
-
-Recommended initial thresholds:
-
-- `watch`: more than 60 events/minute or more than 10 invalid events in 10 minutes
-- `limited`: more than 180 events/minute, more than 50 invalid events in 10 minutes, or more than 1 MiB/minute of event payloads
-- `blocked`: sustained limited state for 5 minutes, repeated malformed bursts after limiting, or suspected secret/raw-body leakage
-
-Recommended enforcement:
-
-- `normal`: accept valid events
-- `watch`: accept valid events and record diagnostics
-- `limited`: drop or sample non-critical events, continue accepting safety-critical events if valid
-- `blocked`: reject all node-domain event promotions until operator review or automated cooldown clears the state
-
-Core should include noisy-node decisions in observability records and expose recent decisions through an operator API.
-
-## Delivery Example
-
-Email node receives a DoorDash delivery email and publishes:
+The retired input path was:
 
 ```text
-hexe/nodes/email-node-1/events/delivery/window/upserted
+hexe/nodes/<node_id>/events/<domain>/<event_name>
 ```
 
-Core promotes it to:
+The retired Core promoter republished those messages to `hexe/events/#` using a different envelope. It is no longer wired into Core startup, which prevents duplicate direct and promoted delivery.
 
-```text
-hexe/events/delivery/window/upserted
-```
+Node repositories must change their publisher topic to `hexe/events/<domain>/<event_name>` and publish the canonical node-originated envelope. Do not dual-publish to both old and new paths unless every consumer deduplicates by `event_id`.
 
-A vision node subscribes to:
+Historical `node_domain_event_promotion` observability records and the operator decisions endpoint may remain visible, but no new promotion decisions are generated by Core.
 
-```text
-hexe/events/delivery/#
-```
+## Example Flow
 
-The vision node can then monitor the doorbell camera near the delivery window and publish its own observation under:
-
-```text
-hexe/nodes/vision-node-1/events/delivery/status_changed
-```
-
-Core promotes that observation back into the shared delivery event stream.
+An email node publishes `hexe/events/delivery/window/upserted`. A vision node subscribed to `hexe/events/delivery/#` receives it and may later publish `hexe/events/delivery/status_changed`. Both messages use the same canonical node-originated event envelope.
