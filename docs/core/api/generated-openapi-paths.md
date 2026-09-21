@@ -5,7 +5,7 @@ Status: Generated
 This file is generated from `openapi-paths.snapshot.json`.
 Do not edit path rows by hand; run `python tools/update_api_route_appendix.py --write`.
 
-Path count: 243
+Path count: 244
 
 | Path | Methods |
 | --- | --- |
@@ -117,6 +117,7 @@ Path count: 243
 | `/api/system/mqtt/node-bridge-grants/{grant_id}/credential/claim` | `POST` |
 | `/api/system/mqtt/node-bridge-grants/{grant_id}/provision` | `POST` |
 | `/api/system/mqtt/node-bridge-grants/{grant_id}/revoke` | `POST` |
+| `/api/system/mqtt/node-domain-events/contract` | `GET` |
 | `/api/system/mqtt/node-domain-events/decisions` | `GET` |
 | `/api/system/mqtt/noisy-clients` | `GET` |
 | `/api/system/mqtt/noisy-clients/{principal_id}/actions/{action}` | `POST` |
