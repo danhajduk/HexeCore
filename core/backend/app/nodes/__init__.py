@@ -11,6 +11,7 @@ from .models import (
 from .models_resolution import (
     NodeEffectiveBudgetView,
     NodeServiceAuthorizeRequest,
+    NodeServiceTokenIntrospectionRequest,
     TaskExecutionResolutionCandidate,
     TaskExecutionResolutionRequest,
     TaskExecutionResolutionResponse,
@@ -69,6 +70,7 @@ __all__ = [
     "TaskExecutionResolutionResponse",
     "NodeEffectiveBudgetView",
     "NodeServiceAuthorizeRequest",
+    "NodeServiceTokenIntrospectionRequest",
     "NODE_UI_MANIFEST_SCHEMA_VERSION",
     "NodeUiAction",
     "NodeUiActionConfirmation",

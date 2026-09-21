@@ -101,6 +101,7 @@ Status: Implemented
   - `POST /api/system/nodes/budgets/usage-summary` (trusted node token required via `X-Node-Trust-Token`; periodic usage summary by grant/period with optional provider/model/task-family metadata)
   - `POST /api/system/nodes/services/resolve` (trusted node token required via `X-Node-Trust-Token`; node-aware task-family to service/provider resolution using governance and budget policy; blocked while governance freshness is outdated)
   - `POST /api/system/nodes/services/authorize` (trusted node token required via `X-Node-Trust-Token`; short-lived service token issuance gated by resolution and effective budget; blocked while governance freshness is outdated)
+  - `POST /api/system/nodes/services/introspect` (provider node trust token required via `X-Node-Trust-Token`; validates a Core-issued service token only when its synthesized `node-service:<provider-node-id>:...` audience belongs to the authenticated provider)
   - `POST /api/system/nodes/capabilities/declaration` (trusted node token required via `X-Node-Trust-Token`)
   - `POST /api/system/nodes/providers/capabilities/report` (trusted node token required via `X-Node-Trust-Token`; provider/model capability plus service/provider/model capacity ingestion)
   - `GET /api/system/nodes/providers/routing-metadata` (admin session/token required; model cost/latency + declared capacity + node availability view)

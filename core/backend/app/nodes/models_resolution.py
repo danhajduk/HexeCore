@@ -115,3 +115,16 @@ class NodeServiceAuthorizeRequest(TaskExecutionResolutionRequest):
             return None
         cleaned = str(value).strip()
         return cleaned or None
+
+
+class NodeServiceTokenIntrospectionRequest(BaseModel):
+    token: str = Field(..., min_length=1)
+    provider_node_id: str = Field(..., min_length=1)
+
+    @field_validator("token", "provider_node_id")
+    @classmethod
+    def _clean_required(cls, value: str) -> str:
+        cleaned = str(value or "").strip()
+        if not cleaned:
+            raise ValueError("value_required")
+        return cleaned
