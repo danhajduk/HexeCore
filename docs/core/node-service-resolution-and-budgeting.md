@@ -297,45 +297,6 @@ Authorization reuses the existing Core service-token issuer primitives but gates
 
 If no candidate or no admissible grant exists, authorization is denied.
 
-## Provider Token Introspection
-
-Node-runtime providers verify Core-issued service tokens without receiving
-Core's HS256 signing keys:
-
-- `POST /api/system/nodes/services/introspect`
-- Auth: the provider node's `X-Node-Trust-Token`
-
-Request:
-
-```json
-{
-  "provider_node_id": "node-provider-123",
-  "token": "<opaque Core-issued service token>"
-}
-```
-
-Core authenticates `provider_node_id`, verifies the token signature and expiry,
-and requires its audience to begin with
-`node-service:<provider_node_id>:`. A valid owned token returns:
-
-```json
-{
-  "ok": true,
-  "active": true,
-  "subject_node_id": "node-requester-456",
-  "audience": "node-service:node-provider-123:default",
-  "scopes": ["service.execute:interaction.timer.quick_action"],
-  "issued_at": "2026-09-21T09:00:00+00:00",
-  "expires_at": "2026-09-21T09:10:00+00:00",
-  "jti": "node-node-requester-456-example"
-}
-```
-
-Malformed, unverifiable, or expired tokens return `active: false`. A trusted
-node attempting to introspect a token belonging to another provider receives
-`403 service_token_audience_not_owned`. Introspection never returns signing
-keys or the original token.
-
 ## Usage Reporting
 
 Nodes continue to report usage through the existing budget usage-summary path:

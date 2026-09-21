@@ -1,5 +1,5 @@
 {
-  "path_count": 245,
+  "path_count": 243,
   "paths": {
     "/api/addons": [
       "get"
@@ -334,9 +334,6 @@
     "/api/system/mqtt/node-bridge-grants/{grant_id}/revoke": [
       "post"
     ],
-    "/api/system/mqtt/node-domain-events/contract": [
-      "get"
-    ],
     "/api/system/mqtt/node-domain-events/decisions": [
       "get"
     ],
@@ -617,9 +614,6 @@
       "get"
     ],
     "/api/system/nodes/services/authorize": [
-      "post"
-    ],
-    "/api/system/nodes/services/introspect": [
       "post"
     ],
     "/api/system/nodes/services/resolve": [

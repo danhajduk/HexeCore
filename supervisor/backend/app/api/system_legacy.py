@@ -19,7 +19,7 @@ import httpx
 from fastapi import APIRouter, Header, HTTPException, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..nodes import NodeServiceAuthorizeRequest, NodeServiceTokenIntrospectionRequest, TaskExecutionResolutionRequest
+from ..nodes import NodeServiceAuthorizeRequest, TaskExecutionResolutionRequest
 from ..addons.registry import AddonRegistry, list_addons
 from ..system.audit import AuditLogStore
 from ..system.hardware import (
@@ -47,7 +47,7 @@ from ..system.hardware import (
     hardware_access_request_schema_payload,
     supervisor_broker_url,
 )
-from ..system.auth.tokens import ServiceTokenError, sign_hs256, validate_claims, verify_hs256
+from ..system.auth.tokens import sign_hs256
 from ..system.onboarding import (
     ALLOWED_NODE_TELEMETRY_EVENTS,
     CapabilityManifestValidationError,
@@ -2237,81 +2237,6 @@ def build_system_router(
             "token": token,
             "claims": claims,
             "resolution": candidate.model_dump(mode="json"),
-        }
-
-    @router.post("/system/nodes/services/introspect")
-    async def introspect_node_service_token(
-        body: NodeServiceTokenIntrospectionRequest,
-        request: Request,
-        x_node_trust_token: str | None = Header(default=None),
-    ):
-        provider_node_id = str(body.provider_node_id or "").strip()
-        _authenticate_trusted_node(provider_node_id, str(x_node_trust_token or "").strip())
-        if service_token_key_store is None:
-            raise HTTPException(status_code=503, detail="service_token_key_store_unavailable")
-
-        try:
-            _, payload = verify_hs256(body.token, await service_token_key_store.all_keys())
-            audience = str(payload.get("aud") or "").strip()
-            if not audience:
-                raise ServiceTokenError("claim_aud_missing")
-            claims = validate_claims(payload, audience=audience)
-        except (ServiceTokenError, TypeError, ValueError):
-            _record_audit(
-                audit_store,
-                event_type="node_service_token_introspected",
-                actor_role="node",
-                actor_id=provider_node_id,
-                details={
-                    "provider_node_id": provider_node_id,
-                    "source_ip": str(request.client.host if request.client else "unknown"),
-                    "result": "inactive",
-                },
-            )
-            return {"ok": True, "active": False}
-
-        expected_audience_prefix = f"node-service:{provider_node_id}:"
-        if not claims.aud.startswith(expected_audience_prefix):
-            _record_audit(
-                audit_store,
-                event_type="node_service_token_introspection_denied",
-                actor_role="node",
-                actor_id=provider_node_id,
-                details={
-                    "provider_node_id": provider_node_id,
-                    "audience": claims.aud,
-                    "source_ip": str(request.client.host if request.client else "unknown"),
-                    "result": "provider_audience_mismatch",
-                },
-            )
-            raise HTTPException(
-                status_code=403,
-                detail={"error": "service_token_audience_not_owned", "message": "provider node does not own token audience"},
-            )
-
-        _record_audit(
-            audit_store,
-            event_type="node_service_token_introspected",
-            actor_role="node",
-            actor_id=provider_node_id,
-            details={
-                "provider_node_id": provider_node_id,
-                "subject_node_id": claims.sub,
-                "audience": claims.aud,
-                "jti": claims.jti,
-                "source_ip": str(request.client.host if request.client else "unknown"),
-                "result": "active",
-            },
-        )
-        return {
-            "ok": True,
-            "active": True,
-            "subject_node_id": claims.sub,
-            "audience": claims.aud,
-            "scopes": list(claims.scp),
-            "issued_at": datetime.fromtimestamp(claims.iat, tz=timezone.utc).isoformat(),
-            "expires_at": datetime.fromtimestamp(claims.exp, tz=timezone.utc).isoformat(),
-            "jti": claims.jti,
         }
 
     @router.get("/system/nodes/hardware/access-requests/schema")

@@ -36,7 +36,7 @@ from app.system.onboarding.governance import NodeGovernanceService, NodeGovernan
 from app.system.onboarding.governance_status import NodeGovernanceStatusService, NodeGovernanceStatusStore
 from app.system.onboarding.provider_model_policy import ProviderModelApprovalPolicyService, ProviderModelPolicyStore
 from app.system.services import ServiceCatalogStore
-from app.system.auth import ServiceTokenKeyStore, sign_hs256
+from app.system.auth import ServiceTokenKeyStore
 from app.api import system as system_api
 from app.system.audit import AuditLogStore
 
@@ -747,94 +747,6 @@ class TestNodeServiceResolutionApi(unittest.TestCase):
         self.assertEqual(authorized.status_code, 200, authorized.text)
         auth_payload = authorized.json()
         self.assertEqual(auth_payload["resolution"]["budget_view"]["grant_scope_kind"], "node")
-
-    def test_provider_can_introspect_owned_node_service_token(self) -> None:
-        provider_node_id, provider_trust_token = self._trusted_node()
-        requester_node_id, _ = self._trusted_node()
-        key = asyncio.run(self.service_token_keys.active_key())
-        now = int(datetime.now(tz=timezone.utc).timestamp())
-        claims = {
-            "sub": requester_node_id,
-            "aud": f"node-service:{provider_node_id}:default",
-            "scp": ["service.execute:interaction.timer.quick_action"],
-            "iat": now,
-            "exp": now + 600,
-            "jti": "task-325-introspection-test",
-        }
-        token = sign_hs256(
-            {"alg": "HS256", "typ": "JWT", "kid": str(key["kid"])},
-            claims,
-            secret=str(key["secret"]),
-        )
-
-        response = self.client.post(
-            "/api/system/nodes/services/introspect",
-            headers={"X-Node-Trust-Token": provider_trust_token},
-            json={"token": token, "provider_node_id": provider_node_id},
-        )
-
-        self.assertEqual(response.status_code, 200, response.text)
-        payload = response.json()
-        self.assertTrue(payload["active"])
-        self.assertEqual(payload["subject_node_id"], requester_node_id)
-        self.assertEqual(payload["audience"], f"node-service:{provider_node_id}:default")
-        self.assertEqual(payload["scopes"], ["service.execute:interaction.timer.quick_action"])
-        self.assertEqual(payload["jti"], "task-325-introspection-test")
-        self.assertIn("issued_at", payload)
-        self.assertIn("expires_at", payload)
-
-    def test_introspection_returns_inactive_for_invalid_or_expired_token(self) -> None:
-        provider_node_id, provider_trust_token = self._trusted_node()
-        key = asyncio.run(self.service_token_keys.active_key())
-        now = int(datetime.now(tz=timezone.utc).timestamp())
-        expired = sign_hs256(
-            {"alg": "HS256", "typ": "JWT", "kid": str(key["kid"])},
-            {
-                "sub": "requester-node",
-                "aud": f"node-service:{provider_node_id}:default",
-                "scp": ["service.execute:interaction.timer.quick_action"],
-                "iat": now - 120,
-                "exp": now - 60,
-                "jti": "expired-task-325-token",
-            },
-            secret=str(key["secret"]),
-        )
-
-        for token in ("not-a-token", expired):
-            response = self.client.post(
-                "/api/system/nodes/services/introspect",
-                headers={"X-Node-Trust-Token": provider_trust_token},
-                json={"token": token, "provider_node_id": provider_node_id},
-            )
-            self.assertEqual(response.status_code, 200, response.text)
-            self.assertEqual(response.json(), {"ok": True, "active": False})
-
-    def test_introspection_denies_provider_that_does_not_own_audience(self) -> None:
-        owner_node_id, _ = self._trusted_node()
-        other_node_id, other_trust_token = self._trusted_node()
-        key = asyncio.run(self.service_token_keys.active_key())
-        now = int(datetime.now(tz=timezone.utc).timestamp())
-        token = sign_hs256(
-            {"alg": "HS256", "typ": "JWT", "kid": str(key["kid"])},
-            {
-                "sub": "requester-node",
-                "aud": f"node-service:{owner_node_id}:default",
-                "scp": ["service.execute:interaction.timer.quick_action"],
-                "iat": now,
-                "exp": now + 600,
-                "jti": "provider-ownership-test",
-            },
-            secret=str(key["secret"]),
-        )
-
-        response = self.client.post(
-            "/api/system/nodes/services/introspect",
-            headers={"X-Node-Trust-Token": other_trust_token},
-            json={"token": token, "provider_node_id": other_node_id},
-        )
-
-        self.assertEqual(response.status_code, 403, response.text)
-        self.assertEqual(response.json()["detail"]["error"], "service_token_audience_not_owned")
 
     def test_resolution_rejects_conflicting_top_level_type_and_context_type(self) -> None:
         node_id, trust_token = self._configure_node_for_resolution()
