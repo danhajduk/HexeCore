@@ -71,10 +71,10 @@ class TestNodeCapabilityManifest(unittest.TestCase):
         manifest = self._payload()
         del manifest["declared_task_families"]
         del manifest["declared_capabilities"]
-        manifest["provided_task_families"] = ["voice.tts.synthesize"]
+        manifest["provided_task_families"] = ["task.voice.tts.synthesize"]
         manifest["requested_task_families"] = ["task.chat"]
         manifest["capability_endpoints"] = {
-            "voice.tts.synthesize": {
+            "task.voice.tts.synthesize": {
                 "transport": "http",
                 "method": "POST",
                 "path": "/api/tts/synthesize",
@@ -83,17 +83,17 @@ class TestNodeCapabilityManifest(unittest.TestCase):
 
         payload = validate_capability_declaration(manifest)
 
-        self.assertEqual(payload["provided_task_families"], ["voice.tts.synthesize"])
+        self.assertEqual(payload["provided_task_families"], ["task.voice.tts.synthesize"])
         self.assertEqual(payload["requested_task_families"], ["task.chat"])
-        self.assertEqual(payload["declared_task_families"], ["voice.tts.synthesize"])
-        self.assertEqual(payload["declared_capabilities"], ["voice.tts.synthesize"])
+        self.assertEqual(payload["declared_task_families"], ["task.voice.tts.synthesize"])
+        self.assertEqual(payload["declared_capabilities"], ["task.voice.tts.synthesize"])
 
     def test_rejects_capability_endpoint_for_requested_only_task_family(self) -> None:
         payload = self._payload()
-        payload["provided_task_families"] = ["voice.tts.synthesize"]
+        payload["provided_task_families"] = ["task.voice.tts.synthesize"]
         payload["requested_task_families"] = ["task.chat"]
-        payload["declared_task_families"] = ["voice.tts.synthesize"]
-        payload["declared_capabilities"] = ["voice.tts.synthesize"]
+        payload["declared_task_families"] = ["task.voice.tts.synthesize"]
+        payload["declared_capabilities"] = ["task.voice.tts.synthesize"]
         payload["capability_endpoints"] = {"task.chat": {"transport": "http"}}
 
         with self.assertRaises(CapabilityManifestValidationError):

@@ -462,7 +462,7 @@ class TestNodeServiceResolutionApi(unittest.TestCase):
             json={
                 "manifest": self._manifest(
                     voice_node_id,
-                    task_families=["voice.intent.dispatch"],
+                    task_families=["task.voice.intent.dispatch"],
                     requested_task_families=["task.chat"],
                     enabled_providers=["voice"],
                     provider_intelligence=[],
@@ -500,7 +500,7 @@ class TestNodeServiceResolutionApi(unittest.TestCase):
             json={
                 "manifest": self._manifest(
                     voice_node_id,
-                    task_families=["voice.intent.dispatch"],
+                    task_families=["task.voice.intent.dispatch"],
                     requested_task_families=["task.summarization"],
                     enabled_providers=["voice"],
                     provider_intelligence=[],
@@ -601,11 +601,11 @@ class TestNodeServiceResolutionApi(unittest.TestCase):
             json={
                 "manifest": self._manifest(
                     provider_node_id,
-                    task_families=["voice.tts.synthesize"],
+                    task_families=["task.voice.tts.synthesize"],
                     enabled_providers=["piper"],
                     provider_intelligence=[],
                     capability_endpoints={
-                        "voice.tts.synthesize": {
+                        "task.voice.tts.synthesize": {
                             "method": "POST",
                             "transport": "http",
                             "path": "/api/tts/synthesize",
@@ -638,7 +638,7 @@ class TestNodeServiceResolutionApi(unittest.TestCase):
             headers={"X-Node-Trust-Token": provider_trust_token},
             json={
                 "node_id": provider_node_id,
-                "task_family": "voice.tts.synthesize",
+                "task_family": "task.voice.tts.synthesize",
                 "preferred_provider": "piper",
             },
         )

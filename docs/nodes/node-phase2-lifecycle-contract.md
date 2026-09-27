@@ -139,7 +139,7 @@ Transition guidance:
 
 Example:
 
-- HexeVoice provides voice/intent/TTS task families such as `voice.intent.dispatch` and `voice.tts.synthesize`.
+- HexeVoice provides voice/intent/TTS task families such as `task.voice.intent.dispatch` and `task.voice.tts.synthesize`.
 - HexeVoice requests `task.chat` so it can consume chat execution from another provider node.
 - The AI node provides `task.chat` and publishes OpenAI model metadata.
 - Core resolves the AI-node candidate for HexeVoice without requiring HexeVoice to declare itself as a `task.chat` provider.

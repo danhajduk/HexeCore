@@ -244,12 +244,12 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
     def test_accepts_distinct_provider_and_requester_task_families(self) -> None:
         node_id, trust_token = self._trusted_node()
         manifest = self._manifest(node_id)
-        manifest["declared_task_families"] = ["voice.intent.dispatch"]
-        manifest["declared_capabilities"] = ["voice.intent.dispatch"]
-        manifest["provided_task_families"] = ["voice.intent.dispatch"]
+        manifest["declared_task_families"] = ["task.voice.intent.dispatch"]
+        manifest["declared_capabilities"] = ["task.voice.intent.dispatch"]
+        manifest["provided_task_families"] = ["task.voice.intent.dispatch"]
         manifest["requested_task_families"] = ["task.chat"]
         manifest["capability_endpoints"] = {
-            "voice.intent.dispatch": {
+            "task.voice.intent.dispatch": {
                 "transport": "http",
                 "method": "POST",
                 "path": "/api/voice/intents/dispatch",
@@ -264,13 +264,13 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
 
         self.assertEqual(res.status_code, 200, res.text)
         payload = res.json()
-        self.assertEqual(payload["declared_capabilities"], ["voice.intent.dispatch"])
-        self.assertEqual(payload["provided_task_families"], ["voice.intent.dispatch"])
+        self.assertEqual(payload["declared_capabilities"], ["task.voice.intent.dispatch"])
+        self.assertEqual(payload["provided_task_families"], ["task.voice.intent.dispatch"])
         self.assertEqual(payload["requested_task_families"], ["task.chat"])
         registration = self.registrations.get(node_id)
         self.assertIsNotNone(registration)
         assert registration is not None
-        self.assertEqual(registration.provided_task_families, ["voice.intent.dispatch"])
+        self.assertEqual(registration.provided_task_families, ["task.voice.intent.dispatch"])
         self.assertEqual(registration.requested_task_families, ["task.chat"])
 
     def test_rejects_untrusted_node_token(self) -> None:

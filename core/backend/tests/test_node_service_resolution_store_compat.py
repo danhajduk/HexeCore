@@ -142,9 +142,9 @@ class TestNodeServiceResolutionStoreCompat(unittest.TestCase):
                         "node_name": "voice",
                         "node_software_version": "0.9.0",
                         "trust_status": "trusted",
-                        "provided_task_families": ["voice.tts.synthesize"],
+                        "provided_task_families": ["task.voice.tts.synthesize"],
                         "capability_endpoints": {
-                            "voice.tts.synthesize": {
+                            "task.voice.tts.synthesize": {
                                 "method": "POST",
                                 "path": "/api/tts/synthesize",
                                 "url": "http://127.0.0.1:9004/api/tts/synthesize",
@@ -164,8 +164,8 @@ class TestNodeServiceResolutionStoreCompat(unittest.TestCase):
 
             resolved = asyncio.run(
                 service.resolve_for_node(
-                    request=TaskExecutionResolutionRequest(node_id="node-interaction", task_family="voice.tts.synthesize"),
-                    governance_bundle={"routing_policy_constraints": {"allowed_task_families": ["voice.tts.synthesize"]}},
+                    request=TaskExecutionResolutionRequest(node_id="node-interaction", task_family="task.voice.tts.synthesize"),
+                    governance_bundle={"routing_policy_constraints": {"allowed_task_families": ["task.voice.tts.synthesize"]}},
                     budget_service=_PermissiveBudgetService(),
                 )
             )

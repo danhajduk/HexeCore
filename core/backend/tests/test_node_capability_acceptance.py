@@ -58,16 +58,16 @@ class TestNodeCapabilityAcceptance(unittest.TestCase):
 
     def test_accepts_distinct_requested_task_families(self) -> None:
         manifest = self._manifest()
-        manifest["provided_task_families"] = ["voice.intent.dispatch"]
+        manifest["provided_task_families"] = ["task.voice.intent.dispatch"]
         manifest["requested_task_families"] = ["task.chat"]
-        manifest["declared_task_families"] = ["voice.intent.dispatch"]
+        manifest["declared_task_families"] = ["task.voice.intent.dispatch"]
 
         result = self.service.evaluate(node_id="node-abc123", manifest=manifest)
 
         self.assertTrue(result.accepted)
         assert result.profile is not None
-        self.assertEqual(result.profile.provided_task_families, ["voice.intent.dispatch"])
-        self.assertEqual(result.profile.declared_task_families, ["voice.intent.dispatch"])
+        self.assertEqual(result.profile.provided_task_families, ["task.voice.intent.dispatch"])
+        self.assertEqual(result.profile.declared_task_families, ["task.voice.intent.dispatch"])
         self.assertEqual(result.profile.requested_task_families, ["task.chat"])
 
     def test_normalizes_provider_model_duplicates_into_single_descriptor(self) -> None:

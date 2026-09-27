@@ -61,15 +61,15 @@ class TestNodeGovernanceStore(unittest.TestCase):
             self.assertTrue(second.feature_gating_defaults["allow_provider_failover"])
             self.assertEqual(len(store.list(node_id="node-a")), 2)
 
-    def test_routing_policy_prefers_requested_task_families(self) -> None:
+    def test_routing_policy_combines_requested_and_provided_task_families(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             store = NodeGovernanceStore(path=Path(tmpdir) / "node_governance_bundles.json")
             service = NodeGovernanceService(store)
             profile = NodeCapabilityProfileRecord(
                 profile_id="cap-node-voice-v1",
                 node_id="node-voice",
-                declared_task_families=["voice.intent.dispatch"],
-                provided_task_families=["voice.intent.dispatch"],
+                declared_task_families=["task.voice.intent.dispatch"],
+                provided_task_families=["task.voice.intent.dispatch"],
                 requested_task_families=["task.chat"],
                 enabled_providers=["voice"],
                 feature_flags={},
@@ -81,8 +81,11 @@ class TestNodeGovernanceStore(unittest.TestCase):
 
             issued = service.issue_baseline_for_profile(node_id="node-voice", node_type="voice", profile=profile)
 
-            self.assertEqual(issued.routing_policy_constraints["allowed_task_families"], ["task.chat"])
-            self.assertEqual(issued.capability_usage_constraints["provided_task_families"], ["voice.intent.dispatch"])
+            self.assertEqual(
+                issued.routing_policy_constraints["allowed_task_families"],
+                ["task.chat", "task.voice.intent.dispatch"],
+            )
+            self.assertEqual(issued.capability_usage_constraints["provided_task_families"], ["task.voice.intent.dispatch"])
             self.assertEqual(issued.capability_usage_constraints["requested_task_families"], ["task.chat"])
 
 
