@@ -22,6 +22,10 @@ The target calls `POST /api/system/nodes/management/introspect` with its own
 200 with `active=true` and all route-required permissions. It must fail closed
 if Core cannot validate the token.
 
+Trusted-node management introspection is limited per node and source address
+to 1,200 requests per rolling minute. This accommodates concurrent management
+UI initialization and polling while retaining abuse protection.
+
 Core rechecks authorization revocation, token expiry, current operator role and
 enabled state, exact target binding, current target trust, and permissions.
 Core retains rotated verification keys through token lifetime. It audits
