@@ -18,6 +18,7 @@ status so clients can distinguish available behavior from planned contracts.
 The catalog also publishes:
 
 - `GET /api/schemas/client-core/v1/service-token-security-contract.md`
+- `GET /api/schemas/client-core/v1/node-management-authorization-contract.md`
 
 Provider introspection, governed privileged-scope issuance, and lifetime-based
 rotation retention are implemented. Universal provider enforcement is marked
@@ -28,3 +29,11 @@ claim verification, stable inactive responses, rate limiting, governed
 privileged-scope issuance, request identity binding, and lifetime-based signing
 key retention. Core signing secrets remain private to Core. See
 [Core Service-Token Security](./service-token-security.md).
+
+## Node-management authorization
+
+The node-management contract applies to every managed node and keeps operator
+authority separate from workload execution tokens. It defines single-node
+binding, category permissions, revocation, WebUI proxy propagation, trusted-node
+introspection, recovery exceptions, audit behavior, and stable fail-closed
+results. See [Node-management authorization](../node-management-authorization.md).

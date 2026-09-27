@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import base64
 import os
 import secrets
 import subprocess
@@ -72,10 +73,21 @@ def _session_signature(payload: str, *, expected_token: str) -> str:
     return hmac.new(secret, payload.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
-def _build_session_cookie(*, expected_token: str) -> tuple[str, int]:
+def _encode_session_actor(actor_id: str) -> str:
+    return base64.urlsafe_b64encode(actor_id.encode("utf-8")).decode("ascii").rstrip("=")
+
+
+def _decode_session_actor(value: str) -> str | None:
+    try:
+        return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4)).decode("utf-8") or None
+    except Exception:
+        return None
+
+
+def _build_session_cookie(*, expected_token: str, actor_id: str = "admin_token") -> tuple[str, int]:
     expires_at = int(time.time()) + _session_ttl_seconds()
     nonce = secrets.token_urlsafe(18)
-    payload = f"{expires_at}:{nonce}"
+    payload = f"{expires_at}:{nonce}:{_encode_session_actor(actor_id)}"
     sig = _session_signature(payload, expected_token=expected_token)
     return f"{payload}:{sig}", expires_at
 
@@ -84,9 +96,10 @@ def _is_valid_session_cookie(cookie_value: str | None, *, expected_token: str) -
     if not cookie_value:
         return False
     parts = cookie_value.split(":")
-    if len(parts) != 3:
+    if len(parts) not in {3, 4}:
         return False
-    expires_raw, nonce, sig = parts
+    expires_raw, nonce = parts[0], parts[1]
+    sig = parts[-1]
     if not nonce:
         return False
     try:
@@ -95,9 +108,24 @@ def _is_valid_session_cookie(cookie_value: str | None, *, expected_token: str) -
         return False
     if expires_at <= int(time.time()):
         return False
-    payload = f"{expires_raw}:{nonce}"
+    payload = ":".join(parts[:-1])
     expected_sig = _session_signature(payload, expected_token=expected_token)
     return hmac.compare_digest(sig, expected_sig)
+
+
+def admin_request_actor(request: Any) -> tuple[str, str]:
+    """Return the authenticated Core operator identity and role."""
+    expected = _admin_token_expected()
+    headers = getattr(request, "headers", {}) or {}
+    if expected and hmac.compare_digest(str(headers.get("x-admin-token", "") or ""), expected):
+        return "admin_token", "admin"
+    cookies = getattr(request, "cookies", {}) or {}
+    cookie = cookies.get(ADMIN_SESSION_COOKIE) or cookies.get(LEGACY_ADMIN_SESSION_COOKIE)
+    if not _is_valid_session_cookie(cookie, expected_token=expected):
+        raise HTTPException(status_code=401, detail="operator_authentication_required")
+    parts = str(cookie).split(":")
+    actor = _decode_session_actor(parts[2]) if len(parts) == 4 else "legacy_admin_session"
+    return actor or "legacy_admin_session", "admin"
 
 
 def require_admin_token(x_admin_token: str | None, request: Request | None = None) -> None:
@@ -135,7 +163,7 @@ def admin_session_login(body: AdminSessionLoginRequest, response: Response):
         raise HTTPException(status_code=503, detail="admin_token_login_unavailable")
     if not body.token or body.token != expected:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    cookie_value, expires_at = _build_session_cookie(expected_token=expected)
+    cookie_value, expires_at = _build_session_cookie(expected_token=expected, actor_id="admin_token")
     max_age = max(expires_at - int(time.time()), 1)
     response.set_cookie(
         key=ADMIN_SESSION_COOKIE,
@@ -165,7 +193,7 @@ async def admin_session_login_user(body: AdminUserSessionLoginRequest, response:
         raise HTTPException(status_code=403, detail="admin_role_required")
 
     expected = _admin_token_expected()
-    cookie_value, expires_at = _build_session_cookie(expected_token=expected)
+    cookie_value, expires_at = _build_session_cookie(expected_token=expected, actor_id=username)
     max_age = max(expires_at - int(time.time()), 1)
     response.set_cookie(
         key=ADMIN_SESSION_COOKIE,

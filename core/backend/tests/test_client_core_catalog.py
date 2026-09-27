@@ -38,6 +38,8 @@ def test_client_core_catalog_reports_implemented_core_security_and_provider_adop
     assert payload["current_security"]["provider_token_verification"].startswith("Implemented")
     assert proposals["universal_resolved_service_enforcement"]["status"] == "Partially implemented"
     assert proposals["governed_privileged_scope_issuance"]["status"] == "Implemented"
+    assert proposals["universal_node_management_authorization"]["status"] == "Implemented"
+    assert api_paths["/api/system/nodes/management/introspect"]["status"] == "Implemented"
     assert proposals["lifetime_based_rotation_retention"]["status"] == "Implemented"
 
 
@@ -59,3 +61,9 @@ def test_client_core_catalog_publishes_schema_and_documents() -> None:
     assert "Status: Implemented" in contract.text
     assert "X-Node-Id" in contract.text
     assert "latest token expiration" in contract.text
+
+    management = client.get("/api/schemas/client-core/v1/node-management-authorization-contract.md")
+    assert management.status_code == 200
+    assert "Status: Implemented" in management.text
+    assert "Workload service tokens are" in management.text
+    assert "X-Hexe-Management-Authorization" in management.text

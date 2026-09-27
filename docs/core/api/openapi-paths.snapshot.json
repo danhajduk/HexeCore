@@ -1,5 +1,5 @@
 {
-  "path_count": 253,
+  "path_count": 257,
   "paths": {
     "/api/addons": [
       "get"
@@ -165,6 +165,9 @@
       "get"
     ],
     "/api/schemas/client-core/v1/README.md": [
+      "get"
+    ],
+    "/api/schemas/client-core/v1/node-management-authorization-contract.md": [
       "get"
     ],
     "/api/schemas/client-core/v1/schema-catalog.v1.response.schema.json": [
@@ -560,6 +563,15 @@
       "post"
     ],
     "/api/system/nodes/hardware/leases/{lease_id}/release": [
+      "post"
+    ],
+    "/api/system/nodes/management/authorizations/{authorization_id}/revoke": [
+      "post"
+    ],
+    "/api/system/nodes/management/authorize": [
+      "post"
+    ],
+    "/api/system/nodes/management/introspect": [
       "post"
     ],
     "/api/system/nodes/onboarding/sessions": [

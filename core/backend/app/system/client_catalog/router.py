@@ -89,6 +89,10 @@ contract is published at
 
 Provider adoption remains partially implemented: each resolved service node
 must enforce the contract at its own execution and management endpoints.
+
+Operator-facing node management uses a separate node-bound authorization
+contract. It is published at
+`GET /api/schemas/client-core/v1/node-management-authorization-contract.md`.
 """
 
 
@@ -176,6 +180,96 @@ to a node.
 """
 
 
+MANAGEMENT_CONTRACT = """# Core Node-Management Authorization Contract
+
+Status: Implemented
+
+This contract applies to every managed Hexe node. Workload service tokens are
+not management credentials and are rejected by this validation boundary.
+
+## Operator identity and issuance
+
+Core users are local authenticated users with an enabled role. The current
+management role is `admin`. The Core WebUI authenticates with the HttpOnly
+`hexe_admin_session` cookie; automation may use the configured `X-Admin-Token`.
+
+An authenticated operator requests a five-minute authorization with:
+
+`POST /api/system/nodes/management/authorize`
+
+```json
+{
+  "target_node_id": "node-ai",
+  "required_scopes": ["node.manage.read", "node.manage.configuration"]
+}
+```
+
+Core requires the target registration and node trust to be current. The
+returned Core-signed token has `token_use=node_management`, `sub` equal to the
+Core operator identity, `aud=node-management:<target-node-id>`, explicit `scp`,
+`iat`, `exp`, `jti`, and a revocable `authorization_id`.
+
+## Node validation
+
+The target node calls:
+
+`POST /api/system/nodes/management/introspect`
+
+using its own `X-Node-Id` and `X-Node-Trust-Token`:
+
+```json
+{
+  "token": "<Core management authorization>",
+  "required_scopes": ["node.manage.configuration"]
+}
+```
+
+Only the target node can validate the token. HTTP 200 with `active=true` is the
+only success condition. Authenticated inactive results use `token_malformed`,
+`token_signature_invalid`, `token_expired`, `token_claims_invalid`,
+`token_use_invalid`, `management_target_mismatch`,
+`management_scope_insufficient`, `management_authorization_revoked`, or
+`operator_access_revoked`. Missing node credentials return 401, invalid or
+untrusted node credentials return 403, rate limiting returns 429, and Core
+validation failure returns 503 `management_validation_unavailable`. Nodes fail
+closed for every result other than HTTP 200 `active=true`.
+
+Permissions are `node.manage.read` for control-plane reads,
+`node.manage.configuration` for provider/model/capability/budget/governance
+configuration, `node.manage.operations` for execution administration,
+scheduler and job cancellation, `node.manage.assets` for prompt/template/image/
+avatar assets, `node.manage.credentials` for secret and provider credentials,
+`node.manage.lifecycle` for service lifecycle, retrust and recovery actions,
+and `node.manage.diagnostics` for operational diagnostics. Nodes require the
+narrow permission appropriate to each route; read never implies mutation.
+
+## WebUI propagation
+
+Node UIs loaded through Core request authorization from Core with the browser
+session, then send it as `X-Hexe-Management-Authorization` on calls through
+`/nodes/proxy/<node-id>/...` or `/api/nodes/<node-id>/...`. Core's proxy forwards
+that header but does not replace target-node validation. A node must not trust
+proxy headers or caller-supplied identities without successful introspection.
+
+## Revocation, recovery, and public routes
+
+Core rechecks the authorization record and the operator's enabled admin role
+on every introspection. Explicit revocation is available at
+`POST /api/system/nodes/management/authorizations/{authorization_id}/revoke`.
+Expiry, revocation, user disablement, role removal, or target trust loss denies
+subsequent access.
+
+Initial onboarding and damaged-trust reauthentication remain Core-owned proof
+and operator-approval workflows; Core does not issue management authorization
+to an untrusted target. Node `/health`, schema/OpenAPI, and static discovery
+routes may remain unauthenticated but must not expose secrets or mutable state.
+
+Core audits issuance, revocation, and successful validation with operator,
+target node, authorization id, token id, scopes, and result. Tokens and signing
+secrets are never included in audit data or logs.
+"""
+
+
 def _api(
     name: str,
     method: str,
@@ -207,6 +301,7 @@ def _catalog_payload() -> ClientCoreCatalogResponse:
             "service_authorization": "Core resolution plus governance and budget checks issue short-lived service tokens.",
             "token_signing": "HS256 signing keys remain private to Core and rotate through the Core key ring.",
             "provider_token_verification": "Implemented through POST /api/system/nodes/services/introspect.",
+            "node_management_authorization": "Implemented through node-bound operator authorization and trusted-node introspection.",
         },
         apis=[
             _api("node_onboarding_start", "POST", "/api/system/nodes/onboarding/sessions", "Start node onboarding.", "Node onboarding proof contract"),
@@ -230,6 +325,9 @@ def _catalog_payload() -> ClientCoreCatalogResponse:
             _api("service_access_grant_detail", "GET", "/api/system/nodes/service-access/grants/{grant_id}", "Read one privileged service-access grant.", "Core administrator"),
             _api("service_access_grant_update", "PUT", "/api/system/nodes/service-access/grants/{grant_id}", "Update one privileged service-access grant.", "Core administrator"),
             _api("service_access_grant_revoke", "POST", "/api/system/nodes/service-access/grants/{grant_id}/revoke", "Revoke one privileged service-access grant.", "Core administrator"),
+            _api("node_management_authorize", "POST", "/api/system/nodes/management/authorize", "Issue a short-lived operator authorization bound to one trusted target node.", "Core administrator session"),
+            _api("node_management_introspect", "POST", "/api/system/nodes/management/introspect", "Validate management authorization at the bound target node.", "X-Node-Id and X-Node-Trust-Token"),
+            _api("node_management_revoke", "POST", "/api/system/nodes/management/authorizations/{authorization_id}/revoke", "Revoke an outstanding node-management authorization.", "Core administrator session"),
             _api("node_telemetry", "POST", "/api/system/nodes/telemetry", "Submit trusted-node telemetry."),
             _api("operational_status", "GET", "/api/system/nodes/operational-status/{node_id}", "Read node lifecycle, capability, and governance readiness."),
             _api("trust_status", "GET", "/api/system/nodes/trust-status/{node_id}", "Read explicit trust, revocation, and removal status."),
@@ -252,6 +350,7 @@ def _catalog_payload() -> ClientCoreCatalogResponse:
         documents=[
             ClientDocumentEntry(name="README.md", title="Client Core V1 Catalog", status="Implemented", api_path="/api/schemas/client-core/v1/README.md"),
             ClientDocumentEntry(name="service-token-security-contract.md", title="Core Service-Token Security Contract", status="Implemented", api_path="/api/schemas/client-core/v1/service-token-security-contract.md"),
+            ClientDocumentEntry(name="node-management-authorization-contract.md", title="Core Node-Management Authorization Contract", status="Implemented", api_path="/api/schemas/client-core/v1/node-management-authorization-contract.md"),
         ],
         security_proposals=[
             SecurityProposalEntry(
@@ -288,6 +387,18 @@ def _catalog_payload() -> ClientCoreCatalogResponse:
                 ],
             ),
             SecurityProposalEntry(
+                name="universal_node_management_authorization",
+                status="Implemented",
+                description="Provide every trusted node with target-bound Core operator authorization distinct from workload execution.",
+                proposed_api_path="/api/system/nodes/management/introspect",
+                requirements=[
+                    "Bind operator authorization to exactly one target node.",
+                    "Separate management token use and permissions from workload service tokens.",
+                    "Recheck revocation, operator state, target trust, expiry, and permissions during introspection.",
+                    "Propagate WebUI authorization through the authenticated Core node proxy.",
+                ],
+            ),
+            SecurityProposalEntry(
                 name="lifetime_based_rotation_retention",
                 status="Implemented",
                 description="Retain retired verification keys until every token they signed must have expired.",
@@ -318,6 +429,10 @@ def build_client_core_catalog_router() -> APIRouter:
     @router.get("/schemas/client-core/v1/service-token-security-contract.md", response_class=PlainTextResponse)
     def get_service_token_security_contract() -> str:
         return SECURITY_CONTRACT
+
+    @router.get("/schemas/client-core/v1/node-management-authorization-contract.md", response_class=PlainTextResponse)
+    def get_node_management_authorization_contract() -> str:
+        return MANAGEMENT_CONTRACT
 
     @router.get("/schemas/client-core/v1/service-token-introspection-proposal.md", response_class=PlainTextResponse, include_in_schema=False)
     def get_service_token_introspection_proposal_compatibility() -> str:

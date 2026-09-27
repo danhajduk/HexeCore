@@ -41,6 +41,7 @@ DEFAULT_REQUEST_HEADER_ALLOWLIST = {
     "origin",
     "range",
     "user-agent",
+    "x-hexe-management-authorization",
 }
 
 FORWARDED_PROTO_VALUES = {"http", "https"}

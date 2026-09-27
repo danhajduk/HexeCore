@@ -101,6 +101,7 @@ from app.system.services import ServiceCatalogStore, build_service_resolution_ro
 from app.system.auth import ServiceTokenKeyStore, build_auth_router
 from app.system.client_catalog import build_client_core_catalog_router
 from app.system.service_access import ServiceAccessGrantStore, build_service_access_router
+from app.system.management_access import ManagementAuthorizationService, ManagementAuthorizationStore, build_management_access_router
 from app.system.policy import PolicyStore, build_policy_router
 from app.system.telemetry import UsageTelemetryStore, build_telemetry_router
 from app.system.audit import AuditLogStore
@@ -934,6 +935,15 @@ def create_app() -> FastAPI:
         os.path.join(os.getcwd(), "var", "service_access_grants.json"),
     )
     service_access_grant_store = ServiceAccessGrantStore(service_access_grants_db)
+    management_authorizations_db = os.getenv(
+        "MANAGEMENT_AUTHORIZATIONS_DB",
+        os.path.join(os.getcwd(), "var", "management_authorizations.json"),
+    )
+    management_authorization_store = ManagementAuthorizationStore(management_authorizations_db)
+    management_authorization_service = ManagementAuthorizationService(
+        keys=service_token_keys,
+        store=management_authorization_store,
+    )
     edge_gateway_db = os.getenv(
         "EDGE_GATEWAY_DB",
         os.path.join(os.getcwd(), "var", "edge_gateway.json"),
@@ -999,6 +1009,7 @@ def create_app() -> FastAPI:
     app.state.service_token_keys = service_token_keys
     app.state.service_catalog_store = service_catalog_store
     app.state.service_access_grant_store = service_access_grant_store
+    app.state.management_authorization_store = management_authorization_store
     app.state.edge_gateway_store = edge_gateway_store
     app.state.mqtt_integration_state_store = mqtt_integration_state_store
     app.state.mqtt_authority_audit = mqtt_authority_audit
@@ -1285,6 +1296,16 @@ def create_app() -> FastAPI:
             grant_store=service_access_grant_store,
             trust=node_trust_issuance,
             registrations=node_registrations_store,
+            audit=audit_store,
+        ),
+        prefix="/api",
+    )
+    app.include_router(
+        build_management_access_router(
+            service=management_authorization_service,
+            trust=node_trust_issuance,
+            registrations=node_registrations_store,
+            users=users_store,
             audit=audit_store,
         ),
         prefix="/api",

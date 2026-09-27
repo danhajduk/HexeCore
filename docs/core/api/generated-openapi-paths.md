@@ -5,7 +5,7 @@ Status: Generated
 This file is generated from `openapi-paths.snapshot.json`.
 Do not edit path rows by hand; run `python tools/update_api_route_appendix.py --write`.
 
-Path count: 253
+Path count: 257
 
 | Path | Methods |
 | --- | --- |
@@ -62,6 +62,7 @@ Path count: 253
 | `/api/policy/revocations` | `GET, POST` |
 | `/api/schemas/client-core/v1` | `GET` |
 | `/api/schemas/client-core/v1/README.md` | `GET` |
+| `/api/schemas/client-core/v1/node-management-authorization-contract.md` | `GET` |
 | `/api/schemas/client-core/v1/schema-catalog.v1.response.schema.json` | `GET` |
 | `/api/schemas/client-core/v1/service-token-security-contract.md` | `GET` |
 | `/api/services/register` | `POST` |
@@ -191,6 +192,9 @@ Path count: 253
 | `/api/system/nodes/hardware/bluetooth/ble/pairing-sessions/{session_id}/cancel` | `POST` |
 | `/api/system/nodes/hardware/bluetooth/ble/scan` | `POST` |
 | `/api/system/nodes/hardware/leases/{lease_id}/release` | `POST` |
+| `/api/system/nodes/management/authorizations/{authorization_id}/revoke` | `POST` |
+| `/api/system/nodes/management/authorize` | `POST` |
+| `/api/system/nodes/management/introspect` | `POST` |
 | `/api/system/nodes/onboarding/sessions` | `GET, POST` |
 | `/api/system/nodes/onboarding/sessions/cancel-active` | `POST` |
 | `/api/system/nodes/onboarding/sessions/{session_id}` | `GET` |

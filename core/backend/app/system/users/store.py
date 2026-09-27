@@ -89,6 +89,9 @@ class UsersStore:
     async def verify_credentials(self, username: str, password: str) -> dict[str, object] | None:
         return await self._run(self._verify_credentials_sync, username, password)
 
+    async def get_user(self, username: str) -> dict[str, object] | None:
+        return await self._run(self._get_user_sync, username)
+
     async def ensure_admin_user(self, username: str, password: str) -> None:
         await self._run(self._ensure_admin_user_sync, username, password)
 
@@ -217,6 +220,10 @@ class UsersStore:
         if not _verify_password(password, str(row["password_hash"])):
             return None
         return self._to_public_user(row)
+
+    def _get_user_sync(self, username: str) -> dict[str, object] | None:
+        row = self._user_row_sync(username.strip())
+        return self._to_public_user(row) if row is not None else None
 
     def _ensure_admin_user_sync(self, username: str, password: str) -> None:
         clean_username = username.strip()
