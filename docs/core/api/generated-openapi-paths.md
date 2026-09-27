@@ -5,7 +5,7 @@ Status: Generated
 This file is generated from `openapi-paths.snapshot.json`.
 Do not edit path rows by hand; run `python tools/update_api_route_appendix.py --write`.
 
-Path count: 244
+Path count: 248
 
 | Path | Methods |
 | --- | --- |
@@ -60,6 +60,10 @@ Path count: 244
 | `/api/nodes/{node_id}/ui-manifest` | `GET` |
 | `/api/policy/grants` | `GET, POST` |
 | `/api/policy/revocations` | `GET, POST` |
+| `/api/schemas/client-core/v1` | `GET` |
+| `/api/schemas/client-core/v1/README.md` | `GET` |
+| `/api/schemas/client-core/v1/schema-catalog.v1.response.schema.json` | `GET` |
+| `/api/schemas/client-core/v1/service-token-introspection-proposal.md` | `GET` |
 | `/api/services/register` | `POST` |
 | `/api/services/resolve` | `GET` |
 | `/api/store/admin/audit` | `GET` |

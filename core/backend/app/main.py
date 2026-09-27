@@ -99,6 +99,7 @@ from app.system.mqtt import (
 from app.system.events import PlatformEventService, build_events_router
 from app.system.services import ServiceCatalogStore, build_service_resolution_router
 from app.system.auth import ServiceTokenKeyStore, build_auth_router
+from app.system.client_catalog import build_client_core_catalog_router
 from app.system.policy import PolicyStore, build_policy_router
 from app.system.telemetry import UsageTelemetryStore, build_telemetry_router
 from app.system.audit import AuditLogStore
@@ -1271,6 +1272,7 @@ def create_app() -> FastAPI:
     )
     app.include_router(build_events_router(event_service), prefix="/api/system", tags=["events"])
     app.include_router(build_auth_router(service_token_keys), prefix="/api/auth", tags=["auth"])
+    app.include_router(build_client_core_catalog_router(), prefix="/api")
     app.include_router(build_policy_router(policy_store, mqtt_manager, audit_store), prefix="/api/policy", tags=["policy"])
     app.include_router(build_telemetry_router(telemetry_store, service_token_keys), prefix="/api/telemetry", tags=["telemetry"])
     app.include_router(

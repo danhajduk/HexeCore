@@ -12,6 +12,9 @@ are listed here only where Core wraps or depends on them operationally.
 - MQTT routes are mounted under `/api/system`.
 - [Generated OpenAPI Paths](./generated-openapi-paths.md) lists every path in
   the deterministic Core OpenAPI snapshot.
+- `GET /api/schemas/client-core/v1` provides the client-oriented trusted-node
+  catalog. Proposed service-token introspection is explicitly marked
+  `Not implemented`; see [Client Core V1 Catalog](./client-core-catalog.md).
 
 ## Runtime Proxy Surfaces
 

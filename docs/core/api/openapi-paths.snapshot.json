@@ -1,5 +1,5 @@
 {
-  "path_count": 244,
+  "path_count": 248,
   "paths": {
     "/api/addons": [
       "get"
@@ -160,6 +160,18 @@
     "/api/policy/revocations": [
       "get",
       "post"
+    ],
+    "/api/schemas/client-core/v1": [
+      "get"
+    ],
+    "/api/schemas/client-core/v1/README.md": [
+      "get"
+    ],
+    "/api/schemas/client-core/v1/schema-catalog.v1.response.schema.json": [
+      "get"
+    ],
+    "/api/schemas/client-core/v1/service-token-introspection-proposal.md": [
+      "get"
     ],
     "/api/services/register": [
       "post"
