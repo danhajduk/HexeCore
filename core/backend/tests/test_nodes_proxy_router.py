@@ -354,6 +354,7 @@ class TestNodeUiProxyManagementAuthorization(unittest.TestCase):
                 self.store = self._Store()
             async def issue(self, **kwargs):
                 self.calls.append(kwargs)
+                await asyncio.sleep(0.01)
                 now = int(time.time())
                 return "core-token", {"exp": now + 300, "authorization_id": "nma-1", "scp": kwargs["scopes"], "jti": "jti-1"}
         class _Registrations:
@@ -374,11 +375,16 @@ class TestNodeUiProxyManagementAuthorization(unittest.TestCase):
             "query_string": b"", "headers": [(b"host", b"core.local"), (b"x-admin-token", b"test-token")],
             "client": ("127.0.0.1", 1), "server": ("core.local", 443),
         })
-        with patch.dict("os.environ", {"HEXE_ADMIN_TOKEN": "test-token"}, clear=False):
-            first = asyncio.run(proxy._management_headers(request, "node-1"))
-            second = asyncio.run(proxy._management_headers(request, "node-1"))
+        async def scenario():
+            first, second = await asyncio.gather(
+                proxy._management_headers(request, "node-1"),
+                proxy._management_headers(request, "node-1"),
+            )
             management.store.is_active = False
-            third = asyncio.run(proxy._management_headers(request, "node-1"))
+            third = await proxy._management_headers(request, "node-1")
+            return first, second, third
+        with patch.dict("os.environ", {"HEXE_ADMIN_TOKEN": "test-token"}, clear=False):
+            first, second, third = asyncio.run(scenario())
 
         self.assertEqual(first, {"X-Hexe-Management-Authorization": "core-token"})
         self.assertEqual(second, first)

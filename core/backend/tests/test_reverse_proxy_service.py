@@ -1,4 +1,6 @@
 import unittest
+import asyncio
+import httpx
 
 from starlette.requests import Request
 
@@ -32,6 +34,36 @@ def _request(method: str = "GET", path: str = "/addons/proxy/mqtt/status", heade
 
 
 class TestReverseProxyService(unittest.TestCase):
+    def test_send_does_not_attach_chunked_body_to_get_or_head(self) -> None:
+        seen: list[tuple[str, dict[str, str], bytes]] = []
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            body = await request.aread()
+            seen.append((request.method, dict(request.headers), body))
+            return httpx.Response(200, content=b"asset", request=request)
+
+        async def exercise() -> None:
+            client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+            service = ReverseProxyService(client=client)
+            try:
+                for method in ("GET", "HEAD"):
+                    upstream = await service.send(
+                        request=_request(method=method),
+                        target_url="http://node.test/assets/index.js",
+                        headers={"Accept": "*/*"},
+                    )
+                    await upstream.aread()
+                    await upstream.aclose()
+            finally:
+                await service.aclose()
+
+        asyncio.run(exercise())
+
+        self.assertEqual([item[0] for item in seen], ["GET", "HEAD"])
+        for _, headers, body in seen:
+            self.assertNotIn("transfer-encoding", headers)
+            self.assertEqual(body, b"")
+
     def test_build_target_url_preserves_safe_special_path_chars(self) -> None:
         target = ReverseProxyService.build_target_url(
             "http://10.0.0.100:8081",

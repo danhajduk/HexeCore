@@ -185,11 +185,14 @@ class ReverseProxyService:
         timeout: httpx.Timeout | float | None = None,
         content: Any = None,
     ) -> httpx.Response:
+        request_content = content
+        if request_content is None and str(request.method or "").upper() not in {"GET", "HEAD"}:
+            request_content = request.stream()
         upstream_request = self._client.build_request(
             method=request.method,
             url=target_url,
             headers=headers,
-            content=request.stream() if content is None else content,
+            content=request_content,
         )
         if timeout is not None:
             resolved_timeout = timeout if isinstance(timeout, httpx.Timeout) else httpx.Timeout(timeout)

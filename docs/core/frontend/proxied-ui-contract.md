@@ -88,6 +88,12 @@ Use this checklist when authoring or reviewing a node/addon UI:
 - in-app navigation preserves the mounted prefix
 - browser API traffic stays under `/api/nodes/{node_id}/...` or `/api/addons/{addon_id}/...`
 - no browser request targets the upstream private address directly
+
+Core forwards proxied `GET` and `HEAD` requests without an upstream request
+body or chunked transfer encoding. This is required for reliable concurrent
+JavaScript, stylesheet, image, and other static-asset loading over reused
+HTTP/1.1 connections. UI response-body read failures are closed and reported as
+HTTP 502 rather than escaping as an internal HTTP 500.
 - websocket features reconnect through the proxied public path
 - failure states remain understandable when Core serves a fallback error shell
 

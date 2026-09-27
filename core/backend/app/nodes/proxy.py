@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -82,6 +83,7 @@ class NodeUiProxy:
         self._users = users
         self._audit = audit
         self._management_cache: dict[tuple[str, str], tuple[str, int, str]] = {}
+        self._management_cache_locks: dict[tuple[str, str], asyncio.Lock] = {}
 
     def _invalidate_management_cache(self, request: Request | WebSocket, node_id: str) -> None:
         try:
@@ -105,17 +107,19 @@ class NodeUiProxy:
         if str(registration.trust_status or "").lower() != "trusted" or trusted is None:
             raise HTTPException(status_code=409, detail="management_target_node_untrusted")
         cache_key = (actor_id, node_id)
-        cached = self._management_cache.get(cache_key)
-        cached_authorization = self._management_authorization.store.get(cached[2]) if cached is not None else None
-        if cached is not None and cached[1] > int(time.time()) + 30 and cached_authorization is not None and cached_authorization.active():
-            return {"X-Hexe-Management-Authorization": cached[0]}
-        token, claims = await self._management_authorization.issue(
-            operator_id=actor_id,
-            operator_role=actor_role,
-            target_node_id=node_id,
-            scopes=sorted(NODE_MANAGEMENT_PERMISSIONS),
-        )
-        self._management_cache[cache_key] = (token, int(claims["exp"]), str(claims["authorization_id"]))
+        lock = self._management_cache_locks.setdefault(cache_key, asyncio.Lock())
+        async with lock:
+            cached = self._management_cache.get(cache_key)
+            cached_authorization = self._management_authorization.store.get(cached[2]) if cached is not None else None
+            if cached is not None and cached[1] > int(time.time()) + 30 and cached_authorization is not None and cached_authorization.active():
+                return {"X-Hexe-Management-Authorization": cached[0]}
+            token, claims = await self._management_authorization.issue(
+                operator_id=actor_id,
+                operator_role=actor_role,
+                target_node_id=node_id,
+                scopes=sorted(NODE_MANAGEMENT_PERMISSIONS),
+            )
+            self._management_cache[cache_key] = (token, int(claims["exp"]), str(claims["authorization_id"]))
         if self._audit is not None:
             await self._audit.record(
                 event_type="node_management_proxy_authorized",
@@ -276,7 +280,27 @@ class NodeUiProxy:
                 target_label=node_id,
                 public_prefix=effective_public_prefix,
             )
-        content = await upstream.aread()
+        try:
+            content = await upstream.aread()
+        except httpx.HTTPError as exc:
+            await upstream.aclose()
+            self._log_proxy_result(
+                node_id=node_id,
+                surface="ui",
+                method=request.method,
+                path=path,
+                public_prefix=effective_public_prefix,
+                status_code=502,
+                latency_ms=(time.perf_counter() - started_at) * 1000.0,
+                outcome=f"node_ui_proxy_read_error: {type(exc).__name__}",
+            )
+            return self._proxy.build_ui_error_response(
+                status_code=502,
+                detail=f"node_ui_proxy_read_error: {type(exc).__name__}",
+                title="Node UI Unavailable",
+                target_label=node_id,
+                public_prefix=effective_public_prefix,
+            )
         if upstream.status_code == 401:
             self._invalidate_management_cache(request, node_id)
         response_headers = self._proxy.safe_response_headers(upstream.headers)
