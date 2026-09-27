@@ -28,10 +28,19 @@ Core retains rotated verification keys through token lifetime. It audits
 issuance, successful validation, and revocation without recording tokens or
 signing secrets.
 
-The Core WebUI obtains authorization using its HttpOnly admin session and sends
-the token as `X-Hexe-Management-Authorization` through the authenticated node
-proxy. The proxy forwards that header; the node remains responsible for Core
+For the supported browser flow, the Core WebUI never receives the token. The
+operator opens `/nodes/proxy/ui/<node-id>/...`; Core validates the HttpOnly admin
+session and current target trust, issues and caches a five-minute authorization
+containing all seven permissions, strips any caller-supplied management header,
+and injects its own `X-Hexe-Management-Authorization` into UI, API, binary asset,
+download, and WebSocket proxy requests. The node remains responsible for Core
 introspection and route authorization.
+
+Cookie-authenticated unsafe Core requests require a same-origin `Origin` or
+`Referer`. Explicit token clients use `claims.exp`; there is no refresh endpoint.
+Direct node management UI access and legacy `VITE_ADMIN_TOKEN` /
+`X-Hexe-Admin-Token` bypasses are not supported. Operators use the Core-mounted
+URL so browser-native resources such as images receive proxy authorization.
 
 Onboarding and retrust are Core-owned proof and approval workflows. Core does
 not issue a management token to an untrusted or unsupported target. A node may

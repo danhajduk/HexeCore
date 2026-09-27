@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from app.api.admin import configure_admin_users_store, router as admin_router
 from app.system.auth import ServiceTokenKeyStore, sign_hs256
 from app.system.management_access import ManagementAuthorizationService, ManagementAuthorizationStore, build_management_access_router
 from app.system.onboarding import NodeRegistrationsStore, NodeTrustIssuanceService, NodeTrustStore
@@ -37,6 +38,7 @@ class TestNodeManagementAccessApi:
         self.trust = NodeTrustIssuanceService(NodeTrustStore(root / "trust.json"))
         self.registrations = NodeRegistrationsStore(path=root / "registrations.json")
         self.users = UsersStore(str(root / "users.db"))
+        configure_admin_users_store(self.users)
         self.store = ManagementAuthorizationStore(root / "management.json")
         self.service = ManagementAuthorizationService(keys=self.keys, store=self.store)
         self.node_id, self.node_token = self._trusted("node-ai")
@@ -44,6 +46,7 @@ class TestNodeManagementAccessApi:
         self.env = patch.dict(os.environ, {"HEXE_ADMIN_TOKEN": "admin-test"}, clear=False)
         self.env.start()
         app = FastAPI()
+        app.include_router(admin_router, prefix="/api")
         app.include_router(build_management_access_router(service=self.service, trust=self.trust,
             registrations=self.registrations, users=self.users), prefix="/api")
         self.client = TestClient(app)
@@ -132,3 +135,20 @@ class TestNodeManagementAccessApi:
         denied = self._inspect(token).json()
         assert denied["active"] is False
         assert denied["error_code"] == "operator_access_revoked"
+
+    def test_cookie_authorization_requires_same_origin_csrf(self):
+        asyncio.run(self.users.upsert_user(username="browser-admin", role="admin", enabled=True, password="secret"))
+        login = self.client.post("/api/admin/session/login-user", json={"username": "browser-admin", "password": "secret"})
+        assert login.status_code == 200
+        payload = {"target_node_id": self.node_id, "required_scopes": ["node.manage.read"]}
+
+        missing = self.client.post("/api/system/nodes/management/authorize", json=payload)
+        assert missing.status_code == 403
+        assert missing.json()["detail"] == "csrf_origin_required"
+
+        foreign = self.client.post("/api/system/nodes/management/authorize", headers={"Origin": "https://evil.example"}, json=payload)
+        assert foreign.status_code == 403
+        assert foreign.json()["detail"] == "csrf_origin_mismatch"
+
+        allowed = self.client.post("/api/system/nodes/management/authorize", headers={"Origin": "http://testserver"}, json=payload)
+        assert allowed.status_code == 200

@@ -1231,7 +1231,14 @@ def create_app() -> FastAPI:
         build_nodes_router(nodes_service),
         prefix="/api",
     )
-    app.state.node_ui_proxy = NodeUiProxy(nodes_service)
+    app.state.node_ui_proxy = NodeUiProxy(
+        nodes_service,
+        management_authorization=management_authorization_service,
+        node_trust=node_trust_issuance,
+        registrations=node_registrations_store,
+        users=users_store,
+        audit=audit_store,
+    )
     app.include_router(
         build_edge_router(edge_gateway_service),
         prefix="/api",

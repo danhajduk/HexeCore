@@ -11,8 +11,12 @@ from urllib.parse import quote, urlsplit, urlunsplit
 import httpx
 from fastapi import APIRouter, HTTPException, Request, Response, WebSocket
 
-from app.api.admin import require_admin_request
+from app.api.admin import admin_request_actor, require_admin_request
 from app.reverse_proxy import ReverseProxyService
+from app.system.management_access import NODE_MANAGEMENT_PERMISSIONS, ManagementAuthorizationService
+from app.system.audit import AuditLogStore
+from app.system.onboarding import NodeRegistrationsStore, NodeTrustIssuanceService
+from app.system.users import UsersStore
 from app.ui_target_resolver import UiTargetResolver
 from .service import NodesDomainService
 
@@ -54,7 +58,16 @@ def _public_node_oauth_callback_path(path: str) -> bool:
 
 
 class NodeUiProxy:
-    def __init__(self, service: NodesDomainService) -> None:
+    def __init__(
+        self,
+        service: NodesDomainService,
+        *,
+        management_authorization: ManagementAuthorizationService | None = None,
+        node_trust: NodeTrustIssuanceService | None = None,
+        registrations: NodeRegistrationsStore | None = None,
+        users: UsersStore | None = None,
+        audit: AuditLogStore | None = None,
+    ) -> None:
         self._service = service
         self._targets = UiTargetResolver(nodes_service=service)
         self._proxy = ReverseProxyService(
@@ -63,6 +76,59 @@ class NodeUiProxy:
                 timeout=httpx.Timeout(_env_float("HEXE_NODE_PROXY_TIMEOUT_SECONDS", NODE_PROXY_TIMEOUT_SECONDS)),
             )
         )
+        self._management_authorization = management_authorization
+        self._node_trust = node_trust
+        self._registrations = registrations
+        self._users = users
+        self._audit = audit
+        self._management_cache: dict[tuple[str, str], tuple[str, int, str]] = {}
+
+    def _invalidate_management_cache(self, request: Request | WebSocket, node_id: str) -> None:
+        try:
+            actor_id, _ = admin_request_actor(request)
+        except HTTPException:
+            return
+        self._management_cache.pop((actor_id, node_id), None)
+
+    async def _management_headers(self, request: Request | WebSocket, node_id: str) -> dict[str, str]:
+        if self._management_authorization is None:
+            return {}
+        actor_id, actor_role = admin_request_actor(request)
+        if actor_id not in {"admin_token", "legacy_admin_session"}:
+            user = await self._users.get_user(actor_id) if self._users is not None else None
+            if user is None or not bool(user.get("enabled")) or str(user.get("role")) != "admin":
+                raise HTTPException(status_code=403, detail="operator_access_revoked")
+        registration = self._registrations.get(node_id) if self._registrations is not None else None
+        trusted = self._node_trust.trusted_node(node_id) if self._node_trust is not None else None
+        if registration is None:
+            raise HTTPException(status_code=404, detail="management_target_node_not_found")
+        if str(registration.trust_status or "").lower() != "trusted" or trusted is None:
+            raise HTTPException(status_code=409, detail="management_target_node_untrusted")
+        cache_key = (actor_id, node_id)
+        cached = self._management_cache.get(cache_key)
+        cached_authorization = self._management_authorization.store.get(cached[2]) if cached is not None else None
+        if cached is not None and cached[1] > int(time.time()) + 30 and cached_authorization is not None and cached_authorization.active():
+            return {"X-Hexe-Management-Authorization": cached[0]}
+        token, claims = await self._management_authorization.issue(
+            operator_id=actor_id,
+            operator_role=actor_role,
+            target_node_id=node_id,
+            scopes=sorted(NODE_MANAGEMENT_PERMISSIONS),
+        )
+        self._management_cache[cache_key] = (token, int(claims["exp"]), str(claims["authorization_id"]))
+        if self._audit is not None:
+            await self._audit.record(
+                event_type="node_management_proxy_authorized",
+                actor_role=actor_role,
+                actor_id=actor_id,
+                details={
+                    "authorization_id": claims["authorization_id"],
+                    "target_node_id": node_id,
+                    "scopes": claims["scp"],
+                    "jti": claims["jti"],
+                },
+            )
+        return {"X-Hexe-Management-Authorization": token}
 
     async def aclose(self) -> None:
         await self._proxy.aclose()
@@ -166,7 +232,7 @@ class NodeUiProxy:
         headers = self._proxy.build_request_headers(
             request,
             public_prefix=effective_public_prefix,
-            extra_headers={"X-Hexe-Node-Id": node_id},
+            extra_headers={"X-Hexe-Node-Id": node_id, **await self._management_headers(request, node_id)},
         )
         try:
             upstream = await self._proxy.send(
@@ -211,6 +277,8 @@ class NodeUiProxy:
                 public_prefix=effective_public_prefix,
             )
         content = await upstream.aread()
+        if upstream.status_code == 401:
+            self._invalidate_management_cache(request, node_id)
         response_headers = self._proxy.safe_response_headers(upstream.headers)
         await upstream.aclose()
         if render_navigation_json_page:
@@ -422,11 +490,16 @@ class NodeUiProxy:
             return
         target_base = self._target_base(node_id, websocket)
         target = self._proxy.build_websocket_target_url(target_base, path, websocket.url.query)
+        try:
+            management_headers = await self._management_headers(websocket, node_id)
+        except HTTPException as exc:
+            await websocket.close(code=4403 if exc.status_code != 401 else 4401, reason=str(exc.detail))
+            return
         await self._proxy.proxy_websocket(
             websocket,
             target_url=target,
                 public_prefix=public_prefix or f"/nodes/proxy/{node_id}",
-            extra_headers={"X-Hexe-Node-Id": node_id},
+            extra_headers={"X-Hexe-Node-Id": node_id, **management_headers},
         )
         self._log_proxy_result(
             node_id=node_id,
@@ -459,7 +532,10 @@ class NodeUiProxy:
         headers = self._proxy.build_request_headers(
             request,
             public_prefix=effective_public_prefix,
-            extra_headers={"X-Hexe-Node-Id": node_id},
+            extra_headers={
+                "X-Hexe-Node-Id": node_id,
+                **({} if _public_node_oauth_callback_path(path) else await self._management_headers(request, node_id)),
+            },
         )
         try:
             upstream = await self._proxy.send(
@@ -491,6 +567,8 @@ class NodeUiProxy:
             latency_ms=(time.perf_counter() - started_at) * 1000.0,
             outcome="proxied",
         )
+        if upstream.status_code == 401:
+            self._invalidate_management_cache(request, node_id)
         if not render_navigation_json_page:
             return await self._proxy.stream_response(upstream)
 

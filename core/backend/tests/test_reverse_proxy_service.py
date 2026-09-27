@@ -58,7 +58,7 @@ class TestReverseProxyService(unittest.TestCase):
         self.assertEqual(headers["X-Hexe-Addon-Id"], "mqtt")
         self.assertNotIn("Cookie", headers)
 
-    def test_build_request_headers_propagates_management_authorization(self) -> None:
+    def test_build_request_headers_strips_caller_management_authorization(self) -> None:
         service = ReverseProxyService()
         request = _request(headers=[
             (b"host", b"core.local:9001"),
@@ -67,7 +67,14 @@ class TestReverseProxyService(unittest.TestCase):
 
         headers = service.build_request_headers(request, public_prefix="/nodes/proxy/node-ai")
 
-        self.assertEqual(headers["x-hexe-management-authorization"], "signed-management-token")
+        self.assertNotIn("x-hexe-management-authorization", {key.lower(): value for key, value in headers.items()})
+
+        injected = service.build_request_headers(
+            request,
+            public_prefix="/nodes/proxy/node-ai",
+            extra_headers={"X-Hexe-Management-Authorization": "core-issued-token"},
+        )
+        self.assertEqual(injected["X-Hexe-Management-Authorization"], "core-issued-token")
 
     def test_build_request_headers_preserves_outer_tunnel_forwarded_host_and_proto(self) -> None:
         service = ReverseProxyService()

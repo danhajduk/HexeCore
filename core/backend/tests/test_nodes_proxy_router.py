@@ -1,4 +1,6 @@
 import unittest
+import asyncio
+import time
 from unittest.mock import AsyncMock
 from unittest.mock import patch
 
@@ -11,6 +13,7 @@ from starlette.websockets import WebSocketDisconnect
 from app.nodes.proxy import NodeUiProxy
 from app.nodes.proxy import build_node_ui_proxy_router
 from app.reverse_proxy import ReverseProxyService
+from app.system.management_access import NODE_MANAGEMENT_PERMISSIONS
 
 
 class _FakeNodeProxy:
@@ -336,6 +339,53 @@ class TestNodeUiProxyHtmlRewrite(unittest.TestCase):
             content_type="application/json",
         )
         self.assertIsNone(rendered)
+
+
+class TestNodeUiProxyManagementAuthorization(unittest.TestCase):
+    def test_proxy_issues_full_node_bound_authorization_and_caches_it(self) -> None:
+        class _Management:
+            class _Store:
+                def __init__(self): self.is_active = True
+                def get(self, _authorization_id):
+                    active = self.is_active
+                    return type("Authorization", (), {"active": lambda _self: active})()
+            def __init__(self):
+                self.calls = []
+                self.store = self._Store()
+            async def issue(self, **kwargs):
+                self.calls.append(kwargs)
+                now = int(time.time())
+                return "core-token", {"exp": now + 300, "authorization_id": "nma-1", "scp": kwargs["scopes"], "jti": "jti-1"}
+        class _Registrations:
+            def get(self, node_id): return type("Registration", (), {"trust_status": "trusted"})()
+        class _Trust:
+            def trusted_node(self, node_id): return object()
+
+        management = _Management()
+        proxy = NodeUiProxy(
+            _TargetService(type("Node", (), {"ui_enabled": True, "ui_base_url": "http://node/ui"})()),
+            management_authorization=management,
+            node_trust=_Trust(),
+            registrations=_Registrations(),
+        )
+        request = Request({
+            "type": "http", "http_version": "1.1", "method": "GET", "scheme": "https",
+            "path": "/api/nodes/node-1/status", "raw_path": b"/api/nodes/node-1/status",
+            "query_string": b"", "headers": [(b"host", b"core.local"), (b"x-admin-token", b"test-token")],
+            "client": ("127.0.0.1", 1), "server": ("core.local", 443),
+        })
+        with patch.dict("os.environ", {"HEXE_ADMIN_TOKEN": "test-token"}, clear=False):
+            first = asyncio.run(proxy._management_headers(request, "node-1"))
+            second = asyncio.run(proxy._management_headers(request, "node-1"))
+            management.store.is_active = False
+            third = asyncio.run(proxy._management_headers(request, "node-1"))
+
+        self.assertEqual(first, {"X-Hexe-Management-Authorization": "core-token"})
+        self.assertEqual(second, first)
+        self.assertEqual(third, first)
+        self.assertEqual(len(management.calls), 2)
+        self.assertEqual(set(management.calls[0]["scopes"]), set(NODE_MANAGEMENT_PERMISSIONS))
+        self.assertEqual(management.calls[0]["target_node_id"], "node-1")
 
 
 class _TargetService:

@@ -9,6 +9,7 @@ import subprocess
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Header, HTTPException, Request, Response
 from pydantic import BaseModel
@@ -151,9 +152,28 @@ def is_admin_request_authenticated(request: Any) -> bool:
 
 
 def require_admin_request(request: Any) -> None:
-    if is_admin_request_authenticated(request):
+    if not is_admin_request_authenticated(request):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    method = str(getattr(request, "method", "") or "").upper()
+    if method in {"", "GET", "HEAD", "OPTIONS"}:
         return
-    raise HTTPException(status_code=401, detail="Unauthorized")
+    expected = _admin_token_expected()
+    headers = getattr(request, "headers", {}) or {}
+    supplied_admin_token = str(headers.get("x-admin-token", "") or "")
+    if expected and supplied_admin_token and hmac.compare_digest(supplied_admin_token, expected):
+        return
+    origin = str(headers.get("origin", "") or "").strip()
+    referer = str(headers.get("referer", "") or "").strip()
+    source = origin or referer
+    if not source:
+        raise HTTPException(status_code=403, detail="csrf_origin_required")
+    forwarded_host = str(headers.get("x-forwarded-host", "") or "").split(",", 1)[0].strip()
+    forwarded_proto = str(headers.get("x-forwarded-proto", "") or "").split(",", 1)[0].strip().lower()
+    target_host = forwarded_host or str(headers.get("host", "") or "").strip()
+    target_proto = forwarded_proto if forwarded_proto in {"http", "https"} else str(getattr(getattr(request, "url", None), "scheme", "http"))
+    parsed = urlsplit(source)
+    if parsed.scheme.lower() != target_proto.lower() or parsed.netloc.lower() != target_host.lower():
+        raise HTTPException(status_code=403, detail="csrf_origin_mismatch")
 
 
 @router.post("/admin/session/login")

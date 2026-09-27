@@ -204,6 +204,32 @@ An authenticated operator requests a five-minute authorization with:
 }
 ```
 
+Successful explicit issuance returns HTTP 200:
+
+```json
+{
+  "ok": true,
+  "token": "<Core-signed node-management JWT>",
+  "claims": {
+    "sub": "admin",
+    "aud": "node-management:node-ai",
+    "scp": ["node.manage.read", "node.manage.configuration"],
+    "exp": 1790472000,
+    "iat": 1790471700,
+    "jti": "management-token-id",
+    "iss": "hexe-core",
+    "token_use": "node_management",
+    "authorization_id": "nma-authorization-id",
+    "provider_node_id": "node-ai"
+  },
+  "authorization_id": "nma-authorization-id"
+}
+```
+
+The token is sensitive bearer material. It is browser-visible only when an
+explicit same-origin client deliberately calls this endpoint; the normal
+Core-mounted proxy flow never returns it to the browser.
+
 Core requires the target registration and node trust to be current. The
 returned Core-signed token has `token_use=node_management`, `sub` equal to the
 Core operator identity, `aud=node-management:<target-node-id>`, explicit `scp`,
@@ -243,13 +269,35 @@ avatar assets, `node.manage.credentials` for secret and provider credentials,
 and `node.manage.diagnostics` for operational diagnostics. Nodes require the
 narrow permission appropriate to each route; read never implies mutation.
 
-## WebUI propagation
+## WebUI and proxy behavior
 
-Node UIs loaded through Core request authorization from Core with the browser
-session, then send it as `X-Hexe-Management-Authorization` on calls through
-`/nodes/proxy/<node-id>/...` or `/api/nodes/<node-id>/...`. Core's proxy forwards
-that header but does not replace target-node validation. A node must not trust
-proxy headers or caller-supplied identities without successful introspection.
+The supported browser flow is Core-mounted access through
+`/nodes/proxy/ui/<node-id>/...` with node API calls through
+`/api/nodes/<node-id>/...` or `/nodes/proxy/<node-id>/...`. The browser does not
+call the issuance endpoint and does not receive, store, refresh, or attach a
+management token. After validating the Core admin session, current operator,
+and current target trust, Core's proxy obtains a five-minute authorization with
+all seven management permissions, caches it until 30 seconds before expiration,
+and injects it as `X-Hexe-Management-Authorization`.
+
+The proxy strips any caller-supplied header of that name before injecting its
+own value. It covers every supported proxy HTTP method, bodies, streaming and
+binary responses, UI resources, browser-native image/download requests, and
+WebSocket handshakes. It never returns the token to browser JavaScript.
+
+The explicit issuance endpoint remains available to same-origin Core clients
+and automation. One authorization may contain multiple permissions, including
+all seven for an administrator. Cookie-authenticated unsafe methods require an
+`Origin` or `Referer` matching Core's effective scheme and host; `X-Admin-Token`
+automation is not subject to browser CSRF validation. There is no refresh
+endpoint: clients that explicitly obtain a token use the returned `claims.exp`
+and request a replacement before expiry.
+
+Direct node UI management is not a supported authenticated path. A direct node
+page has no Core session and Core does not enable credentialed cross-origin
+issuance. Nodes should direct operators to the Core-mounted URL. Legacy
+`VITE_ADMIN_TOKEN` and `X-Hexe-Admin-Token` credentials are not part of this
+contract and must not provide a management bypass.
 
 ## Revocation, recovery, and public routes
 
@@ -259,6 +307,15 @@ on every introspection. Explicit revocation is available at
 Expiry, revocation, user disablement, role removal, or target trust loss denies
 subsequent access.
 
+An expired Core session causes Core proxy GET/HEAD navigation to redirect to
+`/proxy-login`; API mutations return 401. Because proxy-held authorizations are
+not browser-visible, Core rechecks its authorization record before every proxy
+request. Revoked records are replaced immediately; an upstream 401 clears the
+cache so the next browser request receives a new token. Core does not replay a
+possibly non-idempotent request automatically. Permission denial and
+untrusted-target responses are not retried. Target absence returns 404 and
+target trust loss returns 409 before proxy forwarding.
+
 Initial onboarding and damaged-trust reauthentication remain Core-owned proof
 and operator-approval workflows; Core does not issue management authorization
 to an untrusted target. Node `/health`, schema/OpenAPI, and static discovery
@@ -266,7 +323,8 @@ routes may remain unauthenticated but must not expose secrets or mutable state.
 
 Core audits issuance, revocation, and successful validation with operator,
 target node, authorization id, token id, scopes, and result. Tokens and signing
-secrets are never included in audit data or logs.
+secrets are never included in audit data, application logs, telemetry, browser
+console output, URLs, or error bodies.
 """
 
 
