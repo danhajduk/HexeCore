@@ -678,7 +678,9 @@ def build_system_router(
         if registration is None or str(registration.trust_status or "").strip().lower() != "trusted":
             raise HTTPException(status_code=403, detail={"error": "untrusted_node", "message": "node not registered"})
 
-    async def _issue_service_token_for_node(*, node_id: str, audience: str, scopes: list[str]) -> tuple[str, dict[str, object]]:
+    async def _issue_service_token_for_node(
+        *, node_id: str, audience: str, scopes: list[str], provider_node_id: str | None = None
+    ) -> tuple[str, dict[str, object]]:
         if service_token_key_store is None:
             raise HTTPException(status_code=503, detail="service_token_key_store_unavailable")
         key = await service_token_key_store.active_key()
@@ -688,7 +690,12 @@ def build_system_router(
             ttl_s = max(60, int(str(os.getenv("HEXE_NODE_SERVICE_TOKEN_TTL_S", "600")).strip()))
         except Exception:
             ttl_s = 600
+        authorization_id = f"authz-{secrets.token_urlsafe(16)}"
         payload = {
+            "iss": "hexe-core",
+            "token_use": "node_service",
+            "authorization_id": authorization_id,
+            "provider_node_id": str(provider_node_id or "").strip() or None,
             "sub": node_id,
             "aud": audience,
             "scp": [str(scope).strip() for scope in scopes if str(scope).strip()],
@@ -698,6 +705,7 @@ def build_system_router(
         }
         header = {"alg": "HS256", "typ": "JWT", "kid": str(key["kid"])}
         token = sign_hs256(header, payload, secret=str(key["secret"]))
+        await service_token_key_store.record_token_expiry(kid=str(key["kid"]), exp=int(payload["exp"]))
         return token, payload
 
     async def _publish_budget_policy_snapshot(node_id: str):
@@ -2210,6 +2218,7 @@ def build_system_router(
             node_id=node_id,
             audience=candidate.service_id,
             scopes=list(candidate.required_scopes or []),
+            provider_node_id=str(candidate.provider_node_id or "").strip() or None,
         )
         _record_audit(
             audit_store,

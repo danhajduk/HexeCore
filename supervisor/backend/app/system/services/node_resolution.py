@@ -361,9 +361,10 @@ class NodeServiceResolutionService:
 
                 auth_modes = [str(v).strip() for v in list(item.get("auth_modes") or []) if str(v).strip()]
                 auth_mode = _clean_text(item.get("auth_mode")) or (auth_modes[0] if auth_modes else "service_token")
-                required_scopes = [str(v).strip() for v in list(item.get("required_scopes") or []) if str(v).strip()]
-                if not required_scopes:
-                    required_scopes = [f"service.execute:{task_family}"]
+                # Provider metadata describes execution compatibility; it is not
+                # an authorization grant. Ordinary resolved-service tokens carry
+                # only Core-derived task execution authority.
+                required_scopes = [f"service.execute:{task_family}"]
 
                 capability_endpoint = item.get("capability_endpoint") if isinstance(item.get("capability_endpoint"), dict) else {}
                 execution_endpoint_url = _clean_text(item.get("execution_endpoint_url") or _endpoint_url(capability_endpoint))

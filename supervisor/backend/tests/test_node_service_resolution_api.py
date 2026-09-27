@@ -271,7 +271,7 @@ class TestNodeServiceResolutionApi(unittest.TestCase):
                 models=[{"model_id": "gpt-4o-mini"}],
                 declared_capacity={"limits": {"max_tokens": 1000000}},
                 auth_modes=["service_token"],
-                required_scopes=["service.execute:task.summarization"],
+                required_scopes=["service.execute:task.summarization", "ai.prompts.write"],
                 addon_registry={"addon_id": "summary-addon", "name": "Summary Addon", "version": "1.0.0", "enabled": True},
             )
         )
@@ -345,6 +345,10 @@ class TestNodeServiceResolutionApi(unittest.TestCase):
         self.assertTrue(str(auth_payload["token"]).strip())
         self.assertEqual(auth_payload["claims"]["aud"], "summary-service")
         self.assertEqual(auth_payload["claims"]["sub"], node_id)
+        self.assertEqual(auth_payload["claims"]["iss"], "hexe-core")
+        self.assertEqual(auth_payload["claims"]["token_use"], "node_service")
+        self.assertTrue(auth_payload["claims"]["authorization_id"].startswith("authz-"))
+        self.assertEqual(auth_payload["claims"]["scp"], ["service.execute:task.summarization"])
         self.assertEqual(auth_payload["grant_id"], candidate["grant_id"])
 
         usage_report = self.client.post(

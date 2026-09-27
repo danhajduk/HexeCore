@@ -13,8 +13,9 @@ are listed here only where Core wraps or depends on them operationally.
 - [Generated OpenAPI Paths](./generated-openapi-paths.md) lists every path in
   the deterministic Core OpenAPI snapshot.
 - `GET /api/schemas/client-core/v1` provides the client-oriented trusted-node
-  catalog. Proposed service-token introspection is explicitly marked
-  `Not implemented`; see [Client Core V1 Catalog](./client-core-catalog.md).
+  catalog, including implemented provider introspection and governed service
+  access; see [Client Core V1 Catalog](./client-core-catalog.md) and
+  [Core Service-Token Security](./service-token-security.md).
 
 ## Runtime Proxy Surfaces
 

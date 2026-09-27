@@ -405,3 +405,9 @@ class NodeTrustIssuanceService:
         if str(record.node_trust_token or "").strip() != token:
             return None
         return record
+
+    def trusted_node(self, node_id: str) -> NodeTrustRecord | None:
+        record = self._store.get_by_node(str(node_id or "").strip())
+        if record is None or str(record.trust_status or "").strip().lower() != "trusted":
+            return None
+        return record

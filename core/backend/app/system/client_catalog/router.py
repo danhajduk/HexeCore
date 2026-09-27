@@ -44,7 +44,7 @@ class ClientDocumentEntry(BaseModel):
 
 class SecurityProposalEntry(BaseModel):
     name: str
-    status: Literal["Not implemented"] = "Not implemented"
+    status: ImplementationStatus
     description: str
     proposed_api_path: str | None = None
     requirements: list[str] = Field(default_factory=list)
@@ -81,63 +81,97 @@ Core currently authenticates node-facing resolution and authorization calls
 with `X-Node-Trust-Token`, issues short-lived HS256 service tokens after
 governance and budget checks, and keeps the signing keys inside Core.
 
-Provider-side service-token introspection is **not implemented**. Providers
-cannot yet validate Core-issued HS256 tokens without Core signing material.
-The proposed generic contract and rollout requirements are published at
-`GET /api/schemas/client-core/v1/service-token-introspection-proposal.md` and
-are explicitly non-operational.
+Provider-side service-token introspection, governed privileged-scope grants,
+and lifetime-aware rotation retention are implemented. Providers can validate
+Core-issued tokens without receiving Core signing material. The implemented
+contract is published at
+`GET /api/schemas/client-core/v1/service-token-security-contract.md`.
+
+Provider adoption remains partially implemented: each resolved service node
+must enforce the contract at its own execution and management endpoints.
 """
 
 
-SECURITY_PROPOSAL = """# Core Service-Token Introspection Proposal
+SECURITY_CONTRACT = """# Core Service-Token Security Contract
 
-Status: Not implemented
+Status: Implemented
 
-This document describes a proposed security layer for every provider selected
-through Core service resolution. It is not an available runtime contract.
+This document defines Core's implemented security layer for providers selected
+through Core service resolution and for explicitly granted service management.
 
-## Proposed execution boundary
+## Execution boundary
 
 Resolution remains discovery. Core authorization issues a short-lived service
 token, and the selected provider validates that token through Core before
 executing the request.
 
-Proposed endpoint:
+Endpoint:
 
 `POST /api/system/nodes/services/introspect`
 
-The provider would authenticate with `X-Node-Id` and its existing
-`X-Node-Trust-Token`. Core would verify current node trust, provider ownership
+The provider authenticates with `X-Node-Id` and its existing
+`X-Node-Trust-Token`. Core verifies current node trust, provider ownership
 of the JWT audience, signature against active and retained rotation keys,
 expiration, subject, audience, scopes, issued-at time, and token identifier.
 
-Authenticated inactive tokens would return HTTP 200 with `active=false` and a
-stable error code. Missing provider credentials would return 401, invalid or
+Request:
+
+```json
+{
+  "token": "<Core-issued token>",
+  "expected_audience": "node-service:<provider-node-id>:<provider>",
+  "required_scopes": ["ai.prompts.read"]
+}
+```
+
+An active HTTP 200 response contains `active=true` and verified `sub`, `aud`,
+`scp`, `exp`, `iat`, `jti`, `iss`, `token_use`, and `authorization_id` claims.
+An inactive HTTP 200 response contains `active=false`, `claims=null`, and one
+of `token_malformed`, `token_signature_invalid`, `token_expired`,
+`token_claims_invalid`, `token_use_invalid`, `token_audience_mismatch`,
+`token_scope_insufficient`, `token_subject_untrusted`, or
+`token_authorization_revoked`.
+
+Authenticated inactive tokens return HTTP 200 with `active=false` and a
+stable error code. Missing provider credentials return 401, invalid or
 untrusted provider credentials 403, and abuse limiting 429.
 
-## Proposed scope controls
+Missing identity or trust credentials return `node_identity_required` or
+`node_trust_token_required`. Invalid trust returns `untrusted_node`, foreign
+audience ownership returns `service_token_audience_not_owned`, rate limiting
+returns `rate_limited`, and unavailable validation returns
+`token_validation_unavailable`. Providers fail closed unless HTTP 200 returns
+`active=true`.
 
-Execution authorization would issue only `service.execute:<task_family>` from
+## Scope controls
+
+Execution authorization issues `service.execute:<task_family>` from
 the resolved and governed task. Provider catalog declarations could narrow but
 could not expand authority. Privileged domain scopes would require explicit
 Core-owned grants and could not be self-granted through provider metadata.
 
-The proposed AI management scopes are `ai.prompts.read`, `ai.prompts.write`,
+The supported AI management scopes are `ai.prompts.read`, `ai.prompts.write`,
 `ai.prompts.lifecycle`, `ai.prompts.review`, `ai.image_templates.read`,
 `ai.image_templates.write`, `ai.image_templates.lifecycle`,
 `ai.image_templates.review`, `ai.jobs.read`, `ai.jobs.cancel`,
 `ai.artifacts.read`, `ai.artifacts.ack`, and `ai.services.read`.
 
-## Proposed identity binding
+Administrators manage grants at
+`/api/system/nodes/service-access/grants`. Trusted callers exchange an active
+grant for a 600-second token at
+`POST /api/system/nodes/service-access/authorize`. No privileged grant is
+created automatically.
 
-JWT `sub` would identify the calling node. JWT `aud` would identify the exact
-authorized logical provider service. Providers would require request identity
+## Identity binding
+
+JWT `sub` identifies the calling node. JWT `aud` identifies the exact
+authorized logical provider service. Providers require request identity
 to match `sub` and the requested service to match `aud`.
 
 ## Rotation
 
-Retired keys would remain verification-only for at least the maximum token
-lifetime plus clock skew. No signing secret or key material would be returned
+Retired keys remain verification-only through the latest token expiration
+recorded for that key plus 30 seconds of clock skew. No signing secret or key material is returned
 to a node.
 """
 
@@ -168,11 +202,11 @@ def _catalog_payload() -> ClientCoreCatalogResponse:
             "base_url_source": "configured Core API base URL",
         },
         current_security={
-            "status": "Partially implemented",
+            "status": "Implemented with provider adoption pending",
             "node_authentication": "Trusted-node APIs authenticate with X-Node-Trust-Token and node_id.",
             "service_authorization": "Core resolution plus governance and budget checks issue short-lived service tokens.",
             "token_signing": "HS256 signing keys remain private to Core and rotate through the Core key ring.",
-            "provider_token_verification": "Not implemented; the proposed introspection endpoint is not registered.",
+            "provider_token_verification": "Implemented through POST /api/system/nodes/services/introspect.",
         },
         apis=[
             _api("node_onboarding_start", "POST", "/api/system/nodes/onboarding/sessions", "Start node onboarding.", "Node onboarding proof contract"),
@@ -189,6 +223,9 @@ def _catalog_payload() -> ClientCoreCatalogResponse:
             _api("budget_usage_summary", "POST", "/api/system/nodes/budgets/usage-summary", "Report usage against Core budget grants."),
             _api("service_resolve", "POST", "/api/system/nodes/services/resolve", "Resolve a task family to governed service candidates."),
             _api("service_authorize", "POST", "/api/system/nodes/services/authorize", "Authorize a resolved candidate and issue a short-lived service token."),
+            _api("service_token_introspection", "POST", "/api/system/nodes/services/introspect", "Validate a Core-issued service token for the authenticated provider.", "X-Node-Id and X-Node-Trust-Token"),
+            _api("service_access_authorize", "POST", "/api/system/nodes/service-access/authorize", "Issue a service-management token from an explicit Core-owned grant."),
+            _api("service_access_grants", "GET,POST,PUT", "/api/system/nodes/service-access/grants", "Administer explicit privileged service-access grants.", "Core administrator"),
             _api("node_telemetry", "POST", "/api/system/nodes/telemetry", "Submit trusted-node telemetry."),
             _api("operational_status", "GET", "/api/system/nodes/operational-status/{node_id}", "Read node lifecycle, capability, and governance readiness."),
             _api("trust_status", "GET", "/api/system/nodes/trust-status/{node_id}", "Read explicit trust, revocation, and removal status."),
@@ -210,11 +247,12 @@ def _catalog_payload() -> ClientCoreCatalogResponse:
         ],
         documents=[
             ClientDocumentEntry(name="README.md", title="Client Core V1 Catalog", status="Implemented", api_path="/api/schemas/client-core/v1/README.md"),
-            ClientDocumentEntry(name="service-token-introspection-proposal.md", title="Core Service-Token Introspection Proposal", status="Not implemented", api_path="/api/schemas/client-core/v1/service-token-introspection-proposal.md"),
+            ClientDocumentEntry(name="service-token-security-contract.md", title="Core Service-Token Security Contract", status="Implemented", api_path="/api/schemas/client-core/v1/service-token-security-contract.md"),
         ],
         security_proposals=[
             SecurityProposalEntry(
                 name="provider_service_token_introspection",
+                status="Implemented",
                 description="Allow a trusted provider node to validate a Core-issued service token without receiving Core signing secrets.",
                 proposed_api_path="/api/system/nodes/services/introspect",
                 requirements=[
@@ -227,6 +265,7 @@ def _catalog_payload() -> ClientCoreCatalogResponse:
             ),
             SecurityProposalEntry(
                 name="universal_resolved_service_enforcement",
+                status="Partially implemented",
                 description="Require every provider selected through service resolution to introspect the authorization token before execution.",
                 requirements=[
                     "Treat resolution as discovery and authorization plus provider enforcement as the security boundary.",
@@ -236,6 +275,7 @@ def _catalog_payload() -> ClientCoreCatalogResponse:
             ),
             SecurityProposalEntry(
                 name="governed_privileged_scope_issuance",
+                status="Implemented",
                 description="Issue privileged domain scopes only through explicit Core-owned authorization grants.",
                 requirements=[
                     "Limit ordinary resolution authorization to service.execute:<task_family>.",
@@ -245,6 +285,7 @@ def _catalog_payload() -> ClientCoreCatalogResponse:
             ),
             SecurityProposalEntry(
                 name="lifetime_based_rotation_retention",
+                status="Implemented",
                 description="Retain retired verification keys until every token they signed must have expired.",
                 requirements=[
                     "Retain keys for at least maximum token TTL plus clock skew.",
@@ -270,8 +311,12 @@ def build_client_core_catalog_router() -> APIRouter:
     def get_client_core_readme() -> str:
         return README
 
-    @router.get("/schemas/client-core/v1/service-token-introspection-proposal.md", response_class=PlainTextResponse)
-    def get_service_token_introspection_proposal() -> str:
-        return SECURITY_PROPOSAL
+    @router.get("/schemas/client-core/v1/service-token-security-contract.md", response_class=PlainTextResponse)
+    def get_service_token_security_contract() -> str:
+        return SECURITY_CONTRACT
+
+    @router.get("/schemas/client-core/v1/service-token-introspection-proposal.md", response_class=PlainTextResponse, include_in_schema=False)
+    def get_service_token_introspection_proposal_compatibility() -> str:
+        return SECURITY_CONTRACT
 
     return router

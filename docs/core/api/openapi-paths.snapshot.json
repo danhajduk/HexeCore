@@ -1,5 +1,5 @@
 {
-  "path_count": 248,
+  "path_count": 253,
   "paths": {
     "/api/addons": [
       "get"
@@ -170,7 +170,7 @@
     "/api/schemas/client-core/v1/schema-catalog.v1.response.schema.json": [
       "get"
     ],
-    "/api/schemas/client-core/v1/service-token-introspection-proposal.md": [
+    "/api/schemas/client-core/v1/service-token-security-contract.md": [
       "get"
     ],
     "/api/services/register": [
@@ -628,7 +628,24 @@
     "/api/system/nodes/registry": [
       "get"
     ],
+    "/api/system/nodes/service-access/authorize": [
+      "post"
+    ],
+    "/api/system/nodes/service-access/grants": [
+      "get",
+      "post"
+    ],
+    "/api/system/nodes/service-access/grants/{grant_id}": [
+      "get",
+      "put"
+    ],
+    "/api/system/nodes/service-access/grants/{grant_id}/revoke": [
+      "post"
+    ],
     "/api/system/nodes/services/authorize": [
+      "post"
+    ],
+    "/api/system/nodes/services/introspect": [
       "post"
     ],
     "/api/system/nodes/services/resolve": [

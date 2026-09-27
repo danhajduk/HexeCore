@@ -128,6 +128,7 @@ def build_auth_router(key_store: ServiceTokenKeyStore) -> APIRouter:
         }
         header = {"alg": "HS256", "typ": "JWT", "kid": str(key["kid"])}
         token = sign_hs256(header, payload, secret=str(key["secret"]))
+        await key_store.record_token_expiry(kid=str(key["kid"]), exp=int(body.exp))
         return {
             "ok": True,
             "token": token,

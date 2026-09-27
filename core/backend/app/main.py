@@ -100,6 +100,7 @@ from app.system.events import PlatformEventService, build_events_router
 from app.system.services import ServiceCatalogStore, build_service_resolution_router
 from app.system.auth import ServiceTokenKeyStore, build_auth_router
 from app.system.client_catalog import build_client_core_catalog_router
+from app.system.service_access import ServiceAccessGrantStore, build_service_access_router
 from app.system.policy import PolicyStore, build_policy_router
 from app.system.telemetry import UsageTelemetryStore, build_telemetry_router
 from app.system.audit import AuditLogStore
@@ -928,6 +929,11 @@ def create_app() -> FastAPI:
         os.path.join(os.getcwd(), "var", "service_catalogs.json"),
     )
     service_catalog_store = ServiceCatalogStore(service_catalog_db)
+    service_access_grants_db = os.getenv(
+        "SERVICE_ACCESS_GRANTS_DB",
+        os.path.join(os.getcwd(), "var", "service_access_grants.json"),
+    )
+    service_access_grant_store = ServiceAccessGrantStore(service_access_grants_db)
     edge_gateway_db = os.getenv(
         "EDGE_GATEWAY_DB",
         os.path.join(os.getcwd(), "var", "edge_gateway.json"),
@@ -992,6 +998,7 @@ def create_app() -> FastAPI:
     app.state.settings_store = settings_store
     app.state.service_token_keys = service_token_keys
     app.state.service_catalog_store = service_catalog_store
+    app.state.service_access_grant_store = service_access_grant_store
     app.state.edge_gateway_store = edge_gateway_store
     app.state.mqtt_integration_state_store = mqtt_integration_state_store
     app.state.mqtt_authority_audit = mqtt_authority_audit
@@ -1272,6 +1279,16 @@ def create_app() -> FastAPI:
     )
     app.include_router(build_events_router(event_service), prefix="/api/system", tags=["events"])
     app.include_router(build_auth_router(service_token_keys), prefix="/api/auth", tags=["auth"])
+    app.include_router(
+        build_service_access_router(
+            key_store=service_token_keys,
+            grant_store=service_access_grant_store,
+            trust=node_trust_issuance,
+            registrations=node_registrations_store,
+            audit=audit_store,
+        ),
+        prefix="/api",
+    )
     app.include_router(build_client_core_catalog_router(), prefix="/api")
     app.include_router(build_policy_router(policy_store, mqtt_manager, audit_store), prefix="/api/policy", tags=["policy"])
     app.include_router(build_telemetry_router(telemetry_store, service_token_keys), prefix="/api/telemetry", tags=["telemetry"])

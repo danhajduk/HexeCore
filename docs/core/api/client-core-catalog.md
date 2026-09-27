@@ -13,17 +13,18 @@ service-resolution, authorization, telemetry, hardware-access, and MQTT event
 contract APIs. Every listed API and catalog entry carries an implementation
 status so clients can distinguish available behavior from planned contracts.
 
-## Proposed service-token security
+## Service-token security
 
 The catalog also publishes:
 
-- `GET /api/schemas/client-core/v1/service-token-introspection-proposal.md`
+- `GET /api/schemas/client-core/v1/service-token-security-contract.md`
 
-The document and its corresponding `security_proposals` catalog entries are
-marked `Not implemented`. Publication is design discovery only and does not
-register `POST /api/system/nodes/services/introspect`.
+Provider introspection, governed privileged-scope issuance, and lifetime-based
+rotation retention are implemented. Universal provider enforcement is marked
+`Partially implemented` because each service node must adopt the contract.
 
 The proposal covers provider authentication, audience ownership, service-token
 claim verification, stable inactive responses, rate limiting, governed
 privileged-scope issuance, request identity binding, and lifetime-based signing
-key retention. Core signing secrets remain private to Core.
+key retention. Core signing secrets remain private to Core. See
+[Core Service-Token Security](./service-token-security.md).

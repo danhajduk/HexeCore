@@ -13,6 +13,8 @@ from app.system.settings.store import SettingsStore
 
 KEYRING_SETTING_KEY = "auth.service_token.keys"
 MAX_KEY_HISTORY = 3
+DEFAULT_CLOCK_SKEW_SECONDS = 30
+LEGACY_TOKEN_RETENTION_FLOOR_SECONDS = 600
 
 
 def _b64url_encode(raw: bytes) -> str:
@@ -40,9 +42,13 @@ class ServiceTokenClaims:
     exp: int
     jti: str
     iat: int
+    iss: str | None = None
+    token_use: str | None = None
+    authorization_id: str | None = None
+    provider_node_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload: dict[str, Any] = {
             "sub": self.sub,
             "aud": self.aud,
             "scp": self.scp,
@@ -50,6 +56,15 @@ class ServiceTokenClaims:
             "jti": self.jti,
             "iat": self.iat,
         }
+        if self.iss is not None:
+            payload["iss"] = self.iss
+        if self.token_use is not None:
+            payload["token_use"] = self.token_use
+        if self.authorization_id is not None:
+            payload["authorization_id"] = self.authorization_id
+        if self.provider_node_id is not None:
+            payload["provider_node_id"] = self.provider_node_id
+        return payload
 
 
 class ServiceTokenError(ValueError):
@@ -66,7 +81,7 @@ class ServiceTokenKeyStore:
             return [k for k in ring if isinstance(k, dict)]
         now = _utc_ts()
         new_key = {
-            "kid": f"k-{now}",
+            "kid": f"k-{now}-{secrets.token_hex(4)}",
             "secret": secrets.token_urlsafe(48),
             "created_at": now,
             "active": True,
@@ -77,19 +92,32 @@ class ServiceTokenKeyStore:
 
     async def rotate(self) -> list[dict[str, Any]]:
         ring = await self.ensure_keyring()
-        for key in ring:
-            key["active"] = False
         now = _utc_ts()
+        for key in ring:
+            if bool(key.get("active")):
+                key["active"] = False
+                key["retired_at"] = now
+                latest_signed_expiry = int(key.get("max_token_exp") or (now + LEGACY_TOKEN_RETENTION_FLOOR_SECONDS))
+                key["verify_until"] = max(
+                    latest_signed_expiry + DEFAULT_CLOCK_SKEW_SECONDS,
+                    now + DEFAULT_CLOCK_SKEW_SECONDS,
+                )
         ring.insert(
             0,
             {
-                "kid": f"k-{now}",
+                "kid": f"k-{now}-{secrets.token_hex(4)}",
                 "secret": secrets.token_urlsafe(48),
                 "created_at": now,
                 "active": True,
             },
         )
-        ring = ring[:MAX_KEY_HISTORY]
+        retained = [
+            key
+            for key in ring[1:]
+            if int(key.get("verify_until") or (now + DEFAULT_CLOCK_SKEW_SECONDS)) >= now
+        ]
+        expired_history = [key for key in ring[1:] if key not in retained][:(MAX_KEY_HISTORY - 1)]
+        ring = [ring[0], *retained, *expired_history]
         await self._settings.set(KEYRING_SETTING_KEY, ring)
         return ring
 
@@ -103,6 +131,29 @@ class ServiceTokenKeyStore:
 
     async def all_keys(self) -> list[dict[str, Any]]:
         return await self.ensure_keyring()
+
+    async def verification_keys(self) -> list[dict[str, Any]]:
+        now = _utc_ts()
+        ring = await self.ensure_keyring()
+        return [
+            key
+            for key in ring
+            if bool(key.get("active")) or int(key.get("verify_until") or (now + DEFAULT_CLOCK_SKEW_SECONDS)) >= now
+        ]
+
+    async def record_token_expiry(self, *, kid: str, exp: int) -> None:
+        ring = await self.ensure_keyring()
+        changed = False
+        for key in ring:
+            if str(key.get("kid") or "") != str(kid or ""):
+                continue
+            previous = int(key.get("max_token_exp") or 0)
+            if int(exp) > previous:
+                key["max_token_exp"] = int(exp)
+                changed = True
+            break
+        if changed:
+            await self._settings.set(KEYRING_SETTING_KEY, ring)
 
 
 def sign_hs256(header: dict[str, Any], payload: dict[str, Any], secret: str) -> str:
@@ -130,7 +181,10 @@ def verify_hs256(token: str, candidate_keys: list[dict[str, Any]]) -> tuple[dict
 
     kid = str(header.get("kid") or "")
     signed = f"{h64}.{p64}".encode("ascii")
-    expected_sig = _b64url_decode(s64)
+    try:
+        expected_sig = _b64url_decode(s64)
+    except Exception as exc:
+        raise ServiceTokenError("token_decode_failed") from exc
 
     ordered_keys = candidate_keys
     if kid:
@@ -146,14 +200,26 @@ def verify_hs256(token: str, candidate_keys: list[dict[str, Any]]) -> tuple[dict
     raise ServiceTokenError("token_signature_invalid")
 
 
-def validate_claims(payload: dict[str, Any], audience: str, required_scopes: list[str] | None = None) -> ServiceTokenClaims:
+def validate_claims(
+    payload: dict[str, Any],
+    audience: str,
+    required_scopes: list[str] | None = None,
+    *,
+    expected_issuer: str | None = None,
+    allowed_token_uses: set[str] | None = None,
+    clock_skew_seconds: int = DEFAULT_CLOCK_SKEW_SECONDS,
+) -> ServiceTokenClaims:
     now = _utc_ts()
     sub = str(payload.get("sub") or "")
     aud = payload.get("aud")
     scp = payload.get("scp")
     exp = payload.get("exp")
     jti = str(payload.get("jti") or "")
-    iat = int(payload.get("iat") or 0)
+    iat = payload.get("iat")
+    issuer = str(payload.get("iss") or "").strip() or None
+    token_use = str(payload.get("token_use") or "").strip() or None
+    authorization_id = str(payload.get("authorization_id") or "").strip() or None
+    provider_node_id = str(payload.get("provider_node_id") or "").strip() or None
 
     if not sub:
         raise ServiceTokenError("claim_sub_missing")
@@ -167,15 +233,38 @@ def validate_claims(payload: dict[str, Any], audience: str, required_scopes: lis
         raise ServiceTokenError("claim_aud_invalid")
     if not isinstance(scp, list):
         raise ServiceTokenError("claim_scp_invalid")
-    scopes = [str(x) for x in scp]
+    if any(not isinstance(item, str) or not item.strip() for item in scp):
+        raise ServiceTokenError("claim_scp_invalid")
+    scopes = [item.strip() for item in scp]
     if required_scopes:
         for needed in required_scopes:
             if needed not in scopes:
                 raise ServiceTokenError("claim_scope_missing")
     if not isinstance(exp, int):
         raise ServiceTokenError("claim_exp_invalid")
-    if exp <= now:
+    if exp <= now - max(int(clock_skew_seconds), 0):
         raise ServiceTokenError("token_expired")
+    if not isinstance(iat, int) or isinstance(iat, bool) or iat <= 0:
+        raise ServiceTokenError("claim_iat_invalid")
+    if iat > now + max(int(clock_skew_seconds), 0):
+        raise ServiceTokenError("claim_iat_invalid")
     if not jti:
         raise ServiceTokenError("claim_jti_missing")
-    return ServiceTokenClaims(sub=sub, aud=aud_value, scp=scopes, exp=exp, jti=jti, iat=iat)
+    if expected_issuer is not None and issuer != expected_issuer:
+        raise ServiceTokenError("claim_iss_invalid")
+    if allowed_token_uses is not None and token_use not in allowed_token_uses:
+        raise ServiceTokenError("token_use_invalid")
+    if allowed_token_uses is not None and not authorization_id:
+        raise ServiceTokenError("claim_authorization_id_missing")
+    return ServiceTokenClaims(
+        sub=sub,
+        aud=aud_value,
+        scp=scopes,
+        exp=exp,
+        jti=jti,
+        iat=iat,
+        iss=issuer,
+        token_use=token_use,
+        authorization_id=authorization_id,
+        provider_node_id=provider_node_id,
+    )

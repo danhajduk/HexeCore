@@ -5,7 +5,7 @@ Status: Generated
 This file is generated from `openapi-paths.snapshot.json`.
 Do not edit path rows by hand; run `python tools/update_api_route_appendix.py --write`.
 
-Path count: 248
+Path count: 253
 
 | Path | Methods |
 | --- | --- |
@@ -63,7 +63,7 @@ Path count: 248
 | `/api/schemas/client-core/v1` | `GET` |
 | `/api/schemas/client-core/v1/README.md` | `GET` |
 | `/api/schemas/client-core/v1/schema-catalog.v1.response.schema.json` | `GET` |
-| `/api/schemas/client-core/v1/service-token-introspection-proposal.md` | `GET` |
+| `/api/schemas/client-core/v1/service-token-security-contract.md` | `GET` |
 | `/api/services/register` | `POST` |
 | `/api/services/resolve` | `GET` |
 | `/api/store/admin/audit` | `GET` |
@@ -212,7 +212,12 @@ Path count: 248
 | `/api/system/nodes/registrations/{node_id}/metadata` | `PUT` |
 | `/api/system/nodes/registrations/{node_id}/revoke` | `POST` |
 | `/api/system/nodes/registry` | `GET` |
+| `/api/system/nodes/service-access/authorize` | `POST` |
+| `/api/system/nodes/service-access/grants` | `GET, POST` |
+| `/api/system/nodes/service-access/grants/{grant_id}` | `GET, PUT` |
+| `/api/system/nodes/service-access/grants/{grant_id}/revoke` | `POST` |
 | `/api/system/nodes/services/authorize` | `POST` |
+| `/api/system/nodes/services/introspect` | `POST` |
 | `/api/system/nodes/services/resolve` | `POST` |
 | `/api/system/nodes/telemetry` | `POST` |
 | `/api/system/nodes/trust-status/{node_id}` | `GET` |

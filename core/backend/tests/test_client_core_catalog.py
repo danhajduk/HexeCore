@@ -10,7 +10,7 @@ def _client() -> TestClient:
     return TestClient(app)
 
 
-def test_client_core_catalog_reports_current_and_proposed_security_separately() -> None:
+def test_client_core_catalog_reports_implemented_core_security_and_provider_adoption() -> None:
     response = _client().get("/api/schemas/client-core/v1")
 
     assert response.status_code == 200
@@ -21,13 +21,16 @@ def test_client_core_catalog_reports_current_and_proposed_security_separately() 
     api_paths = {item["api_path"]: item for item in payload["apis"]}
     assert api_paths["/api/system/nodes/services/resolve"]["status"] == "Implemented"
     assert api_paths["/api/system/nodes/services/authorize"]["status"] == "Implemented"
-    assert "/api/system/nodes/services/introspect" not in api_paths
+    assert api_paths["/api/system/nodes/services/introspect"]["status"] == "Implemented"
 
     proposals = {item["name"]: item for item in payload["security_proposals"]}
     introspection = proposals["provider_service_token_introspection"]
-    assert introspection["status"] == "Not implemented"
+    assert introspection["status"] == "Implemented"
     assert introspection["proposed_api_path"] == "/api/system/nodes/services/introspect"
-    assert payload["current_security"]["provider_token_verification"].startswith("Not implemented")
+    assert payload["current_security"]["provider_token_verification"].startswith("Implemented")
+    assert proposals["universal_resolved_service_enforcement"]["status"] == "Partially implemented"
+    assert proposals["governed_privileged_scope_issuance"]["status"] == "Implemented"
+    assert proposals["lifetime_based_rotation_retention"]["status"] == "Implemented"
 
 
 def test_client_core_catalog_publishes_schema_and_documents() -> None:
@@ -40,10 +43,11 @@ def test_client_core_catalog_publishes_schema_and_documents() -> None:
     readme = client.get("/api/schemas/client-core/v1/README.md")
     assert readme.status_code == 200
     assert readme.headers["content-type"].startswith("text/plain")
-    assert "provider-side service-token introspection is **not implemented**" in readme.text.lower()
+    assert "service-token introspection" in readme.text.lower()
+    assert "implemented" in readme.text.lower()
 
-    proposal = client.get("/api/schemas/client-core/v1/service-token-introspection-proposal.md")
-    assert proposal.status_code == 200
-    assert "Status: Not implemented" in proposal.text
-    assert "X-Node-Id" in proposal.text
-    assert "maximum token" in proposal.text
+    contract = client.get("/api/schemas/client-core/v1/service-token-security-contract.md")
+    assert contract.status_code == 200
+    assert "Status: Implemented" in contract.text
+    assert "X-Node-Id" in contract.text
+    assert "latest token expiration" in contract.text
