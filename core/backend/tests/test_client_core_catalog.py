@@ -22,6 +22,14 @@ def test_client_core_catalog_reports_implemented_core_security_and_provider_adop
     assert api_paths["/api/system/nodes/services/resolve"]["status"] == "Implemented"
     assert api_paths["/api/system/nodes/services/authorize"]["status"] == "Implemented"
     assert api_paths["/api/system/nodes/services/introspect"]["status"] == "Implemented"
+    grant_entries = [item for item in payload["apis"] if item["name"].startswith("service_access_grant_")]
+    assert {(item["method"], item["api_path"]) for item in grant_entries} == {
+        ("GET", "/api/system/nodes/service-access/grants"),
+        ("POST", "/api/system/nodes/service-access/grants"),
+        ("GET", "/api/system/nodes/service-access/grants/{grant_id}"),
+        ("PUT", "/api/system/nodes/service-access/grants/{grant_id}"),
+        ("POST", "/api/system/nodes/service-access/grants/{grant_id}/revoke"),
+    }
 
     proposals = {item["name"]: item for item in payload["security_proposals"]}
     introspection = proposals["provider_service_token_introspection"]
