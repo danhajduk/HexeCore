@@ -11,9 +11,19 @@ function defaultBackendBase(locationLike?: Pick<Location, "origin" | "hostname" 
     return "http://127.0.0.1:9001";
   }
   const port = String(activeLocation.port || "").trim();
-  if (port !== "5173") return String(activeLocation.origin || "").replace(/\/+$/, "") || "http://127.0.0.1:9001";
   const host = activeLocation.hostname || "127.0.0.1";
   const protocol = activeLocation.protocol === "https:" ? "https:" : "http:";
+  const privateLanHost =
+    host === "localhost" ||
+    host.endsWith(".local") ||
+    /^127\./.test(host) ||
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host);
+  if (port === "5173" || (protocol === "http:" && (!port || port === "80") && privateLanHost)) {
+    return `${protocol}//${host}:9001`;
+  }
+  if (port !== "5173") return String(activeLocation.origin || "").replace(/\/+$/, "") || "http://127.0.0.1:9001";
   return `${protocol}//${host}:9001`;
 }
 

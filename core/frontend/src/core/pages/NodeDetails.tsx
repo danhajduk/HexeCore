@@ -294,9 +294,9 @@ export default function NodeDetails() {
             )
           ) : null}
           {nodeUiHref ? (
-            <Link to={`/nodes/${encodeURIComponent(nodeId)}/UI`} className="node-btn node-btn-primary">
+            <a href={nodeUiHref} className="node-btn node-btn-primary">
               Open Proxied WebUI
-            </Link>
+            </a>
           ) : null}
           <a href={`/api/nodes/${encodeURIComponent(nodeId)}`} target="_blank" rel="noreferrer" className="node-btn">
             Raw API
