@@ -1040,7 +1040,23 @@ export default function Addons() {
                     <div className="inventory-pill">{sentenceCase(item.registry_state || item.trust_status || "pending")}</div>
                   </div>
 
-                  <div className="inventory-detail-grid">
+                  <div className="node-card-summary" aria-label="Node summary">
+                    <span>{displayText(item.node_type)}</span>
+                    <span>{sentenceCase(item.capability_taxonomy?.activation?.stage || item.capability_status || "pending")}</span>
+                    <span>
+                      {providers.length > 0
+                        ? `${providers.length} provider${providers.length === 1 ? "" : "s"} · ${totalModels} models`
+                        : "Providers pending"}
+                    </span>
+                  </div>
+
+                  <details className="node-card-details">
+                    <summary>
+                      <span>Details &amp; configuration</span>
+                      <span className="node-card-details-hint">Lifecycle, capabilities, providers, and budget</span>
+                    </summary>
+                    <div className="node-card-details-content">
+                    <div className="inventory-detail-grid">
                     <div className="inventory-detail">
                       <span className="inventory-label">Type</span>
                       <span>{displayText(item.node_type)}</span>
@@ -1414,6 +1430,8 @@ export default function Addons() {
                       <div className="addon-meta">This node has not declared budget capabilities yet, so Core cannot present a setup form.</div>
                     )}
                   </div>
+                    </div>
+                  </details>
 
                   <div className="addon-actions">
                     <a href={`/nodes/${encodeURIComponent(item.node_id)}`} className="addon-btn">

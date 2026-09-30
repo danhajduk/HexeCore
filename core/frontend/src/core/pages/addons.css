@@ -110,6 +110,67 @@
     linear-gradient(180deg, hsl(var(--sx-text) / 0.05), hsl(var(--sx-text) / 0.03));
 }
 
+.node-card-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.node-card-summary span {
+  padding: 6px 9px;
+  border-radius: 999px;
+  border: 1px solid hsl(var(--sx-text) / 0.1);
+  background: hsl(var(--sx-text) / 0.04);
+  font-size: 12px;
+  color: hsl(var(--sx-text) / 0.78);
+}
+
+.node-card-details {
+  border-top: 1px solid hsl(var(--sx-text) / 0.08);
+  border-bottom: 1px solid hsl(var(--sx-text) / 0.08);
+}
+
+.node-card-details > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sx-space-2);
+  padding: 12px 2px;
+  cursor: pointer;
+  font-weight: 700;
+  list-style: none;
+}
+
+.node-card-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.node-card-details > summary::after {
+  content: "+";
+  flex: 0 0 auto;
+  font-size: 18px;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+.node-card-details[open] > summary::after {
+  content: "−";
+}
+
+.node-card-details-hint {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 400;
+  opacity: 0.58;
+}
+
+.node-card-details-content {
+  display: grid;
+  gap: var(--sx-space-3);
+  padding: 2px 0 var(--sx-space-3);
+}
+
 .inventory-card-header {
   display: flex;
   align-items: flex-start;
@@ -435,6 +496,10 @@
 }
 
 @media (max-width: 720px) {
+  .node-card-details-hint {
+    display: none;
+  }
+
   .inventory-detail-grid {
     grid-template-columns: 1fr;
   }
