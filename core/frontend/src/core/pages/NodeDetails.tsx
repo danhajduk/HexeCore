@@ -67,6 +67,8 @@ type NodeRecord = {
   requested_node_type?: string | null;
   requested_hostname?: string | null;
   requested_ui_endpoint?: string | null;
+  ui_enabled?: boolean;
+  ui_base_url?: string | null;
   requested_api_base_url?: string | null;
   api_base_url?: string | null;
   node_software_version: string;
@@ -240,8 +242,11 @@ export default function NodeDetails() {
   const renderedCoreUiAvailable = renderedCoreUiAdvertised(node, renderedCoreUiManifest);
   const renderedCoreUiReason = renderedCoreUiUnavailableReason(renderedCoreUiManifest);
   const nodeUiHref = useMemo(
-    () => nodeUiFrameSrc(nodeId, node?.requested_ui_endpoint, node?.requested_hostname),
-    [nodeId, node?.requested_hostname, node?.requested_ui_endpoint],
+    () =>
+      node?.ui_enabled
+        ? nodeUiFrameSrc(nodeId, node.ui_base_url || node.requested_ui_endpoint, node.requested_hostname)
+        : "",
+    [nodeId, node?.requested_hostname, node?.requested_ui_endpoint, node?.ui_base_url, node?.ui_enabled],
   );
 
   async function removeNode() {
@@ -289,8 +294,8 @@ export default function NodeDetails() {
             )
           ) : null}
           {nodeUiHref ? (
-            <Link to={`/nodes/${encodeURIComponent(nodeId)}/UI`} className="node-btn">
-              Open UI
+            <Link to={`/nodes/${encodeURIComponent(nodeId)}/UI`} className="node-btn node-btn-primary">
+              Open Proxied WebUI
             </Link>
           ) : null}
           <a href={`/api/nodes/${encodeURIComponent(nodeId)}`} target="_blank" rel="noreferrer" className="node-btn">

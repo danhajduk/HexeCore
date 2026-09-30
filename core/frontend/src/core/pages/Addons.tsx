@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { apiGet } from "../api/client";
 import { useAdminSession } from "../auth/AdminSessionContext";
 import { useLegacyCompatibilityNote, usePlatformBranding } from "../branding";
+import { nodeUiFrameSrc } from "./nodeFrameUrl";
 import {
   canShowUninstallAction,
   confirmingUninstallState,
@@ -81,6 +82,10 @@ type NodeRegistration = {
   approved_by_user_id?: string | null;
   source_onboarding_session_id?: string | null;
   updated_at?: string | null;
+  requested_hostname?: string | null;
+  requested_ui_endpoint?: string | null;
+  ui_enabled?: boolean;
+  ui_base_url?: string | null;
 };
 
 type CancelActiveOnboardingSessionsResult = {
@@ -1030,6 +1035,14 @@ export default function Addons() {
               const capabilityTags = providerCapabilities(item);
               const providers = routing?.providers ?? [];
               const totalModels = providers.reduce((sum, provider) => sum + provider.models.length, 0);
+              const proxiedUiAvailable = Boolean(
+                item.ui_enabled &&
+                  nodeUiFrameSrc(
+                    item.node_id,
+                    item.ui_base_url || item.requested_ui_endpoint,
+                    item.requested_hostname,
+                  ),
+              );
               return (
                 <article key={item.node_id} className="inventory-card inventory-card-node">
                   <div className="inventory-card-header">
@@ -1437,6 +1450,11 @@ export default function Addons() {
                     <a href={`/nodes/${encodeURIComponent(item.node_id)}`} className="addon-btn">
                       Open
                     </a>
+                    {proxiedUiAvailable ? (
+                      <a href={`/nodes/${encodeURIComponent(item.node_id)}/UI`} className="addon-btn addon-btn-primary">
+                        Open Proxied WebUI
+                      </a>
+                    ) : null}
                     <button
                       className="addon-btn"
                       type="button"
