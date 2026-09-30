@@ -49,3 +49,12 @@ Do not edit above this line:
 #######################################################################
 
 [TODO] Task 1000: Validate and document the inverted BLE onboarding flow across Supervisor and endpoint roles
+[TODO] Task 1004: Define the Core multi-user remote web app security and identity contract
+[TODO] Task 1005: Implement multi-role user authentication and authorization for remote web app clients
+[TODO] Task 1006: Implement secure Core enrollment and per-device credentials for installed web apps
+[TODO] Task 1007: Expose a safe remote web app API and realtime connection boundary through the Core tunnel
+[TODO] Task 1008: Implement Core-owned mobile device, push subscription, and notification preference state
+[TODO] Task 1009: Implement privacy-safe notification policy and event-to-notification routing
+[TODO] Task 1010: Implement authenticated Core publishing to the Cloudflare Web Push gateway
+[TODO] Task 1011: Add Core administration UI for users, mobile devices, sessions, and notification access
+[TODO] Task 1012: Validate and document multi-user remote web app and push notification behavior end to end

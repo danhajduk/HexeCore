@@ -1195,3 +1195,153 @@ Original task details:
 - Verification: Run `python tools/update_openapi_snapshot.py --check` if API payloads or routes change.
 - Verification: Run `python tools/check_env_registry.py --check-docs` if env settings are added.
 - Verification: Run `python tools/check_mirror_drift.py`.
+
+## Task 1004
+Original task details:
+- User request: Implement the Core side of an installable Hexe web app that reaches each Core through its managed Cloudflare Tunnel, supports multiple users on one Core, and can receive push notifications.
+- Goal: Define the security, identity, device, notification, and ownership contracts before implementation.
+- Treat `<core-id>.hexe-ai.com` as addressability only. A tunnel and knowledge of `core_id` must never grant access.
+- Preserve the existing Edge Gateway boundary: Core owns policy and public identity; Supervisor owns the local `cloudflared` runtime; the central website and push gateway do not become Core administrators.
+- Define distinct identities and relationships for Core, owner, user, installed web-app device, browser session, push subscription, and notification-gateway service principal.
+- Define initial human roles and explicit permissions for `owner`, `admin`, `member`, and `guest`. Include a migration path from the existing `admin` and `guest` records, and require that at least one enabled owner remains.
+- Define a remote-client authorization flow suitable for an installed app hosted at `hexe-ai.com` calling a different Core origin. Prefer short-lived, audience-bound access tokens plus rotated device/user refresh credentials over sharing the existing admin cookie or admin token across origins.
+- Define enrollment, approval, credential rotation, session expiry, device loss, user disablement, logout, Core removal, and complete revocation behavior.
+- Define exact allowed browser origins, CORS behavior, CSRF boundary, WebSocket authentication, replay protection, rate limits, and audit requirements.
+- Define the central notification gateway as a narrow delivery service. It may deliver only for the authenticated `core_id`; it must not gain general Core API access.
+- Define what subscription metadata lives in Core versus the gateway, deletion behavior, and privacy-safe notification payload rules.
+- Add a threat model covering guessed Core hostnames, stolen enrollment links, stolen refresh credentials, malicious websites, replayed notification requests, compromised push endpoints, cross-user data leakage, and removed users/devices.
+- Acceptance: The contract supports multiple independent users and multiple devices per user on one Core without shared credentials.
+- Acceptance: The contract clearly separates what already exists from new behavior and does not present proposed multi-user mobile access as implemented.
+- Acceptance: No design depends on Cloudflare Tunnel, hostname secrecy, or a Google login alone as Core authorization.
+- Verification: Review the contract against current admin sessions, user storage, Edge Gateway, service-token, audit, and notification-event implementations.
+- Verification: Update or add JSON Schema/OpenAPI contract artifacts where appropriate and run documentation validation.
+
+## Task 1005
+Original task details:
+- Depends on: Task 1004.
+- Goal: Replace the admin-only browser-session limitation with Core-enforced multi-user authentication and authorization suitable for remote web-app clients.
+- Extend persisted users to support `owner`, `admin`, `member`, and `guest` with a safe migration from existing roles and seeded administrators.
+- Add login, token refresh/rotation, logout, session listing, and session revocation APIs for human users without exposing the Core admin token.
+- Issue short-lived access tokens with explicit issuer, subject/user id, Core audience, role, session id, device id when applicable, issued-at, expiry, and unique token id claims.
+- Persist only refresh-token verifiers or otherwise non-recoverable credential material; rotate refresh credentials on use and detect replay/reuse.
+- Add centralized permission checks and migrate remote-user routes away from binary admin-or-guest assumptions. Keep privileged Core, Supervisor, tunnel, user, credential, and update operations owner/admin-only as defined by Task 1004.
+- Enforce disabled-user, deleted-user, role-change, password-change, session-revocation, and last-enabled-owner behavior immediately or within a documented bounded cache window.
+- Retain explicitly documented compatibility for existing local admin-cookie workflows while preventing those cookies from becoming cross-origin PWA credentials.
+- Add redacted audit events for login success/failure, refresh, logout, credential replay, role changes, and revocation.
+- Acceptance: Two users can authenticate independently to the same Core and receive distinct identities, permissions, sessions, and audit attribution.
+- Acceptance: A member or guest cannot acquire an admin session or call owner/admin-only operations.
+- Acceptance: Revoking one user or session does not revoke unrelated users, but immediately blocks the targeted identity.
+- Verification: Add focused migration, authentication, token-claim, refresh-rotation, replay, role-matrix, last-owner, revocation, and compatibility tests.
+- Verification: Update API docs/OpenAPI snapshots and run the targeted Core auth/security suite.
+
+## Task 1006
+Original task details:
+- Depends on: Tasks 1004 and 1005.
+- Goal: Let an owner securely enroll an installed Hexe web app with a specific Core and bind that installation to one Core user and one device identity.
+- Add short-lived, single-use enrollment sessions created only by an authenticated owner/admin according to policy.
+- Return a QR/deep-link-safe enrollment payload containing only the Core public hostname, enrollment id, expiry, contract version, and a high-entropy one-time secret or proof; never include admin tokens, tunnel tokens, refresh tokens, or provider credentials.
+- Require the web app to generate a device key pair and prove possession during enrollment. Bind the approved device id, public key, user id, Core id, and issued refresh credential.
+- Support owner approval, cancellation, expiry, retry, duplicate-device handling, and deterministic error states.
+- Allow a user to enroll an additional personal device only when permitted by Core policy; do not silently attach a browser installation based only on Google identity or email matching.
+- Add Core discovery metadata needed by the app without exposing sensitive health/configuration data before authentication.
+- Add device credential rotation and recovery flows that do not weaken the original approval boundary.
+- Add redacted audit events for enrollment creation, approval, completion, cancellation, expiry, failure, and credential rotation.
+- Acceptance: A copied or replayed enrollment link cannot enroll a second device after consumption or expiry.
+- Acceptance: Every remote request can be attributed to a Core user, session, and installed device after enrollment.
+- Verification: Add focused tests for successful enrollment, wrong/expired proof, replay, wrong Core audience, key-possession failure, concurrent approval, cancellation, and rotation.
+
+## Task 1007
+Original task details:
+- Depends on: Tasks 1004, 1005, and 1006.
+- Goal: Expose the minimum Core API and realtime surfaces required by the installed web app through `<core-id>.hexe-ai.com` without broadening public or guest access.
+- Add an authenticated mobile/web-app bootstrap endpoint returning safe Core identity, current user, permissions, enrolled device, feature availability, and notification capability state.
+- Define an allow-listed remote web-app route surface rather than assuming every admin UI route is appropriate for every user role.
+- Apply exact-origin CORS for the production Hexe app origin and explicit development origins only in development. Support authorization headers without exposing credentials to arbitrary origins.
+- Define WebSocket or server-sent-event authentication and renewal for live Core state; reject credentials in query strings when they could leak through logs or history.
+- Reuse Core node/addon proxy authorization and trust checks; remote PWA access must not bypass route-level user permissions.
+- Add bounded request sizes, timeouts, rate limits, security headers, and origin/audience validation appropriate to tunnel-exposed routes.
+- Preserve same-origin local Core UI behavior and the existing Edge Gateway path layout.
+- Acceptance: An enrolled app can bootstrap and receive permitted live updates through the tunnel, while an anonymous browser, disallowed origin, wrong-Core token, or insufficient role fails closed.
+- Acceptance: Node and addon proxy access remains governed and does not become transitively public through the PWA API.
+- Verification: Add focused CORS, preflight, token audience, role, realtime-auth, reconnect/expiry, rate-limit, proxy, and local-UI compatibility tests.
+- Verification: Run targeted reverse-proxy tests, update OpenAPI artifacts, and run `python tools/check_mirror_drift.py` where mirrored Core/Supervisor code is affected.
+
+## Task 1008
+Original task details:
+- Depends on: Tasks 1004, 1005, and 1006.
+- Goal: Add Core-owned state and APIs for each user's installed devices, push-subscription references, and notification preferences.
+- Persist a stable device id, owning user id, display name, public key, platform/browser metadata, created/last-seen timestamps, enabled/revoked state, and bounded notification-gateway subscription reference.
+- Do not persist raw endpoint secrets, gateway private keys, or recoverable refresh credentials in general device records.
+- Support multiple devices per user and multiple users per Core. Enforce configurable per-user and per-Core device limits.
+- Add authenticated APIs to list/rename/revoke the caller's devices and manage their notification subscriptions. Add owner/admin views and revocation according to the role contract.
+- Model notification categories, per-device enablement, quiet hours/time zone, privacy level, and optional severity threshold. Initial categories should include security, approval-required, task completion, timers/reminders, device health, and email alerts.
+- Make subscription registration idempotent and bind it to the authenticated user, Core, device key, and expected gateway audience.
+- Propagate user disablement, device revocation, or subscription deletion to the notification gateway with retryable cleanup state.
+- Add retention and pruning for expired/revoked devices, sessions, and stale subscription references without erasing required audit history.
+- Acceptance: Alice and Bob can independently configure notifications on the same Core, and revoking Alice's phone does not affect Bob's devices.
+- Acceptance: Core never returns another user's sensitive subscription or credential material.
+- Verification: Add focused ownership, device-limit, idempotency, preference, quiet-hours, revocation, cleanup-retry, retention, and cross-user isolation tests.
+
+## Task 1009
+Original task details:
+- Depends on: Task 1008 and the existing Core domain-event/notification infrastructure.
+- Goal: Convert eligible Core events into user- and device-specific notification intents without leaking sensitive platform data.
+- Introduce a Core-owned notification policy/router that consumes canonical trusted events and selects recipients using role, ownership, category, severity, device preferences, quiet hours, and endpoint state.
+- Start with security alerts, approval-required events, task completion/failure, timers/reminders, device/node offline state, and explicitly opted-in email alerts.
+- Reuse canonical event ids for deduplication and preserve topic/event-type agreement and trusted-source validation.
+- Define privacy levels such as `generic`, `summary`, and `sensitive`. Default lock-screen payloads to generic text for email bodies, voice transcripts, credentials, addresses, verification codes, financial data, and other sensitive content.
+- Keep notification payloads bounded. Prefer a safe title/body plus a Core-relative deep-link path; fetch protected details from Core only after the user opens the app and authenticates.
+- Never include admin tokens, cookies, provider credentials, tunnel credentials, raw email bodies, attachments, voice audio, or unrestricted event payloads.
+- Add per-category rate limiting, coalescing, deduplication, and escalation behavior so noisy device or health events cannot flood a user.
+- Record redacted delivery-intent audit entries with recipient user/device ids, category, event id, policy decision, and suppression reason.
+- Acceptance: The same Core event can notify eligible subscribed users differently based on permissions and preferences without cross-user disclosure.
+- Acceptance: Sensitive details are not placed on the push transport or lock screen by default.
+- Verification: Add focused recipient-selection, permission, quiet-hours, redaction, deep-link, dedupe, coalescing, rate-limit, untrusted-event, and cross-user leakage tests.
+
+## Task 1010
+Original task details:
+- Depends on: Tasks 1004, 1008, and 1009.
+- Goal: Reliably publish Core-approved notification intents to the central Cloudflare Web Push gateway using a narrow authenticated contract.
+- Define a versioned gateway API request/response schema carrying `event_id`, `core_id`, target subscription reference, category, safe title/body, Core-relative navigation path, privacy level, expiry, and optional badge count.
+- Provision a Core-specific gateway credential through a secure bootstrap/rotation process. Bind it to the Core audience and only the `notification.publish` and required subscription-lifecycle scopes.
+- Authenticate requests with short-lived signed assertions or equivalently scoped credentials. Include timestamp, nonce/jti, body integrity, and Core id binding; reject replay and wrong-audience use.
+- Implement a durable bounded outbox so temporary internet or gateway failures do not block Core event processing. Include idempotency, exponential backoff with jitter, expiry, maximum attempts, dead-letter state, and operator-visible sanitized status.
+- Classify gateway responses into delivered/accepted, invalid subscription, revoked device, authentication failure, rate limited, retryable failure, and permanent failure.
+- On invalid/expired subscriptions, mark only the affected subscription for cleanup; do not disable the user or unrelated devices.
+- Keep gateway credentials out of logs, API responses, audit details, and notification payloads. Store secrets through the existing sensitive configuration/secret-reference patterns.
+- Add health/status surfaces that expose counts and safe failure reasons, not push endpoints or credentials.
+- Acceptance: Core can publish for its own registered subscriptions only and cannot target a different Core's users or arbitrary push endpoints.
+- Acceptance: Restarting Core or retrying an event does not create duplicate user-visible notifications when the gateway honors the idempotency contract.
+- Verification: Add fake-gateway contract tests for signing/auth, replay, wrong Core/audience, accepted delivery, retry/backoff, expiry, invalid subscription, rate limiting, restart recovery, and redaction.
+- Verification: Update environment registry/docs for any new secret references and run `python tools/check_env_registry.py --check-docs`.
+
+## Task 1011
+Original task details:
+- Depends on: Tasks 1005, 1006, 1008, and 1010.
+- Goal: Give Core owners and users understandable controls for multi-user mobile access and notifications.
+- Extend the Core administration UI with user creation/invitation, role assignment, enable/disable, session inspection/revocation, installed-device inspection/revocation, and last-enabled-owner protections.
+- Add an enrollment flow that creates a short-lived QR/deep link, shows pending/approved/expired/consumed state, and requires an explicit owner decision before binding a new user/device.
+- Add per-user views for personal devices, active sessions, notification categories, privacy level, quiet hours, and a test-notification action that uses the real policy and gateway path.
+- Show tunnel reachability separately from authentication, device enrollment, push subscription, and gateway delivery health so operators can diagnose the correct layer.
+- Display sanitized delivery/outbox failures and remediation actions without exposing tokens, push endpoints, credential material, or other users' private notification content.
+- Require reauthentication or an equivalent step-up check for ownership transfer, user deletion, bulk revocation, gateway credential rotation, and other high-impact actions.
+- Ensure accessible responsive behavior for the existing Core UI; the central PWA itself remains outside this Core repository task.
+- Acceptance: An owner can manage multiple users and their access without sharing the owner password or Core admin token.
+- Acceptance: A normal user can control only their own sessions, devices, and notification settings unless explicitly granted a broader role.
+- Verification: Add frontend component/flow tests, API authorization tests, and run the Core frontend build/typecheck.
+
+## Task 1012
+Original task details:
+- Depends on: Tasks 1004 through 1011 and the matching website/Cloudflare notification-gateway implementation.
+- Goal: Validate and document the complete multi-user installed-web-app workflow against a real tunnel-exposed Core.
+- Document architecture and ownership across the public website/PWA, `<core-id>.hexe-ai.com`, Cloudflare Tunnel, Core, Supervisor, and the Web Push gateway.
+- Update Core API/auth/Edge Gateway/operator documentation, JSON Schemas, OpenAPI snapshots, environment registry, privacy/data-flow documentation, and troubleshooting guidance to match implemented behavior.
+- Exercise at least two distinct users on the same Core with separate roles, sessions, enrolled mobile devices, preferences, and push subscriptions.
+- Validate install/enrollment, login/refresh, direct Core API access through the tunnel, live reconnect, notification delivery while the app is closed, notification click/deep link, quiet hours, redaction, and per-device badge behavior where supported.
+- Validate revocation of one session, one phone, one user, and all Core mobile access without affecting unrelated users except in the explicit all-access case.
+- Validate negative cases: anonymous access, guessed Core hostname, stolen/expired enrollment link, wrong-Core token, disallowed browser origin, revoked device, replayed gateway request, compromised/invalid subscription, offline Core, gateway outage, and retry after restart.
+- Confirm the tunnel remains an ingress transport rather than an authorization mechanism and that Supervisor remains the local `cloudflared` runtime owner.
+- Include Android/Chromium and iOS Home Screen test notes; document platform-specific installation and permission requirements without weakening server-side policy.
+- Acceptance: Two users can safely use one Core from separate installed web apps and receive only their authorized notifications.
+- Acceptance: Evidence demonstrates isolation across users, devices, Cores, and notification subscriptions.
+- Verification: Run targeted backend/frontend/security tests, OpenAPI and environment checks, mirror-drift validation, and live tunnel/Web Push tests; record any physical-device limitation explicitly.
