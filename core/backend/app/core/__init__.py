@@ -13,6 +13,7 @@ from .notification_publisher import CoreNotificationPublisher
 from .notification_consumer import LocalDesktopNotificationConsumer
 from .notification_producer import CoreStartupNotificationProducer
 from .system_notification_service import CoreSystemNotificationService
+from .web_notification_policy import NotificationIntentStore, TrustedNotificationEvent, WebNotificationPolicyService
 from .notifications import (
     INTERNAL_EVENT_TOPIC,
     INTERNAL_POPUP_TOPIC,
@@ -84,4 +85,7 @@ __all__ = [
     "node_notification_result_topic",
     "notification_message_from_json",
     "notification_message_to_json",
+    "NotificationIntentStore",
+    "TrustedNotificationEvent",
+    "WebNotificationPolicyService",
 ]

@@ -395,3 +395,11 @@ Chosen fix: Inject the device store into user administration and disable only th
 What changed: Added transactional bulk device disablement, session revocation, subscription cleanup state, isolated user-admin integration, response counts, and cross-user tests.
 Verification: Human-auth, enrollment, and bootstrap focused tests passed with cross-user isolation.
 ###########
+
+Task #1009
+Step objective: Establish the trusted event-to-device notification policy boundary.
+Issue cause: Core had device preferences and subscriptions but no user-aware policy or durable privacy-safe intent representation.
+Chosen fix: Add a strict trusted-event model, role/ownership/category/severity/quiet-hours/privacy selection, generic sensitive-content handling, and event-device-category deduplication.
+What changed: Added the policy service, durable pending intent store, internal target selection, explicit email opt-in default, exports, and focused cross-user/privacy tests.
+Verification: Policy and device-preference focused tests passed.
+###########

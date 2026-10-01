@@ -1,6 +1,6 @@
 # Core Multi-User Remote Web App Security and Identity Contract
 
-Status: Tasks 1005-1008 implemented; Tasks 1009-1014 remain planned
+Status: Tasks 1005-1008 implemented; Task 1009 in progress; Tasks 1010-1014 remain planned
 
 ## Purpose
 
@@ -362,6 +362,16 @@ after the user opens the app and authenticates.
 
 Disabling a user, revoking a device, or deleting a subscription prevents future
 delivery to that target without affecting unrelated users or devices.
+
+Task 1009 begins with `hexe.web-notification-policy.v1`, a Core-owned policy
+service and durable intent store. The policy accepts events only after the
+calling integration establishes a trusted source, maps supported canonical
+event families to notification categories, selects active subscribed devices
+using user ownership and roles, applies category/severity/quiet-hours/privacy
+preferences, and deduplicates by canonical event id, device, and category.
+Intent bodies are bounded and generic by default. Sensitive event summaries,
+email bodies, credentials, verification codes, transcripts, and unrestricted
+event data are never copied into the intent payload.
 
 ## Audit Requirements
 

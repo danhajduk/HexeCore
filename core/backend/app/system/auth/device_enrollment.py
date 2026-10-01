@@ -35,6 +35,10 @@ NOTIFICATION_CATEGORIES = {
 }
 
 
+def _default_notification_categories() -> dict[str, bool]:
+    return {category: category != "email-alerts" for category in sorted(NOTIFICATION_CATEGORIES)}
+
+
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -98,7 +102,7 @@ class NotificationSubscriptionRequest(BaseModel):
 
 class NotificationPreferencesRequest(BaseModel):
     enabled: bool = True
-    categories: dict[str, bool] = Field(default_factory=lambda: {category: True for category in sorted(NOTIFICATION_CATEGORIES)})
+    categories: dict[str, bool] = Field(default_factory=_default_notification_categories)
     quiet_hours_start: str | None = Field(default=None, pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
     quiet_hours_end: str | None = Field(default=None, pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
     time_zone: str = Field(default="UTC", min_length=1, max_length=64)
@@ -494,6 +498,30 @@ class WebAppEnrollmentStore:
                 ).fetchone
             )
             return dict(row) if row else None
+
+    async def list_notification_targets(self, core_id: str) -> list[dict[str, Any]]:
+        async with self._lock:
+            rows = await asyncio.to_thread(
+                self._conn.execute(
+                    """
+                    SELECT d.device_id, d.user_id, u.role, u.enabled AS user_enabled,
+                           ns.subscription_ref, ns.gateway_audience,
+                           np.enabled AS preferences_enabled, np.categories_json,
+                           np.quiet_hours_start, np.quiet_hours_end, np.time_zone,
+                           np.privacy_level, np.severity_threshold
+                    FROM web_app_devices d
+                    JOIN users u ON u.user_id=d.user_id
+                    JOIN web_app_notification_subscriptions ns ON ns.device_id=d.device_id AND ns.deleted_at IS NULL
+                    LEFT JOIN web_app_device_state ds ON ds.device_id=d.device_id
+                    LEFT JOIN web_app_notification_preferences np ON np.device_id=d.device_id
+                    WHERE d.core_id=? AND d.revoked_at IS NULL
+                      AND COALESCE(ds.enabled, 1)=1 AND u.enabled=1
+                    ORDER BY d.user_id, d.device_id
+                    """,
+                    (core_id,),
+                ).fetchall
+            )
+            return [dict(row) for row in rows]
 
     async def put_notification_preferences(self, *, device_id: str, core_id: str, user_id: str, preferences: NotificationPreferencesRequest) -> dict[str, Any]:
         async with self._lock:
