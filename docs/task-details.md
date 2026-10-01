@@ -1198,6 +1198,7 @@ Original task details:
 
 ## Task 1004
 Original task details:
+- Confirmed migration decision: preserve the existing `Dan` user record and password verifier, promote that record from `admin` to the initial `owner`, and keep the seeded `admin` account as `admin` unless changed later by the owner.
 - User request: Implement the Core side of an installable Hexe web app that reaches each Core through its managed Cloudflare Tunnel, supports multiple users on one Core, and can receive push notifications.
 - Goal: Define the security, identity, device, notification, and ownership contracts before implementation.
 - Treat `<core-id>.hexe-ai.com` as addressability only. A tunnel and knowledge of `core_id` must never grant access.

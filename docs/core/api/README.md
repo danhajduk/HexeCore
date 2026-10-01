@@ -9,6 +9,7 @@ This folder is the canonical home for Hexe Core API and backend control-plane do
 - [core-communication-api-guide.md](./core-communication-api-guide.md)
 - [core-platform.md](./core-platform.md)
 - [data-and-state.md](./data-and-state.md)
+- [multi-user-remote-web-app-security-contract.md](./multi-user-remote-web-app-security-contract.md)
 - [node-ui-card-response-contracts.md](./node-ui-card-response-contracts.md)
 - [node-ui-manifest-contract.md](./node-ui-manifest-contract.md)
 - [openapi-snapshot.md](./openapi-snapshot.md)

@@ -355,3 +355,11 @@ Chosen fix: Added a local Supervisor source gate that resolves the package sourc
 What changed: Added mirrored local source gate service/tests, wired gate metadata into the scheduled version audit, added env registry/example entries, and documented the advisory/blocking behavior.
 Verification: Focused Core/Supervisor local source gate, version audit, fleet API, and Supervisor API client tests passed; repo health, env registry, mirror drift, OpenAPI snapshot, Markdown links, and py_compile checks passed.
 ###########
+
+Task #1004
+Step objective: Define the Core multi-user remote web app security and identity contract.
+Issue cause: Core currently has admin-only browser sessions and `admin|guest` user records, but no contract for owners, members, devices, revocable sessions, or remote web-app credentials.
+Chosen fix: Define a deny-by-default Core-owned identity, role, session, device, enrollment, notification, audit, and threat model before implementation.
+What changed: Added the multi-user security contract, linked it from current auth/API docs, and recorded the confirmed migration of the existing `Dan` account to the initial `owner` without replacing its password verifier.
+Verification: Checked current users, session cookies, admin APIs, audit redaction, Cloudflare ingress, notification targets, and documentation links against the contract baseline. Markdown, environment, OpenAPI snapshot, and path appendix checks passed; full repo health remains blocked by pre-existing Core/Supervisor mirror drift outside this documentation task.
+###########

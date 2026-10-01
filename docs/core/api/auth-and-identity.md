@@ -110,6 +110,16 @@ Status: Implemented
 
 - Earlier split identity guidance from `auth-and-users.md` and MQTT authority design notes has been consolidated here.
 
+## Planned Multi-User Remote Access
+
+Status: Documented but not implemented
+
+The owner/admin/member/guest model, revocable human sessions, installed-device
+identity, and remote web-app authorization boundary are defined in the
+[Core Multi-User Remote Web App Security and Identity Contract](./multi-user-remote-web-app-security-contract.md).
+The current admin-cookie and `admin|guest` implementation remains authoritative
+until Tasks 1005-1012 are implemented and verified.
+
 ## See Also
 
 - [MQTT Platform](../../mqtt/mqtt-platform.md)
@@ -117,3 +127,4 @@ Status: Implemented
 - [API Reference](./api-reference.md)
 - [Telemetry And Usage](./telemetry-and-usage.md)
 - [Data and State](./data-and-state.md)
+- [Core Multi-User Remote Web App Security and Identity Contract](./multi-user-remote-web-app-security-contract.md)
