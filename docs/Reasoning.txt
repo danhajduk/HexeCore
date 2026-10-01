@@ -403,3 +403,11 @@ Chosen fix: Add a strict trusted-event model, role/ownership/category/severity/q
 What changed: Added the policy service, durable pending intent store, internal target selection, explicit email opt-in default, exports, and focused cross-user/privacy tests.
 Verification: Policy and device-preference focused tests passed.
 ###########
+
+Task #1009
+Step objective: Connect Core-promoted events and bound noisy notification intent creation.
+Issue cause: The initial policy service was not attached to the runtime event bus and had no per-device/category flood control.
+Chosen fix: Revalidate only Core-promoted domain topics, start the promoter and consumer with MQTT, coalesce excess ordinary events, and allow critical escalation.
+What changed: Added the promoted-event consumer, runtime lifecycle wiring, persistent rate-window queries, coalesced counts, escalation behavior, and focused tests.
+Verification: Policy consumer, rate-limit, escalation, and domain-event promoter tests passed.
+###########

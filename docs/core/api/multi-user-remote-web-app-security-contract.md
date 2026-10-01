@@ -373,6 +373,13 @@ Intent bodies are bounded and generic by default. Sensitive event summaries,
 email bodies, credentials, verification codes, transcripts, and unrestricted
 event data are never copied into the intent payload.
 
+The runtime consumer listens only to Core-promoted `hexe/events/#` domain
+topics and revalidates the promoted schema, Core id, validation status, privacy
+decision, and declared domain topic before routing. Per-device/category windows
+allow five ordinary intents per five minutes by default; additional noise is
+coalesced into the latest pending intent, while critical escalation bypasses
+the ordinary rate limit.
+
 ## Audit Requirements
 
 Core records redacted events for:

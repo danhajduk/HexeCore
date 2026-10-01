@@ -5,7 +5,7 @@ import json
 import os
 import re
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -13,9 +13,11 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.system.audit import AuditLogStore
 from app.system.auth.device_enrollment import WebAppEnrollmentStore, _default_notification_categories
+from .node_domain_events import CorePromotedNodeDomainEvent
 
 
 POLICY_VERSION = "hexe.web-notification-policy.v1"
+PROMOTED_EVENT_TOPIC_FILTER = "hexe/events/#"
 CATEGORY_BY_PREFIX = {
     "security.": "security",
     "approval.": "approval-required",
@@ -71,6 +73,7 @@ class NotificationIntentStore:
               severity TEXT NOT NULL, privacy_level TEXT NOT NULL,
               title TEXT NOT NULL, body TEXT NOT NULL, navigation_path TEXT NOT NULL,
               created_at TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending',
+              coalesced_count INTEGER NOT NULL DEFAULT 1,
               UNIQUE(event_id, device_id, category)
             );
             """
@@ -101,13 +104,42 @@ class NotificationIntentStore:
             )
             return [dict(row) for row in rows]
 
+    async def has_event(self, event_id: str, device_id: str, category: str) -> bool:
+        async with self._lock:
+            row = await asyncio.to_thread(self._conn.execute(
+                "SELECT 1 FROM web_app_notification_intents WHERE event_id=? AND device_id=? AND category=?",
+                (event_id, device_id, category),
+            ).fetchone)
+            return row is not None
+
+    async def recent_count(self, device_id: str, category: str, since: str) -> int:
+        async with self._lock:
+            row = await asyncio.to_thread(self._conn.execute(
+                "SELECT COUNT(*) FROM web_app_notification_intents WHERE device_id=? AND category=? AND created_at>=?",
+                (device_id, category, since),
+            ).fetchone)
+            return int(row[0] if row else 0)
+
+    async def coalesce_latest(self, device_id: str, category: str) -> bool:
+        async with self._lock:
+            changed = await asyncio.to_thread(
+                self._conn.execute,
+                """UPDATE web_app_notification_intents SET coalesced_count=coalesced_count+1
+                   WHERE intent_id=(SELECT intent_id FROM web_app_notification_intents
+                     WHERE device_id=? AND category=? AND status='pending' ORDER BY intent_id DESC LIMIT 1)""",
+                (device_id, category),
+            )
+            return changed.rowcount == 1
+
 
 class WebNotificationPolicyService:
-    def __init__(self, devices: WebAppEnrollmentStore, intents: NotificationIntentStore, *, core_id: str, audit: AuditLogStore | None = None) -> None:
+    def __init__(self, devices: WebAppEnrollmentStore, intents: NotificationIntentStore, *, core_id: str, audit: AuditLogStore | None = None, rate_limit: int = 5, rate_window_s: int = 300) -> None:
         self._devices = devices
         self._intents = intents
         self._core_id = core_id
         self._audit = audit
+        self._rate_limit = max(1, rate_limit)
+        self._rate_window_s = max(1, rate_window_s)
 
     async def route(self, event: TrustedNotificationEvent, *, trusted_source: bool, at: datetime | None = None) -> dict[str, Any]:
         if not trusted_source:
@@ -125,6 +157,18 @@ class WebNotificationPolicyService:
             if reason:
                 suppressed += 1
                 await self._audit_decision(event, target["user_id"], target["device_id"], "suppressed", reason, category)
+                continue
+            if await self._intents.has_event(event.event_id, str(target["device_id"]), category):
+                deduplicated += 1
+                await self._audit_decision(event, target["user_id"], target["device_id"], "suppressed", "duplicate_event", category)
+                continue
+            recent = await self._intents.recent_count(
+                str(target["device_id"]), category, (now - timedelta(seconds=self._rate_window_s)).isoformat()
+            )
+            if recent >= self._rate_limit and event.severity != "critical":
+                await self._intents.coalesce_latest(str(target["device_id"]), category)
+                suppressed += 1
+                await self._audit_decision(event, target["user_id"], target["device_id"], "suppressed", "rate_limited_coalesced", category)
                 continue
             intent = self._intent(event, category, target, now)
             if await self._intents.create(intent):
@@ -198,3 +242,58 @@ class WebNotificationPolicyService:
                 event_type="web_notification_policy_decision", actor_role="system", actor_id="notification-policy",
                 details={"event_id": event.event_id, "category": category, "user_id": user_id, "device_id": device_id, "decision": decision, "reason": reason},
             )
+
+
+class WebNotificationEventConsumer:
+    def __init__(self, mqtt_manager, policy: WebNotificationPolicyService, *, core_id: str) -> None:
+        self._mqtt = mqtt_manager
+        self._policy = policy
+        self._core_id = core_id
+        self._listener_id: str | None = None
+
+    async def start(self) -> None:
+        if self._listener_id is None:
+            self._listener_id = self._mqtt.register_message_listener(
+                topic_filter=PROMOTED_EVENT_TOPIC_FILTER,
+                callback=self._handle_message,
+            )
+
+    async def stop(self) -> None:
+        if self._listener_id is not None:
+            self._mqtt.unregister_message_listener(self._listener_id)
+            self._listener_id = None
+
+    async def _handle_message(self, topic: str, payload: dict[str, Any], retained: bool) -> None:
+        if retained:
+            return
+        try:
+            promoted = CorePromotedNodeDomainEvent.model_validate(payload)
+        except Exception:
+            return
+        if (
+            promoted.core.get("core_id") != self._core_id
+            or promoted.core.get("validation_status") not in {"accepted", "accepted_with_redaction"}
+            or not promoted.policy.get("schema_valid")
+            or not promoted.policy.get("privacy_valid")
+            or promoted.routing.get("domain_topic") != topic
+            or not topic.startswith("hexe/events/")
+        ):
+            return
+        data = promoted.data
+        raw_severity = str(data.get("severity") or "info").lower()
+        severity = raw_severity if raw_severity in SEVERITY_RANK else "warning" if raw_severity in {"error", "urgent"} else "info"
+        try:
+            event = TrustedNotificationEvent(
+                event_id=promoted.event_id,
+                event_type=promoted.promoted_event_type,
+                source_kind="node",
+                source_id=str(promoted.source.get("node_id") or "node"),
+                severity=severity,
+                subject_user_id=promoted.subject.get("user_id"),
+                summary=data.get("summary"),
+                sensitive=bool(data.get("sensitive", False)),
+                navigation_path=data.get("navigation_path"),
+            )
+        except Exception:
+            return
+        await self._policy.route(event, trusted_source=True)

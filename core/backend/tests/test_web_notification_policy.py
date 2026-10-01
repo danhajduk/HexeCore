@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from datetime import datetime, timezone
 
-from app.core.web_notification_policy import NotificationIntentStore, TrustedNotificationEvent, WebNotificationPolicyService
+from app.core.web_notification_policy import NotificationIntentStore, TrustedNotificationEvent, WebNotificationEventConsumer, WebNotificationPolicyService
 from app.system.auth.device_enrollment import NotificationPreferencesRequest, WebAppEnrollmentStore
 from app.system.users import UsersStore
 
@@ -99,6 +99,58 @@ class TestWebNotificationPolicy(unittest.TestCase):
         self.assertEqual(asyncio.run(self.service.route(critical, trusted_source=True, at=at))["created"], 1)
         replay = asyncio.run(self.service.route(critical, trusted_source=True, at=at))
         self.assertEqual(replay["deduplicated"], 1)
+
+    def test_rate_limit_coalesces_noise_and_critical_event_escalates(self):
+        alice = self.add_target("alice", "member", "alice-phone")
+        at = datetime(2026, 10, 1, 12, 0, tzinfo=timezone.utc)
+        for index in range(5):
+            event = TrustedNotificationEvent(
+                event_id=f"evt-{index}", event_type="device.offline", source_kind="node", source_id="sensor",
+                subject_user_id=alice["user_id"], severity="warning",
+            )
+            self.assertEqual(asyncio.run(self.service.route(event, trusted_source=True, at=at))["created"], 1)
+        limited = TrustedNotificationEvent(
+            event_id="evt-limited", event_type="device.offline", source_kind="node", source_id="sensor",
+            subject_user_id=alice["user_id"], severity="warning",
+        )
+        self.assertEqual(asyncio.run(self.service.route(limited, trusted_source=True, at=at))["created"], 0)
+        pending = asyncio.run(self.intents.list_pending())
+        self.assertEqual(len(pending), 5)
+        self.assertEqual(pending[-1]["coalesced_count"], 2)
+        critical = limited.model_copy(update={"event_id": "evt-escalated", "severity": "critical"})
+        self.assertEqual(asyncio.run(self.service.route(critical, trusted_source=True, at=at))["created"], 1)
+
+    def test_promoted_event_consumer_requires_core_validated_domain_topic(self):
+        alice = self.add_target("alice", "member", "alice-phone")
+
+        class Mqtt:
+            callback = None
+            def register_message_listener(self, *, topic_filter, callback):
+                self.callback = callback
+                return "listener-1"
+            def unregister_message_listener(self, listener_id):
+                self.callback = None
+
+        mqtt = Mqtt()
+        consumer = WebNotificationEventConsumer(mqtt, self.service, core_id=self.core_id)
+        asyncio.run(consumer.start())
+        payload = {
+            "schema_version": 1, "promotion_id": "promotion-1", "event_id": "event-promoted",
+            "event_type": "task.completed", "promoted_event_type": "task.completed",
+            "received_at": "2026-10-01T00:00:00+00:00", "promoted_at": "2026-10-01T00:00:01+00:00",
+            "source": {"kind": "node", "node_id": "node-1"},
+            "core": {"core_id": self.core_id, "validation_status": "accepted"},
+            "subject": {"user_id": alice["user_id"]},
+            "routing": {"domain_topic": "hexe/events/task/completed", "source_topic": "hexe/events/nodes/node-1/task/completed", "dedupe_key": "dedupe"},
+            "data": {"summary": "Task completed"},
+            "policy": {"schema_valid": True, "privacy_valid": True},
+        }
+        asyncio.run(mqtt.callback("hexe/events/task/completed", payload, False))
+        self.assertEqual(len(asyncio.run(self.intents.list_pending())), 1)
+        bad = {**payload, "event_id": "wrong-core", "core": {**payload["core"], "core_id": "other-core"}}
+        asyncio.run(mqtt.callback("hexe/events/task/completed", bad, False))
+        self.assertEqual(len(asyncio.run(self.intents.list_pending())), 1)
+        asyncio.run(consumer.stop())
 
 
 if __name__ == "__main__":

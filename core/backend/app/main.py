@@ -23,7 +23,11 @@ from .core import (
     LocalDesktopNotificationConsumer,
     NodeOperationalNotificationService,
     NotificationBridgeService,
+    NotificationIntentStore,
+    NodeDomainEventPromoterService,
     NodeNotificationProxyService,
+    WebNotificationEventConsumer,
+    WebNotificationPolicyService,
 )
 from .core.logging import setup_logging
 from .core.health import router as health_router
@@ -667,6 +671,12 @@ def create_app() -> FastAPI:
                 connected = await mqtt_manager.wait_until_connected(timeout_s=10.0)
                 if not connected:
                     log.warning("MQTT manager did not report connected before startup notification phase")
+            node_domain_event_promoter = getattr(app.state, "node_domain_event_promoter", None)
+            if node_domain_event_promoter is not None:
+                await node_domain_event_promoter.start()
+            web_notification_event_consumer = getattr(app.state, "web_notification_event_consumer", None)
+            if web_notification_event_consumer is not None:
+                await web_notification_event_consumer.start()
             notification_bridge = getattr(app.state, "notification_bridge", None)
             if notification_bridge is not None:
                 await notification_bridge.start()
@@ -903,6 +913,12 @@ def create_app() -> FastAPI:
         notification_proxy = getattr(app.state, "notification_proxy", None)
         if notification_proxy is not None:
             await notification_proxy.stop()
+        web_notification_event_consumer = getattr(app.state, "web_notification_event_consumer", None)
+        if web_notification_event_consumer is not None:
+            await web_notification_event_consumer.stop()
+        node_domain_event_promoter = getattr(app.state, "node_domain_event_promoter", None)
+        if node_domain_event_promoter is not None:
+            await node_domain_event_promoter.stop()
         mqtt_runtime_boundary = getattr(app.state, "mqtt_runtime_boundary", None)
         if mqtt_runtime_boundary is not None:
             stop = getattr(mqtt_runtime_boundary, "stop", None)
@@ -1158,6 +1174,26 @@ def create_app() -> FastAPI:
         mqtt_manager,
         node_registrations_store,
         node_governance_status_service,
+    )
+    notification_intent_store = NotificationIntentStore(users_db)
+    web_notification_policy = WebNotificationPolicyService(
+        web_app_enrollment_store,
+        notification_intent_store,
+        core_id=str(os.getenv("HEXE_CORE_ID", "hexe-core")).strip() or "hexe-core",
+        audit=audit_store,
+    )
+    app.state.notification_intent_store = notification_intent_store
+    app.state.web_notification_policy = web_notification_policy
+    app.state.node_domain_event_promoter = NodeDomainEventPromoterService(
+        mqtt_manager,
+        mqtt_integration_state_store,
+        mqtt_observability_store,
+        core_id=str(os.getenv("HEXE_CORE_ID", "hexe-core")).strip() or "hexe-core",
+    )
+    app.state.web_notification_event_consumer = WebNotificationEventConsumer(
+        mqtt_manager,
+        web_notification_policy,
+        core_id=str(os.getenv("HEXE_CORE_ID", "hexe-core")).strip() or "hexe-core",
     )
     mqtt_dirs = ensure_runtime_dirs(os.getcwd())
     mqtt_live_dir = mqtt_dirs["live"]
