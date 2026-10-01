@@ -1,6 +1,9 @@
 {
-  "name": "Hexe-Ai",
-  "short_name": "Hexe-Ai",
+  "name": "Hexe Assistant",
+  "short_name": "Hexe",
+  "id": "/app",
+  "start_url": "/app",
+  "scope": "/",
   "icons": [
     {
       "src": "/web-app-manifest-192x192.png",
@@ -15,7 +18,8 @@
       "purpose": "maskable"
     }
   ],
-  "theme_color": "#ffffff",
-  "background_color": "#ffffff",
-  "display": "standalone"
+  "theme_color": "#07111f",
+  "background_color": "#07111f",
+  "display": "standalone",
+  "orientation": "any"
 }

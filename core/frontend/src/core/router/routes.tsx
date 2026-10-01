@@ -19,6 +19,7 @@ import NodeReauthApproval from "../pages/NodeReauthApproval";
 import SupervisorEnrollment from "../pages/SupervisorEnrollment";
 import AccessConsole from "../../webapp/AccessConsole";
 import EnrollmentPage from "../../webapp/EnrollmentPage";
+import AssistantApp from "../../webapp/AssistantApp";
 import { getAddonRoutes } from "./loadAddons";
 
 function ProtectedRedirect() {
@@ -46,7 +47,8 @@ export function buildRoutes(isAdmin: boolean, ready: boolean): RouteObject[] {
   return [
     { path: "/", element: <Home /> },
     { path: "/admin", element: protectedRoute(<Home />) },
-    { path: "/app", element: <AccessConsole /> },
+    { path: "/app", element: <AssistantApp /> },
+    { path: "/app/conversations/:conversationId", element: <AssistantApp /> },
     { path: "/app/access", element: <AccessConsole /> },
     { path: "/app/enroll", element: <EnrollmentPage /> },
     { path: "/proxy-login", element: <ProxyLogin /> },

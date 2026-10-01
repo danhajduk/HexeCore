@@ -427,3 +427,11 @@ Chosen fix: Expose the existing user administration router under the public web-
 What changed: Added owner user/device/session controls, self-only session and device actions, notification preference/test controls, deep-link enrollment with a non-exportable persisted device key, sanitized UI errors, and public API snapshot coverage without exposing Core admin or gateway credentials.
 Verification: 54 focused backend tests, 93 frontend tests, frontend typecheck/production build, and OpenAPI snapshot validation passed.
 ###########
+
+Task #1012
+Step objective: Make the canonical public Core host an installable mobile assistant with isolated per-user conversations.
+Issue cause: `/app` had access controls but no assistant shell, offline lifecycle, conversation persistence, or authorized Core-to-AI execution adapter.
+Chosen fix: Add a mobile-first PWA and Core-owned conversation API, stream turns as bounded NDJSON, and require both enrolled human identity and an active Core-to-provider service-access grant before issuing a short-lived `task.chat` token.
+What changed: Added manifest/service-worker/offline/install behavior, safe-area and touch layouts, text and browser voice input, role-gated administration navigation, IndexedDB credential/device-key storage, owned conversation CRUD, 30-day/200-message bounds, deletion/audit attribution, cross-user denial, and provider execution that never accepts browser-selected endpoints or credentials.
+Verification: 46 focused backend/security/OpenAPI/PWA tests, 93 frontend tests, frontend typecheck/production build, generated OpenAPI appendix, and OpenAPI snapshot checks passed.
+###########

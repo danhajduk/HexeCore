@@ -5,7 +5,7 @@ import "./webapp.css";
 const b64url = (bytes: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(bytes))).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
 
 async function keepKey(id: string, key: CryptoKey): Promise<void> {
-  const db = await new Promise<IDBDatabase>((resolve, reject) => { const request = indexedDB.open("hexe-web-app", 1); request.onupgradeneeded=()=>request.result.createObjectStore("device-keys"); request.onsuccess=()=>resolve(request.result); request.onerror=()=>reject(request.error); });
+  const db = await new Promise<IDBDatabase>((resolve, reject) => { const request = indexedDB.open("hexe-web-app", 2); request.onupgradeneeded=()=>{if(!request.result.objectStoreNames.contains("device-keys"))request.result.createObjectStore("device-keys");if(!request.result.objectStoreNames.contains("credentials"))request.result.createObjectStore("credentials");}; request.onsuccess=()=>resolve(request.result); request.onerror=()=>reject(request.error); });
   await new Promise<void>((resolve, reject) => { const tx=db.transaction("device-keys","readwrite"); tx.objectStore("device-keys").put(key,id); tx.oncomplete=()=>resolve(); tx.onerror=()=>reject(tx.error); });
   db.close();
 }
@@ -26,7 +26,7 @@ export default function EnrollmentPage() {
       const signature=b64url(await crypto.subtle.sign("Ed25519",deviceKey,message));
       const response=await fetch(`/api/auth/device-enrollments/${encodeURIComponent(enrollmentId)}/complete`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({proof,device_id:deviceId,public_key:publicKey,signature,platform:navigator.platform||"web",browser_metadata:{browser_name:navigator.userAgent.slice(0,80)}})});
       const body=await response.json().catch(()=>({})); if(!response.ok) throw new Error(String(body.detail||`Request failed (${response.status})`).replaceAll("_"," "));
-      await keepKey(deviceId,deviceKey); saveSession(body.access_token,body.refresh_token); history.replaceState({},"","/app"); location.assign("/app");
+      await keepKey(deviceId,deviceKey); await saveSession(body.access_token,body.refresh_token); history.replaceState({},"","/app"); location.assign("/app");
     } catch(error) { setState(error instanceof Error?error.message:"Enrollment failed"); } finally { setBusy(false); }
   }
   return <main className="webapp"><section className="login-card"><span className="eyebrow">Secure device enrollment</span><h1>Add this browser</h1><p>{state}</p><p>The link expires quickly and works only once. Ask a Core owner to approve it, then continue here.</p><button disabled={busy||!enrollmentId||!proof} onClick={()=>void complete()}>{busy?"Binding…":"Complete enrollment"}</button><a className="text-link" href="/app">Return to sign in</a></section></main>;

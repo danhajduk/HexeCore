@@ -1,5 +1,5 @@
 {
-  "path_count": 287,
+  "path_count": 291,
   "paths": {
     "/api/addons": [
       "get"
@@ -880,6 +880,20 @@
     ],
     "/api/web-app/bootstrap": [
       "get"
+    ],
+    "/api/web-app/conversations": [
+      "get",
+      "post"
+    ],
+    "/api/web-app/conversations/{conversation_id}": [
+      "delete",
+      "get"
+    ],
+    "/api/web-app/conversations/{conversation_id}/messages": [
+      "post"
+    ],
+    "/api/web-app/conversations/{conversation_id}/messages/stream": [
+      "post"
     ],
     "/api/web-app/notification-gateway/credential/rotate": [
       "post"

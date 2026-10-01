@@ -241,6 +241,23 @@ authorization checks in addition to human authorization. A remote user token
 cannot bypass Core-to-node management authorization or cause Core to forward a
 caller-supplied management credential.
 
+Task 1012 adds Core-owned `/api/web-app/conversations` resources. Every list,
+read, append, stream, and delete operation revalidates the human session and its
+enrolled device, then scopes the database operation to the authenticated stable
+user ID. Conversation history is bounded to 200 messages and inactive
+conversations age out after 30 days. The NDJSON streaming route emits only the
+caller's accepted message and assistant completion; failures expose a generic
+availability code. Core resolves the registered `task.chat` provider, requires
+an active service-access grant for the Core subject, and signs a short-lived,
+task-scoped service token tied to that grant. Browser callers cannot select an
+upstream endpoint, supply provider authorization, or receive the service token.
+
+The production `/app` surface is an installable, mobile-first PWA. Its service
+worker never intercepts or caches `/api/` responses. The short-lived access
+token remains in session storage; the rotating refresh credential and
+non-exportable device key are stored in IndexedDB. Administration navigation is
+rendered only when bootstrap permissions include `users.manage`.
+
 Changes to password, role, enabled state, user existence, session state, or
 device state invalidate affected access within the access-token lifetime and
 immediately at refresh. High-impact changes increment credential revision or
@@ -448,7 +465,7 @@ push endpoints, and provider credentials are never logged.
 4. Tasks 1008-1010 implement device/subscription state, notification policy,
    and gateway publishing.
 5. Task 1011 implements owner/user administration UX.
-6. Task 1012 validates two-user isolation and end-to-end revocation/delivery.
+6. Task 1012 implements the assistant PWA and validates conversation isolation.
 
 No Task 1005+ endpoint, schema, or UI behavior should be advertised as
 implemented until its code and focused verification are complete.

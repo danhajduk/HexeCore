@@ -15,6 +15,7 @@ from .notification_producer import CoreStartupNotificationProducer
 from .system_notification_service import CoreSystemNotificationService
 from .web_notification_policy import NotificationIntentStore, TrustedNotificationEvent, WebNotificationEventConsumer, WebNotificationPolicyService
 from .web_push_gateway import GATEWAY_CONTRACT_VERSION, WebPushGatewayPublisher, build_web_push_gateway_router
+from .web_conversations import ConversationStore, CoreChatExecutor, build_conversation_router
 from .notifications import (
     INTERNAL_EVENT_TOPIC,
     INTERNAL_POPUP_TOPIC,
@@ -93,4 +94,7 @@ __all__ = [
     "GATEWAY_CONTRACT_VERSION",
     "WebPushGatewayPublisher",
     "build_web_push_gateway_router",
+    "ConversationStore",
+    "CoreChatExecutor",
+    "build_conversation_router",
 ]

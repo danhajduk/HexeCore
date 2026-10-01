@@ -78,7 +78,7 @@ def build_web_app_router(
                 "browser_metadata": json.loads(device.get("browser_metadata_json") or "{}"),
             },
             "features": {
-                "assistant": False,
+                "assistant": True,
                 "realtime": True,
                 "notifications": True,
                 "administration": "core.admin" in permissions,

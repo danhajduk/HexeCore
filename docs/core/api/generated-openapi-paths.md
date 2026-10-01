@@ -5,7 +5,7 @@ Status: Generated
 This file is generated from `openapi-paths.snapshot.json`.
 Do not edit path rows by hand; run `python tools/update_api_route_appendix.py --write`.
 
-Path count: 282
+Path count: 291
 
 | Path | Methods |
 | --- | --- |
@@ -288,6 +288,15 @@ Path count: 282
 | `/api/system/supervisors/{supervisor_id}/update/status` | `GET` |
 | `/api/telemetry/usage` | `GET, POST` |
 | `/api/telemetry/usage/stats` | `GET` |
+| `/api/web-app/admin/users` | `GET, POST` |
+| `/api/web-app/admin/users/{username}` | `DELETE` |
+| `/api/web-app/admin/users/{username}/sessions` | `GET` |
+| `/api/web-app/admin/users/{username}/sessions/{session_id}` | `DELETE` |
 | `/api/web-app/bootstrap` | `GET` |
+| `/api/web-app/conversations` | `GET, POST` |
+| `/api/web-app/conversations/{conversation_id}` | `DELETE, GET` |
+| `/api/web-app/conversations/{conversation_id}/messages` | `POST` |
+| `/api/web-app/conversations/{conversation_id}/messages/stream` | `POST` |
 | `/api/web-app/notification-gateway/credential/rotate` | `POST` |
 | `/api/web-app/notification-gateway/status` | `GET` |
+| `/api/web-app/notifications/test` | `POST` |

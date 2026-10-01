@@ -30,6 +30,9 @@ from .core import (
     WebNotificationPolicyService,
     WebPushGatewayPublisher,
     build_web_push_gateway_router,
+    ConversationStore,
+    CoreChatExecutor,
+    build_conversation_router,
 )
 from .core.logging import setup_logging
 from .core.health import router as health_router
@@ -1038,6 +1041,9 @@ def create_app() -> FastAPI:
         "APP_USERS_DB",
         os.path.join(os.getcwd(), "var", "users.db"),
     )
+    conversation_store = ConversationStore(users_db)
+    web_chat_executor = CoreChatExecutor(service_catalog_store, service_access_grant_store, service_token_keys, settings_store)
+    app.state.conversation_store = conversation_store
     users_store = UsersStore(users_db)
     web_app_enrollment_store = WebAppEnrollmentStore(users_db)
     seeded_admin_username = os.getenv("HEXE_ADMIN_USERNAME", "admin").strip() or "admin"
@@ -1380,6 +1386,7 @@ def create_app() -> FastAPI:
     app.include_router(build_device_enrollment_router(web_app_enrollment_store, users_store, service_token_keys, audit_store), prefix="/api/auth", tags=["web-app-enrollment"])
     app.include_router(build_web_app_router(service_token_keys, users_store, web_app_enrollment_store, settings_store, web_notification_policy), prefix="/api/web-app", tags=["web-app"])
     app.include_router(build_web_push_gateway_router(web_push_gateway_publisher, service_token_keys, users_store, audit_store), prefix="/api/web-app", tags=["web-push-gateway"])
+    app.include_router(build_conversation_router(conversation_store, web_chat_executor, service_token_keys, users_store, web_app_enrollment_store, settings_store, audit_store), prefix="/api/web-app", tags=["web-app-conversations"])
     app.include_router(
         build_service_access_router(
             key_store=service_token_keys,
