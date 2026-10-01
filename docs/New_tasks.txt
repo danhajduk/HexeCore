@@ -58,3 +58,4 @@ Do not edit above this line:
 [TODO] Task 1010: Implement authenticated Core publishing to the Cloudflare Web Push gateway
 [TODO] Task 1011: Add Core administration UI for users, mobile devices, sessions, and notification access
 [TODO] Task 1012: Validate and document multi-user remote web app and push notification behavior end to end
+[TODO] Task 1013: Define the Core contract for family-aware AI memory

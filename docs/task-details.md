@@ -1345,3 +1345,16 @@ Original task details:
 - Acceptance: Two users can safely use one Core from separate installed web apps and receive only their authorized notifications.
 - Acceptance: Evidence demonstrates isolation across users, devices, Cores, and notification subscriptions.
 - Verification: Run targeted backend/frontend/security tests, OpenAPI and environment checks, mirror-drift validation, and live tunnel/Web Push tests; record any physical-device limitation explicitly.
+
+## Task 1013
+Original task details:
+- Coordination request: `HEXE-REQ-0001` from `ai-node` to `core`.
+- Priority: high.
+- Goal: Define the trusted Core-to-node contract for household and member identity, roles, guardian relationships, consent, room and device registration, and authorization context required by family-aware AI memory.
+- Define authenticated household and member identifiers.
+- Define roles, guardian relationships, and consent representation.
+- Define room and device registration ownership.
+- Define authorization behavior for private, shared, guest, child, and uncertain-identity interactions.
+- Define deletion and portability coordination responsibilities.
+- Publish the accepted contract under `HexeCoordination/contracts/accepted/`.
+- Preserve the coordination request ID and record implementation commits and verification evidence in `HEXE-REQ-0001` before completing or archiving it.
