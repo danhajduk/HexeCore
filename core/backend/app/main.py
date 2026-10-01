@@ -28,6 +28,8 @@ from .core import (
     NodeNotificationProxyService,
     WebNotificationEventConsumer,
     WebNotificationPolicyService,
+    WebPushGatewayPublisher,
+    build_web_push_gateway_router,
 )
 from .core.logging import setup_logging
 from .core.health import router as health_router
@@ -752,6 +754,23 @@ def create_app() -> FastAPI:
 
         asyncio.create_task(node_operational_notification_loop())
 
+        async def web_push_gateway_loop() -> None:
+            raw_interval = str(os.getenv("HEXE_NOTIFICATION_GATEWAY_PUBLISH_INTERVAL_S", "5")).strip()
+            try:
+                interval = max(1.0, float(raw_interval))
+            except ValueError:
+                interval = 5.0
+            while True:
+                try:
+                    publisher = getattr(app.state, "web_push_gateway_publisher", None)
+                    if publisher is not None:
+                        await publisher.publish_due()
+                except Exception:
+                    log.exception("Web Push gateway delivery loop failed")
+                await asyncio.sleep(interval)
+
+        asyncio.create_task(web_push_gateway_loop())
+
         async def mqtt_runtime_supervision_loop() -> None:
             last_runtime_healthy: bool | None = None
             last_runtime_warning_reason: str | None = None
@@ -1184,6 +1203,21 @@ def create_app() -> FastAPI:
     )
     app.state.notification_intent_store = notification_intent_store
     app.state.web_notification_policy = web_notification_policy
+    try:
+        notification_gateway_max_attempts = max(1, int(os.getenv("HEXE_NOTIFICATION_GATEWAY_MAX_ATTEMPTS", "8")))
+    except ValueError:
+        notification_gateway_max_attempts = 8
+    web_push_gateway_publisher = WebPushGatewayPublisher(
+        notification_intent_store,
+        web_app_enrollment_store,
+        settings_store,
+        core_id=str(os.getenv("HEXE_CORE_ID", "hexe-core")).strip() or "hexe-core",
+        gateway_url=str(os.getenv("HEXE_NOTIFICATION_GATEWAY_URL", "")).strip(),
+        credential_ref=str(os.getenv("HEXE_NOTIFICATION_GATEWAY_AUTH_REF", "notification_gateway_credential")).strip() or "notification_gateway_credential",
+        audience=str(os.getenv("HEXE_NOTIFICATION_GATEWAY_AUDIENCE", "hexe-notification-gateway")).strip() or "hexe-notification-gateway",
+        max_attempts=notification_gateway_max_attempts,
+    )
+    app.state.web_push_gateway_publisher = web_push_gateway_publisher
     app.state.node_domain_event_promoter = NodeDomainEventPromoterService(
         mqtt_manager,
         mqtt_integration_state_store,
@@ -1344,6 +1378,7 @@ def create_app() -> FastAPI:
     app.include_router(build_human_auth_router(service_token_keys, users_store, audit_store), prefix="/api/auth", tags=["human-auth"])
     app.include_router(build_device_enrollment_router(web_app_enrollment_store, users_store, service_token_keys, audit_store), prefix="/api/auth", tags=["web-app-enrollment"])
     app.include_router(build_web_app_router(service_token_keys, users_store, web_app_enrollment_store, settings_store), prefix="/api/web-app", tags=["web-app"])
+    app.include_router(build_web_push_gateway_router(web_push_gateway_publisher, service_token_keys, users_store, audit_store), prefix="/api/web-app", tags=["web-push-gateway"])
     app.include_router(
         build_service_access_router(
             key_store=service_token_keys,

@@ -52,3 +52,4 @@ Task 1006: Implement secure Core enrollment and per-device credentials for insta
 Task 1007: Expose a safe remote web app API and realtime connection boundary through the Core tunnel - Completed on 09/30/2026 20:13
 Task 1008: Implement Core-owned mobile device, push subscription, and notification preference state - Completed on 09/30/2026 20:51
 Task 1009: Implement privacy-safe notification policy and event-to-notification routing - Completed on 09/30/2026 21:21
+Task 1010: Implement authenticated Core publishing to the Cloudflare Web Push gateway - Completed on 09/30/2026 21:41

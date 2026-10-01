@@ -1260,6 +1260,34 @@
       "sensitive": false
     },
     {
+      "default": "notification_gateway_credential",
+      "description": "Settings-store key referencing the Core-bound Web Push gateway credential object; the credential value is not stored in this environment variable.",
+      "name": "HEXE_NOTIFICATION_GATEWAY_AUTH_REF",
+      "owner": "Auth and service access",
+      "sensitive": false
+    },
+    {
+      "default": "8",
+      "description": "Maximum Web Push gateway delivery attempts before an intent enters dead-letter state.",
+      "name": "HEXE_NOTIFICATION_GATEWAY_MAX_ATTEMPTS",
+      "owner": "Auth and service access",
+      "sensitive": false
+    },
+    {
+      "default": "5",
+      "description": "Seconds between durable Web Push gateway outbox delivery passes.",
+      "name": "HEXE_NOTIFICATION_GATEWAY_PUBLISH_INTERVAL_S",
+      "owner": "Auth and service access",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "HTTPS base URL for the central Cloudflare Web Push gateway; unset keeps delivery safely unconfigured.",
+      "name": "HEXE_NOTIFICATION_GATEWAY_URL",
+      "owner": "Auth and service access",
+      "sensitive": false
+    },
+    {
       "default": "100",
       "description": "Maximum number of active enrolled web-app devices permitted across one Core.",
       "name": "HEXE_WEB_APP_MAX_DEVICES_PER_CORE",

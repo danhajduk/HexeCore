@@ -411,3 +411,11 @@ Chosen fix: Revalidate only Core-promoted domain topics, start the promoter and 
 What changed: Added the promoted-event consumer, runtime lifecycle wiring, persistent rate-window queries, coalesced counts, escalation behavior, and focused tests.
 Verification: Policy consumer, rate-limit, escalation, and domain-event promoter tests passed.
 ###########
+
+Task #1010
+Step objective: Add authenticated durable publishing for privacy-safe Web Push intents.
+Issue cause: Policy intents were durable but had no narrow gateway contract, authentication, retry state, or sanitized operational visibility.
+Chosen fix: Sign body-bound short-lived Core assertions from a settings-store credential reference, use stable idempotency keys, classify responses, and drive the durable outbox from a background worker.
+What changed: Added the gateway publisher, HTTPS validation, retry/dead-letter state, invalid-subscription cleanup, role-gated status API, environment registry entries, worker wiring, and fake-gateway tests.
+Verification: Gateway contract, policy, OpenAPI, and environment checks passed.
+###########

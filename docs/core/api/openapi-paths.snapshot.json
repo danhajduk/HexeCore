@@ -1,5 +1,5 @@
 {
-  "path_count": 280,
+  "path_count": 282,
   "paths": {
     "/api/addons": [
       "get"
@@ -866,6 +866,12 @@
       "get"
     ],
     "/api/web-app/bootstrap": [
+      "get"
+    ],
+    "/api/web-app/notification-gateway/credential/rotate": [
+      "post"
+    ],
+    "/api/web-app/notification-gateway/status": [
       "get"
     ]
   },

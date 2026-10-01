@@ -14,6 +14,7 @@ from .notification_consumer import LocalDesktopNotificationConsumer
 from .notification_producer import CoreStartupNotificationProducer
 from .system_notification_service import CoreSystemNotificationService
 from .web_notification_policy import NotificationIntentStore, TrustedNotificationEvent, WebNotificationEventConsumer, WebNotificationPolicyService
+from .web_push_gateway import GATEWAY_CONTRACT_VERSION, WebPushGatewayPublisher, build_web_push_gateway_router
 from .notifications import (
     INTERNAL_EVENT_TOPIC,
     INTERNAL_POPUP_TOPIC,
@@ -89,4 +90,7 @@ __all__ = [
     "TrustedNotificationEvent",
     "WebNotificationEventConsumer",
     "WebNotificationPolicyService",
+    "GATEWAY_CONTRACT_VERSION",
+    "WebPushGatewayPublisher",
+    "build_web_push_gateway_router",
 ]

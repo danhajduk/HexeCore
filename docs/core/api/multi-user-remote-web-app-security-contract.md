@@ -1,6 +1,6 @@
 # Core Multi-User Remote Web App Security and Identity Contract
 
-Status: Tasks 1005-1009 implemented; Tasks 1010-1014 remain planned
+Status: Tasks 1005-1010 implemented; Tasks 1011-1014 remain planned
 
 ## Purpose
 
@@ -379,6 +379,19 @@ decision, and declared domain topic before routing. Per-device/category windows
 allow five ordinary intents per five minutes by default; additional noise is
 coalesced into the latest pending intent, while critical escalation bypasses
 the ordinary rate limit.
+
+Task 1010 adds the `hexe.web-push-gateway.v1` publisher boundary. Pending
+policy intents are sent only to a configured HTTPS gateway using a Core-bound
+settings-store credential reference. Each request carries a short-lived HMAC
+assertion with Core issuer/subject, gateway audience, `notification.publish`
+scope, nonce/JTI, and body SHA-256 plus a stable idempotency key. The durable
+outbox classifies acceptance, authentication/permanent failure, throttling,
+retryable transport/server failure, and invalid subscriptions; retries use
+bounded exponential backoff and eventually dead-letter. Invalid subscriptions
+queue cleanup only for the affected device. The role-gated
+`GET /api/web-app/notification-gateway/status` response exposes configuration
+and status counts only, never gateway URLs, subscription references, assertion
+material, or credentials.
 
 ## Audit Requirements
 

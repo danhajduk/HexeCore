@@ -15,7 +15,7 @@ from app.system.platform_identity import load_platform_identity
 
 
 WEB_APP_API_PREFIX = "/api/web-app"
-WEB_APP_CORS_METHODS = "GET, HEAD, OPTIONS"
+WEB_APP_CORS_METHODS = "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS"
 WEB_APP_CORS_HEADERS = {"authorization", "content-type"}
 WEB_APP_MAX_REQUEST_BYTES = 1024 * 1024
 WEB_APP_RATE_LIMIT_WINDOW_S = 60

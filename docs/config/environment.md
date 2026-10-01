@@ -19,6 +19,10 @@ Sensitive values are marked in the registry and must not be logged or exposed th
 | `HEXE_ADMIN_USERNAME` | `admin` | no | Controls admin login/session behavior or service-principal access. Registry key: `HEXE_ADMIN_USERNAME`. |
 | `HEXE_CSRF_TRUSTED_ORIGINS` | `unset` | no | Controls admin login/session behavior or service-principal access. Registry key: `HEXE_CSRF_TRUSTED_ORIGINS`. |
 | `HEXE_NOTIFICATION_GATEWAY_AUDIENCE` | `hexe-notification-gateway` | no | Expected audience bound to opaque web-app notification subscription references. |
+| `HEXE_NOTIFICATION_GATEWAY_AUTH_REF` | `notification_gateway_credential` | no | Settings-store key referencing the Core-bound Web Push gateway credential object; the credential value is not stored in this environment variable. |
+| `HEXE_NOTIFICATION_GATEWAY_MAX_ATTEMPTS` | `8` | no | Maximum Web Push gateway delivery attempts before an intent enters dead-letter state. |
+| `HEXE_NOTIFICATION_GATEWAY_PUBLISH_INTERVAL_S` | `5` | no | Seconds between durable Web Push gateway outbox delivery passes. |
+| `HEXE_NOTIFICATION_GATEWAY_URL` | `unset` | no | HTTPS base URL for the central Cloudflare Web Push gateway; unset keeps delivery safely unconfigured. |
 | `HEXE_SERVICE_PRINCIPALS_JSON` | `unset` | yes | Controls admin login/session behavior or service-principal access. Registry key: `HEXE_SERVICE_PRINCIPALS_JSON`. |
 | `HEXE_SERVICE_TOKEN` | `unset` | yes | Service token passed to standalone addon containers for Core callbacks. |
 | `HEXE_WEB_APP_MAX_DEVICES_PER_CORE` | `100` | no | Maximum number of active enrolled web-app devices permitted across one Core. |
