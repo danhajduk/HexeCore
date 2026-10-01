@@ -3,6 +3,7 @@ from .router import build_auth_router
 from .tokens import ServiceTokenClaims, ServiceTokenError, ServiceTokenKeyStore, sign_hs256, validate_claims, verify_hs256
 from .human import HumanPrincipal, authenticate_human_token, build_human_auth_router
 from .device_enrollment import WebAppEnrollmentStore, build_device_enrollment_router
+from .web_app import build_web_app_router
 
 __all__ = [
     "build_auth_router",
@@ -18,4 +19,5 @@ __all__ = [
     "build_human_auth_router",
     "WebAppEnrollmentStore",
     "build_device_enrollment_router",
+    "build_web_app_router",
 ]

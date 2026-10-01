@@ -1,6 +1,6 @@
 # Core Multi-User Remote Web App Security and Identity Contract
 
-Status: Tasks 1005-1006 implemented; Tasks 1007-1014 remain planned
+Status: Tasks 1005-1006 implemented; Task 1007 in progress; Tasks 1008-1014 remain planned
 
 ## Purpose
 
@@ -204,6 +204,13 @@ hostname alone never attaches a device to a user.
 Remote access is limited to an explicit route allow-list. Every protected route
 checks Core audience, user enabled state, session state, credential revision,
 role/permission, resource ownership, and device state when required.
+
+Task 1007 currently exposes `GET /api/web-app/bootstrap` as the first protected
+web-app route. It requires a valid human access token whose session is bound to
+an active enrolled device owned by the same user and Core. Its response contains
+safe Core identity, current user permissions, session and device identifiers,
+and conservative feature/notification availability. It does not return device
+public keys, credentials, enrollment proofs, or administrative secrets.
 
 Node and addon proxy requests retain their existing target-trust and management
 authorization checks in addition to human authorization. A remote user token

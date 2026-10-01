@@ -5,7 +5,7 @@ Status: Generated
 This file is generated from `openapi-paths.snapshot.json`.
 Do not edit path rows by hand; run `python tools/update_api_route_appendix.py --write`.
 
-Path count: 271
+Path count: 272
 
 | Path | Methods |
 | --- | --- |
@@ -280,3 +280,4 @@ Path count: 271
 | `/api/system/supervisors/{supervisor_id}/update/status` | `GET` |
 | `/api/telemetry/usage` | `GET, POST` |
 | `/api/telemetry/usage/stats` | `GET` |
+| `/api/web-app/bootstrap` | `GET` |

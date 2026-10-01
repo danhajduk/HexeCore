@@ -1,5 +1,5 @@
 {
-  "path_count": 271,
+  "path_count": 272,
   "paths": {
     "/api/addons": [
       "get"
@@ -836,6 +836,9 @@
       "post"
     ],
     "/api/telemetry/usage/stats": [
+      "get"
+    ],
+    "/api/web-app/bootstrap": [
       "get"
     ]
   },
