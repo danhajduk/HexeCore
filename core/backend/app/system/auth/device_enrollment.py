@@ -3,17 +3,19 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
+import json
 import os
 import secrets
 import sqlite3
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from fastapi import APIRouter, Header, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.api.admin import admin_request_actor, require_admin_token
 from app.system.audit import AuditLogStore
@@ -23,6 +25,14 @@ from .tokens import ServiceTokenKeyStore
 
 CONTRACT_VERSION = "hexe.web-app-enrollment.v1"
 DEFAULT_TTL_S = 10 * 60
+NOTIFICATION_CATEGORIES = {
+    "security",
+    "approval-required",
+    "task-completion",
+    "timers-reminders",
+    "device-health",
+    "email-alerts",
+}
 
 
 def _now() -> datetime:
@@ -71,6 +81,38 @@ class NotificationSubscriptionRequest(BaseModel):
     gateway_audience: str = Field(..., min_length=1, max_length=160)
 
 
+class NotificationPreferencesRequest(BaseModel):
+    enabled: bool = True
+    categories: dict[str, bool] = Field(default_factory=lambda: {category: True for category in sorted(NOTIFICATION_CATEGORIES)})
+    quiet_hours_start: str | None = Field(default=None, pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    quiet_hours_end: str | None = Field(default=None, pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    time_zone: str = Field(default="UTC", min_length=1, max_length=64)
+    privacy_level: Literal["generic", "summary", "sensitive"] = "generic"
+    severity_threshold: Literal["info", "warning", "critical"] = "info"
+
+    @field_validator("categories")
+    @classmethod
+    def validate_categories(cls, value: dict[str, bool]) -> dict[str, bool]:
+        if set(value) != NOTIFICATION_CATEGORIES:
+            raise ValueError("notification_categories_invalid")
+        return value
+
+    @field_validator("time_zone")
+    @classmethod
+    def validate_time_zone(cls, value: str) -> str:
+        try:
+            ZoneInfo(value)
+        except ZoneInfoNotFoundError as exc:
+            raise ValueError("time_zone_invalid") from exc
+        return value
+
+    @model_validator(mode="after")
+    def validate_quiet_hours(self):
+        if (self.quiet_hours_start is None) != (self.quiet_hours_end is None):
+            raise ValueError("quiet_hours_incomplete")
+        return self
+
+
 def _env_positive_int(name: str, default: int) -> int:
     try:
         value = int(os.getenv(name, str(default)))
@@ -108,6 +150,14 @@ class WebAppEnrollmentStore:
               subscription_ref TEXT NOT NULL, gateway_audience TEXT NOT NULL,
               created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT,
               cleanup_state TEXT NOT NULL DEFAULT 'active',
+              FOREIGN KEY(device_id) REFERENCES web_app_devices(device_id)
+            );
+            CREATE TABLE IF NOT EXISTS web_app_notification_preferences (
+              device_id TEXT PRIMARY KEY, core_id TEXT NOT NULL, user_id TEXT NOT NULL,
+              enabled INTEGER NOT NULL, categories_json TEXT NOT NULL,
+              quiet_hours_start TEXT, quiet_hours_end TEXT, time_zone TEXT NOT NULL,
+              privacy_level TEXT NOT NULL, severity_threshold TEXT NOT NULL,
+              created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
               FOREIGN KEY(device_id) REFERENCES web_app_devices(device_id)
             );
             """
@@ -290,6 +340,40 @@ class WebAppEnrollmentStore:
             )
             return changed.rowcount == 1
 
+    async def get_notification_preferences(self, *, device_id: str, core_id: str, user_id: str) -> dict[str, Any] | None:
+        async with self._lock:
+            row = await asyncio.to_thread(
+                self._conn.execute(
+                    "SELECT * FROM web_app_notification_preferences WHERE device_id=? AND core_id=? AND user_id=?",
+                    (device_id, core_id, user_id),
+                ).fetchone
+            )
+            return dict(row) if row else None
+
+    async def put_notification_preferences(self, *, device_id: str, core_id: str, user_id: str, preferences: NotificationPreferencesRequest) -> dict[str, Any]:
+        async with self._lock:
+            return await asyncio.to_thread(self._put_notification_preferences, device_id, core_id, user_id, preferences)
+
+    def _put_notification_preferences(self, device_id, core_id, user_id, preferences):
+        device = self._conn.execute(
+            "SELECT device_id FROM web_app_devices WHERE device_id=? AND core_id=? AND user_id=? AND revoked_at IS NULL",
+            (device_id, core_id, user_id),
+        ).fetchone()
+        if device is None: raise RuntimeError("device_not_found")
+        now = _now_iso()
+        self._conn.execute(
+            "INSERT INTO web_app_notification_preferences VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(device_id) DO UPDATE SET enabled=excluded.enabled, categories_json=excluded.categories_json, quiet_hours_start=excluded.quiet_hours_start, quiet_hours_end=excluded.quiet_hours_end, time_zone=excluded.time_zone, privacy_level=excluded.privacy_level, severity_threshold=excluded.severity_threshold, updated_at=excluded.updated_at",
+            (
+                device_id, core_id, user_id, int(preferences.enabled),
+                json.dumps(preferences.categories, sort_keys=True, separators=(",", ":")),
+                preferences.quiet_hours_start, preferences.quiet_hours_end,
+                preferences.time_zone, preferences.privacy_level,
+                preferences.severity_threshold, now, now,
+            ),
+        )
+        return dict(self._conn.execute("SELECT * FROM web_app_notification_preferences WHERE device_id=?", (device_id,)).fetchone())
+
     async def rotate_key(self, device_id: str, public_key: str) -> dict[str, Any]:
         async with self._lock:
             await asyncio.to_thread(self._conn.execute, "UPDATE web_app_devices SET public_key=?, updated_at=? WHERE device_id=? AND revoked_at IS NULL", (public_key, _now_iso(), device_id))
@@ -336,6 +420,19 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
             "created_at": device["created_at"],
             "updated_at": device["updated_at"],
             "revoked_at": device.get("revoked_at"),
+        }
+
+    def public_preferences(preferences: dict[str, Any] | None) -> dict[str, Any]:
+        if preferences is None:
+            return NotificationPreferencesRequest().model_dump()
+        return {
+            "enabled": bool(preferences["enabled"]),
+            "categories": json.loads(preferences["categories_json"]),
+            "quiet_hours_start": preferences.get("quiet_hours_start"),
+            "quiet_hours_end": preferences.get("quiet_hours_end"),
+            "time_zone": preferences["time_zone"],
+            "privacy_level": preferences["privacy_level"],
+            "severity_threshold": preferences["severity_threshold"],
         }
 
     @router.get("/web-app/discovery")
@@ -484,5 +581,33 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
             {"device_id": device_id, "changed": changed},
         )
         return {"ok": True, "device_id": device_id, "changed": changed, "cleanup_state": "pending" if changed else "absent"}
+
+    @router.get("/devices/{device_id}/notification-preferences")
+    async def get_notification_preferences(device_id: str, authorization: str | None = Header(default=None)):
+        principal = await authenticate_human_token(authorization, keys, users)
+        if principal.device_id != device_id:
+            raise HTTPException(status_code=403, detail="device_identity_mismatch")
+        device = await store.get_device(device_id)
+        if device is None or device.get("revoked_at") or str(device["core_id"]) != core_id or str(device["user_id"]) != principal.user_id:
+            raise HTTPException(status_code=404, detail="device_not_found")
+        preferences = await store.get_notification_preferences(device_id=device_id, core_id=core_id, user_id=principal.user_id)
+        return {"ok": True, "device_id": device_id, "preferences": public_preferences(preferences)}
+
+    @router.put("/devices/{device_id}/notification-preferences")
+    async def put_notification_preferences(device_id: str, body: NotificationPreferencesRequest, authorization: str | None = Header(default=None)):
+        principal = await authenticate_human_token(authorization, keys, users)
+        if principal.device_id != device_id:
+            raise HTTPException(status_code=403, detail="device_identity_mismatch")
+        try:
+            preferences = await store.put_notification_preferences(
+                device_id=device_id,
+                core_id=core_id,
+                user_id=principal.user_id,
+                preferences=body,
+            )
+        except RuntimeError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        await record("web_app_notification_preferences_updated", principal.user_id, principal.role, {"device_id": device_id})
+        return {"ok": True, "device_id": device_id, "preferences": public_preferences(preferences)}
 
     return router

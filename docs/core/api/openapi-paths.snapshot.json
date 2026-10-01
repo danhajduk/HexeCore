@@ -1,5 +1,5 @@
 {
-  "path_count": 275,
+  "path_count": 276,
   "paths": {
     "/api/addons": [
       "get"
@@ -132,6 +132,10 @@
     "/api/auth/devices/{device_id}": [
       "delete",
       "patch"
+    ],
+    "/api/auth/devices/{device_id}/notification-preferences": [
+      "get",
+      "put"
     ],
     "/api/auth/devices/{device_id}/notification-subscription": [
       "delete",

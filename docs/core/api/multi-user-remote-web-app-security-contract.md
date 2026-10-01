@@ -302,6 +302,14 @@ returns the opaque reference, and records deletion or device revocation as a
 retryable `pending` cleanup state for the gateway integration delivered by
 Task 1010.
 
+Each enrolled device also has authenticated preference endpoints at
+`GET|PUT /api/auth/devices/{device_id}/notification-preferences`. Defaults are
+privacy-preserving (`generic`) and cover security, approval-required, task
+completion, timers/reminders, device health, and explicitly controllable email
+alerts. Updates validate complete category maps, IANA time zones, paired quiet
+hours, privacy level, and severity threshold, and are limited to the device
+identified by the caller's access token.
+
 - device loss revokes that device and its sessions/subscriptions only
 - Core removal or ownership reset revokes all remote credentials and gateway
   bindings

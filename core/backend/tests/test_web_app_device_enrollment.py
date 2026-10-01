@@ -243,5 +243,57 @@ class TestWebAppDeviceEnrollment(unittest.TestCase):
         self.assertIsNotNone(row[0])
         self.assertEqual(row[1], "pending")
 
+    def test_device_notification_preferences_have_safe_defaults_and_round_trip(self):
+        enrollment = self.create_approved()
+        completed = self.complete(enrollment, Ed25519PrivateKey.generate())
+        headers = {"Authorization": f"Bearer {completed.json()['access_token']}"}
+        url = "/api/auth/devices/device-phone-1/notification-preferences"
+
+        defaults = self.client.get(url, headers=headers)
+        self.assertEqual(defaults.status_code, 200, defaults.text)
+        self.assertEqual(defaults.json()["preferences"]["privacy_level"], "generic")
+        self.assertEqual(
+            set(defaults.json()["preferences"]["categories"]),
+            {"security", "approval-required", "task-completion", "timers-reminders", "device-health", "email-alerts"},
+        )
+
+        preferences = {
+            "enabled": True,
+            "categories": {
+                "security": True,
+                "approval-required": True,
+                "task-completion": False,
+                "timers-reminders": True,
+                "device-health": False,
+                "email-alerts": False,
+            },
+            "quiet_hours_start": "22:30",
+            "quiet_hours_end": "07:15",
+            "time_zone": "America/Los_Angeles",
+            "privacy_level": "summary",
+            "severity_threshold": "warning",
+        }
+        updated = self.client.put(url, headers=headers, json=preferences)
+        self.assertEqual(updated.status_code, 200, updated.text)
+        self.assertEqual(updated.json()["preferences"], preferences)
+        fetched = self.client.get(url, headers=headers)
+        self.assertEqual(fetched.json()["preferences"], preferences)
+
+    def test_notification_preferences_reject_invalid_or_cross_device_settings(self):
+        enrollment = self.create_approved()
+        completed = self.complete(enrollment, Ed25519PrivateKey.generate())
+        headers = {"Authorization": f"Bearer {completed.json()['access_token']}"}
+        url = "/api/auth/devices/device-phone-1/notification-preferences"
+        defaults = self.client.get(url, headers=headers).json()["preferences"]
+
+        incomplete = dict(defaults, quiet_hours_start="22:00")
+        self.assertEqual(self.client.put(url, headers=headers, json=incomplete).status_code, 422)
+        bad_zone = dict(defaults, time_zone="Not/A_Time_Zone")
+        self.assertEqual(self.client.put(url, headers=headers, json=bad_zone).status_code, 422)
+        bad_categories = dict(defaults, categories={"security": True})
+        self.assertEqual(self.client.put(url, headers=headers, json=bad_categories).status_code, 422)
+        cross_device = self.client.get("/api/auth/devices/other-device/notification-preferences", headers=headers)
+        self.assertEqual(cross_device.status_code, 403, cross_device.text)
+
 
 if __name__ == "__main__": unittest.main()
