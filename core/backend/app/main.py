@@ -98,7 +98,7 @@ from app.system.mqtt import (
 )
 from app.system.events import PlatformEventService, build_events_router
 from app.system.services import ServiceCatalogStore, build_service_resolution_router
-from app.system.auth import ServiceTokenKeyStore, build_auth_router, build_human_auth_router
+from app.system.auth import ServiceTokenKeyStore, WebAppEnrollmentStore, build_auth_router, build_device_enrollment_router, build_human_auth_router
 from app.system.client_catalog import build_client_core_catalog_router
 from app.system.service_access import ServiceAccessGrantStore, build_service_access_router
 from app.system.management_access import ManagementAuthorizationService, ManagementAuthorizationStore, build_management_access_router
@@ -1002,6 +1002,7 @@ def create_app() -> FastAPI:
         os.path.join(os.getcwd(), "var", "users.db"),
     )
     users_store = UsersStore(users_db)
+    web_app_enrollment_store = WebAppEnrollmentStore(users_db)
     seeded_admin_username = os.getenv("HEXE_ADMIN_USERNAME", "admin").strip() or "admin"
     seeded_admin_password = os.getenv("HEXE_ADMIN_PASSWORD", "") or os.getenv("HEXE_ADMIN_TOKEN", "")
 
@@ -1024,6 +1025,7 @@ def create_app() -> FastAPI:
     app.state.store_audit_store = store_audit_store
     app.state.store_sources_store = store_sources_store
     app.state.users_store = users_store
+    app.state.web_app_enrollment_store = web_app_enrollment_store
     install_sessions_store = InstallSessionsStore()
     node_onboarding_sessions_store = NodeOnboardingSessionsStore()
     node_reauth_sessions_store = NodeReauthSessionsStore()
@@ -1302,6 +1304,7 @@ def create_app() -> FastAPI:
     app.include_router(build_events_router(event_service), prefix="/api/system", tags=["events"])
     app.include_router(build_auth_router(service_token_keys), prefix="/api/auth", tags=["auth"])
     app.include_router(build_human_auth_router(service_token_keys, users_store, audit_store), prefix="/api/auth", tags=["human-auth"])
+    app.include_router(build_device_enrollment_router(web_app_enrollment_store, users_store, service_token_keys, audit_store), prefix="/api/auth", tags=["web-app-enrollment"])
     app.include_router(
         build_service_access_router(
             key_store=service_token_keys,

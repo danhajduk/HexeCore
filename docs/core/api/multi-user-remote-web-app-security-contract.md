@@ -1,6 +1,6 @@
 # Core Multi-User Remote Web App Security and Identity Contract
 
-Status: Task 1005 implemented; Tasks 1006-1012 remain planned
+Status: Tasks 1005-1006 implemented; Tasks 1007-1014 remain planned
 
 ## Purpose
 
@@ -8,8 +8,9 @@ This contract defines the Core-owned identity, authorization, session, device,
 and notification boundaries for multiple human users accessing one Core through
 the managed Hexe web app and Cloudflare Tunnel. Tasks 1005-1012 implement and
 validate this contract. The user, role, human-token, refresh-rotation, session,
-and revocation behavior in Task 1005 is available; device enrollment, remote
-route allow-listing, and notification behavior remain unavailable.
+and revocation behavior in Task 1005 plus device enrollment and key possession
+in Task 1006 are available; remote route allow-listing and notification
+behavior remain unavailable.
 
 The public hostname is addressability only. Knowing a Core id or reaching
 `<core-id>.hexe-ai.com` never authorizes a request.
@@ -31,9 +32,10 @@ The current implementation has:
   terminate at Core
 
 Compatibility admin cookies are not persisted as independently revocable human
-sessions and remain same-origin only. Installed-device identity, device-key
-binding, remote route allow-listing, and push-subscription ownership are not yet
-implemented.
+sessions and remain same-origin only. Installed-device identity, one-time
+owner-approved enrollment, Ed25519 possession proof, recovery enrollment, and
+dual-proof key rotation are implemented. Remote route allow-listing and
+push-subscription ownership are not yet implemented.
 
 ## Identity Model
 

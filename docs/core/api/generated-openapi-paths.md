@@ -5,7 +5,7 @@ Status: Generated
 This file is generated from `openapi-paths.snapshot.json`.
 Do not edit path rows by hand; run `python tools/update_api_route_appendix.py --write`.
 
-Path count: 264
+Path count: 271
 
 | Path | Methods |
 | --- | --- |
@@ -45,6 +45,12 @@ Path count: 264
 | `/api/admin/users/{username}/sessions` | `GET` |
 | `/api/admin/users/{username}/sessions/{session_id}` | `DELETE` |
 | `/api/architecture` | `GET` |
+| `/api/auth/device-enrollments` | `POST` |
+| `/api/auth/device-enrollments/{enrollment_id}` | `GET` |
+| `/api/auth/device-enrollments/{enrollment_id}/approve` | `POST` |
+| `/api/auth/device-enrollments/{enrollment_id}/cancel` | `POST` |
+| `/api/auth/device-enrollments/{enrollment_id}/complete` | `POST` |
+| `/api/auth/devices/{device_id}/rotate-key` | `POST` |
 | `/api/auth/service-token` | `POST` |
 | `/api/auth/service-token/rotate` | `POST` |
 | `/api/auth/user/login` | `POST` |
@@ -52,6 +58,7 @@ Path count: 264
 | `/api/auth/user/refresh` | `POST` |
 | `/api/auth/user/sessions` | `GET` |
 | `/api/auth/user/sessions/{session_id}` | `DELETE` |
+| `/api/auth/web-app/discovery` | `GET` |
 | `/api/edge/cloudflare` | `GET` |
 | `/api/edge/cloudflare/provision` | `POST` |
 | `/api/edge/cloudflare/settings` | `GET, PUT` |

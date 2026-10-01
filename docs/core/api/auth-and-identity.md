@@ -121,7 +121,7 @@ Status: Implemented
 
 ## Multi-User Human Sessions
 
-Status: Implemented for Task 1005; installed-device enrollment remains planned
+Status: Implemented for Tasks 1005-1006
 
 Human clients use these routes:
 
@@ -138,8 +138,34 @@ when reuse is detected. User disablement, deletion, role/password changes, and
 session revocation are checked against persisted state for every access token.
 
 The compatible `hexe_admin_session` cookie remains same-origin and is not a
-remote-app credential. Installed-device enrollment and device-key binding are
-implemented by Task 1006.
+remote-app credential.
+
+## Installed Web-App Enrollment
+
+Status: Implemented
+
+- `GET /api/auth/web-app/discovery` returns only the enrollment contract,
+  stable Core id, canonical public hostname, and availability flag.
+- `POST /api/auth/device-enrollments` creates a short-lived enrollment and
+  returns its one-time proof only to the authorized owner/admin caller.
+- `POST /api/auth/device-enrollments/{enrollment_id}/approve` explicitly
+  approves the target user and device enrollment.
+- `GET /api/auth/device-enrollments/{enrollment_id}` returns sanitized state.
+- `POST /api/auth/device-enrollments/{enrollment_id}/complete` verifies the
+  one-time proof and Ed25519 device-key possession, atomically consumes the
+  enrollment, binds the device to the Core user, and issues a device-bound
+  human session.
+- `POST /api/auth/device-enrollments/{enrollment_id}/cancel` cancels an active
+  enrollment.
+- `POST /api/auth/devices/{device_id}/rotate-key` requires a device-bound
+  access token plus signatures from both the old and replacement keys.
+
+Core stores enrollment proofs and refresh credentials only as SHA-256
+verifiers. Enrollment completion is single-use; expired, cancelled, wrong-Core,
+wrong-proof, wrong-key, duplicate-device, and replay attempts fail closed.
+Recovery uses a fresh owner/admin-approved enrollment with
+`replace_device_id`, preserving the original approval and key-possession
+boundary.
 
 ## See Also
 

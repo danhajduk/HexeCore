@@ -160,6 +160,9 @@ class UsersStore:
     async def revoke_user_sessions(self, user_id: str, *, reason: str) -> int:
         return await self._run(self._revoke_user_sessions_sync, user_id, reason)
 
+    async def revoke_device_sessions(self, device_id: str, *, reason: str) -> int:
+        return await self._run(self._revoke_device_sessions_sync, device_id, reason)
+
     async def get_user_by_id(self, user_id: str) -> dict[str, object] | None:
         return await self._run(self._get_user_by_id_sync, user_id)
 
@@ -413,6 +416,11 @@ class UsersStore:
 
     def _revoke_user_sessions_sync(self, user_id: str, reason: str) -> int:
         cur = self._conn.execute("UPDATE human_sessions SET revoked_at = COALESCE(revoked_at, ?), revoke_reason = COALESCE(revoke_reason, ?) WHERE user_id = ?", (_utcnow_iso(), reason, user_id))
+        self._conn.commit()
+        return int(cur.rowcount)
+
+    def _revoke_device_sessions_sync(self, device_id: str, reason: str) -> int:
+        cur = self._conn.execute("UPDATE human_sessions SET revoked_at = COALESCE(revoked_at, ?), revoke_reason = COALESCE(revoke_reason, ?) WHERE device_id = ?", (_utcnow_iso(), reason, device_id))
         self._conn.commit()
         return int(cur.rowcount)
 

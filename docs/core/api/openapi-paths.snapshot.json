@@ -1,5 +1,5 @@
 {
-  "path_count": 264,
+  "path_count": 271,
   "paths": {
     "/api/addons": [
       "get"
@@ -111,6 +111,24 @@
     "/api/architecture": [
       "get"
     ],
+    "/api/auth/device-enrollments": [
+      "post"
+    ],
+    "/api/auth/device-enrollments/{enrollment_id}": [
+      "get"
+    ],
+    "/api/auth/device-enrollments/{enrollment_id}/approve": [
+      "post"
+    ],
+    "/api/auth/device-enrollments/{enrollment_id}/cancel": [
+      "post"
+    ],
+    "/api/auth/device-enrollments/{enrollment_id}/complete": [
+      "post"
+    ],
+    "/api/auth/devices/{device_id}/rotate-key": [
+      "post"
+    ],
     "/api/auth/service-token": [
       "post"
     ],
@@ -131,6 +149,9 @@
     ],
     "/api/auth/user/sessions/{session_id}": [
       "delete"
+    ],
+    "/api/auth/web-app/discovery": [
+      "get"
     ],
     "/api/edge/cloudflare": [
       "get"
