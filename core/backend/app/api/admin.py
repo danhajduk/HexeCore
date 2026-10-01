@@ -7,6 +7,7 @@ import os
 import secrets
 import subprocess
 import time
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
@@ -26,6 +27,7 @@ ADMIN_SESSION_COOKIE = "hexe_admin_session"
 LEGACY_ADMIN_SESSION_COOKIE = "synthia_admin_session"
 DEFAULT_SESSION_TTL_SECONDS = 8 * 60 * 60
 _users_store: "UsersStore | None" = None
+PUBLIC_CORE_LABEL_RE = re.compile(r"^[a-f0-9]{16}$")
 
 
 class AdminSessionLoginRequest(BaseModel):
@@ -44,6 +46,25 @@ def configure_admin_users_store(store: "UsersStore | None") -> None:
 
 def _admin_token_expected() -> str:
     return getenv("HEXE_ADMIN_TOKEN", "") or ""
+
+
+def _public_core_request(request: Any) -> bool:
+    headers = getattr(request, "headers", {}) or {}
+    raw_host = str(headers.get("host", "") or "").strip().lower()
+    host = (
+        raw_host[1 : raw_host.find("]")]
+        if raw_host.startswith("[") and "]" in raw_host
+        else raw_host.split(":", 1)[0]
+    )
+    domain = str(os.getenv("PLATFORM_DOMAIN", "hexe-ai.com") or "hexe-ai.com").strip().lower().strip(".")
+    suffix = f".{domain}"
+    return host.endswith(suffix) and bool(PUBLIC_CORE_LABEL_RE.fullmatch(host[: -len(suffix)]))
+
+
+def _reject_remote_admin_token(request: Any) -> None:
+    headers = getattr(request, "headers", {}) or {}
+    if str(headers.get("x-admin-token", "") or "").strip() and _public_core_request(request):
+        raise HTTPException(status_code=403, detail="remote_admin_token_forbidden")
 
 
 def _cookie_secure() -> bool:
@@ -116,6 +137,7 @@ def _is_valid_session_cookie(cookie_value: str | None, *, expected_token: str) -
 
 def admin_request_actor(request: Any) -> tuple[str, str]:
     """Return the authenticated Core operator identity and role."""
+    _reject_remote_admin_token(request)
     expected = _admin_token_expected()
     headers = getattr(request, "headers", {}) or {}
     if expected and hmac.compare_digest(str(headers.get("x-admin-token", "") or ""), expected):
@@ -141,6 +163,10 @@ def require_admin_token(x_admin_token: str | None, request: Request | None = Non
 
 
 def is_admin_request_authenticated(request: Any) -> bool:
+    try:
+        _reject_remote_admin_token(request)
+    except HTTPException:
+        return False
     expected = _admin_token_expected()
     headers = getattr(request, "headers", {}) or {}
     cookies = getattr(request, "cookies", {}) or {}
@@ -152,6 +178,7 @@ def is_admin_request_authenticated(request: Any) -> bool:
 
 
 def require_admin_request(request: Any) -> None:
+    _reject_remote_admin_token(request)
     if not is_admin_request_authenticated(request):
         raise HTTPException(status_code=401, detail="Unauthorized")
     method = str(getattr(request, "method", "") or "").upper()

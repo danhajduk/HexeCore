@@ -211,6 +211,10 @@ web-app discovery, and user-based admin-session login/status/logout. Other API
 paths return `404`. A valid admin session cookie retains the broader API surface
 needed by `/admin`; `X-Admin-Token` is rejected on the public host and remains a
 local automation compatibility mechanism only.
+The same public-host check is enforced inside node/addon HTTP and WebSocket
+proxy authentication, so those routes cannot bypass the tunnel boundary by
+presenting a Core admin token directly. Authenticated admin-session cookies
+continue through the existing proxy authorization and node-management checks.
 Public user login, refresh, admin-user login, and enrollment completion share a
 source-aware limit of 10 attempts per minute. Overflow returns `429` with
 `Retry-After`; local/LAN authentication compatibility is unchanged.

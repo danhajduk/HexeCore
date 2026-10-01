@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
+from app.api.admin import _build_session_cookie
 from app.nodes.proxy import NodeUiProxy
 from app.nodes.proxy import build_node_ui_proxy_router
 from app.reverse_proxy import ReverseProxyService
@@ -200,6 +201,29 @@ class TestNodeUiProxyRouter(unittest.TestCase):
             with self.client.websocket_connect("/nodes/proxy/ui/node-1/ws"):
                 pass
         self.assertEqual(exc.exception.code, 4401)
+
+    def test_public_host_rejects_admin_token_for_http_and_websocket_proxy(self) -> None:
+        headers = {
+            "Host": "0123456789abcdef.hexe-ai.com",
+            "X-Admin-Token": "test-token",
+        }
+        denied = self.client.get("/nodes/proxy/ui/node-1/", headers=headers, follow_redirects=False)
+        self.assertEqual(denied.status_code, 403, denied.text)
+        self.assertEqual(denied.json()["detail"], "remote_admin_token_forbidden")
+        with self.assertRaises(WebSocketDisconnect):
+            with self.client.websocket_connect("/nodes/proxy/ui/node-1/ws", headers=headers):
+                pass
+        self.assertEqual(self.proxy.calls, [])
+        self.assertEqual(self.proxy.websocket_calls, [])
+
+    def test_public_host_accepts_admin_session_cookie_for_http_and_websocket_proxy(self) -> None:
+        cookie, _ = _build_session_cookie(expected_token="test-token", actor_id="admin-user")
+        self.client.cookies.set("hexe_admin_session", cookie)
+        headers = {"Host": "0123456789abcdef.hexe-ai.com"}
+        response = self.client.get("/nodes/proxy/ui/node-1/", headers=headers)
+        self.assertEqual(response.status_code, 200, response.text)
+        with self.client.websocket_connect("/nodes/proxy/ui/node-1/ws", headers=headers) as websocket:
+            self.assertEqual(websocket.receive_text(), "node-1:ws:/nodes/proxy/ui/node-1")
 
 
 class TestNodeUiProxyHtmlRewrite(unittest.TestCase):
