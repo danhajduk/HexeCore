@@ -1,3 +1,6 @@
+import os
+from unittest.mock import patch
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -53,3 +56,79 @@ def test_untrusted_forwarded_host_does_not_override_direct_host():
 def test_invalid_host_fails_closed():
     response = client().get("/", headers={"Host": "bad.example,other.example"})
     assert response.status_code == 400
+
+
+def test_public_web_app_preflight_allows_exact_core_origin_and_authorization():
+    response = client().options(
+        "/api/web-app/bootstrap",
+        headers={
+            "Host": "0123456789abcdef.hexe-ai.com",
+            "Origin": "https://0123456789abcdef.hexe-ai.com",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "Authorization, Content-Type",
+        },
+    )
+    assert response.status_code == 204
+    assert response.headers["access-control-allow-origin"] == "https://0123456789abcdef.hexe-ai.com"
+    assert response.headers["access-control-allow-headers"] == "Authorization, Content-Type"
+    assert response.headers["vary"] == "Origin"
+
+
+def test_public_web_app_api_rejects_disallowed_origin():
+    response = client().get(
+        "/api/web-app/bootstrap",
+        headers={"Host": "0123456789abcdef.hexe-ai.com", "Origin": "https://evil.example"},
+    )
+    assert response.status_code == 403
+    assert response.json()["detail"] == "cors_origin_not_allowed"
+    assert "access-control-allow-origin" not in response.headers
+
+
+def test_public_web_app_api_response_allows_exact_core_origin():
+    origin = "https://0123456789abcdef.hexe-ai.com"
+    response = client().get(
+        "/api/web-app/bootstrap",
+        headers={"Host": "0123456789abcdef.hexe-ai.com", "Origin": origin},
+    )
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == origin
+    assert response.headers["access-control-allow-credentials"] == "true"
+    assert response.headers["vary"] == "Origin"
+
+
+def test_public_web_app_preflight_rejects_unlisted_header():
+    response = client().options(
+        "/api/web-app/bootstrap",
+        headers={
+            "Host": "0123456789abcdef.hexe-ai.com",
+            "Origin": "https://0123456789abcdef.hexe-ai.com",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "X-Admin-Token",
+        },
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "cors_headers_not_allowed"
+
+
+def test_development_origin_requires_explicit_development_mode():
+    headers = {
+        "Host": "0123456789abcdef.hexe-ai.com",
+        "Origin": "http://localhost:5173",
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "Authorization",
+    }
+    with patch.dict(os.environ, {"HEXE_ENABLE_DEV_CORS": "0"}, clear=False):
+        assert client().options("/api/web-app/bootstrap", headers=headers).status_code == 403
+    with patch.dict(os.environ, {"HEXE_ENABLE_DEV_CORS": "1"}, clear=False):
+        response = client().options("/api/web-app/bootstrap", headers=headers)
+    assert response.status_code == 204
+    assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
+
+
+def test_local_web_app_path_keeps_same_origin_behavior():
+    response = client().get(
+        "/api/web-app/bootstrap",
+        headers={"Host": "192.168.1.20:9001", "Origin": "http://192.168.1.20:9001"},
+    )
+    assert response.status_code == 200
+    assert response.json() == {"path": "/api/web-app/bootstrap"}

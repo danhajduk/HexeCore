@@ -236,6 +236,13 @@ revoke the relevant sessions so stale credentials cannot remain usable.
 - TLS is required for public remote access. Direct LAN HTTP remains a local
   compatibility surface and cannot weaken public credential requirements.
 
+For the implemented `/api/web-app/*` boundary, the production browser origin is
+exactly `https://<core-id>.<platform-domain>`. Preflight permits only the
+implemented `GET`/`HEAD` methods and the `Authorization` and `Content-Type`
+headers. Development origins are enabled only by `HEXE_ENABLE_DEV_CORS`; a
+disallowed public origin fails with `cors_origin_not_allowed`. Requests without
+an `Origin` header remain available to authenticated installed/native clients.
+
 ## Session and Revocation Semantics
 
 Core supports listing and revoking one session, all sessions for one device,
