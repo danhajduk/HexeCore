@@ -27,6 +27,7 @@ PUBLIC_REMOTE_API_EXACT = {
     "/api/admin/session/logout",
     "/api/admin/session/status",
     "/api/auth/device-enrollments",
+    "/api/auth/devices",
     "/api/auth/user/login",
     "/api/auth/user/logout",
     "/api/auth/user/refresh",

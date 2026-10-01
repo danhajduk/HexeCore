@@ -118,5 +118,52 @@ class TestWebAppDeviceEnrollment(unittest.TestCase):
         old_session = self.client.get("/api/auth/user/sessions", headers={"Authorization": f"Bearer {old_token}"})
         self.assertEqual(old_session.status_code, 401, old_session.text)
 
+    def test_user_can_list_rename_and_revoke_own_device_without_public_key(self):
+        enrollment = self.create_approved()
+        completed = self.complete(enrollment, Ed25519PrivateKey.generate())
+        token = completed.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        listed = self.client.get("/api/auth/devices", headers=headers)
+        self.assertEqual(listed.status_code, 200, listed.text)
+        self.assertEqual(listed.json()["current_device_id"], "device-phone-1")
+        self.assertEqual(listed.json()["items"][0]["display_name"], "Phone")
+        self.assertNotIn("public_key", listed.text)
+
+        renamed = self.client.patch(
+            "/api/auth/devices/device-phone-1",
+            headers=headers,
+            json={"display_name": "My phone"},
+        )
+        self.assertEqual(renamed.status_code, 200, renamed.text)
+        self.assertEqual(renamed.json()["device"]["display_name"], "My phone")
+
+        revoked = self.client.delete("/api/auth/devices/device-phone-1", headers=headers)
+        self.assertEqual(revoked.status_code, 200, revoked.text)
+        stale = self.client.get("/api/auth/devices", headers=headers)
+        self.assertEqual(stale.status_code, 401, stale.text)
+
+    def test_user_cannot_rename_or_revoke_another_users_device(self):
+        enrollment = self.create_approved()
+        completed = self.complete(enrollment, Ed25519PrivateKey.generate())
+        token = completed.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+        now = datetime.now(timezone.utc).isoformat()
+        db = sqlite3.connect(os.path.join(self.tmp.name, "users.db"))
+        db.execute(
+            "INSERT INTO web_app_devices VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)",
+            ("other-device", "0123456789abcdef", "usr-other", "Other phone", "public-key", "test", now, now),
+        )
+        db.commit(); db.close()
+
+        renamed = self.client.patch(
+            "/api/auth/devices/other-device",
+            headers=headers,
+            json={"display_name": "Stolen"},
+        )
+        self.assertEqual(renamed.status_code, 404, renamed.text)
+        revoked = self.client.delete("/api/auth/devices/other-device", headers=headers)
+        self.assertEqual(revoked.status_code, 404, revoked.text)
+
 
 if __name__ == "__main__": unittest.main()

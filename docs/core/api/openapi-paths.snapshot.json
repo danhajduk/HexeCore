@@ -1,5 +1,5 @@
 {
-  "path_count": 272,
+  "path_count": 274,
   "paths": {
     "/api/addons": [
       "get"
@@ -125,6 +125,13 @@
     ],
     "/api/auth/device-enrollments/{enrollment_id}/complete": [
       "post"
+    ],
+    "/api/auth/devices": [
+      "get"
+    ],
+    "/api/auth/devices/{device_id}": [
+      "delete",
+      "patch"
     ],
     "/api/auth/devices/{device_id}/rotate-key": [
       "post"

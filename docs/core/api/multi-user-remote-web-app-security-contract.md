@@ -1,6 +1,6 @@
 # Core Multi-User Remote Web App Security and Identity Contract
 
-Status: Tasks 1005-1007 implemented; Tasks 1008-1014 remain planned
+Status: Tasks 1005-1007 implemented; Task 1008 in progress; Tasks 1009-1014 remain planned
 
 ## Purpose
 
@@ -285,6 +285,12 @@ a Core-wide operation.
   revision
 - role change invalidates prior authorization immediately or within the stated
   bounded access-token window
+
+Task 1008 currently adds caller-owned device management at
+`GET /api/auth/devices`, `PATCH /api/auth/devices/{device_id}`, and
+`DELETE /api/auth/devices/{device_id}`. Responses omit device public keys and
+credential material. Rename/revoke operations use user ownership checks, and
+revocation invalidates all sessions bound to the affected device.
 - device loss revokes that device and its sessions/subscriptions only
 - Core removal or ownership reset revokes all remote credentials and gateway
   bindings

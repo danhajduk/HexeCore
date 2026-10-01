@@ -62,6 +62,10 @@ class DeviceKeyRotationRequest(BaseModel):
     new_key_signature: str = Field(..., min_length=43, max_length=256)
 
 
+class DeviceUpdateRequest(BaseModel):
+    display_name: str = Field(..., min_length=1, max_length=120)
+
+
 class WebAppEnrollmentStore:
     def __init__(self, db_path: str) -> None:
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
@@ -169,6 +173,41 @@ class WebAppEnrollmentStore:
             row = await asyncio.to_thread(self._conn.execute("SELECT * FROM web_app_devices WHERE device_id=?", (device_id,)).fetchone)
             return dict(row) if row else None
 
+    async def list_devices(self, user_id: str) -> list[dict[str, Any]]:
+        async with self._lock:
+            rows = await asyncio.to_thread(
+                self._conn.execute(
+                    "SELECT * FROM web_app_devices WHERE user_id=? ORDER BY created_at, device_id",
+                    (user_id,),
+                ).fetchall
+            )
+            return [dict(row) for row in rows]
+
+    async def rename_device(self, device_id: str, user_id: str, display_name: str) -> dict[str, Any] | None:
+        async with self._lock:
+            now = _now_iso()
+            changed = await asyncio.to_thread(
+                self._conn.execute,
+                "UPDATE web_app_devices SET display_name=?, updated_at=? WHERE device_id=? AND user_id=? AND revoked_at IS NULL",
+                (display_name, now, device_id, user_id),
+            )
+            if changed.rowcount != 1:
+                return None
+            row = await asyncio.to_thread(
+                self._conn.execute("SELECT * FROM web_app_devices WHERE device_id=?", (device_id,)).fetchone
+            )
+            return dict(row) if row else None
+
+    async def revoke_device(self, device_id: str, user_id: str) -> bool:
+        async with self._lock:
+            now = _now_iso()
+            changed = await asyncio.to_thread(
+                self._conn.execute,
+                "UPDATE web_app_devices SET revoked_at=?, updated_at=? WHERE device_id=? AND user_id=? AND revoked_at IS NULL",
+                (now, now, device_id, user_id),
+            )
+            return changed.rowcount == 1
+
     async def rotate_key(self, device_id: str, public_key: str) -> dict[str, Any]:
         async with self._lock:
             await asyncio.to_thread(self._conn.execute, "UPDATE web_app_devices SET public_key=?, updated_at=? WHERE device_id=? AND revoked_at IS NULL", (public_key, _now_iso(), device_id))
@@ -205,6 +244,16 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
 
     async def record(event, actor_id, role, details):
         if audit: await audit.record(event_type=event, actor_role=role, actor_id=actor_id, details=details)
+
+    def public_device(device: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "device_id": device["device_id"],
+            "display_name": device["display_name"],
+            "platform": device.get("platform"),
+            "created_at": device["created_at"],
+            "updated_at": device["updated_at"],
+            "revoked_at": device.get("revoked_at"),
+        }
 
     @router.get("/web-app/discovery")
     async def discovery():
@@ -282,6 +331,30 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
         _verify_signature(body.new_public_key, body.new_key_signature, message)
         await store.rotate_key(device_id, body.new_public_key)
         await record("web_app_device_key_rotated", principal.user_id, principal.role, {"device_id": device_id})
+        return {"ok": True, "device_id": device_id}
+
+    @router.get("/devices")
+    async def list_devices(authorization: str | None = Header(default=None)):
+        principal = await authenticate_human_token(authorization, keys, users)
+        items = [public_device(device) for device in await store.list_devices(principal.user_id)]
+        return {"ok": True, "items": items, "current_device_id": principal.device_id}
+
+    @router.patch("/devices/{device_id}")
+    async def rename_device(device_id: str, body: DeviceUpdateRequest, authorization: str | None = Header(default=None)):
+        principal = await authenticate_human_token(authorization, keys, users)
+        device = await store.rename_device(device_id, principal.user_id, body.display_name.strip())
+        if device is None:
+            raise HTTPException(status_code=404, detail="device_not_found")
+        await record("web_app_device_renamed", principal.user_id, principal.role, {"device_id": device_id})
+        return {"ok": True, "device": public_device(device)}
+
+    @router.delete("/devices/{device_id}")
+    async def revoke_device(device_id: str, authorization: str | None = Header(default=None)):
+        principal = await authenticate_human_token(authorization, keys, users)
+        if not await store.revoke_device(device_id, principal.user_id):
+            raise HTTPException(status_code=404, detail="device_not_found")
+        await users.revoke_device_sessions(device_id, reason="device_revoked")
+        await record("web_app_device_revoked", principal.user_id, principal.role, {"device_id": device_id})
         return {"ok": True, "device_id": device_id}
 
     return router
