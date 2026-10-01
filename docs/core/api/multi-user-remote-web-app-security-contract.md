@@ -317,6 +317,13 @@ and safe subscription/preference state but never device public keys or opaque
 subscription references. Administrators cannot revoke an owner's device;
 owner-device administration requires an owner token.
 
+`POST /api/auth/devices/admin/prune` applies the configured retention window
+to expired/revoked sessions, consumed refresh-token replay records, terminal
+enrollments, revoked devices, preferences, and completed subscription cleanup
+records. A subscription in `pending` cleanup state prevents its device and
+preference records from being removed. Audit records are outside this pruning
+path and remain intact.
+
 - device loss revokes that device and its sessions/subscriptions only
 - Core removal or ownership reset revokes all remote credentials and gateway
   bindings

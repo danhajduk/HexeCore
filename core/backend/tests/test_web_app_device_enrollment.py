@@ -339,5 +339,43 @@ class TestWebAppDeviceEnrollment(unittest.TestCase):
         self.assertEqual(denied.status_code, 403, denied.text)
         self.assertEqual(denied.json()["detail"], "owner_role_required")
 
+    def test_retention_prunes_old_state_but_preserves_pending_cleanup_and_audit(self):
+        old = (datetime.now(timezone.utc) - timedelta(days=45)).isoformat()
+        owner = asyncio.run(self.users.get_user("Dan"))
+        db_path = os.path.join(self.tmp.name, "users.db")
+        db = sqlite3.connect(db_path)
+        for device_id in ("old-clean", "old-pending"):
+            db.execute(
+                "INSERT INTO web_app_devices VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (device_id, "0123456789abcdef", owner["user_id"], device_id, "public-key", "test", old, old, old),
+            )
+            db.execute(
+                "INSERT INTO web_app_notification_preferences VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?, ?)",
+                (device_id, "0123456789abcdef", owner["user_id"], 1, "{}", "UTC", "generic", "info", old, old),
+            )
+        db.execute(
+            "INSERT INTO web_app_notification_subscriptions VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ("old-clean", "0123456789abcdef", owner["user_id"], "sub_old-clean", "hexe-notification-gateway", old, old, old, "complete"),
+        )
+        db.execute(
+            "INSERT INTO web_app_notification_subscriptions VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ("old-pending", "0123456789abcdef", owner["user_id"], "sub_old-pending", "hexe-notification-gateway", old, old, old, "pending"),
+        )
+        db.execute(
+            "INSERT INTO human_sessions VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?)",
+            ("old-session", owner["user_id"], "old-clean", "old-refresh", 1, old, old, old, old, "test"),
+        )
+        db.commit(); db.close()
+
+        pruned = self.client.post("/api/auth/devices/admin/prune", headers=self.auth)
+        self.assertEqual(pruned.status_code, 200, pruned.text)
+        self.assertEqual(pruned.json()["counts"]["devices"], 1)
+        self.assertEqual(pruned.json()["counts"]["sessions"], 1)
+        db = sqlite3.connect(db_path)
+        self.assertIsNone(db.execute("SELECT 1 FROM web_app_devices WHERE device_id='old-clean'").fetchone())
+        self.assertIsNotNone(db.execute("SELECT 1 FROM web_app_devices WHERE device_id='old-pending'").fetchone())
+        self.assertIsNotNone(db.execute("SELECT 1 FROM web_app_notification_subscriptions WHERE device_id='old-pending'").fetchone())
+        db.close()
+
 
 if __name__ == "__main__": unittest.main()

@@ -371,3 +371,11 @@ Chosen fix: Add `users.manage` inventory/revocation endpoints, omit key and subs
 What changed: Added redacted inventory joins, administrative routes, owner-role protection, audit/session/subscription cleanup behavior, tests, and generated API documentation.
 Verification: Focused enrollment/device tests and OpenAPI validation passed.
 ###########
+
+Task #1008
+Step objective: Add bounded retention and pruning for remote web-app state.
+Issue cause: Revoked devices, expired sessions, and completed subscription records had no governed cleanup path.
+Chosen fix: Add a configurable retention window and an audited `users.manage` prune endpoint that preserves pending gateway cleanup and audit history.
+What changed: Added transactional device/subscription/preference/enrollment pruning, session and refresh-replay pruning, configuration documentation, and focused preservation tests.
+Verification: Focused device retention tests passed.
+###########

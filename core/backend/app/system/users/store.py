@@ -163,6 +163,9 @@ class UsersStore:
     async def revoke_device_sessions(self, device_id: str, *, reason: str) -> int:
         return await self._run(self._revoke_device_sessions_sync, device_id, reason)
 
+    async def prune_sessions(self, before: str) -> dict[str, int]:
+        return await self._run(self._prune_sessions_sync, before)
+
     async def get_user_by_id(self, user_id: str) -> dict[str, object] | None:
         return await self._run(self._get_user_by_id_sync, user_id)
 
@@ -423,6 +426,18 @@ class UsersStore:
         cur = self._conn.execute("UPDATE human_sessions SET revoked_at = COALESCE(revoked_at, ?), revoke_reason = COALESCE(revoke_reason, ?) WHERE device_id = ?", (_utcnow_iso(), reason, device_id))
         self._conn.commit()
         return int(cur.rowcount)
+
+    def _prune_sessions_sync(self, before: str) -> dict[str, int]:
+        consumed = self._conn.execute(
+            "DELETE FROM consumed_refresh_tokens WHERE consumed_at < ?",
+            (before,),
+        ).rowcount
+        sessions = self._conn.execute(
+            "DELETE FROM human_sessions WHERE (revoked_at IS NOT NULL AND revoked_at < ?) OR expires_at < ?",
+            (before, before),
+        ).rowcount
+        self._conn.commit()
+        return {"sessions": int(sessions), "consumed_refresh_tokens": int(consumed)}
 
     def _get_user_by_id_sync(self, user_id: str) -> dict[str, object] | None:
         row = self._conn.execute("SELECT * FROM users WHERE user_id = ?", (user_id,)).fetchone()

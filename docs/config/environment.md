@@ -23,6 +23,7 @@ Sensitive values are marked in the registry and must not be logged or exposed th
 | `HEXE_SERVICE_TOKEN` | `unset` | yes | Service token passed to standalone addon containers for Core callbacks. |
 | `HEXE_WEB_APP_MAX_DEVICES_PER_CORE` | `100` | no | Maximum number of active enrolled web-app devices permitted across one Core. |
 | `HEXE_WEB_APP_MAX_DEVICES_PER_USER` | `10` | no | Maximum number of active enrolled web-app devices permitted for one Core user. |
+| `HEXE_WEB_APP_RETENTION_DAYS` | `30` | no | Days revoked web-app devices, expired or revoked sessions, and completed notification cleanup records are retained before administrative pruning. |
 ## Backend and frontend serving
 
 | Name | Default | Sensitive | Description |

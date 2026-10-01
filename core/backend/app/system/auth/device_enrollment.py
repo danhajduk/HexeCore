@@ -394,6 +394,52 @@ class WebAppEnrollmentStore:
         )
         return dict(self._conn.execute("SELECT * FROM web_app_notification_preferences WHERE device_id=?", (device_id,)).fetchone())
 
+    async def prune_retained_state(self, *, core_id: str, before: str) -> dict[str, int]:
+        async with self._lock:
+            return await asyncio.to_thread(self._prune_retained_state, core_id, before)
+
+    def _prune_retained_state(self, core_id: str, before: str) -> dict[str, int]:
+        self._conn.execute("BEGIN IMMEDIATE")
+        try:
+            removable = """
+                SELECT device_id FROM web_app_devices
+                WHERE core_id=? AND revoked_at IS NOT NULL AND revoked_at < ?
+                  AND NOT EXISTS (
+                    SELECT 1 FROM web_app_notification_subscriptions s
+                    WHERE s.device_id=web_app_devices.device_id AND s.cleanup_state='pending'
+                  )
+            """
+            preferences = self._conn.execute(
+                f"DELETE FROM web_app_notification_preferences WHERE device_id IN ({removable})",
+                (core_id, before),
+            ).rowcount
+            subscriptions = self._conn.execute(
+                "DELETE FROM web_app_notification_subscriptions WHERE core_id=? AND deleted_at IS NOT NULL AND deleted_at < ? AND cleanup_state<>'pending'",
+                (core_id, before),
+            ).rowcount
+            devices = self._conn.execute(
+                f"DELETE FROM web_app_devices WHERE device_id IN ({removable})",
+                (core_id, before),
+            ).rowcount
+            enrollments = self._conn.execute(
+                """
+                DELETE FROM web_app_enrollments
+                WHERE core_id=? AND status IN ('consumed','cancelled','expired')
+                  AND COALESCE(consumed_at, cancelled_at, expires_at) < ?
+                """,
+                (core_id, before),
+            ).rowcount
+            self._conn.execute("COMMIT")
+            return {
+                "devices": int(devices),
+                "notification_preferences": int(preferences),
+                "notification_subscriptions": int(subscriptions),
+                "enrollments": int(enrollments),
+            }
+        except Exception:
+            self._conn.execute("ROLLBACK")
+            raise
+
     async def rotate_key(self, device_id: str, public_key: str) -> dict[str, Any]:
         async with self._lock:
             await asyncio.to_thread(self._conn.execute, "UPDATE web_app_devices SET public_key=?, updated_at=? WHERE device_id=? AND revoked_at IS NULL", (public_key, _now_iso(), device_id))
@@ -419,6 +465,7 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
     platform_domain = str(os.getenv("PLATFORM_DOMAIN", "hexe-ai.com")).strip() or "hexe-ai.com"
     hostname = f"{core_id}.{platform_domain}"
     notification_gateway_audience = str(os.getenv("HEXE_NOTIFICATION_GATEWAY_AUDIENCE", "hexe-notification-gateway")).strip() or "hexe-notification-gateway"
+    retention_days = _env_positive_int("HEXE_WEB_APP_RETENTION_DAYS", 30)
 
     async def actor(request: Request, authorization: str | None, admin_token: str | None):
         if authorization:
@@ -579,6 +626,22 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
             {"device_id": device_id, "target_user_id": device["user_id"]},
         )
         return {"ok": True, "device_id": device_id}
+
+    @router.post("/devices/admin/prune")
+    async def prune_retained_device_state(authorization: str | None = Header(default=None)):
+        principal = await authenticate_human_token(authorization, keys, users)
+        principal.require("users.manage")
+        before = (_now() - timedelta(days=retention_days)).isoformat()
+        device_counts = await store.prune_retained_state(core_id=core_id, before=before)
+        session_counts = await users.prune_sessions(before)
+        counts = device_counts | session_counts
+        await record(
+            "web_app_retained_state_pruned",
+            principal.user_id,
+            principal.role,
+            {"retention_days": retention_days, "counts": counts},
+        )
+        return {"ok": True, "retention_days": retention_days, "before": before, "counts": counts}
 
     @router.patch("/devices/{device_id}")
     async def rename_device(device_id: str, body: DeviceUpdateRequest, authorization: str | None = Header(default=None)):

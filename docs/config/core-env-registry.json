@@ -1274,6 +1274,13 @@
       "sensitive": false
     },
     {
+      "default": "30",
+      "description": "Days revoked web-app devices, expired or revoked sessions, and completed notification cleanup records are retained before administrative pruning.",
+      "name": "HEXE_WEB_APP_RETENTION_DAYS",
+      "owner": "Auth and service access",
+      "sensitive": false
+    },
+    {
       "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
       "default": "0",
       "description": "Controls install, bootstrap, or update script behavior. Registry key: `HEXE_UPDATE_CLOUDFLARED_NATIVE`.",
