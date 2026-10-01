@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import uuid
+from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Header, HTTPException, WebSocket, WebSocketDisconnect
 
@@ -15,12 +17,16 @@ from .device_enrollment import WebAppEnrollmentStore
 from .human import HumanPrincipal, authenticate_human_token
 from .tokens import ServiceTokenKeyStore
 
+if TYPE_CHECKING:
+    from app.core.web_notification_policy import WebNotificationPolicyService
+
 
 def build_web_app_router(
     keys: ServiceTokenKeyStore,
     users: UsersStore,
     devices: WebAppEnrollmentStore,
     settings: SettingsStore,
+    notification_policy: WebNotificationPolicyService | None = None,
     realtime_heartbeat_s: float = 30.0,
 ) -> APIRouter:
     router = APIRouter()
@@ -90,6 +96,27 @@ def build_web_app_router(
     async def bootstrap(authorization: str | None = Header(default=None)):
         principal, device, identity = await enrolled_principal(authorization)
         return bootstrap_payload(principal, device, identity)
+
+    @router.post("/notifications/test")
+    async def test_notification(authorization: str | None = Header(default=None)):
+        principal, _, identity = await enrolled_principal(authorization)
+        if notification_policy is None:
+            raise HTTPException(status_code=503, detail="notification_policy_unavailable")
+        from app.core.web_notification_policy import TrustedNotificationEvent
+
+        result = await notification_policy.route(
+            TrustedNotificationEvent(
+                event_id=f"test-{uuid.uuid4().hex}",
+                event_type="task.notification_test",
+                source_kind="core",
+                source_id=identity.core_id,
+                subject_user_id=principal.user_id,
+                summary="Your Hexe notifications are working.",
+                navigation_path="/app/settings/notifications",
+            ),
+            trusted_source=True,
+        )
+        return {"ok": True, "queued": int(result.get("created", 0)), "suppressed": int(result.get("suppressed", 0))}
 
     async def close_for_auth_error(websocket: WebSocket, exc: HTTPException) -> None:
         code = 4401 if exc.status_code == 401 else 4403

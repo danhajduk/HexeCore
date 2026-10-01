@@ -86,7 +86,7 @@ class TestHumanAuthApi(unittest.TestCase):
         changed = self.client.post(
             "/api/admin/users",
             headers={"Authorization": f"Bearer {owner['access_token']}"},
-            json={"username": "member", "role": "guest", "enabled": True},
+            json={"username": "member", "role": "guest", "enabled": True, "reauth_password": "owner-pass"},
         )
         self.assertEqual(changed.status_code, 200, changed.text)
         stale = self.client.get("/api/auth/user/sessions", headers={"Authorization": f"Bearer {member['access_token']}"})
@@ -97,7 +97,7 @@ class TestHumanAuthApi(unittest.TestCase):
         response = self.client.post(
             "/api/admin/users",
             headers={"Authorization": f"Bearer {owner['access_token']}"},
-            json={"username": "Dan", "role": "owner", "enabled": False},
+            json={"username": "Dan", "role": "owner", "enabled": False, "reauth_password": "owner-pass"},
         )
         self.assertEqual(response.status_code, 400, response.text)
         self.assertIn("last_enabled_owner_required", response.text)
@@ -120,7 +120,7 @@ class TestHumanAuthApi(unittest.TestCase):
         disabled = self.client.post(
             "/api/admin/users",
             headers={"Authorization": f"Bearer {owner_login['access_token']}"},
-            json={"username": "member", "role": "member", "enabled": False},
+            json={"username": "member", "role": "member", "enabled": False, "reauth_password": "owner-pass"},
         )
         self.assertEqual(disabled.status_code, 200, disabled.text)
         self.assertEqual(disabled.json()["disabled_device_count"], 1)
@@ -148,9 +148,11 @@ class TestHumanAuthApi(unittest.TestCase):
             ("member-phone", "0123456789abcdef", member["user_id"], "Member phone", "public-key", "test", now, now),
         )
         owner_login = self.login("Dan", "owner-pass")
-        deleted = self.client.delete(
+        deleted = self.client.request(
+            "DELETE",
             "/api/admin/users/member",
             headers={"Authorization": f"Bearer {owner_login['access_token']}"},
+            json={"reauth_password": "owner-pass"},
         )
         self.assertEqual(deleted.status_code, 200, deleted.text)
         self.assertEqual(deleted.json()["disabled_device_count"], 1)

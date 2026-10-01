@@ -1119,6 +1119,7 @@ def create_app() -> FastAPI:
 
     app.include_router(build_settings_router(settings_store, audit_store), prefix="/api/system", tags=["settings"])
     app.include_router(build_users_router(users_store, audit_store, service_token_keys, web_app_enrollment_store), prefix="/api/admin", tags=["admin-users"])
+    app.include_router(build_users_router(users_store, audit_store, service_token_keys, web_app_enrollment_store), prefix="/api/web-app/admin", tags=["web-app-admin-users"])
     app.include_router(repo_status_router, prefix="/api/system", tags=["repo"])
     app.include_router(build_stack_health_router(), prefix="/api/system", tags=["stack-health"])
     app.include_router(build_supervisor_status_router(), prefix="/api/system", tags=["supervisor"])
@@ -1377,7 +1378,7 @@ def create_app() -> FastAPI:
     app.include_router(build_auth_router(service_token_keys), prefix="/api/auth", tags=["auth"])
     app.include_router(build_human_auth_router(service_token_keys, users_store, audit_store), prefix="/api/auth", tags=["human-auth"])
     app.include_router(build_device_enrollment_router(web_app_enrollment_store, users_store, service_token_keys, audit_store), prefix="/api/auth", tags=["web-app-enrollment"])
-    app.include_router(build_web_app_router(service_token_keys, users_store, web_app_enrollment_store, settings_store), prefix="/api/web-app", tags=["web-app"])
+    app.include_router(build_web_app_router(service_token_keys, users_store, web_app_enrollment_store, settings_store, web_notification_policy), prefix="/api/web-app", tags=["web-app"])
     app.include_router(build_web_push_gateway_router(web_push_gateway_publisher, service_token_keys, users_store, audit_store), prefix="/api/web-app", tags=["web-push-gateway"])
     app.include_router(
         build_service_access_router(

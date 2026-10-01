@@ -1,5 +1,5 @@
 {
-  "path_count": 282,
+  "path_count": 287,
   "paths": {
     "/api/addons": [
       "get"
@@ -865,6 +865,19 @@
     "/api/telemetry/usage/stats": [
       "get"
     ],
+    "/api/web-app/admin/users": [
+      "get",
+      "post"
+    ],
+    "/api/web-app/admin/users/{username}": [
+      "delete"
+    ],
+    "/api/web-app/admin/users/{username}/sessions": [
+      "get"
+    ],
+    "/api/web-app/admin/users/{username}/sessions/{session_id}": [
+      "delete"
+    ],
     "/api/web-app/bootstrap": [
       "get"
     ],
@@ -873,6 +886,9 @@
     ],
     "/api/web-app/notification-gateway/status": [
       "get"
+    ],
+    "/api/web-app/notifications/test": [
+      "post"
     ]
   },
   "schema_version": 1,

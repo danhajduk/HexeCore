@@ -21,6 +21,11 @@ class UserUpsertRequest(BaseModel):
     role: str = Field(default="guest")
     enabled: bool = True
     password: str | None = None
+    reauth_password: str | None = None
+
+
+class UserDeleteRequest(BaseModel):
+    reauth_password: str | None = None
 
 
 def build_users_router(users_store: UsersStore, audit_store: AuditLogStore | None = None, key_store: ServiceTokenKeyStore | None = None, devices_store: WebAppEnrollmentStore | None = None) -> APIRouter:
@@ -38,6 +43,16 @@ def build_users_router(users_store: UsersStore, audit_store: AuditLogStore | Non
             return str(actor["user_id"]), str(actor["role"])
         return actor_id, actor_role
 
+    async def require_step_up(actor_id: str, actor_role: str, password: str | None, authorization: str | None) -> None:
+        if not authorization:
+            return
+        actor = await users_store.get_user_by_id(actor_id)
+        if actor is None or not password:
+            raise HTTPException(status_code=403, detail="reauthentication_required")
+        verified = await users_store.verify_credentials(str(actor["username"]), password)
+        if verified is None or str(verified.get("user_id")) != actor_id:
+            raise HTTPException(status_code=403, detail="reauthentication_failed")
+
     @router.get("/users")
     async def list_users(request: Request, x_admin_token: str | None = Header(default=None), authorization: str | None = Header(default=None)):
         await require_user_admin(request, x_admin_token, authorization)
@@ -52,6 +67,11 @@ def build_users_router(users_store: UsersStore, audit_store: AuditLogStore | Non
             or (existing is not None and str(existing.get("role")) == AuthRole.owner.value)
         ):
             raise HTTPException(status_code=403, detail="owner_role_required")
+        if existing is not None and (
+            str(existing.get("role")) != body.role.strip().lower()
+            or bool(existing.get("enabled")) != bool(body.enabled)
+        ):
+            await require_step_up(actor_id, actor_role, body.reauth_password, authorization)
         try:
             saved = await users_store.upsert_user(
                 username=body.username,
@@ -105,8 +125,9 @@ def build_users_router(users_store: UsersStore, audit_store: AuditLogStore | Non
         return {"ok": True, "session_id": session_id}
 
     @router.delete("/users/{username}")
-    async def delete_user(username: str, request: Request, x_admin_token: str | None = Header(default=None), authorization: str | None = Header(default=None)):
+    async def delete_user(username: str, request: Request, body: UserDeleteRequest | None = None, x_admin_token: str | None = Header(default=None), authorization: str | None = Header(default=None)):
         actor_id, actor_role = await require_user_admin(request, x_admin_token, authorization)
+        await require_step_up(actor_id, actor_role, body.reauth_password if body else None, authorization)
         existing = await users_store.get_user(username)
         if existing is not None and str(existing.get("role")) == AuthRole.owner.value and actor_role != AuthRole.owner.value:
             raise HTTPException(status_code=403, detail="owner_role_required")

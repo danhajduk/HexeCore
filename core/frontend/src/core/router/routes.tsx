@@ -17,6 +17,8 @@ import AddonStorePage from "../../pages/AddonStorePage";
 import OnboardingNodeApproval from "../pages/OnboardingNodeApproval";
 import NodeReauthApproval from "../pages/NodeReauthApproval";
 import SupervisorEnrollment from "../pages/SupervisorEnrollment";
+import AccessConsole from "../../webapp/AccessConsole";
+import EnrollmentPage from "../../webapp/EnrollmentPage";
 import { getAddonRoutes } from "./loadAddons";
 
 function ProtectedRedirect() {
@@ -44,7 +46,9 @@ export function buildRoutes(isAdmin: boolean, ready: boolean): RouteObject[] {
   return [
     { path: "/", element: <Home /> },
     { path: "/admin", element: protectedRoute(<Home />) },
-    { path: "/app", element: <div role="status">The Hexe assistant app is not installed yet.</div> },
+    { path: "/app", element: <AccessConsole /> },
+    { path: "/app/access", element: <AccessConsole /> },
+    { path: "/app/enroll", element: <EnrollmentPage /> },
     { path: "/proxy-login", element: <ProxyLogin /> },
     { path: "/store", element: protectedRoute(<AddonStorePage />) },
     { path: "/addons", element: protectedRoute(<Addons />) },
