@@ -205,6 +205,13 @@ Remote access is limited to an explicit route allow-list. Every protected route
 checks Core audience, user enabled state, session state, credential revision,
 role/permission, resource ownership, and device state when required.
 
+Before authentication, the canonical public host exposes only the web-app
+bootstrap/realtime APIs, human login/session APIs, device enrollment APIs, safe
+web-app discovery, and user-based admin-session login/status/logout. Other API
+paths return `404`. A valid admin session cookie retains the broader API surface
+needed by `/admin`; `X-Admin-Token` is rejected on the public host and remains a
+local automation compatibility mechanism only.
+
 Task 1007 currently exposes `GET /api/web-app/bootstrap` as the first protected
 web-app route. It requires a valid human access token whose session is bound to
 an active enrolled device owned by the same user and Core. Its response contains

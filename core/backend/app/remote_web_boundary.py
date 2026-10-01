@@ -10,6 +10,7 @@ from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, RedirectResponse, Response
 
+from app.api.admin import is_admin_request_authenticated
 from app.system.platform_identity import load_platform_identity
 
 
@@ -20,6 +21,23 @@ WEB_APP_MAX_REQUEST_BYTES = 1024 * 1024
 WEB_APP_RATE_LIMIT_WINDOW_S = 60
 WEB_APP_RATE_LIMIT_DEFAULT = 120
 FORBIDDEN_CREDENTIAL_QUERY_KEYS = {"access_token", "authorization", "refresh_token", "token"}
+PUBLIC_REMOTE_API_EXACT = {
+    "/api/admin/session/login-user",
+    "/api/admin/session/logout",
+    "/api/admin/session/status",
+    "/api/auth/device-enrollments",
+    "/api/auth/user/login",
+    "/api/auth/user/logout",
+    "/api/auth/user/refresh",
+    "/api/auth/user/sessions",
+    "/api/auth/web-app/discovery",
+}
+PUBLIC_REMOTE_API_PREFIXES = (
+    "/api/auth/device-enrollments/",
+    "/api/auth/devices/",
+    "/api/auth/user/sessions/",
+    "/api/web-app/",
+)
 
 
 def _normalized_host(value: str) -> str | None:
@@ -73,6 +91,14 @@ def _add_web_app_cors_headers(response: Response, origin: str) -> None:
     response.headers["Vary"] = "Origin"
 
 
+def _add_public_security_headers(response: Response) -> Response:
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "same-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(), geolocation=(), payment=()")
+    response.headers.setdefault("Content-Security-Policy", "frame-ancestors 'none'; base-uri 'self'; object-src 'none'")
+    return response
+
+
 def _web_app_preflight(request: Request, origin: str) -> Response:
     requested_method = str(request.headers.get("access-control-request-method") or "").upper()
     if requested_method not in {"GET", "HEAD"}:
@@ -90,6 +116,10 @@ def _web_app_preflight(request: Request, origin: str) -> Response:
     response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
     response.headers["Access-Control-Max-Age"] = "600"
     return response
+
+
+def _public_remote_api_allowed(path: str) -> bool:
+    return path in PUBLIC_REMOTE_API_EXACT or any(path.startswith(prefix) for prefix in PUBLIC_REMOTE_API_PREFIXES)
 
 
 class RemoteWebBoundaryMiddleware(BaseHTTPMiddleware):
@@ -136,41 +166,54 @@ class RemoteWebBoundaryMiddleware(BaseHTTPMiddleware):
         path = request.url.path
         is_web_app_api = path == WEB_APP_API_PREFIX or path.startswith(f"{WEB_APP_API_PREFIX}/")
         origin = str(request.headers.get("origin") or "").strip()
+        if is_public and path.startswith("/api/"):
+            if str(request.headers.get("x-admin-token") or "").strip():
+                return _add_public_security_headers(
+                    JSONResponse({"detail": "remote_admin_token_forbidden"}, status_code=403)
+                )
+            if not _public_remote_api_allowed(path) and not is_admin_request_authenticated(request):
+                return _add_public_security_headers(JSONResponse({"detail": "not_found"}, status_code=404))
         if is_public and is_web_app_api:
             query_keys = {str(key).strip().lower() for key in request.query_params.keys()}
             if query_keys.intersection(FORBIDDEN_CREDENTIAL_QUERY_KEYS):
-                return JSONResponse({"detail": "credentials_in_query_forbidden"}, status_code=400)
+                return _add_public_security_headers(
+                    JSONResponse({"detail": "credentials_in_query_forbidden"}, status_code=400)
+                )
             content_length = str(request.headers.get("content-length") or "").strip()
             if content_length:
                 try:
                     if int(content_length) < 0:
                         raise ValueError
                 except ValueError:
-                    return JSONResponse({"detail": "content_length_invalid"}, status_code=400)
+                    return _add_public_security_headers(
+                        JSONResponse({"detail": "content_length_invalid"}, status_code=400)
+                    )
                 if int(content_length) > WEB_APP_MAX_REQUEST_BYTES:
-                    return JSONResponse({"detail": "request_body_too_large"}, status_code=413)
+                    return _add_public_security_headers(
+                        JSONResponse({"detail": "request_body_too_large"}, status_code=413)
+                    )
             if request.method != "OPTIONS" and await self._rate_limited(request):
                 response = JSONResponse({"detail": "web_app_rate_limit_exceeded"}, status_code=429)
                 response.headers["Retry-After"] = str(WEB_APP_RATE_LIMIT_WINDOW_S)
-                return response
+                return _add_public_security_headers(response)
         if is_public and is_web_app_api and origin:
             if origin not in _allowed_web_app_origins(identity.public_hostname.lower()):
-                return JSONResponse({"detail": "cors_origin_not_allowed"}, status_code=403)
+                return _add_public_security_headers(
+                    JSONResponse({"detail": "cors_origin_not_allowed"}, status_code=403)
+                )
             if request.method == "OPTIONS":
-                return _web_app_preflight(request, origin)
+                return _add_public_security_headers(_web_app_preflight(request, origin))
         if is_public and request.method in {"GET", "HEAD"} and path == "/":
             query = str(request.url.query or "")
             target = "/app" + (f"?{query}" if query else "")
-            return RedirectResponse(target, status_code=307)
+            return _add_public_security_headers(RedirectResponse(target, status_code=307))
         if path == "/remote" or path.startswith("/remote/"):
-            return JSONResponse({"detail": "not_found"}, status_code=404)
+            response = JSONResponse({"detail": "not_found"}, status_code=404)
+            return _add_public_security_headers(response) if is_public else response
 
         response = await call_next(request)
         if is_public:
-            response.headers.setdefault("X-Content-Type-Options", "nosniff")
-            response.headers.setdefault("Referrer-Policy", "same-origin")
-            response.headers.setdefault("Permissions-Policy", "camera=(), geolocation=(), payment=()")
-            response.headers.setdefault("Content-Security-Policy", "frame-ancestors 'none'; base-uri 'self'; object-src 'none'")
+            _add_public_security_headers(response)
             if is_web_app_api and origin:
                 _add_web_app_cors_headers(response, origin)
         return response

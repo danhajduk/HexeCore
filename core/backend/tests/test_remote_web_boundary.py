@@ -4,6 +4,7 @@ from unittest.mock import patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from app.api.admin import _build_session_cookie
 from app.remote_web_boundary import RemoteWebBoundaryMiddleware
 
 
@@ -175,3 +176,48 @@ def test_local_web_app_api_is_not_subject_to_public_rate_limit():
     headers = {"Host": "192.168.1.20:9001"}
     assert test_client.get("/api/web-app/bootstrap", headers=headers).status_code == 200
     assert test_client.get("/api/web-app/bootstrap", headers=headers).status_code == 200
+
+
+def test_public_host_allows_only_explicit_anonymous_api_surface():
+    public = {"Host": "0123456789abcdef.hexe-ai.com"}
+    assert client().get("/api/auth/web-app/discovery", headers=public).status_code == 200
+    assert client().get("/api/web-app/bootstrap", headers=public).status_code == 200
+    blocked = client().get("/api/system/stats/current", headers=public)
+    assert blocked.status_code == 404
+    assert blocked.json()["detail"] == "not_found"
+    assert client().post("/api/auth/token", headers=public).status_code == 404
+
+
+def test_public_host_rejects_admin_token_header():
+    response = client().get(
+        "/api/system/stats/current",
+        headers={
+            "Host": "0123456789abcdef.hexe-ai.com",
+            "X-Admin-Token": "must-stay-local",
+        },
+    )
+    assert response.status_code == 403
+    assert response.json()["detail"] == "remote_admin_token_forbidden"
+    assert response.headers["x-content-type-options"] == "nosniff"
+
+
+def test_authenticated_admin_cookie_retains_public_admin_api_surface():
+    with patch.dict(os.environ, {"HEXE_ADMIN_TOKEN": "test-admin-token"}, clear=False):
+        cookie, _ = _build_session_cookie(expected_token="test-admin-token", actor_id="admin-user")
+        test_client = client()
+        test_client.cookies.set("hexe_admin_session", cookie)
+        response = test_client.get(
+            "/api/system/stats/current",
+            headers={"Host": "0123456789abcdef.hexe-ai.com"},
+        )
+    assert response.status_code == 200
+    assert response.json() == {"path": "/api/system/stats/current"}
+
+
+def test_local_host_keeps_existing_api_surface_and_admin_token_compatibility():
+    response = client().get(
+        "/api/system/stats/current",
+        headers={"Host": "192.168.1.20:9001", "X-Admin-Token": "local-token"},
+    )
+    assert response.status_code == 200
+    assert response.json() == {"path": "/api/system/stats/current"}
