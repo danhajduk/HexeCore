@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+project_id="core"
+project_repo="/home/dan/hexe/hexe"
+coordination_repo="/home/dan/hexe/HexeCoordination"
+project_tasks="${coordination_repo}/projects/${project_id}"
+tasks_link="${project_repo}/tasks"
+
+usage() {
+    cat <<'EOF'
+Usage: scripts/hexe-tasks <command>
+
+Commands:
+  setup    Validate access and create the generated tasks symlink
+  sync     Pull coordination changes with rebase
+  status   Show integration paths, access checks, and coordination status
+  current  List accepted work owned by Core
+  inbox    List requests addressed to Core
+EOF
+}
+
+require_coordination_checkout() {
+    if [[ ! -d "${coordination_repo}/.git" ]]; then
+        echo "Coordination checkout not found: ${coordination_repo}" >&2
+        exit 1
+    fi
+    if [[ ! -d "${project_tasks}" ]]; then
+        echo "Core task directory not found: ${project_tasks}" >&2
+        exit 1
+    fi
+}
+
+check_local_write_access() {
+    local probe
+    probe="${project_tasks}/.hexe-tasks-write-check.$$"
+    if ! (umask 077 && : > "${probe}" && rm -f "${probe}"); then
+        rm -f "${probe}" 2>/dev/null || true
+        echo "Coordination task directory is not writable: ${project_tasks}" >&2
+        exit 1
+    fi
+}
+
+check_remote_write_access() {
+    local branch
+    branch="$(git -C "${coordination_repo}" symbolic-ref --quiet --short HEAD)"
+    git -C "${coordination_repo}" push --dry-run origin "HEAD:${branch}" >/dev/null
+}
+
+setup() {
+    require_coordination_checkout
+    for directory in current inbox outbox archive; do
+        if [[ ! -d "${project_tasks}/${directory}" ]]; then
+            echo "Required Core task directory not found: ${project_tasks}/${directory}" >&2
+            exit 1
+        fi
+    done
+    check_local_write_access
+    check_remote_write_access
+
+    if [[ -L "${tasks_link}" ]]; then
+        if [[ "$(readlink -f "${tasks_link}")" != "$(readlink -f "${project_tasks}")" ]]; then
+            echo "Existing tasks symlink points to the wrong location: ${tasks_link}" >&2
+            exit 1
+        fi
+    elif [[ -e "${tasks_link}" ]]; then
+        echo "Refusing to replace existing non-symlink path: ${tasks_link}" >&2
+        exit 1
+    else
+        ln -s "${project_tasks}" "${tasks_link}"
+    fi
+
+    echo "Core coordination integration ready: ${tasks_link} -> ${project_tasks}"
+}
+
+sync() {
+    require_coordination_checkout
+    git -C "${coordination_repo}" pull --rebase
+}
+
+status() {
+    require_coordination_checkout
+    check_local_write_access
+    check_remote_write_access
+    echo "project_id=${project_id}"
+    echo "project_repo=${project_repo}"
+    echo "coordination_repo=${coordination_repo}"
+    echo "project_tasks=${project_tasks}"
+    if [[ -L "${tasks_link}" ]]; then
+        echo "tasks_link=$(readlink "${tasks_link}")"
+    else
+        echo "tasks_link=missing"
+    fi
+    echo "local_write_access=ok"
+    echo "remote_write_access=ok"
+    git -C "${coordination_repo}" status --short --branch
+}
+
+list_work_items() {
+    local queue="$1"
+    local directory="${project_tasks}/${queue}"
+    local found=0
+    local item
+
+    require_coordination_checkout
+    while IFS= read -r -d '' item; do
+        basename "${item}"
+        found=1
+    done < <(find "${directory}" -maxdepth 1 -type f -name '*.md' -print0 | sort -z)
+
+    if [[ "${found}" -eq 0 ]]; then
+        echo "No ${queue} work items for ${project_id}."
+    fi
+}
+
+case "${1:-}" in
+    setup) setup ;;
+    sync) sync ;;
+    status) status ;;
+    current) list_work_items current ;;
+    inbox) list_work_items inbox ;;
+    -h|--help|help) usage ;;
+    *) usage >&2; exit 2 ;;
+esac
