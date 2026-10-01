@@ -209,7 +209,7 @@ async def admin_session_login_user(body: AdminUserSessionLoginRequest, response:
     user = await _users_store.verify_credentials(username, password)
     if user is None:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    if str(user.get("role") or "").strip().lower() != "admin":
+    if str(user.get("role") or "").strip().lower() not in {"owner", "admin"}:
         raise HTTPException(status_code=403, detail="admin_role_required")
 
     expected = _admin_token_expected()

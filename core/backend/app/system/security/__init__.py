@@ -1,4 +1,4 @@
 from .redaction import redact_secrets
-from .roles import AuthRole
+from .roles import AuthRole, ROLE_PERMISSIONS, role_has_permission
 
-__all__ = ["redact_secrets", "AuthRole"]
+__all__ = ["redact_secrets", "AuthRole", "ROLE_PERMISSIONS", "role_has_permission"]

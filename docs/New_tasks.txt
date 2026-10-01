@@ -48,8 +48,7 @@ Standards reference:
 Do not edit above this line:
 #######################################################################
 
-[TODO] Task 1000: Validate and document the inverted BLE onboarding flow across Supervisor and endpoint roles
-[TODO] Task 1005: Implement multi-role user authentication and authorization for remote web app clients
+[FUTURE TODO] Task 1000: Validate and document the inverted BLE onboarding flow across Supervisor and endpoint roles
 [TODO] Task 1006: Implement secure Core enrollment and per-device credentials for installed web apps
 [TODO] Task 1007: Expose a safe remote web app API and realtime connection boundary through the Core tunnel
 [TODO] Task 1008: Implement Core-owned mobile device, push subscription, and notification preference state

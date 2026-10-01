@@ -98,7 +98,7 @@ from app.system.mqtt import (
 )
 from app.system.events import PlatformEventService, build_events_router
 from app.system.services import ServiceCatalogStore, build_service_resolution_router
-from app.system.auth import ServiceTokenKeyStore, build_auth_router
+from app.system.auth import ServiceTokenKeyStore, build_auth_router, build_human_auth_router
 from app.system.client_catalog import build_client_core_catalog_router
 from app.system.service_access import ServiceAccessGrantStore, build_service_access_router
 from app.system.management_access import ManagementAuthorizationService, ManagementAuthorizationStore, build_management_access_router
@@ -654,6 +654,10 @@ def create_app() -> FastAPI:
         users_store = getattr(app.state, "users_store", None)
         if users_store is not None:
             await users_store.ensure_admin_user(seeded_admin_username, seeded_admin_password)
+            prior_owner = await users_store.get_user("Dan")
+            migrated_owner = await users_store.migrate_initial_owner("Dan", str(os.getenv("HEXE_CORE_ID", "hexe-core")).strip() or "hexe-core")
+            if migrated_owner is not None and prior_owner is not None and str(prior_owner.get("role")) != "owner":
+                await audit_store.record(event_type="human_initial_owner_migrated", actor_role="owner", actor_id=str(migrated_owner["user_id"]), details={"user_id": migrated_owner["user_id"], "old_role": prior_owner["role"], "new_role": "owner", "migration_version": 1})
         async def mqtt_warmup_sequence() -> None:
             mqtt_manager = getattr(app.state, "mqtt_manager", None)
             if mqtt_manager is not None:
@@ -1075,7 +1079,7 @@ def create_app() -> FastAPI:
     app.state.internal_scheduler = internal_scheduler
 
     app.include_router(build_settings_router(settings_store, audit_store), prefix="/api/system", tags=["settings"])
-    app.include_router(build_users_router(users_store, audit_store), prefix="/api/admin", tags=["admin-users"])
+    app.include_router(build_users_router(users_store, audit_store, service_token_keys), prefix="/api/admin", tags=["admin-users"])
     app.include_router(repo_status_router, prefix="/api/system", tags=["repo"])
     app.include_router(build_stack_health_router(), prefix="/api/system", tags=["stack-health"])
     app.include_router(build_supervisor_status_router(), prefix="/api/system", tags=["supervisor"])
@@ -1297,6 +1301,7 @@ def create_app() -> FastAPI:
     )
     app.include_router(build_events_router(event_service), prefix="/api/system", tags=["events"])
     app.include_router(build_auth_router(service_token_keys), prefix="/api/auth", tags=["auth"])
+    app.include_router(build_human_auth_router(service_token_keys, users_store, audit_store), prefix="/api/auth", tags=["human-auth"])
     app.include_router(
         build_service_access_router(
             key_store=service_token_keys,

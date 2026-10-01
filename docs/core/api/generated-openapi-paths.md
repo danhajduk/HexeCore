@@ -5,7 +5,7 @@ Status: Generated
 This file is generated from `openapi-paths.snapshot.json`.
 Do not edit path rows by hand; run `python tools/update_api_route_appendix.py --write`.
 
-Path count: 257
+Path count: 264
 
 | Path | Methods |
 | --- | --- |
@@ -42,9 +42,16 @@ Path count: 257
 | `/api/admin/session/status` | `GET` |
 | `/api/admin/users` | `GET, POST` |
 | `/api/admin/users/{username}` | `DELETE` |
+| `/api/admin/users/{username}/sessions` | `GET` |
+| `/api/admin/users/{username}/sessions/{session_id}` | `DELETE` |
 | `/api/architecture` | `GET` |
 | `/api/auth/service-token` | `POST` |
 | `/api/auth/service-token/rotate` | `POST` |
+| `/api/auth/user/login` | `POST` |
+| `/api/auth/user/logout` | `POST` |
+| `/api/auth/user/refresh` | `POST` |
+| `/api/auth/user/sessions` | `GET` |
+| `/api/auth/user/sessions/{session_id}` | `DELETE` |
 | `/api/edge/cloudflare` | `GET` |
 | `/api/edge/cloudflare/provision` | `POST` |
 | `/api/edge/cloudflare/settings` | `GET, PUT` |

@@ -6,8 +6,11 @@
 
 Status: Implemented
 
-- Admin sessions support token and credential login flows.
-- User CRUD is exposed under admin APIs.
+- Human users support `owner`, `admin`, `member`, and `guest` roles.
+- The existing `Dan` administrator is migrated in place to the initial owner;
+  the seeded `admin` account remains an administrator.
+- User CRUD is exposed under admin APIs and accepts either the compatible
+  same-origin admin session or an owner/admin human access token.
 
 ### Service Identity
 
@@ -27,9 +30,15 @@ Status: Implemented
 
 Status: Implemented
 
+- `owner`: full Core and ownership administration.
 - `admin`: privileged control-plane and lifecycle writes.
+- `member`: authenticated access only to explicitly permitted operations and
+  personal resources.
 - `service`: scoped service-to-core operations.
-- guest/read-only surfaces remain limited to non-privileged endpoints.
+- `guest`: minimal explicitly permitted access.
+
+Named permissions are resolved centrally. Owner changes require an owner;
+members and guests cannot administer users or acquire an administrative cookie.
 
 ## Admin Session Configuration
 
@@ -110,15 +119,27 @@ Status: Implemented
 
 - Earlier split identity guidance from `auth-and-users.md` and MQTT authority design notes has been consolidated here.
 
-## Planned Multi-User Remote Access
+## Multi-User Human Sessions
 
-Status: Documented but not implemented
+Status: Implemented for Task 1005; installed-device enrollment remains planned
 
-The owner/admin/member/guest model, revocable human sessions, installed-device
-identity, and remote web-app authorization boundary are defined in the
-[Core Multi-User Remote Web App Security and Identity Contract](./multi-user-remote-web-app-security-contract.md).
-The current admin-cookie and `admin|guest` implementation remains authoritative
-until Tasks 1005-1012 are implemented and verified.
+Human clients use these routes:
+
+- `POST /api/auth/user/login`
+- `POST /api/auth/user/refresh`
+- `POST /api/auth/user/logout`
+- `GET /api/auth/user/sessions`
+- `DELETE /api/auth/user/sessions/{session_id}`
+
+Access tokens are short-lived, signed, and bound to the issuing Core, stable
+user id, role, credential revision, and session id. Refresh credentials are
+stored only as SHA-256 verifiers, rotate on use, and revoke the affected session
+when reuse is detected. User disablement, deletion, role/password changes, and
+session revocation are checked against persisted state for every access token.
+
+The compatible `hexe_admin_session` cookie remains same-origin and is not a
+remote-app credential. Installed-device enrollment and device-key binding are
+implemented by Task 1006.
 
 ## See Also
 

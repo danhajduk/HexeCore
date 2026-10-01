@@ -1,25 +1,28 @@
 # Core Multi-User Remote Web App Security and Identity Contract
 
-Status: Documented but not implemented
+Status: Task 1005 implemented; Tasks 1006-1012 remain planned
 
 ## Purpose
 
 This contract defines the Core-owned identity, authorization, session, device,
 and notification boundaries for multiple human users accessing one Core through
 the managed Hexe web app and Cloudflare Tunnel. Tasks 1005-1012 implement and
-validate this contract. This document does not make those behaviors available.
+validate this contract. The user, role, human-token, refresh-rotation, session,
+and revocation behavior in Task 1005 is available; device enrollment, remote
+route allow-listing, and notification behavior remain unavailable.
 
 The public hostname is addressability only. Knowing a Core id or reaching
 `<core-id>.hexe-ai.com` never authorizes a request.
 
-## Verified Current Baseline
+## Implemented Task 1005 Baseline
 
 The current implementation has:
 
-- a SQLite `users` table keyed by `username`
-- roles `admin` and `guest`
+- a migrated SQLite `users` table with stable opaque `user_id` values
+- roles `owner`, `admin`, `member`, and `guest`
 - PBKDF2-SHA256 password verifiers
-- an admin-only credential login at `POST /api/admin/session/login-user`
+- human login and rotating refresh APIs under `/api/auth/user/*`
+- individually listable and revocable persisted human sessions
 - an HttpOnly signed `hexe_admin_session` cookie with a bounded lifetime
 - admin user list, upsert, and delete routes under `/api/admin/users`
 - protection against deleting or disabling the last enabled administrator
@@ -27,11 +30,10 @@ The current implementation has:
 - a managed Cloudflare Tunnel whose Core API, node proxy, and addon proxy paths
   terminate at Core
 
-Current admin cookies are not persisted as independently revocable sessions.
-The current cookie authorization path reports the role as `admin`; a `guest`
-record cannot sign into the administrative Core WebUI. There is no implemented
-owner role, member role, remote-device identity, refresh-token rotation,
-per-session revocation, or push-subscription ownership model yet.
+Compatibility admin cookies are not persisted as independently revocable human
+sessions and remain same-origin only. Installed-device identity, device-key
+binding, remote route allow-listing, and push-subscription ownership are not yet
+implemented.
 
 ## Identity Model
 

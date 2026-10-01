@@ -1,5 +1,5 @@
 {
-  "path_count": 257,
+  "path_count": 264,
   "paths": {
     "/api/addons": [
       "get"
@@ -102,6 +102,12 @@
     "/api/admin/users/{username}": [
       "delete"
     ],
+    "/api/admin/users/{username}/sessions": [
+      "get"
+    ],
+    "/api/admin/users/{username}/sessions/{session_id}": [
+      "delete"
+    ],
     "/api/architecture": [
       "get"
     ],
@@ -110,6 +116,21 @@
     ],
     "/api/auth/service-token/rotate": [
       "post"
+    ],
+    "/api/auth/user/login": [
+      "post"
+    ],
+    "/api/auth/user/logout": [
+      "post"
+    ],
+    "/api/auth/user/refresh": [
+      "post"
+    ],
+    "/api/auth/user/sessions": [
+      "get"
+    ],
+    "/api/auth/user/sessions/{session_id}": [
+      "delete"
     ],
     "/api/edge/cloudflare": [
       "get"

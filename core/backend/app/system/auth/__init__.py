@@ -1,6 +1,7 @@
 from .deps import require_service_token
 from .router import build_auth_router
 from .tokens import ServiceTokenClaims, ServiceTokenError, ServiceTokenKeyStore, sign_hs256, validate_claims, verify_hs256
+from .human import HumanPrincipal, authenticate_human_token, build_human_auth_router
 
 __all__ = [
     "build_auth_router",
@@ -11,4 +12,7 @@ __all__ = [
     "sign_hs256",
     "validate_claims",
     "verify_hs256",
+    "HumanPrincipal",
+    "authenticate_human_token",
+    "build_human_auth_router",
 ]
