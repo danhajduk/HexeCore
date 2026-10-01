@@ -1326,15 +1326,34 @@ Original task details:
 - Show tunnel reachability separately from authentication, device enrollment, push subscription, and gateway delivery health so operators can diagnose the correct layer.
 - Display sanitized delivery/outbox failures and remediation actions without exposing tokens, push endpoints, credential material, or other users' private notification content.
 - Require reauthentication or an equivalent step-up check for ownership transfer, user deletion, bulk revocation, gateway credential rotation, and other high-impact actions.
-- Ensure accessible responsive behavior for the existing Core UI; the central PWA itself remains outside this Core repository task.
+- Ensure accessible responsive behavior for the existing Core administration UI; the complete Core-hosted assistant PWA is delivered separately by Task 1012.
 - Acceptance: An owner can manage multiple users and their access without sharing the owner password or Core admin token.
 - Acceptance: A normal user can control only their own sessions, devices, and notification settings unless explicitly granted a broader role.
 - Verification: Add frontend component/flow tests, API authorization tests, and run the Core frontend build/typecheck.
 
 ## Task 1012
 Original task details:
-- Depends on: Tasks 1004 through 1011 and the matching website/Cloudflare notification-gateway implementation.
-- Goal: Validate and document the complete multi-user installed-web-app workflow against a real tunnel-exposed Core.
+- Coordination request: `HEXE-REQ-20260930-WEBAPP-CORE` from `website` to `core`.
+- Depends on: Tasks 1004 through 1011 and the matching website/Cloudflare notification-gateway contract.
+- Goal: Serve the complete installable Hexe web application from the Core's canonical public hostname, with the authenticated default view opening directly to the text/voice assistant.
+- Preserve the existing local Core UI and Edge Gateway path ownership while making the canonical public Core hostname the same-origin application and API boundary. Cloudflare Tunnel remains transport and addressability only, and Supervisor remains the local `cloudflared` runtime owner.
+- Add a responsive installable PWA shell, manifest, service-worker/update behavior, offline/error states, and platform-appropriate installation guidance without embedding Core admin tokens, provider credentials, or tunnel credentials.
+- Make the default authenticated application surface the Hexe text/voice assistant rather than the administration dashboard. Expose administration navigation and components only to roles with the corresponding Core permissions.
+- Add an authenticated, allow-listed streaming chat/voice execution path using the Task 1007 remote API and realtime security boundary. Do not allow remote clients to bypass Core task routing, provider authorization, node/addon proxy authorization, or management-token boundaries.
+- Add Core-owned per-user conversation state with stable conversation identifiers, ownership checks, bounded history/retention, deletion, and audit attribution. Members and guests must not read or mutate another user's conversations.
+- Bind installed-app requests to the authenticated Core user, session, and enrolled device from Tasks 1005-1006. Wrong-Core, revoked-session, revoked-device, anonymous, and insufficient-role requests fail closed.
+- Integrate the personal device/session/notification-preference surfaces from Tasks 1008-1011 without exposing another user's private state.
+- Acceptance: The canonical Core hostname serves an installable same-origin PWA whose default authenticated view is the Hexe text/voice assistant.
+- Acceptance: Two users have isolated conversations, sessions, devices, permissions, and audit attribution on the same Core.
+- Acceptance: Administration is visible and callable only for authorized roles, and node/addon/provider security boundaries remain enforced.
+- Verification: Add focused frontend, conversation-ownership, streaming-authentication, role-navigation, service-worker/update, and cross-user isolation tests.
+- Verification: Run the Core frontend build/typecheck, targeted backend/security tests, OpenAPI checks, and live tunnel smoke checks where available.
+
+## Task 1014
+Original task details:
+- Coordination request: `HEXE-REQ-20260930-WEBAPP-CORE` from `website` to `core`.
+- Depends on: Tasks 1004 through 1012 and the matching website/Cloudflare notification-gateway implementation.
+- Goal: Validate and document the complete Core-hosted multi-user installed-web-app workflow against a real tunnel-exposed Core.
 - Document architecture and ownership across the public website/PWA, `<core-id>.hexe-ai.com`, Cloudflare Tunnel, Core, Supervisor, and the Web Push gateway.
 - Update Core API/auth/Edge Gateway/operator documentation, JSON Schemas, OpenAPI snapshots, environment registry, privacy/data-flow documentation, and troubleshooting guidance to match implemented behavior.
 - Exercise at least two distinct users on the same Core with separate roles, sessions, enrolled mobile devices, preferences, and push subscriptions.
@@ -1346,6 +1365,7 @@ Original task details:
 - Acceptance: Two users can safely use one Core from separate installed web apps and receive only their authorized notifications.
 - Acceptance: Evidence demonstrates isolation across users, devices, Cores, and notification subscriptions.
 - Verification: Run targeted backend/frontend/security tests, OpenAPI and environment checks, mirror-drift validation, and live tunnel/Web Push tests; record any physical-device limitation explicitly.
+- Verification: Record implementation commits and acceptance evidence in `HEXE-REQ-20260930-WEBAPP-CORE` before completing or archiving the coordination request.
 
 ## Task 1013
 Original task details:

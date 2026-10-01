@@ -55,5 +55,6 @@ Do not edit above this line:
 [TODO] Task 1009: Implement privacy-safe notification policy and event-to-notification routing
 [TODO] Task 1010: Implement authenticated Core publishing to the Cloudflare Web Push gateway
 [TODO] Task 1011: Add Core administration UI for users, mobile devices, sessions, and notification access
-[TODO] Task 1012: Validate and document multi-user remote web app and push notification behavior end to end
+[TODO] Task 1012: Implement the Core-hosted installable assistant PWA and per-user conversation boundary
 [TODO] Task 1013: Define the Core contract for family-aware AI memory
+[TODO] Task 1014: Validate and document the complete Core-hosted web app and notification workflow end to end
