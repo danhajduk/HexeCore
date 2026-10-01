@@ -310,6 +310,13 @@ alerts. Updates validate complete category maps, IANA time zones, paired quiet
 hours, privacy level, and severity threshold, and are limited to the device
 identified by the caller's access token.
 
+Users with `users.manage` can inspect the Core's redacted device inventory at
+`GET /api/auth/devices/admin` and revoke a selected device at
+`DELETE /api/auth/devices/admin/{device_id}`. The inventory exposes ownership
+and safe subscription/preference state but never device public keys or opaque
+subscription references. Administrators cannot revoke an owner's device;
+owner-device administration requires an owner token.
+
 - device loss revokes that device and its sessions/subscriptions only
 - Core removal or ownership reset revokes all remote credentials and gateway
   bindings

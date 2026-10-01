@@ -1,5 +1,5 @@
 {
-  "path_count": 276,
+  "path_count": 278,
   "paths": {
     "/api/addons": [
       "get"
@@ -128,6 +128,12 @@
     ],
     "/api/auth/devices": [
       "get"
+    ],
+    "/api/auth/devices/admin": [
+      "get"
+    ],
+    "/api/auth/devices/admin/{device_id}": [
+      "delete"
     ],
     "/api/auth/devices/{device_id}": [
       "delete",

@@ -271,6 +271,26 @@ class WebAppEnrollmentStore:
             )
             return [dict(row) for row in rows]
 
+    async def list_all_devices(self, core_id: str) -> list[dict[str, Any]]:
+        async with self._lock:
+            rows = await asyncio.to_thread(
+                self._conn.execute(
+                    """
+                    SELECT d.*,
+                      CASE WHEN s.device_id IS NULL OR s.deleted_at IS NOT NULL THEN 0 ELSE 1 END AS notification_subscription_active,
+                      s.cleanup_state AS notification_cleanup_state,
+                      CASE WHEN p.device_id IS NULL THEN 0 ELSE 1 END AS notification_preferences_configured
+                    FROM web_app_devices d
+                    LEFT JOIN web_app_notification_subscriptions s ON s.device_id=d.device_id
+                    LEFT JOIN web_app_notification_preferences p ON p.device_id=d.device_id
+                    WHERE d.core_id=?
+                    ORDER BY d.created_at, d.device_id
+                    """,
+                    (core_id,),
+                ).fetchall
+            )
+            return [dict(row) for row in rows]
+
     async def rename_device(self, device_id: str, user_id: str, display_name: str) -> dict[str, Any] | None:
         async with self._lock:
             now = _now_iso()
@@ -435,6 +455,19 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
             "severity_threshold": preferences["severity_threshold"],
         }
 
+    def administrative_device(device: dict[str, Any]) -> dict[str, Any]:
+        result = public_device(device)
+        result.update(
+            {
+                "user_id": device["user_id"],
+                "core_id": device["core_id"],
+                "notification_subscription_active": bool(device.get("notification_subscription_active", False)),
+                "notification_cleanup_state": device.get("notification_cleanup_state"),
+                "notification_preferences_configured": bool(device.get("notification_preferences_configured", False)),
+            }
+        )
+        return result
+
     @router.get("/web-app/discovery")
     async def discovery():
         return {"contract_version": CONTRACT_VERSION, "core_id": core_id, "public_hostname": hostname, "enrollment_supported": True}
@@ -518,6 +551,34 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
         principal = await authenticate_human_token(authorization, keys, users)
         items = [public_device(device) for device in await store.list_devices(principal.user_id)]
         return {"ok": True, "items": items, "current_device_id": principal.device_id}
+
+    @router.get("/devices/admin")
+    async def list_all_devices(authorization: str | None = Header(default=None)):
+        principal = await authenticate_human_token(authorization, keys, users)
+        principal.require("users.manage")
+        items = [administrative_device(device) for device in await store.list_all_devices(core_id)]
+        return {"ok": True, "items": items}
+
+    @router.delete("/devices/admin/{device_id}")
+    async def administratively_revoke_device(device_id: str, authorization: str | None = Header(default=None)):
+        principal = await authenticate_human_token(authorization, keys, users)
+        principal.require("users.manage")
+        device = await store.get_device(device_id)
+        if device is None or device.get("revoked_at") or str(device["core_id"]) != core_id:
+            raise HTTPException(status_code=404, detail="device_not_found")
+        target_user = await users.get_user_by_id(str(device["user_id"]))
+        if target_user is not None and str(target_user.get("role")) == "owner" and principal.role != "owner":
+            raise HTTPException(status_code=403, detail="owner_role_required")
+        if not await store.revoke_device(device_id, str(device["user_id"])):
+            raise HTTPException(status_code=404, detail="device_not_found")
+        await users.revoke_device_sessions(device_id, reason="administrator_revoked_device")
+        await record(
+            "web_app_device_administrator_revoked",
+            principal.user_id,
+            principal.role,
+            {"device_id": device_id, "target_user_id": device["user_id"]},
+        )
+        return {"ok": True, "device_id": device_id}
 
     @router.patch("/devices/{device_id}")
     async def rename_device(device_id: str, body: DeviceUpdateRequest, authorization: str | None = Header(default=None)):

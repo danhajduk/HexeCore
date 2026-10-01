@@ -295,5 +295,49 @@ class TestWebAppDeviceEnrollment(unittest.TestCase):
         cross_device = self.client.get("/api/auth/devices/other-device/notification-preferences", headers=headers)
         self.assertEqual(cross_device.status_code, 403, cross_device.text)
 
+    def test_owner_can_inspect_and_revoke_other_users_device_without_sensitive_material(self):
+        member = asyncio.run(self.users.upsert_user(username="Alice", role="member", enabled=True, password="alice-pass"))
+        now = datetime.now(timezone.utc).isoformat()
+        db = sqlite3.connect(os.path.join(self.tmp.name, "users.db"))
+        db.execute(
+            "INSERT INTO web_app_devices VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)",
+            ("alice-phone", "0123456789abcdef", member["user_id"], "Alice phone", "alice-public-key", "ios", now, now),
+        )
+        db.execute(
+            "INSERT INTO web_app_notification_subscriptions VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 'active')",
+            ("alice-phone", "0123456789abcdef", member["user_id"], "sub_alice-private-reference", "hexe-notification-gateway", now, now),
+        )
+        db.commit(); db.close()
+
+        listed = self.client.get("/api/auth/devices/admin", headers=self.auth)
+        self.assertEqual(listed.status_code, 200, listed.text)
+        item = next(item for item in listed.json()["items"] if item["device_id"] == "alice-phone")
+        self.assertEqual(item["user_id"], member["user_id"])
+        self.assertTrue(item["notification_subscription_active"])
+        self.assertNotIn("alice-public-key", listed.text)
+        self.assertNotIn("sub_alice-private-reference", listed.text)
+
+        revoked = self.client.delete("/api/auth/devices/admin/alice-phone", headers=self.auth)
+        self.assertEqual(revoked.status_code, 200, revoked.text)
+        row = sqlite3.connect(os.path.join(self.tmp.name, "users.db")).execute(
+            "SELECT revoked_at FROM web_app_devices WHERE device_id='alice-phone'"
+        ).fetchone()
+        self.assertIsNotNone(row[0])
+
+    def test_member_cannot_use_admin_device_views_and_admin_cannot_revoke_owner_device(self):
+        enrollment = self.create_approved()
+        self.assertEqual(self.complete(enrollment, Ed25519PrivateKey.generate()).status_code, 200)
+        asyncio.run(self.users.upsert_user(username="Alice", role="member", enabled=True, password="alice-pass"))
+        member_login = self.client.post("/api/auth/user/login", json={"username": "Alice", "password": "alice-pass"}).json()
+        member_headers = {"Authorization": f"Bearer {member_login['access_token']}"}
+        self.assertEqual(self.client.get("/api/auth/devices/admin", headers=member_headers).status_code, 403)
+
+        asyncio.run(self.users.upsert_user(username="CoreAdmin", role="admin", enabled=True, password="admin-pass"))
+        admin_login = self.client.post("/api/auth/user/login", json={"username": "CoreAdmin", "password": "admin-pass"}).json()
+        admin_headers = {"Authorization": f"Bearer {admin_login['access_token']}"}
+        denied = self.client.delete("/api/auth/devices/admin/device-phone-1", headers=admin_headers)
+        self.assertEqual(denied.status_code, 403, denied.text)
+        self.assertEqual(denied.json()["detail"], "owner_role_required")
+
 
 if __name__ == "__main__": unittest.main()
