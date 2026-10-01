@@ -26,7 +26,10 @@ class CloudflareConfigRenderer:
                     "service": publication.target.upstream_base_url,
                 }
             )
-        ingress.append({"hostname": identity.public_hostname, "service": "http://127.0.0.1:80"})
+        # Public UI traffic must pass through Core's hostname-aware boundary.
+        # Port 80 is the local dashboard's static nginx endpoint and cannot
+        # distinguish a public Core request from a local one.
+        ingress.append({"hostname": identity.public_hostname, "service": "http://127.0.0.1:9001"})
         ingress.append({"service": "http_status:404"})
         return {
             "tunnel": settings.tunnel_id,
