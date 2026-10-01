@@ -165,5 +165,83 @@ class TestWebAppDeviceEnrollment(unittest.TestCase):
         revoked = self.client.delete("/api/auth/devices/other-device", headers=headers)
         self.assertEqual(revoked.status_code, 404, revoked.text)
 
+    def test_enrollment_enforces_user_and_core_device_limits(self):
+        first = self.create_approved()
+        self.assertEqual(self.complete(first, Ed25519PrivateKey.generate()).status_code, 200)
+        self.store._max_devices_per_user = 1
+        second = self.create_approved()
+        limited = self.complete(second, Ed25519PrivateKey.generate(), device_id="device-phone-2")
+        self.assertEqual(limited.status_code, 409, limited.text)
+        self.assertEqual(limited.json()["detail"], "device_user_limit_reached")
+
+        self.store._max_devices_per_user = 10
+        self.store._max_devices_per_core = 1
+        third = self.create_approved()
+        core_limited = self.complete(third, Ed25519PrivateKey.generate(), device_id="device-phone-3")
+        self.assertEqual(core_limited.status_code, 409, core_limited.text)
+        self.assertEqual(core_limited.json()["detail"], "device_core_limit_reached")
+
+    def test_replacement_is_allowed_at_device_limit(self):
+        first = self.create_approved()
+        self.assertEqual(self.complete(first, Ed25519PrivateKey.generate()).status_code, 200)
+        self.store._max_devices_per_user = 1
+        self.store._max_devices_per_core = 1
+        replacement = self.client.post(
+            "/api/auth/device-enrollments",
+            headers=self.auth,
+            json={"display_name": "Replacement", "replace_device_id": "device-phone-1"},
+        ).json()["enrollment"]
+        self.client.post(f"/api/auth/device-enrollments/{replacement['enrollment_id']}/approve", headers=self.auth)
+        completed = self.complete(replacement, Ed25519PrivateKey.generate(), device_id="device-phone-2")
+        self.assertEqual(completed.status_code, 200, completed.text)
+
+    def test_notification_subscription_is_opaque_idempotent_and_device_bound(self):
+        enrollment = self.create_approved()
+        completed = self.complete(enrollment, Ed25519PrivateKey.generate())
+        headers = {"Authorization": f"Bearer {completed.json()['access_token']}"}
+        body = {"subscription_ref": "sub_opaque-reference-123", "gateway_audience": "hexe-notification-gateway"}
+
+        created = self.client.put("/api/auth/devices/device-phone-1/notification-subscription", headers=headers, json=body)
+        self.assertEqual(created.status_code, 200, created.text)
+        self.assertTrue(created.json()["changed"])
+        self.assertNotIn(body["subscription_ref"], created.text)
+        repeated = self.client.put("/api/auth/devices/device-phone-1/notification-subscription", headers=headers, json=body)
+        self.assertEqual(repeated.status_code, 200, repeated.text)
+        self.assertFalse(repeated.json()["changed"])
+        wrong_device = self.client.put("/api/auth/devices/some-other-device/notification-subscription", headers=headers, json=body)
+        self.assertEqual(wrong_device.status_code, 403, wrong_device.text)
+        raw_endpoint = self.client.put(
+            "/api/auth/devices/device-phone-1/notification-subscription",
+            headers=headers,
+            json={"subscription_ref": "https://push.example/secret", "gateway_audience": "hexe-notification-gateway"},
+        )
+        self.assertEqual(raw_endpoint.status_code, 422, raw_endpoint.text)
+
+        deleted = self.client.delete("/api/auth/devices/device-phone-1/notification-subscription", headers=headers)
+        self.assertEqual(deleted.status_code, 200, deleted.text)
+        self.assertEqual(deleted.json()["cleanup_state"], "pending")
+        db = sqlite3.connect(os.path.join(self.tmp.name, "users.db"))
+        row = db.execute("SELECT deleted_at, cleanup_state FROM web_app_notification_subscriptions WHERE device_id=?", ("device-phone-1",)).fetchone()
+        db.close()
+        self.assertIsNotNone(row[0])
+        self.assertEqual(row[1], "pending")
+
+    def test_device_revocation_marks_subscription_for_cleanup(self):
+        enrollment = self.create_approved()
+        completed = self.complete(enrollment, Ed25519PrivateKey.generate())
+        headers = {"Authorization": f"Bearer {completed.json()['access_token']}"}
+        registered = self.client.put(
+            "/api/auth/devices/device-phone-1/notification-subscription",
+            headers=headers,
+            json={"subscription_ref": "sub_cleanup-reference-123", "gateway_audience": "hexe-notification-gateway"},
+        )
+        self.assertEqual(registered.status_code, 200, registered.text)
+        self.assertEqual(self.client.delete("/api/auth/devices/device-phone-1", headers=headers).status_code, 200)
+        db = sqlite3.connect(os.path.join(self.tmp.name, "users.db"))
+        row = db.execute("SELECT deleted_at, cleanup_state FROM web_app_notification_subscriptions WHERE device_id=?", ("device-phone-1",)).fetchone()
+        db.close()
+        self.assertIsNotNone(row[0])
+        self.assertEqual(row[1], "pending")
+
 
 if __name__ == "__main__": unittest.main()

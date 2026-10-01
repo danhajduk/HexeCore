@@ -1,5 +1,5 @@
 {
-  "path_count": 274,
+  "path_count": 275,
   "paths": {
     "/api/addons": [
       "get"
@@ -132,6 +132,10 @@
     "/api/auth/devices/{device_id}": [
       "delete",
       "patch"
+    ],
+    "/api/auth/devices/{device_id}/notification-subscription": [
+      "delete",
+      "put"
     ],
     "/api/auth/devices/{device_id}/rotate-key": [
       "post"

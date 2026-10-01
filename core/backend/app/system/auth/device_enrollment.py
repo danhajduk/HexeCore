@@ -66,9 +66,24 @@ class DeviceUpdateRequest(BaseModel):
     display_name: str = Field(..., min_length=1, max_length=120)
 
 
+class NotificationSubscriptionRequest(BaseModel):
+    subscription_ref: str = Field(..., min_length=8, max_length=256, pattern=r"^[A-Za-z0-9][A-Za-z0-9._~-]+$")
+    gateway_audience: str = Field(..., min_length=1, max_length=160)
+
+
+def _env_positive_int(name: str, default: int) -> int:
+    try:
+        value = int(os.getenv(name, str(default)))
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
 class WebAppEnrollmentStore:
-    def __init__(self, db_path: str) -> None:
+    def __init__(self, db_path: str, *, max_devices_per_user: int | None = None, max_devices_per_core: int | None = None) -> None:
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        self._max_devices_per_user = max_devices_per_user or _env_positive_int("HEXE_WEB_APP_MAX_DEVICES_PER_USER", 10)
+        self._max_devices_per_core = max_devices_per_core or _env_positive_int("HEXE_WEB_APP_MAX_DEVICES_PER_CORE", 100)
         self._conn = sqlite3.connect(db_path, check_same_thread=False, isolation_level=None)
         self._conn.row_factory = sqlite3.Row
         self._lock = asyncio.Lock()
@@ -88,6 +103,13 @@ class WebAppEnrollmentStore:
               failure_code TEXT
             );
             CREATE UNIQUE INDEX IF NOT EXISTS web_app_enrollment_proof_idx ON web_app_enrollments(proof_hash);
+            CREATE TABLE IF NOT EXISTS web_app_notification_subscriptions (
+              device_id TEXT PRIMARY KEY, core_id TEXT NOT NULL, user_id TEXT NOT NULL,
+              subscription_ref TEXT NOT NULL, gateway_audience TEXT NOT NULL,
+              created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT,
+              cleanup_state TEXT NOT NULL DEFAULT 'active',
+              FOREIGN KEY(device_id) REFERENCES web_app_devices(device_id)
+            );
             """
         )
 
@@ -154,10 +176,26 @@ class WebAppEnrollmentStore:
             existing = self._conn.execute("SELECT * FROM web_app_devices WHERE device_id=?", (device_id,)).fetchone()
             replace_id = str(row["replace_device_id"] or "")
             if existing is not None and device_id != replace_id: raise RuntimeError("device_already_exists")
+            excluded_device_id = replace_id if replace_id else device_id
+            user_count = self._conn.execute(
+                "SELECT COUNT(*) FROM web_app_devices WHERE user_id=? AND revoked_at IS NULL AND device_id<>?",
+                (row["user_id"], excluded_device_id),
+            ).fetchone()[0]
+            if user_count >= self._max_devices_per_user: raise RuntimeError("device_user_limit_reached")
+            core_count = self._conn.execute(
+                "SELECT COUNT(*) FROM web_app_devices WHERE core_id=? AND revoked_at IS NULL AND device_id<>?",
+                (row["core_id"], excluded_device_id),
+            ).fetchone()[0]
+            if core_count >= self._max_devices_per_core: raise RuntimeError("device_core_limit_reached")
             if replace_id:
-                replacement = self._conn.execute("SELECT * FROM web_app_devices WHERE device_id=? AND user_id=? AND revoked_at IS NULL", (replace_id, row["user_id"])).fetchone()
+                replacement = self._conn.execute("SELECT * FROM web_app_devices WHERE device_id=? AND core_id=? AND user_id=? AND revoked_at IS NULL", (replace_id, row["core_id"], row["user_id"])).fetchone()
                 if replacement is None: raise RuntimeError("replacement_device_not_available")
-                self._conn.execute("UPDATE web_app_devices SET revoked_at=?, updated_at=? WHERE device_id=?", (_now_iso(), _now_iso(), replace_id))
+                revoked_at = _now_iso()
+                self._conn.execute("UPDATE web_app_devices SET revoked_at=?, updated_at=? WHERE device_id=?", (revoked_at, revoked_at, replace_id))
+                self._conn.execute(
+                    "UPDATE web_app_notification_subscriptions SET deleted_at=?, updated_at=?, cleanup_state='pending' WHERE device_id=? AND deleted_at IS NULL",
+                    (revoked_at, revoked_at, replace_id),
+                )
             now = _now_iso()
             self._conn.execute("INSERT INTO web_app_devices VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL) ON CONFLICT(device_id) DO UPDATE SET public_key=excluded.public_key, platform=excluded.platform, updated_at=excluded.updated_at, revoked_at=NULL", (device_id, row["core_id"], row["user_id"], row["display_name"], public_key, platform, now, now))
             changed = self._conn.execute("UPDATE web_app_enrollments SET status='consumed', consumed_at=?, device_id=? WHERE enrollment_id=? AND status='approved'", (now, device_id, enrollment_id)).rowcount
@@ -201,10 +239,54 @@ class WebAppEnrollmentStore:
     async def revoke_device(self, device_id: str, user_id: str) -> bool:
         async with self._lock:
             now = _now_iso()
-            changed = await asyncio.to_thread(
-                self._conn.execute,
+            return await asyncio.to_thread(self._revoke_device, device_id, user_id, now)
+
+    def _revoke_device(self, device_id: str, user_id: str, now: str) -> bool:
+        self._conn.execute("BEGIN IMMEDIATE")
+        try:
+            changed = self._conn.execute(
                 "UPDATE web_app_devices SET revoked_at=?, updated_at=? WHERE device_id=? AND user_id=? AND revoked_at IS NULL",
                 (now, now, device_id, user_id),
+            )
+            if changed.rowcount == 1:
+                self._conn.execute(
+                    "UPDATE web_app_notification_subscriptions SET deleted_at=?, updated_at=?, cleanup_state='pending' WHERE device_id=? AND user_id=? AND deleted_at IS NULL",
+                    (now, now, device_id, user_id),
+                )
+            self._conn.execute("COMMIT")
+            return changed.rowcount == 1
+        except Exception:
+            self._conn.execute("ROLLBACK")
+            raise
+
+    async def put_notification_subscription(self, *, device_id: str, core_id: str, user_id: str, subscription_ref: str, gateway_audience: str) -> tuple[dict[str, Any], bool]:
+        async with self._lock:
+            return await asyncio.to_thread(self._put_notification_subscription, device_id, core_id, user_id, subscription_ref, gateway_audience)
+
+    def _put_notification_subscription(self, device_id, core_id, user_id, subscription_ref, gateway_audience):
+        device = self._conn.execute(
+            "SELECT device_id FROM web_app_devices WHERE device_id=? AND core_id=? AND user_id=? AND revoked_at IS NULL",
+            (device_id, core_id, user_id),
+        ).fetchone()
+        if device is None: raise RuntimeError("device_not_found")
+        existing = self._conn.execute("SELECT * FROM web_app_notification_subscriptions WHERE device_id=?", (device_id,)).fetchone()
+        if existing is not None and existing["deleted_at"] is None and existing["subscription_ref"] == subscription_ref and existing["gateway_audience"] == gateway_audience:
+            return dict(existing), False
+        now = _now_iso()
+        self._conn.execute(
+            "INSERT INTO web_app_notification_subscriptions VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 'active') "
+            "ON CONFLICT(device_id) DO UPDATE SET core_id=excluded.core_id, user_id=excluded.user_id, subscription_ref=excluded.subscription_ref, gateway_audience=excluded.gateway_audience, updated_at=excluded.updated_at, deleted_at=NULL, cleanup_state='active'",
+            (device_id, core_id, user_id, subscription_ref, gateway_audience, now, now),
+        )
+        return dict(self._conn.execute("SELECT * FROM web_app_notification_subscriptions WHERE device_id=?", (device_id,)).fetchone()), True
+
+    async def delete_notification_subscription(self, *, device_id: str, core_id: str, user_id: str) -> bool:
+        async with self._lock:
+            now = _now_iso()
+            changed = await asyncio.to_thread(
+                self._conn.execute,
+                "UPDATE web_app_notification_subscriptions SET deleted_at=?, updated_at=?, cleanup_state='pending' WHERE device_id=? AND core_id=? AND user_id=? AND deleted_at IS NULL",
+                (now, now, device_id, core_id, user_id),
             )
             return changed.rowcount == 1
 
@@ -232,6 +314,7 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
     core_id = str(os.getenv("HEXE_CORE_ID", "hexe-core")).strip() or "hexe-core"
     platform_domain = str(os.getenv("PLATFORM_DOMAIN", "hexe-ai.com")).strip() or "hexe-ai.com"
     hostname = f"{core_id}.{platform_domain}"
+    notification_gateway_audience = str(os.getenv("HEXE_NOTIFICATION_GATEWAY_AUDIENCE", "hexe-notification-gateway")).strip() or "hexe-notification-gateway"
 
     async def actor(request: Request, authorization: str | None, admin_token: str | None):
         if authorization:
@@ -356,5 +439,50 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
         await users.revoke_device_sessions(device_id, reason="device_revoked")
         await record("web_app_device_revoked", principal.user_id, principal.role, {"device_id": device_id})
         return {"ok": True, "device_id": device_id}
+
+    @router.put("/devices/{device_id}/notification-subscription")
+    async def put_notification_subscription(device_id: str, body: NotificationSubscriptionRequest, authorization: str | None = Header(default=None)):
+        principal = await authenticate_human_token(authorization, keys, users)
+        if principal.device_id != device_id:
+            raise HTTPException(status_code=403, detail="device_identity_mismatch")
+        if body.gateway_audience != notification_gateway_audience:
+            raise HTTPException(status_code=409, detail="notification_gateway_audience_mismatch")
+        try:
+            subscription, changed = await store.put_notification_subscription(
+                device_id=device_id,
+                core_id=core_id,
+                user_id=principal.user_id,
+                subscription_ref=body.subscription_ref,
+                gateway_audience=body.gateway_audience,
+            )
+        except RuntimeError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        await record(
+            "web_app_notification_subscription_registered",
+            principal.user_id,
+            principal.role,
+            {"device_id": device_id, "changed": changed},
+        )
+        return {
+            "ok": True,
+            "device_id": device_id,
+            "gateway_audience": subscription["gateway_audience"],
+            "updated_at": subscription["updated_at"],
+            "changed": changed,
+        }
+
+    @router.delete("/devices/{device_id}/notification-subscription")
+    async def delete_notification_subscription(device_id: str, authorization: str | None = Header(default=None)):
+        principal = await authenticate_human_token(authorization, keys, users)
+        if principal.device_id != device_id:
+            raise HTTPException(status_code=403, detail="device_identity_mismatch")
+        changed = await store.delete_notification_subscription(device_id=device_id, core_id=core_id, user_id=principal.user_id)
+        await record(
+            "web_app_notification_subscription_deleted",
+            principal.user_id,
+            principal.role,
+            {"device_id": device_id, "changed": changed},
+        )
+        return {"ok": True, "device_id": device_id, "changed": changed, "cleanup_state": "pending" if changed else "absent"}
 
     return router

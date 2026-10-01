@@ -1253,6 +1253,27 @@
       "sensitive": false
     },
     {
+      "default": "hexe-notification-gateway",
+      "description": "Expected audience bound to opaque web-app notification subscription references.",
+      "name": "HEXE_NOTIFICATION_GATEWAY_AUDIENCE",
+      "owner": "Auth and service access",
+      "sensitive": false
+    },
+    {
+      "default": "100",
+      "description": "Maximum number of active enrolled web-app devices permitted across one Core.",
+      "name": "HEXE_WEB_APP_MAX_DEVICES_PER_CORE",
+      "owner": "Auth and service access",
+      "sensitive": false
+    },
+    {
+      "default": "10",
+      "description": "Maximum number of active enrolled web-app devices permitted for one Core user.",
+      "name": "HEXE_WEB_APP_MAX_DEVICES_PER_USER",
+      "owner": "Auth and service access",
+      "sensitive": false
+    },
+    {
       "compatibility": "Some script/helper paths also accept the matching SYNTHIA_* legacy name during the compatibility window.",
       "default": "0",
       "description": "Controls install, bootstrap, or update script behavior. Registry key: `HEXE_UPDATE_CLOUDFLARED_NATIVE`.",

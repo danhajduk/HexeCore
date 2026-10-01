@@ -290,7 +290,18 @@ Task 1008 currently adds caller-owned device management at
 `GET /api/auth/devices`, `PATCH /api/auth/devices/{device_id}`, and
 `DELETE /api/auth/devices/{device_id}`. Responses omit device public keys and
 credential material. Rename/revoke operations use user ownership checks, and
-revocation invalidates all sessions bound to the affected device.
+revocation invalidates all sessions bound to the affected device. Enrollment
+atomically enforces configurable active-device limits per user and per Core;
+an explicit same-owner replacement is excluded from the count it replaces.
+
+The enrolled device itself can idempotently register or delete an opaque,
+bounded gateway subscription reference at
+`PUT|DELETE /api/auth/devices/{device_id}/notification-subscription`. Core
+rejects URL-shaped/raw push endpoints and wrong gateway audiences, never
+returns the opaque reference, and records deletion or device revocation as a
+retryable `pending` cleanup state for the gateway integration delivered by
+Task 1010.
+
 - device loss revokes that device and its sessions/subscriptions only
 - Core removal or ownership reset revokes all remote credentials and gateway
   bindings
