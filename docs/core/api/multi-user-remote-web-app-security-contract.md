@@ -211,6 +211,9 @@ web-app discovery, and user-based admin-session login/status/logout. Other API
 paths return `404`. A valid admin session cookie retains the broader API surface
 needed by `/admin`; `X-Admin-Token` is rejected on the public host and remains a
 local automation compatibility mechanism only.
+Public user login, refresh, admin-user login, and enrollment completion share a
+source-aware limit of 10 attempts per minute. Overflow returns `429` with
+`Retry-After`; local/LAN authentication compatibility is unchanged.
 
 Task 1007 currently exposes `GET /api/web-app/bootstrap` as the first protected
 web-app route. It requires a valid human access token whose session is bound to

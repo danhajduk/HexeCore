@@ -20,6 +20,7 @@ WEB_APP_CORS_HEADERS = {"authorization", "content-type"}
 WEB_APP_MAX_REQUEST_BYTES = 1024 * 1024
 WEB_APP_RATE_LIMIT_WINDOW_S = 60
 WEB_APP_RATE_LIMIT_DEFAULT = 120
+SENSITIVE_AUTH_RATE_LIMIT_DEFAULT = 10
 FORBIDDEN_CREDENTIAL_QUERY_KEYS = {"access_token", "authorization", "refresh_token", "token"}
 PUBLIC_REMOTE_API_EXACT = {
     "/api/admin/session/login-user",
@@ -122,11 +123,31 @@ def _public_remote_api_allowed(path: str) -> bool:
     return path in PUBLIC_REMOTE_API_EXACT or any(path.startswith(prefix) for prefix in PUBLIC_REMOTE_API_PREFIXES)
 
 
+def _sensitive_public_auth_endpoint(path: str) -> bool:
+    return path in {
+        "/api/admin/session/login-user",
+        "/api/auth/user/login",
+        "/api/auth/user/refresh",
+    } or (path.startswith("/api/auth/device-enrollments/") and path.endswith("/complete"))
+
+
 class RemoteWebBoundaryMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app, *, rate_limit_per_minute: int | None = None) -> None:
+    def __init__(
+        self,
+        app,
+        *,
+        rate_limit_per_minute: int | None = None,
+        sensitive_auth_rate_limit_per_minute: int | None = None,
+    ) -> None:
         super().__init__(app)
         configured_limit = rate_limit_per_minute if rate_limit_per_minute is not None else WEB_APP_RATE_LIMIT_DEFAULT
         self._rate_limit = max(1, configured_limit)
+        sensitive_limit = (
+            sensitive_auth_rate_limit_per_minute
+            if sensitive_auth_rate_limit_per_minute is not None
+            else SENSITIVE_AUTH_RATE_LIMIT_DEFAULT
+        )
+        self._sensitive_auth_rate_limit = max(1, sensitive_limit)
         self._request_times: dict[str, deque[float]] = defaultdict(deque)
         self._rate_lock = asyncio.Lock()
 
@@ -140,15 +161,15 @@ class RemoteWebBoundaryMiddleware(BaseHTTPMiddleware):
                 pass
         return str(getattr(request.client, "host", "unknown") or "unknown")
 
-    async def _rate_limited(self, request: Request) -> bool:
+    async def _rate_limited(self, request: Request, *, group: str, limit: int) -> bool:
         now = time.monotonic()
         cutoff = now - WEB_APP_RATE_LIMIT_WINDOW_S
-        key = self._rate_key(request)
+        key = f"{group}:{self._rate_key(request)}"
         async with self._rate_lock:
             times = self._request_times[key]
             while times and times[0] <= cutoff:
                 times.popleft()
-            if len(times) >= self._rate_limit:
+            if len(times) >= limit:
                 return True
             times.append(now)
             return False
@@ -173,6 +194,18 @@ class RemoteWebBoundaryMiddleware(BaseHTTPMiddleware):
                 )
             if not _public_remote_api_allowed(path) and not is_admin_request_authenticated(request):
                 return _add_public_security_headers(JSONResponse({"detail": "not_found"}, status_code=404))
+            if (
+                request.method != "OPTIONS"
+                and _sensitive_public_auth_endpoint(path)
+                and await self._rate_limited(
+                    request,
+                    group="sensitive-auth",
+                    limit=self._sensitive_auth_rate_limit,
+                )
+            ):
+                response = JSONResponse({"detail": "authentication_rate_limit_exceeded"}, status_code=429)
+                response.headers["Retry-After"] = str(WEB_APP_RATE_LIMIT_WINDOW_S)
+                return _add_public_security_headers(response)
         if is_public and is_web_app_api:
             query_keys = {str(key).strip().lower() for key in request.query_params.keys()}
             if query_keys.intersection(FORBIDDEN_CREDENTIAL_QUERY_KEYS):
@@ -192,7 +225,11 @@ class RemoteWebBoundaryMiddleware(BaseHTTPMiddleware):
                     return _add_public_security_headers(
                         JSONResponse({"detail": "request_body_too_large"}, status_code=413)
                     )
-            if request.method != "OPTIONS" and await self._rate_limited(request):
+            if request.method != "OPTIONS" and await self._rate_limited(
+                request,
+                group="web-app",
+                limit=self._rate_limit,
+            ):
                 response = JSONResponse({"detail": "web_app_rate_limit_exceeded"}, status_code=429)
                 response.headers["Retry-After"] = str(WEB_APP_RATE_LIMIT_WINDOW_S)
                 return _add_public_security_headers(response)

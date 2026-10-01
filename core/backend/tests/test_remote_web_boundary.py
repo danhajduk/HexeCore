@@ -19,12 +19,14 @@ class Settings:
         self.data[key] = value
 
 
-def client(*, rate_limit_per_minute=None):
+def client(*, rate_limit_per_minute=None, sensitive_auth_rate_limit_per_minute=None):
     app = FastAPI()
     app.state.settings_store = Settings()
     middleware_options = {}
     if rate_limit_per_minute is not None:
         middleware_options["rate_limit_per_minute"] = rate_limit_per_minute
+    if sensitive_auth_rate_limit_per_minute is not None:
+        middleware_options["sensitive_auth_rate_limit_per_minute"] = sensitive_auth_rate_limit_per_minute
     app.add_middleware(RemoteWebBoundaryMiddleware, **middleware_options)
 
     @app.get("/{path:path}")
@@ -221,3 +223,30 @@ def test_local_host_keeps_existing_api_surface_and_admin_token_compatibility():
     )
     assert response.status_code == 200
     assert response.json() == {"path": "/api/system/stats/current"}
+
+
+def test_public_login_and_refresh_share_source_rate_limit():
+    test_client = client(sensitive_auth_rate_limit_per_minute=2)
+    headers = {"Host": "0123456789abcdef.hexe-ai.com"}
+    assert test_client.post("/api/auth/user/login", headers=headers).status_code == 405
+    assert test_client.post("/api/auth/user/refresh", headers=headers).status_code == 405
+    limited = test_client.post("/api/auth/user/login", headers=headers)
+    assert limited.status_code == 429
+    assert limited.json()["detail"] == "authentication_rate_limit_exceeded"
+    assert limited.headers["retry-after"] == "60"
+
+
+def test_public_enrollment_completion_is_source_rate_limited():
+    test_client = client(sensitive_auth_rate_limit_per_minute=1)
+    headers = {"Host": "0123456789abcdef.hexe-ai.com"}
+    assert test_client.post("/api/auth/device-enrollments/enr-1/complete", headers=headers).status_code == 405
+    limited = test_client.post("/api/auth/device-enrollments/enr-2/complete", headers=headers)
+    assert limited.status_code == 429
+    assert limited.json()["detail"] == "authentication_rate_limit_exceeded"
+
+
+def test_local_login_is_not_subject_to_public_auth_rate_limit():
+    test_client = client(sensitive_auth_rate_limit_per_minute=1)
+    headers = {"Host": "192.168.1.20:9001"}
+    assert test_client.post("/api/auth/user/login", headers=headers).status_code == 405
+    assert test_client.post("/api/auth/user/login", headers=headers).status_code == 405
