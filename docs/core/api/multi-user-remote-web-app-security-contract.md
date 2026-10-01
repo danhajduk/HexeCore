@@ -242,6 +242,10 @@ implemented `GET`/`HEAD` methods and the `Authorization` and `Content-Type`
 headers. Development origins are enabled only by `HEXE_ENABLE_DEV_CORS`; a
 disallowed public origin fails with `cors_origin_not_allowed`. Requests without
 an `Origin` header remain available to authenticated installed/native clients.
+The same public boundary rejects credentials in query strings, rejects declared
+request bodies larger than 1 MiB, and applies a source-aware default limit of
+120 non-preflight requests per minute with `429` and `Retry-After` on overflow.
+These transport limits do not alter the local Core UI path.
 
 ## Session and Revocation Semantics
 

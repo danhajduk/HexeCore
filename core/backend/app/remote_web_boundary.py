@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import ipaddress
 import os
+import time
+from collections import defaultdict, deque
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -13,6 +16,10 @@ from app.system.platform_identity import load_platform_identity
 WEB_APP_API_PREFIX = "/api/web-app"
 WEB_APP_CORS_METHODS = "GET, HEAD, OPTIONS"
 WEB_APP_CORS_HEADERS = {"authorization", "content-type"}
+WEB_APP_MAX_REQUEST_BYTES = 1024 * 1024
+WEB_APP_RATE_LIMIT_WINDOW_S = 60
+WEB_APP_RATE_LIMIT_DEFAULT = 120
+FORBIDDEN_CREDENTIAL_QUERY_KEYS = {"access_token", "authorization", "refresh_token", "token"}
 
 
 def _normalized_host(value: str) -> str | None:
@@ -86,6 +93,36 @@ def _web_app_preflight(request: Request, origin: str) -> Response:
 
 
 class RemoteWebBoundaryMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app, *, rate_limit_per_minute: int | None = None) -> None:
+        super().__init__(app)
+        configured_limit = rate_limit_per_minute if rate_limit_per_minute is not None else WEB_APP_RATE_LIMIT_DEFAULT
+        self._rate_limit = max(1, configured_limit)
+        self._request_times: dict[str, deque[float]] = defaultdict(deque)
+        self._rate_lock = asyncio.Lock()
+
+    @staticmethod
+    def _rate_key(request: Request) -> str:
+        forwarded = str(request.headers.get("cf-connecting-ip") or "").strip()
+        if forwarded and _loopback_peer(request):
+            try:
+                return str(ipaddress.ip_address(forwarded))
+            except ValueError:
+                pass
+        return str(getattr(request.client, "host", "unknown") or "unknown")
+
+    async def _rate_limited(self, request: Request) -> bool:
+        now = time.monotonic()
+        cutoff = now - WEB_APP_RATE_LIMIT_WINDOW_S
+        key = self._rate_key(request)
+        async with self._rate_lock:
+            times = self._request_times[key]
+            while times and times[0] <= cutoff:
+                times.popleft()
+            if len(times) >= self._rate_limit:
+                return True
+            times.append(now)
+            return False
+
     async def dispatch(self, request: Request, call_next) -> Response:
         settings_store = getattr(request.app.state, "settings_store", None)
         identity = await load_platform_identity(settings_store)
@@ -99,6 +136,23 @@ class RemoteWebBoundaryMiddleware(BaseHTTPMiddleware):
         path = request.url.path
         is_web_app_api = path == WEB_APP_API_PREFIX or path.startswith(f"{WEB_APP_API_PREFIX}/")
         origin = str(request.headers.get("origin") or "").strip()
+        if is_public and is_web_app_api:
+            query_keys = {str(key).strip().lower() for key in request.query_params.keys()}
+            if query_keys.intersection(FORBIDDEN_CREDENTIAL_QUERY_KEYS):
+                return JSONResponse({"detail": "credentials_in_query_forbidden"}, status_code=400)
+            content_length = str(request.headers.get("content-length") or "").strip()
+            if content_length:
+                try:
+                    if int(content_length) < 0:
+                        raise ValueError
+                except ValueError:
+                    return JSONResponse({"detail": "content_length_invalid"}, status_code=400)
+                if int(content_length) > WEB_APP_MAX_REQUEST_BYTES:
+                    return JSONResponse({"detail": "request_body_too_large"}, status_code=413)
+            if request.method != "OPTIONS" and await self._rate_limited(request):
+                response = JSONResponse({"detail": "web_app_rate_limit_exceeded"}, status_code=429)
+                response.headers["Retry-After"] = str(WEB_APP_RATE_LIMIT_WINDOW_S)
+                return response
         if is_public and is_web_app_api and origin:
             if origin not in _allowed_web_app_origins(identity.public_hostname.lower()):
                 return JSONResponse({"detail": "cors_origin_not_allowed"}, status_code=403)

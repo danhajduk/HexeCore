@@ -18,10 +18,13 @@ class Settings:
         self.data[key] = value
 
 
-def client():
+def client(*, rate_limit_per_minute=None):
     app = FastAPI()
     app.state.settings_store = Settings()
-    app.add_middleware(RemoteWebBoundaryMiddleware)
+    middleware_options = {}
+    if rate_limit_per_minute is not None:
+        middleware_options["rate_limit_per_minute"] = rate_limit_per_minute
+    app.add_middleware(RemoteWebBoundaryMiddleware, **middleware_options)
 
     @app.get("/{path:path}")
     async def route(path: str):
@@ -132,3 +135,43 @@ def test_local_web_app_path_keeps_same_origin_behavior():
     )
     assert response.status_code == 200
     assert response.json() == {"path": "/api/web-app/bootstrap"}
+
+
+def test_public_web_app_api_rejects_credentials_in_query_string():
+    response = client().get(
+        "/api/web-app/bootstrap?access_token=secret",
+        headers={"Host": "0123456789abcdef.hexe-ai.com"},
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == "credentials_in_query_forbidden"
+
+
+def test_public_web_app_api_rejects_oversized_declared_body():
+    response = client().request(
+        "POST",
+        "/api/web-app/bootstrap",
+        headers={
+            "Host": "0123456789abcdef.hexe-ai.com",
+            "Content-Length": str(1024 * 1024 + 1),
+        },
+    )
+    assert response.status_code == 413
+    assert response.json()["detail"] == "request_body_too_large"
+
+
+def test_public_web_app_api_rate_limit_is_source_bounded():
+    test_client = client(rate_limit_per_minute=2)
+    headers = {"Host": "0123456789abcdef.hexe-ai.com"}
+    assert test_client.get("/api/web-app/bootstrap", headers=headers).status_code == 200
+    assert test_client.get("/api/web-app/bootstrap", headers=headers).status_code == 200
+    limited = test_client.get("/api/web-app/bootstrap", headers=headers)
+    assert limited.status_code == 429
+    assert limited.json()["detail"] == "web_app_rate_limit_exceeded"
+    assert limited.headers["retry-after"] == "60"
+
+
+def test_local_web_app_api_is_not_subject_to_public_rate_limit():
+    test_client = client(rate_limit_per_minute=1)
+    headers = {"Host": "192.168.1.20:9001"}
+    assert test_client.get("/api/web-app/bootstrap", headers=headers).status_code == 200
+    assert test_client.get("/api/web-app/bootstrap", headers=headers).status_code == 200
