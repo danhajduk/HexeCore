@@ -3,6 +3,7 @@ import os
 import tempfile
 import unittest
 from datetime import datetime, timezone
+from pydantic import ValidationError
 
 from app.core.web_notification_policy import NotificationIntentStore, TrustedNotificationEvent, WebNotificationEventConsumer, WebNotificationPolicyService
 from app.system.auth.device_enrollment import NotificationPreferencesRequest, WebAppEnrollmentStore
@@ -151,6 +152,31 @@ class TestWebNotificationPolicy(unittest.TestCase):
         asyncio.run(mqtt.callback("hexe/events/task/completed", bad, False))
         self.assertEqual(len(asyncio.run(self.intents.list_pending())), 1)
         asyncio.run(consumer.stop())
+
+    def test_audit_is_redacted_and_deep_links_must_be_core_relative(self):
+        alice = self.add_target("alice", "member", "alice-phone")
+
+        class Audit:
+            records = []
+            async def record(self, **record):
+                self.records.append(record)
+
+        audit = Audit()
+        service = WebNotificationPolicyService(self.devices, self.intents, core_id=self.core_id, audit=audit)
+        event = TrustedNotificationEvent(
+            event_id="evt-audit", event_type="timer.completed", source_kind="core", source_id="timer",
+            subject_user_id=alice["user_id"], summary="Dinner timer completed", navigation_path="/app/timers/evt-audit",
+        )
+        self.assertEqual(asyncio.run(service.route(event, trusted_source=True))["created"], 1)
+        details = audit.records[-1]["details"]
+        self.assertEqual(details["decision"], "created")
+        self.assertNotIn("subscription", str(details))
+        self.assertNotIn("Dinner timer", str(details))
+        with self.assertRaises(ValidationError):
+            TrustedNotificationEvent(
+                event_id="evt-bad-link", event_type="task.completed", source_kind="core", source_id="tasks",
+                navigation_path="https://evil.example/steal",
+            )
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 # Core Multi-User Remote Web App Security and Identity Contract
 
-Status: Tasks 1005-1008 implemented; Task 1009 in progress; Tasks 1010-1014 remain planned
+Status: Tasks 1005-1009 implemented; Tasks 1010-1014 remain planned
 
 ## Purpose
 
