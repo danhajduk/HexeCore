@@ -49,7 +49,6 @@ Do not edit above this line:
 #######################################################################
 
 [FUTURE TODO] Task 1000: Validate and document the inverted BLE onboarding flow across Supervisor and endpoint roles
-[WIP] Task 1007: Expose a safe remote web app API and realtime connection boundary through the Core tunnel
 [TODO] Task 1008: Implement Core-owned mobile device, push subscription, and notification preference state
 [TODO] Task 1009: Implement privacy-safe notification policy and event-to-notification routing
 [TODO] Task 1010: Implement authenticated Core publishing to the Cloudflare Web Push gateway

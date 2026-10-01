@@ -1,6 +1,6 @@
 # Core Multi-User Remote Web App Security and Identity Contract
 
-Status: Tasks 1005-1006 implemented; Task 1007 in progress; Tasks 1008-1014 remain planned
+Status: Tasks 1005-1007 implemented; Tasks 1008-1014 remain planned
 
 ## Purpose
 
@@ -231,7 +231,10 @@ The same enrolled identity can connect to `/api/web-app/realtime` with a WebSock
 origins, anonymous sessions, and credentials in query strings. Connections are
 revalidated on each client message and heartbeat, accept bounded in-band
 `auth.renew` messages only for the same user/device identity, and close after
-session expiry or device revocation. Client messages are limited to 16 KiB.
+session expiry or device revocation. A `bootstrap.get` message returns a
+permission-safe `core.bootstrap` snapshot using the same payload contract as the
+HTTP bootstrap route; the unrestricted platform event stream is not exposed.
+Client messages are limited to 16 KiB.
 
 Node and addon proxy requests retain their existing target-trust and management
 authorization checks in addition to human authorization. A remote user token

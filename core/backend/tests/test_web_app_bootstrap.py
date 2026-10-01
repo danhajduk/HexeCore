@@ -1,13 +1,20 @@
 import asyncio
 import os
 import tempfile
+import time
 from unittest.mock import patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from app.system.auth import ServiceTokenKeyStore, WebAppEnrollmentStore, build_human_auth_router, build_web_app_router
+from app.system.auth import (
+    ServiceTokenKeyStore,
+    WebAppEnrollmentStore,
+    build_human_auth_router,
+    build_web_app_router,
+    sign_hs256,
+)
 from app.system.settings.store import SettingsStore
 from app.system.users import UsersStore
 
@@ -41,12 +48,24 @@ class TestWebAppBootstrap:
         self.tmp.cleanup()
 
     def _login(self, device_id: str | None = None) -> dict:
+        return self._login_user("member", "member-pass", device_id)
+
+    def _login_user(self, username: str, password: str, device_id: str | None = None) -> dict:
         response = self.client.post(
             "/api/auth/user/login",
-            json={"username": "member", "password": "member-pass", "device_id": device_id},
+            json={"username": username, "password": password, "device_id": device_id},
         )
         assert response.status_code == 200, response.text
         return response.json()
+
+    def _resign_access_token(self, login: dict, **claim_updates) -> str:
+        key = asyncio.run(self.keys.active_key())
+        claims = {**login["claims"], **claim_updates}
+        return sign_hs256(
+            {"alg": "HS256", "typ": "JWT", "kid": str(key["kid"])},
+            claims,
+            str(key["secret"]),
+        )
 
     def _enroll_device(self, device_id: str = "device-123") -> None:
         now = "2026-09-30T00:00:00+00:00"
@@ -131,6 +150,35 @@ class TestWebAppBootstrap:
         assert response.status_code == 403
         assert response.json()["detail"] == "enrolled_device_wrong_core"
 
+    def test_bootstrap_rejects_signed_token_for_wrong_core_audience(self) -> None:
+        self._enroll_device()
+        login = self._login("device-123")
+        token = self._resign_access_token(login, aud="hexe-core:fedcba9876543210:web-app")
+        response = self.client.get(
+            "/api/web-app/bootstrap",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 401
+        assert response.json()["detail"] == "human_access_token_invalid"
+
+    def test_bootstrap_advertises_administration_only_for_admin_role(self) -> None:
+        asyncio.run(self.users.upsert_user(username="owner", role="owner", enabled=True, password="owner-pass"))
+        owner = asyncio.run(self.users.get_user("owner"))
+        now = "2026-09-30T00:00:00+00:00"
+        self.devices._conn.execute(
+            "INSERT INTO web_app_devices VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)",
+            ("owner-device", "0123456789abcdef", owner["user_id"], "Owner phone", "public-key", "mobile", now, now),
+        )
+        login = self._login_user("owner", "owner-pass", "owner-device")
+        response = self.client.get(
+            "/api/web-app/bootstrap",
+            headers={"Authorization": f"Bearer {login['access_token']}"},
+        )
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        assert payload["features"]["administration"] is True
+        assert "core.admin" in payload["user"]["permissions"]
+
     def test_realtime_authenticates_enrolled_device_and_handles_ping(self) -> None:
         self._enroll_device()
         login = self._login("device-123")
@@ -147,6 +195,13 @@ class TestWebAppBootstrap:
             assert ready["device_id"] == "device-123"
             websocket.send_json({"type": "ping"})
             assert websocket.receive_json() == {"type": "pong"}
+            websocket.send_json({"type": "bootstrap.get"})
+            snapshot = websocket.receive_json()
+            assert snapshot["type"] == "core.bootstrap"
+            assert snapshot["data"]["core"]["core_id"] == "0123456789abcdef"
+            assert snapshot["data"]["user"]["user_id"] == self.user["user_id"]
+            assert snapshot["data"]["device"]["device_id"] == "device-123"
+            assert "public_key" not in str(snapshot)
 
     def test_realtime_rejects_credentials_in_query_string(self) -> None:
         try:
@@ -200,6 +255,65 @@ class TestWebAppBootstrap:
                 raise AssertionError("websocket unexpectedly connected")
         except WebSocketDisconnect as exc:
             assert exc.code == 4401
+
+    def test_realtime_rejects_expired_and_wrong_audience_tokens(self) -> None:
+        self._enroll_device()
+        login = self._login("device-123")
+        tokens = [
+            self._resign_access_token(login, exp=int(time.time()) - 1),
+            self._resign_access_token(login, aud="hexe-core:fedcba9876543210:web-app"),
+        ]
+        for token in tokens:
+            try:
+                with self.client.websocket_connect(
+                    "/api/web-app/realtime",
+                    headers={
+                        "Host": "0123456789abcdef.hexe-ai.com",
+                        "Authorization": f"Bearer {token}",
+                    },
+                ):
+                    raise AssertionError("websocket unexpectedly connected")
+            except WebSocketDisconnect as exc:
+                assert exc.code == 4401
+
+    def test_realtime_reconnects_with_same_active_identity(self) -> None:
+        self._enroll_device()
+        login = self._login("device-123")
+        headers = {
+            "Host": "0123456789abcdef.hexe-ai.com",
+            "Authorization": f"Bearer {login['access_token']}",
+        }
+        for _ in range(2):
+            with self.client.websocket_connect("/api/web-app/realtime", headers=headers) as websocket:
+                ready = websocket.receive_json()
+                assert ready["type"] == "realtime.ready"
+                assert ready["session_id"] == login["claims"]["session_id"]
+
+    def test_realtime_renewal_rejects_identity_switch(self) -> None:
+        self._enroll_device()
+        login = self._login("device-123")
+        asyncio.run(self.users.upsert_user(username="other", role="member", enabled=True, password="other-pass"))
+        other = asyncio.run(self.users.get_user("other"))
+        now = "2026-09-30T00:00:00+00:00"
+        self.devices._conn.execute(
+            "INSERT INTO web_app_devices VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)",
+            ("other-device", "0123456789abcdef", other["user_id"], "Other phone", "public-key", "mobile", now, now),
+        )
+        other_login = self._login_user("other", "other-pass", "other-device")
+        with self.client.websocket_connect(
+            "/api/web-app/realtime",
+            headers={
+                "Host": "0123456789abcdef.hexe-ai.com",
+                "Authorization": f"Bearer {login['access_token']}",
+            },
+        ) as websocket:
+            assert websocket.receive_json()["type"] == "realtime.ready"
+            websocket.send_json({"type": "auth.renew", "access_token": other_login["access_token"]})
+            try:
+                websocket.receive_json()
+                raise AssertionError("identity-switch renewal remained connected")
+            except WebSocketDisconnect as exc:
+                assert exc.code == 4403
 
     def test_realtime_closes_after_device_revocation(self) -> None:
         self._enroll_device()

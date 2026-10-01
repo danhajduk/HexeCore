@@ -6,7 +6,7 @@ import json
 from fastapi import APIRouter, Header, HTTPException, WebSocket, WebSocketDisconnect
 
 from app.remote_web_boundary import FORBIDDEN_CREDENTIAL_QUERY_KEYS, _allowed_web_app_origins, _normalized_host
-from app.system.platform_identity import load_platform_identity
+from app.system.platform_identity import PlatformIdentity, load_platform_identity
 from app.system.security.roles import ROLE_PERMISSIONS
 from app.system.settings.store import SettingsStore
 from app.system.users.store import UsersStore
@@ -25,7 +25,7 @@ def build_web_app_router(
 ) -> APIRouter:
     router = APIRouter()
 
-    async def enrolled_principal(authorization: str | None) -> tuple[HumanPrincipal, dict, object]:
+    async def enrolled_principal(authorization: str | None) -> tuple[HumanPrincipal, dict, PlatformIdentity]:
         principal = await authenticate_human_token(authorization, keys, users)
         if not principal.device_id:
             raise HTTPException(status_code=403, detail="enrolled_device_required")
@@ -43,10 +43,7 @@ def build_web_app_router(
             raise HTTPException(status_code=403, detail="enrolled_device_wrong_core")
         return principal, device, identity
 
-    @router.get("/bootstrap")
-    async def bootstrap(authorization: str | None = Header(default=None)):
-        principal, device, identity = await enrolled_principal(authorization)
-
+    def bootstrap_payload(principal: HumanPrincipal, device: dict, identity: PlatformIdentity) -> dict:
         permissions = sorted(ROLE_PERMISSIONS.get(principal.role, frozenset()))
         return {
             "contract_version": "hexe.remote-web-app.v1",
@@ -78,6 +75,11 @@ def build_web_app_router(
                 "state": "not_implemented",
             },
         }
+
+    @router.get("/bootstrap")
+    async def bootstrap(authorization: str | None = Header(default=None)):
+        principal, device, identity = await enrolled_principal(authorization)
+        return bootstrap_payload(principal, device, identity)
 
     async def close_for_auth_error(websocket: WebSocket, exc: HTTPException) -> None:
         code = 4401 if exc.status_code == 401 else 4403
@@ -159,12 +161,19 @@ def build_web_app_router(
                     continue
 
                 try:
-                    principal, _, _ = await enrolled_principal(authorization)
+                    principal, device, identity = await enrolled_principal(authorization)
                 except HTTPException as exc:
                     await close_for_auth_error(websocket, exc)
                     return
                 if message_type == "ping":
                     await websocket.send_json({"type": "pong"})
+                elif message_type == "bootstrap.get":
+                    await websocket.send_json(
+                        {
+                            "type": "core.bootstrap",
+                            "data": bootstrap_payload(principal, device, identity),
+                        }
+                    )
                 else:
                     await websocket.send_json({"type": "error", "code": "realtime_message_type_unsupported"})
         except WebSocketDisconnect:
