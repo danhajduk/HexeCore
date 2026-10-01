@@ -212,6 +212,13 @@ safe Core identity, current user permissions, session and device identifiers,
 and conservative feature/notification availability. It does not return device
 public keys, credentials, enrollment proofs, or administrative secrets.
 
+The same enrolled identity can connect to `/api/web-app/realtime` with a WebSocket
+`Authorization` header. The handshake rejects non-public hosts, disallowed
+origins, anonymous sessions, and credentials in query strings. Connections are
+revalidated on each client message and heartbeat, accept bounded in-band
+`auth.renew` messages only for the same user/device identity, and close after
+session expiry or device revocation. Client messages are limited to 16 KiB.
+
 Node and addon proxy requests retain their existing target-trust and management
 authorization checks in addition to human authorization. A remote user token
 cannot bypass Core-to-node management authorization or cause Core to forward a
