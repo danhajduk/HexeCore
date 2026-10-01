@@ -22,7 +22,8 @@ import { getAddonRoutes } from "./loadAddons";
 function ProtectedRedirect() {
   const location = useLocation();
   const next = `${location.pathname}${location.search}${location.hash}`;
-  return <Navigate to={`/?next=${encodeURIComponent(next)}`} replace />;
+  const loginPath = location.pathname === "/admin" || location.pathname.startsWith("/admin/") ? "/proxy-login" : "/";
+  return <Navigate to={`${loginPath}?next=${encodeURIComponent(next)}`} replace />;
 }
 
 function AddonProxyPathRedirect() {
@@ -42,6 +43,8 @@ export function buildRoutes(isAdmin: boolean, ready: boolean): RouteObject[] {
 
   return [
     { path: "/", element: <Home /> },
+    { path: "/admin", element: protectedRoute(<Home />) },
+    { path: "/app", element: <div role="status">The Hexe assistant app is not installed yet.</div> },
     { path: "/proxy-login", element: <ProxyLogin /> },
     { path: "/store", element: protectedRoute(<AddonStorePage />) },
     { path: "/addons", element: protectedRoute(<Addons />) },

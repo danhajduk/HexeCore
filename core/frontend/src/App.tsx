@@ -15,8 +15,9 @@ function AppLayout() {
     location.pathname === "/system/supervisors/enrollment" ||
     location.pathname === "/supervisors/enrollment" ||
     location.pathname === "/proxy-login";
+  const appSurface = location.pathname === "/app" || location.pathname.startsWith("/app/");
   return (
-    <Shell isAdmin={authenticated} chromeless={chromeless}>
+    <Shell isAdmin={authenticated} chromeless={chromeless || appSurface}>
       {element}
     </Shell>
   );

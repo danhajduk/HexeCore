@@ -40,6 +40,7 @@ from .api.admin_registry import build_admin_registry_router
 from .api.addons_registry import build_addons_registry_router
 from .api.addons_install import build_addons_install_router
 from .proxy_routes import ProxyRouteRedirectMiddleware
+from .remote_web_boundary import RemoteWebBoundaryMiddleware
 from .frontend_static import build_frontend_static_router
 from .system.api_metrics import ApiMetricsCollector, ApiMetricsMiddleware
 from app.system.sampler import (
@@ -158,6 +159,7 @@ def create_app() -> FastAPI:
         trust_proxy_headers=False,
     )
     app.add_middleware(ProxyRouteRedirectMiddleware)
+    app.add_middleware(RemoteWebBoundaryMiddleware)
 
     @app.on_event("startup")
     async def start_background_tasks():
