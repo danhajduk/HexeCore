@@ -1083,7 +1083,7 @@ def create_app() -> FastAPI:
     app.state.internal_scheduler = internal_scheduler
 
     app.include_router(build_settings_router(settings_store, audit_store), prefix="/api/system", tags=["settings"])
-    app.include_router(build_users_router(users_store, audit_store, service_token_keys), prefix="/api/admin", tags=["admin-users"])
+    app.include_router(build_users_router(users_store, audit_store, service_token_keys, web_app_enrollment_store), prefix="/api/admin", tags=["admin-users"])
     app.include_router(repo_status_router, prefix="/api/system", tags=["repo"])
     app.include_router(build_stack_health_router(), prefix="/api/system", tags=["stack-health"])
     app.include_router(build_supervisor_status_router(), prefix="/api/system", tags=["supervisor"])

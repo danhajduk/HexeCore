@@ -387,3 +387,11 @@ Chosen fix: Add separate lifecycle state compatible with existing device rows, f
 What changed: Added device state persistence, administrative enable/disable API, activity updates, bounded metadata validation, active-limit handling, and focused tests.
 Verification: Enrollment and bootstrap tests passed, including disabled-device denial.
 ###########
+
+Task #1008
+Step objective: Propagate user disablement and deletion to owned devices and subscriptions.
+Issue cause: User credential invalidation stopped sessions but left device lifecycle and notification cleanup state active.
+Chosen fix: Inject the device store into user administration and disable only the affected user's retained devices after a successful disable/delete operation.
+What changed: Added transactional bulk device disablement, session revocation, subscription cleanup state, isolated user-admin integration, response counts, and cross-user tests.
+Verification: Human-auth, enrollment, and bootstrap focused tests passed with cross-user isolation.
+###########

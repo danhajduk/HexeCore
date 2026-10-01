@@ -1,6 +1,6 @@
 # Core Multi-User Remote Web App Security and Identity Contract
 
-Status: Tasks 1005-1007 implemented; Task 1008 in progress; Tasks 1009-1014 remain planned
+Status: Tasks 1005-1008 implemented; Tasks 1009-1014 remain planned
 
 ## Purpose
 
@@ -330,6 +330,12 @@ The enrolled bootstrap now advertises notification configuration support and
 reports only safe booleans for subscription and preference state. Delivery is
 reported unavailable until the Task 1010 gateway publisher exists; the opaque
 subscription reference is never included.
+
+Disabling or deleting a Core user also revokes that user's sessions, disables
+every retained device owned by that user, and moves only those devices' active
+subscriptions to `pending` cleanup. Other users' devices and subscriptions are
+not modified. Re-enabling the user does not implicitly re-enable devices or
+restore subscriptions.
 
 `POST /api/auth/devices/admin/prune` applies the configured retention window
 to expired/revoked sessions, consumed refresh-token replay records, terminal

@@ -381,6 +381,36 @@ class WebAppEnrollmentStore:
             (device_id,),
         ).fetchone())
 
+    async def disable_user_devices(self, user_id: str) -> int:
+        async with self._lock:
+            return await asyncio.to_thread(self._disable_user_devices, user_id)
+
+    def _disable_user_devices(self, user_id: str) -> int:
+        rows = self._conn.execute(
+            "SELECT device_id FROM web_app_devices WHERE user_id=? AND revoked_at IS NULL",
+            (user_id,),
+        ).fetchall()
+        if not rows:
+            return 0
+        now = _now_iso()
+        self._conn.execute("BEGIN IMMEDIATE")
+        try:
+            for row in rows:
+                device_id = str(row["device_id"])
+                self._conn.execute(
+                    "INSERT INTO web_app_device_state VALUES (?, 0, NULL, '{}', ?) ON CONFLICT(device_id) DO UPDATE SET enabled=0, updated_at=excluded.updated_at",
+                    (device_id, now),
+                )
+                self._conn.execute(
+                    "UPDATE web_app_notification_subscriptions SET deleted_at=COALESCE(deleted_at, ?), updated_at=?, cleanup_state='pending' WHERE device_id=?",
+                    (now, now, device_id),
+                )
+            self._conn.execute("COMMIT")
+            return len(rows)
+        except Exception:
+            self._conn.execute("ROLLBACK")
+            raise
+
     async def touch_device(self, *, device_id: str, core_id: str, user_id: str) -> bool:
         async with self._lock:
             return await asyncio.to_thread(self._touch_device, device_id, core_id, user_id)

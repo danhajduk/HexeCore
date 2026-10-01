@@ -46,8 +46,11 @@ class TestWebAppDeviceEnrollment(unittest.TestCase):
     def tearDown(self):
         self.env.stop(); self.tmp.cleanup()
 
-    def create_approved(self):
-        created = self.client.post("/api/auth/device-enrollments", headers=self.auth, json={"display_name": "Phone"})
+    def create_approved(self, user_id=None):
+        body = {"display_name": "Phone"}
+        if user_id is not None:
+            body["user_id"] = user_id
+        created = self.client.post("/api/auth/device-enrollments", headers=self.auth, json=body)
         self.assertEqual(created.status_code, 200, created.text)
         enrollment = created.json()["enrollment"]
         approved = self.client.post(f"/api/auth/device-enrollments/{enrollment['enrollment_id']}/approve", headers=self.auth)
@@ -431,6 +434,31 @@ class TestWebAppDeviceEnrollment(unittest.TestCase):
         )
         self.assertEqual(enabled.status_code, 200, enabled.text)
         self.assertTrue(enabled.json()["device"]["enabled"])
+
+    def test_two_users_configure_notifications_independently_on_same_core(self):
+        alice = asyncio.run(self.users.upsert_user(username="Alice", role="member", enabled=True, password="alice-pass"))
+        bob = asyncio.run(self.users.upsert_user(username="Bob", role="member", enabled=True, password="bob-pass"))
+        alice_complete = self.complete(self.create_approved(alice["user_id"]), Ed25519PrivateKey.generate(), device_id="alice-phone")
+        bob_complete = self.complete(self.create_approved(bob["user_id"]), Ed25519PrivateKey.generate(), device_id="bob-phone")
+        self.assertEqual(alice_complete.status_code, 200, alice_complete.text)
+        self.assertEqual(bob_complete.status_code, 200, bob_complete.text)
+        alice_headers = {"Authorization": f"Bearer {alice_complete.json()['access_token']}"}
+        bob_headers = {"Authorization": f"Bearer {bob_complete.json()['access_token']}"}
+
+        alice_preferences = self.client.get("/api/auth/devices/alice-phone/notification-preferences", headers=alice_headers).json()["preferences"]
+        alice_preferences["categories"]["email-alerts"] = True
+        alice_preferences["privacy_level"] = "summary"
+        bob_preferences = self.client.get("/api/auth/devices/bob-phone/notification-preferences", headers=bob_headers).json()["preferences"]
+        bob_preferences["categories"]["email-alerts"] = False
+        bob_preferences["privacy_level"] = "generic"
+        self.assertEqual(self.client.put("/api/auth/devices/alice-phone/notification-preferences", headers=alice_headers, json=alice_preferences).status_code, 200)
+        self.assertEqual(self.client.put("/api/auth/devices/bob-phone/notification-preferences", headers=bob_headers, json=bob_preferences).status_code, 200)
+
+        alice_saved = self.client.get("/api/auth/devices/alice-phone/notification-preferences", headers=alice_headers).json()["preferences"]
+        bob_saved = self.client.get("/api/auth/devices/bob-phone/notification-preferences", headers=bob_headers).json()["preferences"]
+        self.assertEqual(alice_saved["privacy_level"], "summary")
+        self.assertEqual(bob_saved["privacy_level"], "generic")
+        self.assertEqual(self.client.get("/api/auth/devices/bob-phone/notification-preferences", headers=alice_headers).status_code, 403)
 
 
 if __name__ == "__main__": unittest.main()

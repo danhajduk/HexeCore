@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
@@ -10,6 +12,9 @@ from app.system.auth.human import authenticate_human_token
 from app.system.auth.tokens import ServiceTokenKeyStore
 from .store import UsersStore
 
+if TYPE_CHECKING:
+    from app.system.auth.device_enrollment import WebAppEnrollmentStore
+
 
 class UserUpsertRequest(BaseModel):
     username: str = Field(..., min_length=1)
@@ -18,7 +23,7 @@ class UserUpsertRequest(BaseModel):
     password: str | None = None
 
 
-def build_users_router(users_store: UsersStore, audit_store: AuditLogStore | None = None, key_store: ServiceTokenKeyStore | None = None) -> APIRouter:
+def build_users_router(users_store: UsersStore, audit_store: AuditLogStore | None = None, key_store: ServiceTokenKeyStore | None = None, devices_store: WebAppEnrollmentStore | None = None) -> APIRouter:
     router = APIRouter()
 
     async def require_user_admin(request: Request, x_admin_token: str | None, authorization: str | None):
@@ -58,6 +63,12 @@ def build_users_router(users_store: UsersStore, audit_store: AuditLogStore | Non
             msg = str(exc) or type(exc).__name__
             raise HTTPException(status_code=400, detail=msg)
 
+        disabled_device_count = 0
+        if existing is not None and bool(existing.get("enabled")) and not bool(saved.get("enabled")):
+            await users_store.revoke_user_sessions(str(saved["user_id"]), reason="user_disabled")
+            if devices_store is not None:
+                disabled_device_count = await devices_store.disable_user_devices(str(saved["user_id"]))
+
         if audit_store is not None:
             await audit_store.record(
                 event_type="admin_user_upsert",
@@ -71,7 +82,7 @@ def build_users_router(users_store: UsersStore, audit_store: AuditLogStore | Non
                 await audit_store.record(event_type="human_user_enabled_changed", actor_role=actor_role, actor_id=actor_id, details={"user_id": saved["user_id"], "enabled": saved["enabled"]})
             if existing is not None and body.password:
                 await audit_store.record(event_type="human_password_changed", actor_role=actor_role, actor_id=actor_id, details={"user_id": saved["user_id"]})
-        return {"ok": True, "user": saved}
+        return {"ok": True, "user": saved, "disabled_device_count": disabled_device_count}
 
     @router.get("/users/{username}/sessions")
     async def list_user_sessions(username: str, request: Request, x_admin_token: str | None = Header(default=None), authorization: str | None = Header(default=None)):
@@ -107,6 +118,12 @@ def build_users_router(users_store: UsersStore, audit_store: AuditLogStore | Non
         if not deleted:
             raise HTTPException(status_code=404, detail="user_not_found")
 
+        disabled_device_count = 0
+        if existing is not None:
+            await users_store.revoke_user_sessions(str(existing["user_id"]), reason="user_deleted")
+            if devices_store is not None:
+                disabled_device_count = await devices_store.disable_user_devices(str(existing["user_id"]))
+
         if audit_store is not None:
             await audit_store.record(
                 event_type="admin_user_delete",
@@ -114,6 +131,6 @@ def build_users_router(users_store: UsersStore, audit_store: AuditLogStore | Non
                 actor_id=actor_id,
                 details={"username": username},
             )
-        return {"ok": True, "username": username}
+        return {"ok": True, "username": username, "disabled_device_count": disabled_device_count}
 
     return router
