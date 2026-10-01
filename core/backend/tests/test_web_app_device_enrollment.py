@@ -54,10 +54,10 @@ class TestWebAppDeviceEnrollment(unittest.TestCase):
         self.assertEqual(approved.status_code, 200, approved.text)
         return enrollment
 
-    def complete(self, enrollment, private_key, device_id="device-phone-1", proof=None):
+    def complete(self, enrollment, private_key, device_id="device-phone-1", proof=None, browser_metadata=None):
         public = b64(private_key.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw))
         message = f"{CONTRACT_VERSION}:0123456789abcdef:{enrollment['enrollment_id']}:{device_id}"
-        return self.client.post(f"/api/auth/device-enrollments/{enrollment['enrollment_id']}/complete", json={"proof": proof or enrollment["proof"], "device_id": device_id, "public_key": public, "signature": b64(private_key.sign(message.encode())), "platform": "test"})
+        return self.client.post(f"/api/auth/device-enrollments/{enrollment['enrollment_id']}/complete", json={"proof": proof or enrollment["proof"], "device_id": device_id, "public_key": public, "signature": b64(private_key.sign(message.encode())), "platform": "test", "browser_metadata": browser_metadata or {}})
 
     def test_discovery_is_safe_and_enrollment_is_single_use(self):
         discovery = self.client.get("/api/auth/web-app/discovery")
@@ -193,6 +193,16 @@ class TestWebAppDeviceEnrollment(unittest.TestCase):
         ).json()["enrollment"]
         self.client.post(f"/api/auth/device-enrollments/{replacement['enrollment_id']}/approve", headers=self.auth)
         completed = self.complete(replacement, Ed25519PrivateKey.generate(), device_id="device-phone-2")
+        self.assertEqual(completed.status_code, 200, completed.text)
+
+    def test_disabled_device_does_not_consume_active_device_limit(self):
+        first = self.create_approved()
+        self.assertEqual(self.complete(first, Ed25519PrivateKey.generate()).status_code, 200)
+        self.store._max_devices_per_user = 1
+        self.store._max_devices_per_core = 1
+        asyncio.run(self.store.set_device_enabled(device_id="device-phone-1", core_id="0123456789abcdef", enabled=False))
+        second = self.create_approved()
+        completed = self.complete(second, Ed25519PrivateKey.generate(), device_id="device-phone-2")
         self.assertEqual(completed.status_code, 200, completed.text)
 
     def test_notification_subscription_is_opaque_idempotent_and_device_bound(self):
@@ -376,6 +386,51 @@ class TestWebAppDeviceEnrollment(unittest.TestCase):
         self.assertIsNotNone(db.execute("SELECT 1 FROM web_app_devices WHERE device_id='old-pending'").fetchone())
         self.assertIsNotNone(db.execute("SELECT 1 FROM web_app_notification_subscriptions WHERE device_id='old-pending'").fetchone())
         db.close()
+
+    def test_enrollment_persists_bounded_browser_metadata(self):
+        enrollment = self.create_approved()
+        metadata = {"browser_name": "Safari", "browser_version": "20", "os_name": "iOS", "app_version": "1.2.3"}
+        completed = self.complete(enrollment, Ed25519PrivateKey.generate(), browser_metadata=metadata)
+        self.assertEqual(completed.status_code, 200, completed.text)
+        listed = self.client.get("/api/auth/devices/admin", headers=self.auth)
+        item = next(item for item in listed.json()["items"] if item["device_id"] == "device-phone-1")
+        self.assertEqual(item["browser_metadata"], metadata)
+        rejected = self.create_approved()
+        invalid = self.complete(rejected, Ed25519PrivateKey.generate(), device_id="device-phone-2", browser_metadata={"raw_user_agent": "secret"})
+        self.assertEqual(invalid.status_code, 422, invalid.text)
+
+    def test_owner_can_disable_and_reenable_device_with_session_and_subscription_cleanup(self):
+        enrollment = self.create_approved()
+        completed = self.complete(enrollment, Ed25519PrivateKey.generate())
+        device_headers = {"Authorization": f"Bearer {completed.json()['access_token']}"}
+        registered = self.client.put(
+            "/api/auth/devices/device-phone-1/notification-subscription",
+            headers=device_headers,
+            json={"subscription_ref": "sub_disable-reference", "gateway_audience": "hexe-notification-gateway"},
+        )
+        self.assertEqual(registered.status_code, 200, registered.text)
+
+        disabled = self.client.patch(
+            "/api/auth/devices/admin/device-phone-1/state",
+            headers=self.auth,
+            json={"enabled": False},
+        )
+        self.assertEqual(disabled.status_code, 200, disabled.text)
+        self.assertFalse(disabled.json()["device"]["enabled"])
+        self.assertEqual(self.client.get("/api/auth/devices", headers=device_headers).status_code, 401)
+        db = sqlite3.connect(os.path.join(self.tmp.name, "users.db"))
+        cleanup = db.execute("SELECT deleted_at, cleanup_state FROM web_app_notification_subscriptions WHERE device_id='device-phone-1'").fetchone()
+        db.close()
+        self.assertIsNotNone(cleanup[0])
+        self.assertEqual(cleanup[1], "pending")
+
+        enabled = self.client.patch(
+            "/api/auth/devices/admin/device-phone-1/state",
+            headers=self.auth,
+            json={"enabled": True},
+        )
+        self.assertEqual(enabled.status_code, 200, enabled.text)
+        self.assertTrue(enabled.json()["device"]["enabled"])
 
 
 if __name__ == "__main__": unittest.main()

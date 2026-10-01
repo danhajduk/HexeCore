@@ -317,6 +317,20 @@ and safe subscription/preference state but never device public keys or opaque
 subscription references. Administrators cannot revoke an owner's device;
 owner-device administration requires an owner token.
 
+Administrative device state can be changed at
+`PATCH /api/auth/devices/admin/{device_id}/state`. Disabling a device revokes
+its sessions, marks its subscription for gateway cleanup, excludes it from
+active-device limits, and causes bootstrap/realtime authentication to fail.
+Re-enabling the retained device record does not restore revoked sessions or its
+deleted subscription. Successful enrolled-device bootstrap/realtime checks
+update `last_seen_at`; enrollment stores a bounded allow-list of browser and OS
+metadata rather than a raw user-agent string.
+
+The enrolled bootstrap now advertises notification configuration support and
+reports only safe booleans for subscription and preference state. Delivery is
+reported unavailable until the Task 1010 gateway publisher exists; the opaque
+subscription reference is never included.
+
 `POST /api/auth/devices/admin/prune` applies the configured retention window
 to expired/revoked sessions, consumed refresh-token replay records, terminal
 enrollments, revoked devices, preferences, and completed subscription cleanup

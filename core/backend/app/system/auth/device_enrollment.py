@@ -64,6 +64,17 @@ class EnrollmentCompleteRequest(BaseModel):
     public_key: str = Field(..., min_length=43, max_length=128)
     signature: str = Field(..., min_length=43, max_length=256)
     platform: str | None = Field(default=None, max_length=80)
+    browser_metadata: dict[str, str] = Field(default_factory=dict)
+
+    @field_validator("browser_metadata")
+    @classmethod
+    def validate_browser_metadata(cls, value: dict[str, str]) -> dict[str, str]:
+        allowed = {"browser_name", "browser_version", "os_name", "os_version", "app_version"}
+        if set(value) - allowed or len(value) > len(allowed):
+            raise ValueError("browser_metadata_invalid")
+        if any(not item.strip() or len(item) > 80 for item in value.values()):
+            raise ValueError("browser_metadata_invalid")
+        return value
 
 
 class DeviceKeyRotationRequest(BaseModel):
@@ -74,6 +85,10 @@ class DeviceKeyRotationRequest(BaseModel):
 
 class DeviceUpdateRequest(BaseModel):
     display_name: str = Field(..., min_length=1, max_length=120)
+
+
+class DeviceStateUpdateRequest(BaseModel):
+    enabled: bool
 
 
 class NotificationSubscriptionRequest(BaseModel):
@@ -160,6 +175,12 @@ class WebAppEnrollmentStore:
               created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
               FOREIGN KEY(device_id) REFERENCES web_app_devices(device_id)
             );
+            CREATE TABLE IF NOT EXISTS web_app_device_state (
+              device_id TEXT PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 1,
+              last_seen_at TEXT, browser_metadata_json TEXT NOT NULL DEFAULT '{}',
+              updated_at TEXT NOT NULL,
+              FOREIGN KEY(device_id) REFERENCES web_app_devices(device_id)
+            );
             """
         )
 
@@ -210,11 +231,11 @@ class WebAppEnrollmentStore:
         if datetime.fromisoformat(str(row["expires_at"]).replace("Z", "+00:00")) <= _now():
             raise RuntimeError("enrollment_expired")
 
-    async def consume(self, *, enrollment_id: str, proof: str, device_id: str, public_key: str, platform: str | None) -> dict[str, Any]:
+    async def consume(self, *, enrollment_id: str, proof: str, device_id: str, public_key: str, platform: str | None, browser_metadata: dict[str, str] | None = None) -> dict[str, Any]:
         async with self._lock:
-            return await asyncio.to_thread(self._consume, enrollment_id, proof, device_id, public_key, platform)
+            return await asyncio.to_thread(self._consume, enrollment_id, proof, device_id, public_key, platform, browser_metadata or {})
 
-    def _consume(self, enrollment_id, proof, device_id, public_key, platform):
+    def _consume(self, enrollment_id, proof, device_id, public_key, platform, browser_metadata):
         self._conn.execute("BEGIN IMMEDIATE")
         try:
             row = self._get(enrollment_id)
@@ -228,12 +249,12 @@ class WebAppEnrollmentStore:
             if existing is not None and device_id != replace_id: raise RuntimeError("device_already_exists")
             excluded_device_id = replace_id if replace_id else device_id
             user_count = self._conn.execute(
-                "SELECT COUNT(*) FROM web_app_devices WHERE user_id=? AND revoked_at IS NULL AND device_id<>?",
+                "SELECT COUNT(*) FROM web_app_devices d LEFT JOIN web_app_device_state s ON s.device_id=d.device_id WHERE d.user_id=? AND d.revoked_at IS NULL AND COALESCE(s.enabled, 1)=1 AND d.device_id<>?",
                 (row["user_id"], excluded_device_id),
             ).fetchone()[0]
             if user_count >= self._max_devices_per_user: raise RuntimeError("device_user_limit_reached")
             core_count = self._conn.execute(
-                "SELECT COUNT(*) FROM web_app_devices WHERE core_id=? AND revoked_at IS NULL AND device_id<>?",
+                "SELECT COUNT(*) FROM web_app_devices d LEFT JOIN web_app_device_state s ON s.device_id=d.device_id WHERE d.core_id=? AND d.revoked_at IS NULL AND COALESCE(s.enabled, 1)=1 AND d.device_id<>?",
                 (row["core_id"], excluded_device_id),
             ).fetchone()[0]
             if core_count >= self._max_devices_per_core: raise RuntimeError("device_core_limit_reached")
@@ -242,12 +263,17 @@ class WebAppEnrollmentStore:
                 if replacement is None: raise RuntimeError("replacement_device_not_available")
                 revoked_at = _now_iso()
                 self._conn.execute("UPDATE web_app_devices SET revoked_at=?, updated_at=? WHERE device_id=?", (revoked_at, revoked_at, replace_id))
+                self._conn.execute("UPDATE web_app_device_state SET enabled=0, updated_at=? WHERE device_id=?", (revoked_at, replace_id))
                 self._conn.execute(
                     "UPDATE web_app_notification_subscriptions SET deleted_at=?, updated_at=?, cleanup_state='pending' WHERE device_id=? AND deleted_at IS NULL",
                     (revoked_at, revoked_at, replace_id),
                 )
             now = _now_iso()
             self._conn.execute("INSERT INTO web_app_devices VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL) ON CONFLICT(device_id) DO UPDATE SET public_key=excluded.public_key, platform=excluded.platform, updated_at=excluded.updated_at, revoked_at=NULL", (device_id, row["core_id"], row["user_id"], row["display_name"], public_key, platform, now, now))
+            self._conn.execute(
+                "INSERT INTO web_app_device_state VALUES (?, 1, ?, ?, ?) ON CONFLICT(device_id) DO UPDATE SET enabled=1, last_seen_at=excluded.last_seen_at, browser_metadata_json=excluded.browser_metadata_json, updated_at=excluded.updated_at",
+                (device_id, now, json.dumps(browser_metadata, sort_keys=True, separators=(",", ":")), now),
+            )
             changed = self._conn.execute("UPDATE web_app_enrollments SET status='consumed', consumed_at=?, device_id=? WHERE enrollment_id=? AND status='approved'", (now, device_id, enrollment_id)).rowcount
             if changed != 1: raise RuntimeError("enrollment_already_consumed")
             self._conn.execute("COMMIT")
@@ -258,14 +284,27 @@ class WebAppEnrollmentStore:
 
     async def get_device(self, device_id: str) -> dict[str, Any] | None:
         async with self._lock:
-            row = await asyncio.to_thread(self._conn.execute("SELECT * FROM web_app_devices WHERE device_id=?", (device_id,)).fetchone)
+            row = await asyncio.to_thread(self._conn.execute(
+                """SELECT d.*,
+                    CASE WHEN d.revoked_at IS NOT NULL THEN 0 ELSE COALESCE(s.enabled, 1) END AS enabled,
+                    COALESCE(s.last_seen_at, d.updated_at) AS last_seen_at,
+                    COALESCE(s.browser_metadata_json, '{}') AS browser_metadata_json,
+                    CASE WHEN ns.device_id IS NULL OR ns.deleted_at IS NOT NULL THEN 0 ELSE 1 END AS notification_subscription_active,
+                    CASE WHEN np.device_id IS NULL THEN 0 ELSE 1 END AS notification_preferences_configured
+                   FROM web_app_devices d
+                   LEFT JOIN web_app_device_state s ON s.device_id=d.device_id
+                   LEFT JOIN web_app_notification_subscriptions ns ON ns.device_id=d.device_id
+                   LEFT JOIN web_app_notification_preferences np ON np.device_id=d.device_id
+                   WHERE d.device_id=?""",
+                (device_id,),
+            ).fetchone)
             return dict(row) if row else None
 
     async def list_devices(self, user_id: str) -> list[dict[str, Any]]:
         async with self._lock:
             rows = await asyncio.to_thread(
                 self._conn.execute(
-                    "SELECT * FROM web_app_devices WHERE user_id=? ORDER BY created_at, device_id",
+                    "SELECT d.*, CASE WHEN d.revoked_at IS NOT NULL THEN 0 ELSE COALESCE(s.enabled, 1) END AS enabled, COALESCE(s.last_seen_at, d.updated_at) AS last_seen_at, COALESCE(s.browser_metadata_json, '{}') AS browser_metadata_json FROM web_app_devices d LEFT JOIN web_app_device_state s ON s.device_id=d.device_id WHERE d.user_id=? ORDER BY d.created_at, d.device_id",
                     (user_id,),
                 ).fetchall
             )
@@ -277,12 +316,16 @@ class WebAppEnrollmentStore:
                 self._conn.execute(
                     """
                     SELECT d.*,
+                      CASE WHEN d.revoked_at IS NOT NULL THEN 0 ELSE COALESCE(ds.enabled, 1) END AS enabled,
+                      COALESCE(ds.last_seen_at, d.updated_at) AS last_seen_at,
+                      COALESCE(ds.browser_metadata_json, '{}') AS browser_metadata_json,
                       CASE WHEN s.device_id IS NULL OR s.deleted_at IS NOT NULL THEN 0 ELSE 1 END AS notification_subscription_active,
                       s.cleanup_state AS notification_cleanup_state,
                       CASE WHEN p.device_id IS NULL THEN 0 ELSE 1 END AS notification_preferences_configured
                     FROM web_app_devices d
                     LEFT JOIN web_app_notification_subscriptions s ON s.device_id=d.device_id
                     LEFT JOIN web_app_notification_preferences p ON p.device_id=d.device_id
+                    LEFT JOIN web_app_device_state ds ON ds.device_id=d.device_id
                     WHERE d.core_id=?
                     ORDER BY d.created_at, d.device_id
                     """,
@@ -306,6 +349,57 @@ class WebAppEnrollmentStore:
             )
             return dict(row) if row else None
 
+    async def set_device_enabled(self, *, device_id: str, core_id: str, enabled: bool) -> dict[str, Any] | None:
+        async with self._lock:
+            return await asyncio.to_thread(self._set_device_enabled, device_id, core_id, enabled)
+
+    def _set_device_enabled(self, device_id: str, core_id: str, enabled: bool) -> dict[str, Any] | None:
+        device = self._conn.execute(
+            "SELECT * FROM web_app_devices WHERE device_id=? AND core_id=? AND revoked_at IS NULL",
+            (device_id, core_id),
+        ).fetchone()
+        if device is None:
+            return None
+        now = _now_iso()
+        self._conn.execute("BEGIN IMMEDIATE")
+        try:
+            self._conn.execute(
+                "INSERT INTO web_app_device_state VALUES (?, ?, NULL, '{}', ?) ON CONFLICT(device_id) DO UPDATE SET enabled=excluded.enabled, updated_at=excluded.updated_at",
+                (device_id, int(enabled), now),
+            )
+            if not enabled:
+                self._conn.execute(
+                    "UPDATE web_app_notification_subscriptions SET deleted_at=COALESCE(deleted_at, ?), updated_at=?, cleanup_state='pending' WHERE device_id=?",
+                    (now, now, device_id),
+                )
+            self._conn.execute("COMMIT")
+        except Exception:
+            self._conn.execute("ROLLBACK")
+            raise
+        return dict(self._conn.execute(
+            "SELECT d.*, s.enabled, COALESCE(s.last_seen_at, d.updated_at) AS last_seen_at, s.browser_metadata_json FROM web_app_devices d JOIN web_app_device_state s ON s.device_id=d.device_id WHERE d.device_id=?",
+            (device_id,),
+        ).fetchone())
+
+    async def touch_device(self, *, device_id: str, core_id: str, user_id: str) -> bool:
+        async with self._lock:
+            return await asyncio.to_thread(self._touch_device, device_id, core_id, user_id)
+
+    def _touch_device(self, device_id: str, core_id: str, user_id: str) -> bool:
+        device = self._conn.execute(
+            "SELECT device_id FROM web_app_devices WHERE device_id=? AND core_id=? AND user_id=? AND revoked_at IS NULL",
+            (device_id, core_id, user_id),
+        ).fetchone()
+        if device is None:
+            return False
+        now = _now_iso()
+        self._conn.execute(
+            "INSERT INTO web_app_device_state VALUES (?, 1, ?, '{}', ?) ON CONFLICT(device_id) DO UPDATE SET last_seen_at=excluded.last_seen_at, updated_at=excluded.updated_at WHERE web_app_device_state.enabled=1",
+            (device_id, now, now),
+        )
+        state = self._conn.execute("SELECT enabled FROM web_app_device_state WHERE device_id=?", (device_id,)).fetchone()
+        return bool(state and state["enabled"])
+
     async def revoke_device(self, device_id: str, user_id: str) -> bool:
         async with self._lock:
             now = _now_iso()
@@ -319,6 +413,7 @@ class WebAppEnrollmentStore:
                 (now, now, device_id, user_id),
             )
             if changed.rowcount == 1:
+                self._conn.execute("UPDATE web_app_device_state SET enabled=0, updated_at=? WHERE device_id=?", (now, device_id))
                 self._conn.execute(
                     "UPDATE web_app_notification_subscriptions SET deleted_at=?, updated_at=?, cleanup_state='pending' WHERE device_id=? AND user_id=? AND deleted_at IS NULL",
                     (now, now, device_id, user_id),
@@ -413,6 +508,10 @@ class WebAppEnrollmentStore:
                 f"DELETE FROM web_app_notification_preferences WHERE device_id IN ({removable})",
                 (core_id, before),
             ).rowcount
+            device_state = self._conn.execute(
+                f"DELETE FROM web_app_device_state WHERE device_id IN ({removable})",
+                (core_id, before),
+            ).rowcount
             subscriptions = self._conn.execute(
                 "DELETE FROM web_app_notification_subscriptions WHERE core_id=? AND deleted_at IS NOT NULL AND deleted_at < ? AND cleanup_state<>'pending'",
                 (core_id, before),
@@ -433,6 +532,7 @@ class WebAppEnrollmentStore:
             return {
                 "devices": int(devices),
                 "notification_preferences": int(preferences),
+                "device_state": int(device_state),
                 "notification_subscriptions": int(subscriptions),
                 "enrollments": int(enrollments),
             }
@@ -487,6 +587,9 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
             "created_at": device["created_at"],
             "updated_at": device["updated_at"],
             "revoked_at": device.get("revoked_at"),
+            "enabled": bool(device.get("enabled", not device.get("revoked_at"))),
+            "last_seen_at": device.get("last_seen_at"),
+            "browser_metadata": json.loads(device.get("browser_metadata_json") or "{}"),
         }
 
     def public_preferences(preferences: dict[str, Any] | None) -> dict[str, Any]:
@@ -555,7 +658,7 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
         message = f"{CONTRACT_VERSION}:{core_id}:{enrollment_id}:{body.device_id}"
         try:
             _verify_signature(body.public_key, body.signature, message)
-            consumed = await store.consume(enrollment_id=enrollment_id, proof=body.proof, device_id=body.device_id, public_key=body.public_key, platform=body.platform)
+            consumed = await store.consume(enrollment_id=enrollment_id, proof=body.proof, device_id=body.device_id, public_key=body.public_key, platform=body.platform, browser_metadata=body.browser_metadata)
         except HTTPException:
             await record("web_app_enrollment_failed", "anonymous", "guest", {"enrollment_id": enrollment_id, "reason": "device_key_proof_invalid"})
             raise
@@ -642,6 +745,29 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
             {"retention_days": retention_days, "counts": counts},
         )
         return {"ok": True, "retention_days": retention_days, "before": before, "counts": counts}
+
+    @router.patch("/devices/admin/{device_id}/state")
+    async def update_device_state(device_id: str, body: DeviceStateUpdateRequest, authorization: str | None = Header(default=None)):
+        principal = await authenticate_human_token(authorization, keys, users)
+        principal.require("users.manage")
+        device = await store.get_device(device_id)
+        if device is None or device.get("revoked_at") or str(device["core_id"]) != core_id:
+            raise HTTPException(status_code=404, detail="device_not_found")
+        target_user = await users.get_user_by_id(str(device["user_id"]))
+        if target_user is not None and str(target_user.get("role")) == "owner" and principal.role != "owner":
+            raise HTTPException(status_code=403, detail="owner_role_required")
+        updated = await store.set_device_enabled(device_id=device_id, core_id=core_id, enabled=body.enabled)
+        if updated is None:
+            raise HTTPException(status_code=404, detail="device_not_found")
+        if not body.enabled:
+            await users.revoke_device_sessions(device_id, reason="administrator_disabled_device")
+        await record(
+            "web_app_device_enabled_changed",
+            principal.user_id,
+            principal.role,
+            {"device_id": device_id, "target_user_id": device["user_id"], "enabled": body.enabled},
+        )
+        return {"ok": True, "device": administrative_device(updated)}
 
     @router.patch("/devices/{device_id}")
     async def rename_device(device_id: str, body: DeviceUpdateRequest, authorization: str | None = Header(default=None)):

@@ -85,13 +85,21 @@ class TestWebAppBootstrap:
         payload = response.json()
         assert payload["core"]["core_id"] == "0123456789abcdef"
         assert payload["user"]["permissions"] == ["sessions.self"]
-        assert payload["device"] == {
-            "device_id": "device-123",
-            "display_name": "Dan's phone",
-            "platform": "mobile",
-        }
+        assert payload["device"]["device_id"] == "device-123"
+        assert payload["device"]["display_name"] == "Dan's phone"
+        assert payload["device"]["platform"] == "mobile"
+        assert payload["device"]["enabled"] is True
+        assert payload["device"]["last_seen_at"]
+        assert payload["device"]["browser_metadata"] == {}
         assert payload["features"]["administration"] is False
-        assert payload["notifications"] == {"supported": False, "state": "not_implemented"}
+        assert payload["features"]["notifications"] is True
+        assert payload["notifications"] == {
+            "supported": True,
+            "subscription_registered": False,
+            "preferences_configured": False,
+            "delivery_available": False,
+            "state": "subscription_required",
+        }
         assert "public_key" not in str(payload)
 
     def test_fails_closed_without_access_token(self) -> None:
@@ -107,6 +115,17 @@ class TestWebAppBootstrap:
         )
         assert response.status_code == 403
         assert response.json()["detail"] == "enrolled_device_required"
+
+    def test_fails_closed_for_disabled_device(self) -> None:
+        self._enroll_device()
+        login = self._login("device-123")
+        asyncio.run(self.devices.set_device_enabled(device_id="device-123", core_id="0123456789abcdef", enabled=False))
+        response = self.client.get(
+            "/api/web-app/bootstrap",
+            headers={"Authorization": f"Bearer {login['access_token']}"},
+        )
+        assert response.status_code == 403
+        assert response.json()["detail"] == "enrolled_device_invalid"
 
     def test_fails_closed_for_device_owned_by_another_user(self) -> None:
         self._enroll_device()

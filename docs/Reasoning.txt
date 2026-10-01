@@ -379,3 +379,11 @@ Chosen fix: Add a configurable retention window and an audited `users.manage` pr
 What changed: Added transactional device/subscription/preference/enrollment pruning, session and refresh-replay pruning, configuration documentation, and focused preservation tests.
 Verification: Focused device retention tests passed.
 ###########
+
+Task #1008
+Step objective: Persist enabled, last-seen, and bounded browser metadata for enrolled devices.
+Issue cause: Device records had platform and revocation state but no reversible disablement, activity timestamp, or bounded browser metadata.
+Chosen fix: Add separate lifecycle state compatible with existing device rows, fail closed in bootstrap/realtime, and revoke sessions plus queue subscription cleanup on disablement.
+What changed: Added device state persistence, administrative enable/disable API, activity updates, bounded metadata validation, active-limit handling, and focused tests.
+Verification: Enrollment and bootstrap tests passed, including disabled-device denial.
+###########

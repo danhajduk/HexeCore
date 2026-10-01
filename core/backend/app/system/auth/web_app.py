@@ -34,6 +34,7 @@ def build_web_app_router(
         if (
             device is None
             or device.get("revoked_at")
+            or not bool(device.get("enabled", True))
             or str(device.get("user_id") or "") != principal.user_id
         ):
             raise HTTPException(status_code=403, detail="enrolled_device_invalid")
@@ -41,6 +42,9 @@ def build_web_app_router(
         identity = await load_platform_identity(settings)
         if str(device.get("core_id") or "") != identity.core_id:
             raise HTTPException(status_code=403, detail="enrolled_device_wrong_core")
+        if not await devices.touch_device(device_id=principal.device_id, core_id=identity.core_id, user_id=principal.user_id):
+            raise HTTPException(status_code=403, detail="enrolled_device_invalid")
+        device = await devices.get_device(principal.device_id) or device
         return principal, device, identity
 
     def bootstrap_payload(principal: HumanPrincipal, device: dict, identity: PlatformIdentity) -> dict:
@@ -63,16 +67,22 @@ def build_web_app_router(
                 "device_id": str(device["device_id"]),
                 "display_name": str(device["display_name"]),
                 "platform": device.get("platform"),
+                "enabled": bool(device.get("enabled", True)),
+                "last_seen_at": device.get("last_seen_at"),
+                "browser_metadata": json.loads(device.get("browser_metadata_json") or "{}"),
             },
             "features": {
                 "assistant": False,
                 "realtime": True,
-                "notifications": False,
+                "notifications": True,
                 "administration": "core.admin" in permissions,
             },
             "notifications": {
-                "supported": False,
-                "state": "not_implemented",
+                "supported": True,
+                "subscription_registered": bool(device.get("notification_subscription_active", False)),
+                "preferences_configured": bool(device.get("notification_preferences_configured", False)),
+                "delivery_available": False,
+                "state": "configured" if device.get("notification_subscription_active") else "subscription_required",
             },
         }
 
