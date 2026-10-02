@@ -46,6 +46,13 @@ def _safe_static_path(root: Path, request_path: str) -> Path | None:
     return candidate
 
 
+def _file_response(path: Path) -> FileResponse:
+    headers = None
+    if path.name in {"service-worker.js", "index.html"}:
+        headers = {"Cache-Control": "no-cache, no-store, must-revalidate"}
+    return FileResponse(path, headers=headers)
+
+
 def build_frontend_static_router(dist_dir: Path | None = None) -> APIRouter | None:
     if not frontend_serving_enabled():
         return None
@@ -65,15 +72,15 @@ def build_frontend_static_router(dist_dir: Path | None = None) -> APIRouter | No
         if safe_path.is_dir():
             nested_index = safe_path / "index.html"
             if nested_index.is_file():
-                return FileResponse(nested_index)
+                return _file_response(nested_index)
 
         if safe_path.is_file():
-            return FileResponse(safe_path)
+            return _file_response(safe_path)
 
         if _is_reserved_backend_path(path) or Path(path).suffix:
             raise HTTPException(status_code=404, detail="not_found")
 
-        return FileResponse(index)
+        return _file_response(index)
 
     router.add_api_route("/", serve_frontend, methods=["GET", "HEAD"], include_in_schema=False)
     router.add_api_route("/{path:path}", serve_frontend, methods=["GET", "HEAD"], include_in_schema=False)

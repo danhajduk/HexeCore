@@ -12,6 +12,7 @@ def _write_dist(root: Path) -> None:
     (root / "index.html").write_text("<!doctype html><title>Hexe</title><div id=\"root\"></div>", encoding="utf-8")
     (root / "assets").mkdir()
     (root / "assets" / "main.js").write_text("console.log('hexe')", encoding="utf-8")
+    (root / "service-worker.js").write_text("self.addEventListener('install', () => {})", encoding="utf-8")
 
 
 def _client(dist: Path) -> TestClient:
@@ -51,6 +52,11 @@ def test_serves_static_assets_and_spa_routes(tmp_path: Path) -> None:
     nested = client.get("/settings/jobs")
     assert nested.status_code == 200
     assert "<title>Hexe</title>" in nested.text
+
+    worker = client.get("/service-worker.js")
+    assert worker.status_code == 200
+    assert worker.headers["cache-control"] == "no-cache, no-store, must-revalidate"
+    assert root.headers["cache-control"] == "no-cache, no-store, must-revalidate"
 
 
 def test_reserved_backend_routes_are_not_shadowed_by_spa_fallback(tmp_path: Path) -> None:
