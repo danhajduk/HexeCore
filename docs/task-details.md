@@ -1394,3 +1394,20 @@ Original task details:
 - Acceptance: Implement registration and deletion grant issuance and PWA `PushManager` integration with audience, Core, user, device, operation, expiry, and replay safety.
 - Acceptance: Cover wrong Core, wrong user, wrong device, wrong audience, replay, expiry, rotation, permission denial, and cross-user isolation with focused tests.
 - Verification: Run targeted backend/security tests, frontend component tests, frontend build/typecheck, API/OpenAPI checks, and live gateway checks where configured; record physical-device or external-gateway limitations explicitly.
+
+## Task 1016
+Original task details:
+- Coordination request: `HEXE-REQ-20261002-WEBPUSH-BOOTSTRAP` from `website` to `core`.
+- Depends on: `HEXE-REQ-20261002-WEBPUSH-REGISTRATION` and proposed contract `contracts/proposed/web-push-gateway-bootstrap-v1.md`.
+- Priority: high.
+- Implement the Core side of a trusted Web Push gateway bootstrap and key-provisioning ceremony without moving the proposed contract to `contracts/accepted/` until Core and Website implementations agree and pass contract tests.
+- Require Core-owner step-up authentication for bootstrap, credential/key rotation, and revocation.
+- Accept only a short-lived, single-use gateway bootstrap token bound by the gateway to the expected `core_id`; never accept bootstrap material in a URL.
+- Send server-to-server only: `hexe.web-push-gateway-bootstrap.v1`, stable `core_id`, canonical HTTPS Core origin, the Task 1015 Ed25519 registration-grant public key, its exact key ID, and algorithm.
+- Receive and strictly validate the gateway audience, VAPID public key, registration/subscription endpoint URL, delivery endpoint URL, credential version, creation time, allowed scopes, and distinct per-Core delivery credential.
+- Store the reusable delivery credential only in Core's sensitive settings store. Never expose it to browsers, logs, audits, coordination files, safe status, or ordinary API responses.
+- Preserve Task 1015 registration-grant and `PushManager` behavior by sourcing its public gateway configuration from the successfully bootstrapped sensitive Core record.
+- Support explicit credential/public-key rotation and immediate revocation. Coordinate any required lifecycle scope or endpoint schema correction with Website in the proposed contract.
+- Gateway requirements retained as contract constraints: verify registration grants using the provisioned public key; do not trust an unverified `core_id`, fetch arbitrary key URLs, or receive a Core human/admin token.
+- Acceptance: Focused tests cover token expiry, replay, wrong Core, duplicate enrollment, credential/key rotation, immediate revocation, allowed-scope restrictions, owner step-up enforcement, and secret redaction.
+- Verification: Update Core API/configuration/security documentation, OpenAPI snapshot, generated route appendix, environment registry if applicable, and coordination evidence. Keep the proposal in `contracts/proposed/` until both implementations pass.
