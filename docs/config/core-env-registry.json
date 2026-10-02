@@ -1310,7 +1310,7 @@
     },
     {
       "default": null,
-      "description": "Public VAPID application-server key used by enrolled browsers when creating Push API subscriptions.",
+      "description": "Legacy pre-bootstrap public-key fallback. A provisioned Core ignores it and serves its own active per-Core VAPID public key; private VAPID material is never an environment variable.",
       "name": "HEXE_NOTIFICATION_GATEWAY_VAPID_PUBLIC_KEY",
       "owner": "Auth and service access",
       "sensitive": false

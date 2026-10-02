@@ -1404,7 +1404,7 @@ Original task details:
 - Require Core-owner step-up authentication for bootstrap, credential/key rotation, and revocation.
 - Accept only a short-lived, single-use gateway bootstrap token bound by the gateway to the expected `core_id`; never accept bootstrap material in a URL.
 - Send server-to-server only: `hexe.web-push-gateway-bootstrap.v1`, stable `core_id`, canonical HTTPS Core origin, the Task 1015 Ed25519 registration-grant public key, its exact key ID, and algorithm.
-- Receive and strictly validate the gateway audience, VAPID public key, registration/subscription endpoint URL, delivery endpoint URL, credential version, creation time, allowed scopes, and distinct per-Core delivery credential.
+- Receive and strictly validate the gateway audience, echoed Core-owned VAPID public key and key id, registration/subscription endpoint URL, delivery endpoint URL, credential version, creation time, allowed scopes, and distinct per-Core delivery credential.
 - Store the reusable delivery credential only in Core's sensitive settings store. Never expose it to browsers, logs, audits, coordination files, safe status, or ordinary API responses.
 - Preserve Task 1015 registration-grant and `PushManager` behavior by sourcing its public gateway configuration from the successfully bootstrapped sensitive Core record.
 - Support explicit credential/public-key rotation and immediate revocation. Coordinate any required lifecycle scope or endpoint schema correction with Website in the proposed contract.

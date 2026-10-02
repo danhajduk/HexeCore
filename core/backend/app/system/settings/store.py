@@ -66,6 +66,9 @@ class SettingsStore:
     async def set_sensitive(self, key: str, value: Any) -> None:
         await self._run(self._set_sensitive_sync, key, value)
 
+    async def set_sensitive_many(self, values: Dict[str, Any]) -> None:
+        await self._run(self._set_sensitive_many_sync, values)
+
     async def delete_sensitive(self, key: str) -> None:
         await self._run(self._delete_sensitive_sync, key)
 
@@ -132,6 +135,21 @@ class SettingsStore:
             (key, json.dumps(value), _utcnow_iso()),
         )
         self._conn.commit()
+
+    def _set_sensitive_many_sync(self, values: Dict[str, Any]) -> None:
+        updated_at = _utcnow_iso()
+        with self._conn:
+            for key, value in values.items():
+                self._conn.execute(
+                    """
+                    INSERT INTO app_sensitive_settings (key, value_json, updated_at)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(key) DO UPDATE SET
+                      value_json=excluded.value_json,
+                      updated_at=excluded.updated_at
+                    """,
+                    (key, json.dumps(value), updated_at),
+                )
 
     def _delete_sensitive_sync(self, key: str) -> None:
         self._conn.execute("DELETE FROM app_sensitive_settings WHERE key = ?", (key,))

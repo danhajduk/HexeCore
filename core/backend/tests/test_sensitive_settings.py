@@ -28,3 +28,12 @@ def test_sensitive_values_are_not_available_through_ordinary_settings_api():
         assert asyncio.run(store.get_sensitive("gateway")) == {"secret": "must-not-escape"}
         asyncio.run(store.delete_sensitive("gateway"))
         assert asyncio.run(store.get_sensitive("gateway")) is None
+
+
+def test_sensitive_batch_is_committed_together():
+    with tempfile.TemporaryDirectory() as temporary:
+        store = SettingsStore(os.path.join(temporary, "settings.db"))
+        asyncio.run(store.set_sensitive_many({"registration": {"version": 2}, "vapid": {"version": 2}}))
+
+        assert asyncio.run(store.get_sensitive("registration")) == {"version": 2}
+        assert asyncio.run(store.get_sensitive("vapid")) == {"version": 2}

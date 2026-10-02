@@ -22,9 +22,6 @@ CORE_ID = "0123456789abcdef"
 BOOTSTRAP_URL = "https://gateway.example/v1/cores/bootstrap"
 SECRET_ONE = "first-delivery-secret-that-never-leaves-core"
 SECRET_TWO = "rotated-delivery-secret-that-never-leaves-core"
-VAPID_PUBLIC_KEY = base64.urlsafe_b64encode(b"\x04" + b"v" * 64).decode().rstrip("=")
-
-
 def gateway_response(request: httpx.Request, *, secret: str = SECRET_ONE, version: str = "v1", scopes=None, core_id: str | None = None):
     body = json.loads(request.content)
     return httpx.Response(201, json={
@@ -32,7 +29,8 @@ def gateway_response(request: httpx.Request, *, secret: str = SECRET_ONE, versio
         "core_id": core_id or body["core_id"],
         "state": "active",
         "gateway_audience": "hexe-notification-gateway",
-        "vapid_public_key": VAPID_PUBLIC_KEY,
+        "vapid_public_key": body["vapid_public_key"],
+        "vapid_key_id": body["vapid_key_id"],
         "subscription_endpoint": "https://gateway.example/v1/subscriptions",
         "delivery_endpoint": "https://gateway.example/v1/notifications",
         "rotation_endpoint": "https://gateway.example/v1/cores/rotate",
@@ -100,13 +98,24 @@ def test_owner_step_up_bootstrap_stores_secret_only_in_sensitive_settings():
         assert sent["canonical_origin"] == f"https://{CORE_ID}.hexe-ai.com"
         assert sent["registration_key_id"] == f"{CORE_ID}:web-push-registration:v1"
         assert sent["registration_public_key"] == asyncio.run(fixture.issuer.public_key())
+        assert sent["previous_credential_version"] is None
+        assert sent["vapid_key_algorithm"] == "ES256"
+        assert sent["vapid_private_jwk"]["kty"] == "EC"
+        assert sent["vapid_private_jwk"]["crv"] == "P-256"
+        assert sent["vapid_private_jwk"]["key_ops"] == ["sign"]
+        assert "d" in sent["vapid_private_jwk"]
         assert requests[0].headers.get("authorization") is None
         assert "t" * 32 not in str(requests[0].url)
         record = asyncio.run(fixture.settings.get_sensitive("notification_gateway_credential"))
         assert record["secret"] == SECRET_ONE
+        vapid = asyncio.run(fixture.settings.get_sensitive("web_push_vapid_key_v1"))
+        assert vapid["public_key"] == sent["vapid_public_key"]
+        assert vapid["private_jwk"] == sent["vapid_private_jwk"]
         ordinary = fixture.client.get("/api/system/settings")
         assert SECRET_ONE not in ordinary.text
         assert "notification_gateway_credential" not in ordinary.text
+        assert "web_push_vapid_key_v1" not in ordinary.text
+        assert sent["vapid_private_jwk"]["d"] not in response.text
     finally:
         fixture.close()
 
@@ -162,11 +171,14 @@ def test_scope_restriction_rotation_and_immediate_revocation():
         first = fixture.client.post("/api/web-app/notification-gateway/bootstrap", headers=fixture.owner, json={"password": "owner-pass", "bootstrap_token": "first" + "x" * 27})
         assert first.status_code == 200
         old_public = asyncio.run(fixture.issuer.public_key())
+        old_vapid = asyncio.run(fixture.settings.get_sensitive("web_push_vapid_key_v1"))["public_key"]
         rotated = fixture.client.post("/api/web-app/notification-gateway/bootstrap/rotate", headers=fixture.owner, json={"password": "owner-pass", "bootstrap_token": "rotate" + "x" * 26})
         assert rotated.status_code == 200, rotated.text
         assert requested_urls[-1] == "https://gateway.example/v1/cores/rotate"
         assert rotated.json()["credential_version"] == "v3"
         assert asyncio.run(fixture.issuer.public_key()) != old_public
+        new_vapid = asyncio.run(fixture.settings.get_sensitive("web_push_vapid_key_v1"))["public_key"]
+        assert new_vapid != old_vapid
         record = asyncio.run(fixture.settings.get_sensitive("notification_gateway_credential"))
         assert record["secret"] == SECRET_TWO
         revoked = fixture.client.post("/api/web-app/notification-gateway/bootstrap/revoke", headers=fixture.owner, json={"password": "owner-pass", "bootstrap_token": "revoke" + "x" * 26})
@@ -179,6 +191,36 @@ def test_scope_restriction_rotation_and_immediate_revocation():
         assert (asyncio.run(fixture.issuer.runtime_configuration()))["configured"] is False
         assert SECRET_ONE not in fixture.client.get("/api/web-app/notification-gateway/bootstrap/status", headers=fixture.owner).text
         assert SECRET_TWO not in fixture.client.get("/api/web-app/notification-gateway/bootstrap/status", headers=fixture.owner).text
+    finally:
+        fixture.close()
+
+
+def test_failed_rotation_preserves_all_active_key_material():
+    calls = {"count": 0, "rotation_body": None}
+
+    def handler(request):
+        body = json.loads(request.content)
+        calls["count"] += 1
+        if body["operation"] == "rotate":
+            calls["rotation_body"] = body
+            return httpx.Response(409, json={"error": "bootstrap_replayed"})
+        return gateway_response(request)
+
+    fixture = BootstrapFixture(handler)
+    try:
+        first = fixture.client.post("/api/web-app/notification-gateway/bootstrap", headers=fixture.owner, json={"password": "owner-pass", "bootstrap_token": "first" + "x" * 27})
+        assert first.status_code == 200
+        before_registration = asyncio.run(fixture.issuer.public_key())
+        before_vapid = asyncio.run(fixture.settings.get_sensitive("web_push_vapid_key_v1"))
+        before_credential = asyncio.run(fixture.settings.get_sensitive("notification_gateway_credential"))
+
+        failed = fixture.client.post("/api/web-app/notification-gateway/bootstrap/rotate", headers=fixture.owner, json={"password": "owner-pass", "bootstrap_token": "replayed" + "x" * 24})
+
+        assert failed.status_code == 409
+        assert calls["rotation_body"]["previous_credential_version"] == "v1"
+        assert asyncio.run(fixture.issuer.public_key()) == before_registration
+        assert asyncio.run(fixture.settings.get_sensitive("web_push_vapid_key_v1")) == before_vapid
+        assert asyncio.run(fixture.settings.get_sensitive("notification_gateway_credential")) == before_credential
     finally:
         fixture.close()
 
@@ -199,6 +241,28 @@ def test_lifecycle_endpoints_must_be_exact_and_same_origin():
         )
         assert response.status_code == 502
         assert response.json()["detail"] == "notification_gateway_endpoint_origin_mismatch"
+        assert asyncio.run(fixture.settings.get_sensitive("notification_gateway_credential")) is None
+    finally:
+        fixture.close()
+
+
+def test_gateway_vapid_mismatch_fails_without_installing_candidate():
+    def handler(request):
+        response = gateway_response(request)
+        payload = response.json()
+        payload["vapid_public_key"] = base64.urlsafe_b64encode(b"\x04" + b"z" * 64).decode().rstrip("=")
+        return httpx.Response(201, json=payload)
+
+    fixture = BootstrapFixture(handler)
+    try:
+        response = fixture.client.post(
+            "/api/web-app/notification-gateway/bootstrap",
+            headers=fixture.owner,
+            json={"password": "owner-pass", "bootstrap_token": "mismatch" + "x" * 24},
+        )
+        assert response.status_code == 502
+        assert response.json()["detail"] == "notification_gateway_vapid_key_mismatch"
+        assert asyncio.run(fixture.settings.get_sensitive("web_push_vapid_key_v1")) is None
         assert asyncio.run(fixture.settings.get_sensitive("notification_gateway_credential")) is None
     finally:
         fixture.close()

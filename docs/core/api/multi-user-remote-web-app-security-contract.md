@@ -437,22 +437,28 @@ re-enters their password may submit a short-lived single-use operator token to
 Core. Core sends that token server-to-server to its fixed configured gateway
 bootstrap endpoint together with its stable Core id, canonical HTTPS origin,
 registration-grant Ed25519 public key, algorithm, key id, and contract version.
+Core also generates a P-256 VAPID identity and sends its public key, key id,
+and private JWK only in this TLS-protected server-to-server provisioning body.
 The Core human token is never forwarded.
 
 Core strictly validates that the one-time response matches its Core and key
-identities, fixed gateway audience, exact publish/delete scope set, valid VAPID
-public key, and same-origin exact v1 endpoints. Bootstrap returns distinct
+identities (including an exact echo of the proposed VAPID public key and key
+id), fixed gateway audience, exact publish/delete scope set, and same-origin
+exact v1 endpoints. Bootstrap returns distinct
 `/v1/cores/rotate` and `/v1/cores/revoke` endpoints; Core persists those
 validated URLs and does not derive lifecycle routes from an unrelated path.
-The returned per-Core delivery
-credential and registration private key live only in the sensitive settings
-table, which is excluded from ordinary settings APIs. Browser configuration,
+The returned per-Core delivery credential, registration private key, and Core's
+VAPID private JWK live only in the sensitive settings table, which is included
+in a protected whole-settings-database backup but excluded from ordinary
+settings APIs. Browser configuration,
 safe status, audit, logs, and coordination evidence expose only public values
 and lifecycle metadata. Every publish or unattended-cleanup assertion carries
 the exact `core_id` and `credential_version`, hashes the transmitted body, and
 is HMAC-SHA256 signed over canonical unpadded-base64url JSON. Rotation requires
-a fresh operator token and atomically replaces both the registration key and
-delivery credential; v1 has no old-credential overlap. Revocation is applied at
+a fresh operator token and atomically replaces the registration key, VAPID
+identity, and delivery credential locally only after gateway acceptance; v1
+has no old registration-key or delivery-credential overlap. The PWA receives
+only the active VAPID public key. Revocation is applied at
 the gateway before Core removes the active credential locally. The shared
 contract remains proposed until Website implements and passes the matching
 contract tests.

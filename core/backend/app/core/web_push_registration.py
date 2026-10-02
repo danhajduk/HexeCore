@@ -24,7 +24,7 @@ from app.system.users.store import UsersStore
 
 
 REGISTRATION_CONTRACT_VERSION = "hexe.web-push-registration.v1"
-_SIGNING_KEY_REF = "web_push_registration_signing_key_v1"
+SIGNING_KEY_REF = "web_push_registration_signing_key_v1"
 GATEWAY_CREDENTIAL_REF = "notification_gateway_credential"
 
 
@@ -118,13 +118,15 @@ class WebPushRegistrationGrantIssuer:
 
     async def runtime_configuration(self) -> dict:
         record = await self._settings.get_sensitive(self._credential_ref)
-        if isinstance(record, dict) and record.get("state") == "active":
-            return {
-                "configured": True,
-                "gateway_url": str(record.get("subscription_endpoint") or ""),
-                "gateway_audience": str(record.get("gateway_audience") or ""),
-                "vapid_public_key": str(record.get("vapid_public_key") or ""),
-            }
+        if isinstance(record, dict):
+            if record.get("state") == "active":
+                return {
+                    "configured": True,
+                    "gateway_url": str(record.get("subscription_endpoint") or ""),
+                    "gateway_audience": str(record.get("gateway_audience") or ""),
+                    "vapid_public_key": str(record.get("vapid_public_key") or ""),
+                }
+            return {"configured": False, "gateway_url": "", "gateway_audience": "", "vapid_public_key": ""}
         return {
             "configured": self.configured,
             "gateway_url": self.gateway_url,
@@ -140,19 +142,23 @@ class WebPushRegistrationGrantIssuer:
         return _b64url(private_raw), _b64url(public_raw)
 
     async def install_signing_key(self, private_key: str) -> None:
+        await self._settings.set_sensitive(SIGNING_KEY_REF, self.signing_key_record(private_key))
+
+    @staticmethod
+    def signing_key_record(private_key: str) -> dict:
         raw = base64.urlsafe_b64decode(private_key + "=" * (-len(private_key) % 4))
         Ed25519PrivateKey.from_private_bytes(raw)
-        await self._settings.set_sensitive(_SIGNING_KEY_REF, {"private_key": private_key, "created_at": datetime.now(timezone.utc).isoformat()})
+        return {"private_key": private_key, "created_at": datetime.now(timezone.utc).isoformat()}
 
     async def _private_key(self) -> Ed25519PrivateKey:
         async with self._key_lock:
-            saved = await self._settings.get_sensitive(_SIGNING_KEY_REF)
+            saved = await self._settings.get_sensitive(SIGNING_KEY_REF)
             if not isinstance(saved, dict):
-                legacy = await self._settings.get(_SIGNING_KEY_REF)
+                legacy = await self._settings.get(SIGNING_KEY_REF)
                 if isinstance(legacy, dict):
                     saved = legacy
-                    await self._settings.set_sensitive(_SIGNING_KEY_REF, legacy)
-                    await self._settings.delete(_SIGNING_KEY_REF)
+                    await self._settings.set_sensitive(SIGNING_KEY_REF, legacy)
+                    await self._settings.delete(SIGNING_KEY_REF)
             encoded = str(saved.get("private_key") or "") if isinstance(saved, dict) else ""
             if encoded:
                 try:
@@ -162,7 +168,7 @@ class WebPushRegistrationGrantIssuer:
                     pass
             key = Ed25519PrivateKey.generate()
             raw = key.private_bytes(serialization.Encoding.Raw, serialization.PrivateFormat.Raw, serialization.NoEncryption())
-            await self._settings.set_sensitive(_SIGNING_KEY_REF, {"private_key": _b64url(raw), "created_at": datetime.now(timezone.utc).isoformat()})
+            await self._settings.set_sensitive(SIGNING_KEY_REF, {"private_key": _b64url(raw), "created_at": datetime.now(timezone.utc).isoformat()})
             return key
 
     async def public_key(self) -> str:

@@ -16,7 +16,8 @@ from app.system.platform_identity import load_platform_identity
 from app.system.settings.store import SettingsStore
 from app.system.users.store import UsersStore
 
-from .web_push_registration import GATEWAY_CREDENTIAL_REF, REGISTRATION_CONTRACT_VERSION, WebPushRegistrationGrantIssuer
+from .web_push_registration import GATEWAY_CREDENTIAL_REF, REGISTRATION_CONTRACT_VERSION, SIGNING_KEY_REF, WebPushRegistrationGrantIssuer
+from .web_push_vapid import VAPID_KEY_REF, VapidKeyMaterial, WebPushVapidKeyStore
 
 
 BOOTSTRAP_CONTRACT_VERSION = "hexe.web-push-gateway-bootstrap.v1"
@@ -55,6 +56,7 @@ class GatewayProvisioningResponse(BaseModel):
     registration_contract_version: Literal["hexe.web-push-registration.v1"]
     delivery_contract_version: Literal["hexe.web-push-gateway.v1"]
     registration_key_id: str = Field(..., min_length=16, max_length=256)
+    vapid_key_id: str = Field(..., min_length=16, max_length=256)
     delivery_credential: GatewayCredential
 
 
@@ -66,12 +68,14 @@ class WebPushGatewayBootstrapService:
         *,
         bootstrap_url: str,
         credential_ref: str = GATEWAY_CREDENTIAL_REF,
+        vapid_keys: WebPushVapidKeyStore | None = None,
         client: httpx.AsyncClient | None = None,
     ) -> None:
         self._settings = settings
         self._issuer = issuer
         self._bootstrap_url = self._validate_bootstrap_url(bootstrap_url)
         self._credential_ref = credential_ref
+        self._vapid_keys = vapid_keys or WebPushVapidKeyStore(settings)
         self._client = client
 
     @staticmethod
@@ -95,6 +99,7 @@ class WebPushGatewayBootstrapService:
             "state": str(record.get("state") or "unconfigured"),
             "credential_version": record.get("credential_version"),
             "registration_key_id": record.get("registration_key_id"),
+            "vapid_key_id": record.get("vapid_key_id"),
             "gateway_audience": record.get("gateway_audience"),
             "allowed_scopes": list(record.get("scopes") or []),
             "updated_at": record.get("updated_at"),
@@ -108,6 +113,7 @@ class WebPushGatewayBootstrapService:
             raise HTTPException(status_code=409, detail="core_already_registered")
 
         candidate_private: str | None = None
+        candidate_vapid = self._vapid_keys.generate(core_id)
         if operation == "rotate":
             if not isinstance(existing, dict) or existing.get("state") != "active":
                 raise HTTPException(status_code=409, detail="notification_gateway_not_registered")
@@ -126,6 +132,11 @@ class WebPushGatewayBootstrapService:
             "registration_public_key": public_key,
             "registration_key_id": key_id,
             "registration_key_algorithm": "EdDSA",
+            "previous_credential_version": existing.get("credential_version") if isinstance(existing, dict) else None,
+            "vapid_key_id": candidate_vapid.key_id,
+            "vapid_key_algorithm": "ES256",
+            "vapid_public_key": candidate_vapid.public_key,
+            "vapid_private_jwk": candidate_vapid.private_jwk,
         }
         operation_url = self._bootstrap_url if operation == "bootstrap" else str(existing.get("rotation_endpoint") or "")
         if not operation_url:
@@ -137,7 +148,7 @@ class WebPushGatewayBootstrapService:
             value = GatewayProvisioningResponse.model_validate(response.json())
         except Exception as exc:
             raise HTTPException(status_code=502, detail="notification_gateway_response_invalid") from exc
-        self._validate_response(value, core_id=core_id, key_id=key_id)
+        self._validate_response(value, core_id=core_id, key_id=key_id, vapid=candidate_vapid)
 
         now = datetime.now(timezone.utc).isoformat()
         record = {
@@ -145,7 +156,8 @@ class WebPushGatewayBootstrapService:
             "core_id": core_id,
             "state": "active",
             "gateway_audience": value.gateway_audience,
-            "vapid_public_key": value.vapid_public_key,
+            "vapid_public_key": candidate_vapid.public_key,
+            "vapid_key_id": candidate_vapid.key_id,
             "subscription_endpoint": value.subscription_endpoint,
             "delivery_endpoint": value.delivery_endpoint,
             "rotation_endpoint": value.rotation_endpoint,
@@ -158,9 +170,13 @@ class WebPushGatewayBootstrapService:
             "secret": value.delivery_credential.secret,
             "updated_at": now,
         }
+        updates = {
+            VAPID_KEY_REF: candidate_vapid.sensitive_record(core_id=core_id),
+            self._credential_ref: record,
+        }
         if candidate_private is not None:
-            await self._issuer.install_signing_key(candidate_private)
-        await self._settings.set_sensitive(self._credential_ref, record)
+            updates[SIGNING_KEY_REF] = self._issuer.signing_key_record(candidate_private)
+        await self._settings.set_sensitive_many(updates)
         return await self.status()
 
     async def revoke(self, *, bootstrap_token: str, core_id: str, canonical_origin: str) -> dict:
@@ -208,11 +224,13 @@ class WebPushGatewayBootstrapService:
         status = response.status_code if response.status_code in {400, 401, 403, 409, 410, 422, 429} else 502
         return HTTPException(status_code=status, detail=detail)
 
-    def _validate_response(self, value: GatewayProvisioningResponse, *, core_id: str, key_id: str) -> None:
+    def _validate_response(self, value: GatewayProvisioningResponse, *, core_id: str, key_id: str, vapid: VapidKeyMaterial) -> None:
         if value.core_id != core_id:
             raise HTTPException(status_code=502, detail="notification_gateway_wrong_core")
         if value.registration_key_id != key_id:
             raise HTTPException(status_code=502, detail="notification_gateway_key_mismatch")
+        if value.vapid_key_id != vapid.key_id or value.vapid_public_key != vapid.public_key:
+            raise HTTPException(status_code=502, detail="notification_gateway_vapid_key_mismatch")
         if value.gateway_audience != GATEWAY_AUDIENCE:
             raise HTTPException(status_code=502, detail="notification_gateway_audience_mismatch")
         if set(value.delivery_credential.scopes) != REQUIRED_DELIVERY_SCOPES or len(value.delivery_credential.scopes) != len(REQUIRED_DELIVERY_SCOPES):

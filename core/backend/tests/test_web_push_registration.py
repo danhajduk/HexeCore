@@ -55,6 +55,24 @@ class TestWebPushRegistration(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "replayed"):
             verify_registration_grant(body["grant"], config.json()["grant_public_key"], core_id=self.core_id, user_id=self.alice["user_id"], device_id="alice-phone", audience="gateway-test", operation="register", seen_jtis=seen)
 
+    def test_provisioned_config_exposes_only_active_vapid_public_key(self):
+        private_value = "private-vapid-value-must-not-escape"
+        asyncio.run(self.settings.set_sensitive("web_push_vapid_key_v1", {"private_jwk": {"d": private_value}}))
+        asyncio.run(self.settings.set_sensitive("notification_gateway_credential", {
+            "state": "active",
+            "subscription_endpoint": "https://gateway.example/v1/subscriptions",
+            "gateway_audience": "hexe-notification-gateway",
+            "vapid_public_key": "per-core-public-key",
+            "secret": "delivery-secret-must-not-escape",
+        }))
+
+        response = self.client.get("/api/web-app/notification-subscriptions/config", headers=self.auth)
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["vapid_public_key"], "per-core-public-key")
+        self.assertNotIn(private_value, response.text)
+        self.assertNotIn("delivery-secret-must-not-escape", response.text)
+
     def test_wrong_core_user_device_audience_operation_and_expiry_fail(self):
         grant, claims = asyncio.run(self.issuer.issue(core_id=self.core_id, user_id=self.alice["user_id"], device_id="alice-phone", operation="register"))
         public = asyncio.run(self.issuer.public_key())
