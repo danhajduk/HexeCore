@@ -1423,3 +1423,22 @@ Original task details:
 - Update the proposed contract with exact browser subscription schemas, CORS/validation constraints, and safe error-to-status mappings as a Core proposal requiring Website agreement.
 - Create a coordination request for Website-owned operator token issuance, gateway endpoint implementation, and matching cross-project contract tests.
 - Constraint: Do not move the proposed contract to `contracts/accepted/` until Core and Website implementations agree and pass the contract tests.
+
+## Task 1018
+Original task details:
+- Depends on: Tasks 1005, 1006, and 1012.
+- Fix the `/app` logout/login defect: normal logout must revoke only the active session and must not force an otherwise valid enrolled PWA installation through enrollment again.
+- Persist the installation's enrolled device identifier alongside its existing non-exportable private key in IndexedDB. Do not treat a caller-supplied device id as proof of device identity.
+- Add a challenge-response login flow that proves possession of the enrolled installation key before Core issues a session bound to that `device_id`, authenticated user, and Core.
+- Fail closed for a missing key, wrong user/Core, disabled or revoked device, expired challenge, invalid signature, and challenge replay. Those conditions require recovery or re-enrollment as appropriate.
+- Add a passkey/WebAuthn credential bound to the enrolled user and device. Require user verification so the platform can use Face ID, Touch ID, fingerprint, device PIN, or another platform authenticator; do not claim the web app can require a specific biometric modality.
+- Open the installed app in a locked state on a fresh launch and require passkey verification before issuing or exposing an authenticated app session.
+- Re-lock after the app has remained in the background for five minutes. Brief background transitions under five minutes may resume the existing unlocked session unless the session or device was revoked.
+- Preserve enrollment across explicit logout. A subsequent login must use the stored device identity, device-key proof, and passkey verification to create a new device-bound session without owner approval.
+- Require re-enrollment only after device revocation/disablement, cleared site data, PWA reinstallation, unrecoverable installation-key loss, or an explicit recovery/replacement flow.
+- Ensure passkey challenges are short-lived, single-use, origin/RP-bound, Core-bound, user-bound, and device-bound. Never expose private keys, biometric data, reusable assertions, or refresh credentials in logs, audits, URLs, or ordinary API responses.
+- Provide clear mobile-friendly states for locked, biometric/passkey unavailable, cancelled verification, recovery required, revoked device, and offline operation. Do not silently fall back to password-only device binding.
+- Acceptance: Logging out and back in on the same valid PWA installation preserves enrollment and produces a new session bound to the original device without owner approval.
+- Acceptance: A fresh app launch and a resume after at least five minutes in the background require platform user verification before protected app content is available.
+- Acceptance: Copying or guessing a `device_id` without the installation private key and registered passkey cannot create a device-bound session.
+- Verification: Add focused backend tests for challenge expiry/replay, signature failure, wrong user/Core/device, revoked device, and session binding; frontend tests for logout/relogin, fresh-launch lock, five-minute background lock, cancellation, recovery, and cleared-storage behavior; run frontend build/typecheck and targeted authentication/security tests.
