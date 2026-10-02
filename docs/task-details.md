@@ -1380,3 +1380,17 @@ Original task details:
 - Define deletion and portability coordination responsibilities.
 - Publish the accepted contract under `HexeCoordination/contracts/accepted/`.
 - Preserve the coordination request ID and record implementation commits and verification evidence in `HEXE-REQ-0001` before completing or archiving it.
+
+## Task 1015
+Original task details:
+- Coordination request: `HEXE-REQ-20261002-WEBPUSH-REGISTRATION` from `website` to `core`.
+- Depends on: `HEXE-REQ-20260930-WEBAPP-CORE`; this is the Core-owned browser-to-gateway handoff required by Core Task 1014 and Website Task 3.
+- Priority: high.
+- Complete the enrolled PWA Web Push subscription lifecycle. Notification permission must be requested only in direct response to user action, and Push API subscriptions must use the gateway public VAPID key.
+- Issue short-lived, single-use Core-signed registration and deletion grants bound to `core_id`, `user_id`, `device_id`, gateway audience, operation, expiry, and a replay identifier.
+- Permit the gateway to validate grants without receiving general Core access. Never send a Core human token or the `notification.publish` credential to the gateway.
+- Send raw provider subscription material only from the PWA to the gateway, and persist only the returned opaque `subscription_ref` through the existing device-bound Core API.
+- Revocation and subscription rotation must trigger authenticated cleanup of the prior gateway subscription.
+- Acceptance: Implement registration and deletion grant issuance and PWA `PushManager` integration with audience, Core, user, device, operation, expiry, and replay safety.
+- Acceptance: Cover wrong Core, wrong user, wrong device, wrong audience, replay, expiry, rotation, permission denial, and cross-user isolation with focused tests.
+- Verification: Run targeted backend/security tests, frontend component tests, frontend build/typecheck, API/OpenAPI checks, and live gateway checks where configured; record physical-device or external-gateway limitations explicitly.
