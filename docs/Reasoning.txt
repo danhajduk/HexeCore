@@ -494,3 +494,10 @@ What changed: Added Task 1017 as the sole WIP task with complete acceptance deta
 Verification: Queue contains one WIP task and coordination validation passed before mutation.
 
 ###########
+Task #1013
+Step objective: Start the accepted family-aware identity contract without changing current runtime behavior.
+Chosen fix: Define an additive Core-to-node contract that keeps `user_id` as the existing security principal and introduces future household/person identifiers without database or API migration in this task.
+What changed: Marked Task 1013 as the sole WIP task after synchronizing and validating `HEXE-REQ-0001`.
+Verification: Coordination repository validated; accepted request, local task linkage, source, target, and acceptance criteria match.
+
+###########
