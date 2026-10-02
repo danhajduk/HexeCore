@@ -472,3 +472,10 @@ Verification: 59 focused bootstrap, sensitive-settings, registration, gateway, e
 Deployment: Core restarted successfully; all four bootstrap lifecycle routes are live, anonymous status access fails with 401, the legacy caller-supplied credential route is absent, and the settings database is mode 0600.
 External validation: Website gateway remains at foundation commit 7ceafc5 with no bootstrap, registry, or subscription implementation. Shared acceptance and movement to contracts/accepted remain blocked on Website Task 3 and matching contract tests.
 ###########
+Task #1017
+Step objective: Record the Core interoperability follow-up and preserve its cross-project scope.
+Chosen fix: Track the Core fixes and Website handoff as a separate task linked to Task 1016.
+What changed: Added Task 1017 as the sole WIP task with complete acceptance details.
+Verification: Queue contains one WIP task and coordination validation passed before mutation.
+
+###########

@@ -49,6 +49,7 @@ Do not edit above this line:
 #######################################################################
 
 [FUTURE TODO] Task 1000: Validate and document the inverted BLE onboarding flow across Supervisor and endpoint roles
+[WIP] Task 1017: Finalize Core Web Push gateway interoperability contract
 [TODO] Task 1013: Define the Core contract for family-aware AI memory
 [TODO] Task 1014: Validate and document the complete Core-hosted web app and notification workflow end to end
 

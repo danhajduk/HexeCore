@@ -1411,3 +1411,15 @@ Original task details:
 - Gateway requirements retained as contract constraints: verify registration grants using the provisioned public key; do not trust an unverified `core_id`, fetch arbitrary key URLs, or receive a Core human/admin token.
 - Acceptance: Focused tests cover token expiry, replay, wrong Core, duplicate enrollment, credential/key rotation, immediate revocation, allowed-scope restrictions, owner step-up enforcement, and secret redaction.
 - Verification: Update Core API/configuration/security documentation, OpenAPI snapshot, generated route appendix, environment registry if applicable, and coordination evidence. Keep the proposal in `contracts/proposed/` until both implementations pass.
+
+## Task 1017
+Original task details:
+- Follow-up to `HEXE-REQ-20261002-WEBPUSH-BOOTSTRAP` and Core Task 1016.
+- Goal: Remove the remaining Core-side ambiguities from the proposed Web Push gateway contract without moving it to `contracts/accepted/`.
+- Include `core_id` and `credential_version` in every Core delivery and cleanup assertion and specify the exact HMAC canonicalization, body hashing, lifetime, replay, scope, and idempotency rules.
+- Replace the ambiguous lifecycle endpoint with explicit same-origin rotation and revocation endpoints returned by the gateway and consumed by Core.
+- Define v1 rotation as an atomic replacement with no old-credential overlap and preserve immediate revocation.
+- Add focused Core tests for assertion signing/version binding and returned lifecycle endpoint routing and validation.
+- Update the proposed contract with exact browser subscription schemas, CORS/validation constraints, and safe error-to-status mappings as a Core proposal requiring Website agreement.
+- Create a coordination request for Website-owned operator token issuance, gateway endpoint implementation, and matching cross-project contract tests.
+- Constraint: Do not move the proposed contract to `contracts/accepted/` until Core and Website implementations agree and pass the contract tests.
