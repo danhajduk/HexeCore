@@ -1496,3 +1496,20 @@ Original task details:
 - Require step-up authentication for guardian, consent, user-link, export, and deletion changes. Preserve last-owner and current account protections; do not infer age, relationship, or identity from voice/model output.
 - Provide privacy-safe status and error states without displaying biometric templates, raw memory, tokens, private keys, or another person's unauthorized details.
 - Verification: Add responsive frontend tests for people without users, linked/unlinked users, guardian/consent changes, permission denial, step-up, deletion/export state, and account/person distinction; run frontend build/typecheck and targeted backend authorization tests.
+
+## Task 1023
+Original task details:
+- Coordination request: `HEXE-REQ-20261002-PER-CORE-VAPID` from `website` to `core`.
+- Depends on: `HEXE-REQ-20261002-WEBPUSH-GATEWAY-IMPLEMENTATION` and the proposed Web Push bootstrap contract.
+- Priority: high.
+- Revise the proposed Web Push bootstrap contract so each Core generates, owns, and backs up one P-256 VAPID key pair.
+- Store the VAPID private key only in Core's sensitive settings/backup boundary. Never expose private VAPID material through browsers, logs, URLs, audits, coordination artifacts, safe status, ordinary settings APIs, or general Core API responses.
+- During owner-step-up-authenticated bootstrap or rotation, send the matching VAPID public key and a protected delivery copy of the private JWK only through the trusted server-to-server gateway provisioning request.
+- Define and validate a versioned Core/Website wire schema that binds the VAPID material to the expected `core_id`, registration key id, credential version, operation, and single-use bootstrap token.
+- Require the gateway to validate that the supplied public key and private JWK are a matching P-256 pair and to use that key only for subscriptions and notifications belonging to the authenticated Core.
+- Preserve the Task 1015 browser `PushManager` flow by returning only the per-Core public VAPID key through the existing public PWA configuration response.
+- Make rotation atomic with no unsafe overlap: Core must not activate new browser configuration until the gateway accepts the matching key material, and prior key behavior/retention must be explicitly agreed with Website so existing subscriptions are not silently misrouted.
+- Ordinary notification publication remains Core-originated and scoped to that Core. The gateway receives no Core human/admin token and gains no general Core access.
+- Coordinate all schema changes with Website and keep the bootstrap contract proposed until both implementations agree and pass matching contract tests.
+- Acceptance: Core and Website agree on the versioned schema; Core generates and stores the VAPID private key only in sensitive settings; bootstrap and rotation provision matching per-Core material; the gateway validates the pair and uses only the requesting Core's key; rotation has no unsafe overlap; browser configuration exposes only the correct public key.
+- Verification: Add focused mismatch, malformed JWK, wrong-Core, replay, duplicate bootstrap, rotation, rollback/failure, cross-Core isolation, public configuration, backup/restore, and secret-redaction tests; update Core security/configuration/API documentation and generated artifacts where applicable.
