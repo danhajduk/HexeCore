@@ -4,6 +4,14 @@ Chosen fix: Moved the tracked Core docs tree to root docs and removed the tracke
 What changed: Updated root README links/layout, updated branding validators to scan shared root docs, and kept the active task queue normalized under docs/New_tasks.txt.
 Verification: Branding validators passed for both Core and Supervisor; tracked docs now live under root docs with no tracked files under core/docs or supervisor/docs.
 ###########
+Task #1013
+Step objective: Define the accepted Core-to-node family identity and authorization boundary.
+Issue cause: Existing Core authentication implements users but has no household/person, guardian, consent, or family-memory authorization model.
+Chosen fix: Preserve `user_id` as the security principal and define additive opaque household/person identifiers plus a short-lived Core-issued authorization decision that nodes may narrow but never broaden.
+What changed: Added the accepted shared v1 contract and a Core status/reference document marking runtime support as documented but not implemented.
+Verification: Contract covers every HEXE-REQ-0001 acceptance item and explicitly leaves current web-app, session, device, conversation, and Website gateway behavior unchanged.
+
+###########
 Task #1017
 Step objective: Make Core's gateway assertions and lifecycle routing interoperable.
 Issue cause: Assertions omitted credential version and lifecycle routing was derived from the bootstrap URL despite the response advertising a different endpoint shape.
