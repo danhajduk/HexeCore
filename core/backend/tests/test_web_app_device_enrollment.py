@@ -14,17 +14,12 @@ from fastapi.testclient import TestClient
 
 from app.system.auth import ServiceTokenKeyStore, WebAppEnrollmentStore, build_device_enrollment_router, build_human_auth_router
 from app.system.auth.device_enrollment import CONTRACT_VERSION
+from app.system.settings.store import SettingsStore
 from app.system.users import UsersStore
 
 
 def b64(raw):
     return base64.urlsafe_b64encode(raw).decode().rstrip("=")
-
-
-class Settings:
-    def __init__(self): self.data = {}
-    async def get(self, key): return self.data.get(key)
-    async def set(self, key, value): self.data[key] = value; return value
 
 
 class TestWebAppDeviceEnrollment(unittest.TestCase):
@@ -33,12 +28,15 @@ class TestWebAppDeviceEnrollment(unittest.TestCase):
         self.env = patch.dict(os.environ, {"HEXE_CORE_ID": "0123456789abcdef", "PLATFORM_DOMAIN": "hexe-ai.com"}, clear=False)
         self.env.start()
         path = os.path.join(self.tmp.name, "users.db")
-        self.users, self.store, self.keys = UsersStore(path), WebAppEnrollmentStore(path), ServiceTokenKeyStore(Settings())
+        self.settings = SettingsStore(os.path.join(self.tmp.name, "settings.db"))
+        asyncio.run(self.settings.set("platform.core_id", "0123456789abcdef"))
+        asyncio.run(self.settings.set("core.id", "0123456789abcdef"))
+        self.users, self.store, self.keys = UsersStore(path), WebAppEnrollmentStore(path), ServiceTokenKeyStore(self.settings)
         asyncio.run(self.users.ensure_admin_user("Dan", "owner-pass"))
         asyncio.run(self.users.migrate_initial_owner("Dan", "0123456789abcdef"))
         app = FastAPI()
         app.include_router(build_human_auth_router(self.keys, self.users), prefix="/api/auth")
-        app.include_router(build_device_enrollment_router(self.store, self.users, self.keys), prefix="/api/auth")
+        app.include_router(build_device_enrollment_router(self.store, self.users, self.keys, settings=self.settings), prefix="/api/auth")
         self.client = TestClient(app)
         login = self.client.post("/api/auth/user/login", json={"username": "Dan", "password": "owner-pass"}).json()
         self.auth = {"Authorization": f"Bearer {login['access_token']}"}

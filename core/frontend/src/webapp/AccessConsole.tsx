@@ -3,7 +3,7 @@ import { api, clearSession, login, type WebDevice, type WebSession, type WebUser
 import "./webapp.css";
 
 type Bootstrap = { core: { core_name: string }; user: WebUser & { permissions: string[] }; device: WebDevice; notifications: { state: string } };
-type Enrollment = { enrollment_id: string; proof: string; expires_at: string; public_hostname: string };
+type Enrollment = { enrollment_id: string; proof: string; expires_at: string; public_hostname: string; core_id: string };
 
 function message(error: unknown): string { return error instanceof Error ? error.message.replaceAll("_", " ") : "Request failed"; }
 function date(value?: string | null): string { return value ? new Date(value).toLocaleString() : "Never"; }
@@ -44,14 +44,14 @@ export default function AccessConsole() {
     const response = await api<{enrollment: Enrollment}>("/api/auth/device-enrollments", { method: "POST", body: JSON.stringify({ display_name: "Mobile browser", ttl_seconds: 600 }) });
     setEnrollment(response.enrollment); setEnrollmentState("pending");
   }
-  const deepLink = enrollment ? `https://${enrollment.public_hostname}/app/enroll?enrollment_id=${encodeURIComponent(enrollment.enrollment_id)}&proof=${encodeURIComponent(enrollment.proof)}` : "";
+  const deepLink = enrollment ? `https://${enrollment.public_hostname}/app/enroll?enrollment_id=${encodeURIComponent(enrollment.enrollment_id)}&proof=${encodeURIComponent(enrollment.proof)}&core_id=${encodeURIComponent(enrollment.core_id)}` : "";
 
   if (!boot && !needsDevice) return <main className="webapp"><section className="login-card"><h1>Hexe</h1><p>Sign in to your Core.</p><form onSubmit={signIn}><label>Username<input autoComplete="username" value={username} onChange={e=>setUsername(e.target.value)} /></label><label>Password<input type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} /></label><button disabled={busy}>Sign in</button></form>{error && <p role="alert" className="error">{error}</p>}</section></main>;
 
   return <main className="webapp">
     <header><div><span className="eyebrow">Mobile access</span><h1>{boot?.core.core_name || "Hexe Core"}</h1></div><button className="secondary" onClick={()=>void clearSession().then(()=>location.assign("/app"))}>Sign out</button></header>
     {error && <p role="alert" className="banner error">{error}</p>}{notice && <p role="status" className="banner ok">{notice}</p>}
-    {needsDevice && <section><h2>Enroll this device</h2><p>Your identity is valid. An owner must explicitly approve this browser before the app can open.</p><button disabled={busy} onClick={()=>void act(createEnrollment,"Enrollment created")}>Create 10-minute enrollment</button>{enrollment && <div className="stack"><code className="deep-link">{deepLink}</code><button onClick={()=>void navigator.clipboard.writeText(deepLink)}>Copy deep link</button><button onClick={()=>void act(async()=>{ await api(`/api/auth/device-enrollments/${enrollment.enrollment_id}/approve`,{method:"POST"}); setEnrollmentState("approved"); },"Enrollment approved")}>Approve</button><button className="secondary" onClick={()=>void act(async()=>{const s=await api<{status:string}>(`/api/auth/device-enrollments/${enrollment.enrollment_id}`);setEnrollmentState(s.status);},"State refreshed")}>Refresh state</button><strong>Status: {enrollmentState}</strong></div>}</section>}
+    {needsDevice && <section><h2>Enroll this device</h2><p>Your identity is valid. An owner must explicitly approve this browser before the app can open.</p><button disabled={busy} onClick={()=>void act(createEnrollment,"Enrollment created")}>Create 10-minute enrollment</button>{enrollment && <div className="stack"><a className="deep-link text-link" href={deepLink}>{deepLink}</a><button onClick={()=>void navigator.clipboard.writeText(deepLink)}>Copy deep link</button><button onClick={()=>void act(async()=>{ await api(`/api/auth/device-enrollments/${enrollment.enrollment_id}/approve`,{method:"POST"}); setEnrollmentState("approved"); },"Enrollment approved — continue below")}>Approve</button>{enrollmentState==="approved"&&<a className="continue-enrollment" href={deepLink}>Continue enrollment on this device</a>}<button className="secondary" onClick={()=>void act(async()=>{const s=await api<{status:string}>(`/api/auth/device-enrollments/${enrollment.enrollment_id}`);setEnrollmentState(s.status);},"State refreshed")}>Refresh state</button><strong>Status: {enrollmentState}</strong></div>}</section>}
     {boot && <>
       <section><h2>Your access</h2><div className="facts"><span>{boot.user.username}</span><span>{boot.user.role}</span><span>Push: {boot.notifications.state}</span></div></section>
       <section><h2>Sessions</h2><div className="cards">{sessions.map(s=><article key={s.session_id}><strong>{s.session_id.slice(0,12)}…</strong><small>Last used {date(s.last_used_at)}</small><button className="danger" disabled={busy} onClick={()=>void act(()=>api(`/api/auth/user/sessions/${s.session_id}`,{method:"DELETE"}),"Session revoked")}>Revoke</button></article>)}</div></section>

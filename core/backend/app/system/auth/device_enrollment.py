@@ -19,6 +19,8 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.api.admin import admin_request_actor, require_admin_token
 from app.system.audit import AuditLogStore
+from app.system.platform_identity import load_platform_identity
+from app.system.settings.store import SettingsStore
 from app.system.users.store import UsersStore
 from .human import _access_token, _iso_after, _refresh_verifier, authenticate_human_token
 from .tokens import ServiceTokenKeyStore
@@ -617,13 +619,18 @@ def _verify_signature(public_key: str, signature: str, message: str) -> None:
         raise HTTPException(status_code=403, detail="device_key_proof_invalid") from exc
 
 
-def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersStore, keys: ServiceTokenKeyStore, audit: AuditLogStore | None = None) -> APIRouter:
+def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersStore, keys: ServiceTokenKeyStore, audit: AuditLogStore | None = None, settings: SettingsStore | None = None) -> APIRouter:
     router = APIRouter()
-    core_id = str(os.getenv("HEXE_CORE_ID", "hexe-core")).strip() or "hexe-core"
-    platform_domain = str(os.getenv("PLATFORM_DOMAIN", "hexe-ai.com")).strip() or "hexe-ai.com"
-    hostname = f"{core_id}.{platform_domain}"
     notification_gateway_audience = str(os.getenv("HEXE_NOTIFICATION_GATEWAY_AUDIENCE", "hexe-notification-gateway")).strip() or "hexe-notification-gateway"
     retention_days = _env_positive_int("HEXE_WEB_APP_RETENTION_DAYS", 30)
+
+    async def current_identity() -> tuple[str, str]:
+        if settings is not None:
+            identity = await load_platform_identity(settings)
+            return identity.core_id, identity.public_hostname
+        core_id = str(os.getenv("HEXE_CORE_ID", "hexe-core")).strip() or "hexe-core"
+        platform_domain = str(os.getenv("PLATFORM_DOMAIN", "hexe-ai.com")).strip() or "hexe-ai.com"
+        return core_id, f"{core_id}.{platform_domain}"
 
     async def actor(request: Request, authorization: str | None, admin_token: str | None):
         if authorization:
@@ -678,11 +685,13 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
 
     @router.get("/web-app/discovery")
     async def discovery():
+        core_id, hostname = await current_identity()
         return {"contract_version": CONTRACT_VERSION, "core_id": core_id, "public_hostname": hostname, "enrollment_supported": True}
 
     @router.post("/device-enrollments")
     async def create(body: EnrollmentCreateRequest, request: Request, authorization: str | None = Header(default=None), x_admin_token: str | None = Header(default=None)):
         actor_id, role = await actor(request, authorization, x_admin_token)
+        core_id, hostname = await current_identity()
         target_id = body.user_id or actor_id
         if await users.get_user_by_id(target_id) is None: raise HTTPException(status_code=404, detail="user_not_found")
         enrollment, proof = await store.create(core_id=core_id, user_id=target_id, created_by=actor_id, display_name=body.display_name, replace_device_id=body.replace_device_id, ttl_s=body.ttl_seconds)
@@ -713,7 +722,7 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
     async def complete(enrollment_id: str, body: EnrollmentCompleteRequest):
         enrollment = await store.get(enrollment_id)
         if enrollment is None: raise HTTPException(status_code=404, detail="enrollment_not_found")
-        message = f"{CONTRACT_VERSION}:{core_id}:{enrollment_id}:{body.device_id}"
+        message = f"{CONTRACT_VERSION}:{enrollment['core_id']}:{enrollment_id}:{body.device_id}"
         try:
             _verify_signature(body.public_key, body.signature, message)
             consumed = await store.consume(enrollment_id=enrollment_id, proof=body.proof, device_id=body.device_id, public_key=body.public_key, platform=body.platform, browser_metadata=body.browser_metadata)
@@ -747,7 +756,7 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
         if principal.device_id != device_id: raise HTTPException(status_code=403, detail="device_identity_mismatch")
         device = await store.get_device(device_id)
         if device is None or device.get("revoked_at") or str(device["user_id"]) != principal.user_id: raise HTTPException(status_code=404, detail="device_not_found")
-        message = f"{CONTRACT_VERSION}:rotate:{core_id}:{device_id}:{body.new_public_key}"
+        message = f"{CONTRACT_VERSION}:rotate:{device['core_id']}:{device_id}:{body.new_public_key}"
         _verify_signature(str(device["public_key"]), body.old_key_signature, message)
         _verify_signature(body.new_public_key, body.new_key_signature, message)
         await store.rotate_key(device_id, body.new_public_key)
@@ -764,6 +773,7 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
     async def list_all_devices(authorization: str | None = Header(default=None)):
         principal = await authenticate_human_token(authorization, keys, users)
         principal.require("users.manage")
+        core_id, _ = await current_identity()
         items = [administrative_device(device) for device in await store.list_all_devices(core_id)]
         return {"ok": True, "items": items}
 
@@ -772,6 +782,7 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
         principal = await authenticate_human_token(authorization, keys, users)
         principal.require("users.manage")
         device = await store.get_device(device_id)
+        core_id, _ = await current_identity()
         if device is None or device.get("revoked_at") or str(device["core_id"]) != core_id:
             raise HTTPException(status_code=404, detail="device_not_found")
         target_user = await users.get_user_by_id(str(device["user_id"]))
@@ -792,6 +803,7 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
     async def prune_retained_device_state(authorization: str | None = Header(default=None)):
         principal = await authenticate_human_token(authorization, keys, users)
         principal.require("users.manage")
+        core_id, _ = await current_identity()
         before = (_now() - timedelta(days=retention_days)).isoformat()
         device_counts = await store.prune_retained_state(core_id=core_id, before=before)
         session_counts = await users.prune_sessions(before)
@@ -809,6 +821,7 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
         principal = await authenticate_human_token(authorization, keys, users)
         principal.require("users.manage")
         device = await store.get_device(device_id)
+        core_id, _ = await current_identity()
         if device is None or device.get("revoked_at") or str(device["core_id"]) != core_id:
             raise HTTPException(status_code=404, detail="device_not_found")
         target_user = await users.get_user_by_id(str(device["user_id"]))
@@ -852,6 +865,7 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
             raise HTTPException(status_code=403, detail="device_identity_mismatch")
         if body.gateway_audience != notification_gateway_audience:
             raise HTTPException(status_code=409, detail="notification_gateway_audience_mismatch")
+        core_id, _ = await current_identity()
         try:
             subscription, changed = await store.put_notification_subscription(
                 device_id=device_id,
@@ -881,6 +895,7 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
         principal = await authenticate_human_token(authorization, keys, users)
         if principal.device_id != device_id:
             raise HTTPException(status_code=403, detail="device_identity_mismatch")
+        core_id, _ = await current_identity()
         changed = await store.delete_notification_subscription(device_id=device_id, core_id=core_id, user_id=principal.user_id)
         await record(
             "web_app_notification_subscription_deleted",
@@ -896,6 +911,7 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
         if principal.device_id != device_id:
             raise HTTPException(status_code=403, detail="device_identity_mismatch")
         device = await store.get_device(device_id)
+        core_id, _ = await current_identity()
         if device is None or device.get("revoked_at") or str(device["core_id"]) != core_id or str(device["user_id"]) != principal.user_id:
             raise HTTPException(status_code=404, detail="device_not_found")
         preferences = await store.get_notification_preferences(device_id=device_id, core_id=core_id, user_id=principal.user_id)
@@ -906,6 +922,7 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
         principal = await authenticate_human_token(authorization, keys, users)
         if principal.device_id != device_id:
             raise HTTPException(status_code=403, detail="device_identity_mismatch")
+        core_id, _ = await current_identity()
         try:
             preferences = await store.put_notification_preferences(
                 device_id=device_id,

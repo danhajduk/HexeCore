@@ -435,3 +435,11 @@ Chosen fix: Add a mobile-first PWA and Core-owned conversation API, stream turns
 What changed: Added manifest/service-worker/offline/install behavior, safe-area and touch layouts, text and browser voice input, role-gated administration navigation, IndexedDB credential/device-key storage, owned conversation CRUD, 30-day/200-message bounds, deletion/audit attribution, cross-user denial, and provider execution that never accepts browser-selected endpoints or credentials.
 Verification: 46 focused backend/security/OpenAPI/PWA tests, 93 frontend tests, frontend typecheck/production build, generated OpenAPI appendix, and OpenAPI snapshot checks passed.
 ###########
+
+Task #1012 follow-up
+Step objective: Repair the deployed mobile enrollment continuation flow.
+Issue cause: The enrollment router derived its Core ID and public hostname from the legacy `HEXE_CORE_ID=hexe-core` environment value while the public-host boundary used the persisted platform identity `a75d480287c33cab`; generated deep links therefore targeted the wrong host and completion proofs used a mismatched Core ID.
+Chosen fix: Use the persisted platform identity for discovery, enrollment creation, device administration, and notification ownership; bind completion and key rotation proofs to the stored enrollment/device Core ID; include the authoritative Core ID in the deep link.
+What changed: Enrollment links now target the canonical host, are clickable, and show a prominent same-device continuation action after approval.
+Verification: Focused enrollment/bootstrap/public-boundary tests and the full frontend test/build suite passed before deployment.
+###########

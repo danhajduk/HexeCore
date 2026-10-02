@@ -1383,7 +1383,7 @@ def create_app() -> FastAPI:
     app.include_router(build_events_router(event_service), prefix="/api/system", tags=["events"])
     app.include_router(build_auth_router(service_token_keys), prefix="/api/auth", tags=["auth"])
     app.include_router(build_human_auth_router(service_token_keys, users_store, audit_store), prefix="/api/auth", tags=["human-auth"])
-    app.include_router(build_device_enrollment_router(web_app_enrollment_store, users_store, service_token_keys, audit_store), prefix="/api/auth", tags=["web-app-enrollment"])
+    app.include_router(build_device_enrollment_router(web_app_enrollment_store, users_store, service_token_keys, audit_store, settings_store), prefix="/api/auth", tags=["web-app-enrollment"])
     app.include_router(build_web_app_router(service_token_keys, users_store, web_app_enrollment_store, settings_store, web_notification_policy), prefix="/api/web-app", tags=["web-app"])
     app.include_router(build_web_push_gateway_router(web_push_gateway_publisher, service_token_keys, users_store, audit_store), prefix="/api/web-app", tags=["web-push-gateway"])
     app.include_router(build_conversation_router(conversation_store, web_chat_executor, service_token_keys, users_store, web_app_enrollment_store, settings_store, audit_store), prefix="/api/web-app", tags=["web-app-conversations"])

@@ -11,7 +11,7 @@ async function keepKey(id: string, key: CryptoKey): Promise<void> {
 }
 
 export default function EnrollmentPage() {
-  const query = useMemo(()=>new URLSearchParams(location.search),[]); const enrollmentId=query.get("enrollment_id")||""; const proof=query.get("proof")||"";
+  const query = useMemo(()=>new URLSearchParams(location.search),[]); const enrollmentId=query.get("enrollment_id")||""; const proof=query.get("proof")||""; const coreId=query.get("core_id")||location.hostname.split(".")[0];
   const [state,setState]=useState("Ready to bind this browser after owner approval."); const [busy,setBusy]=useState(false);
   async function complete() {
     setBusy(true);
@@ -22,7 +22,7 @@ export default function EnrollmentPage() {
       const publicKey=b64url(await crypto.subtle.exportKey("raw",pair.publicKey));
       const privateBytes=await crypto.subtle.exportKey("pkcs8",pair.privateKey);
       const deviceKey=await crypto.subtle.importKey("pkcs8",privateBytes,{name:"Ed25519"},false,["sign"]);
-      const message=new TextEncoder().encode(`hexe.web-app-enrollment.v1:${location.hostname.split(".")[0]}:${enrollmentId}:${deviceId}`);
+      const message=new TextEncoder().encode(`hexe.web-app-enrollment.v1:${coreId}:${enrollmentId}:${deviceId}`);
       const signature=b64url(await crypto.subtle.sign("Ed25519",deviceKey,message));
       const response=await fetch(`/api/auth/device-enrollments/${encodeURIComponent(enrollmentId)}/complete`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({proof,device_id:deviceId,public_key:publicKey,signature,platform:navigator.platform||"web",browser_metadata:{browser_name:navigator.userAgent.slice(0,80)}})});
       const body=await response.json().catch(()=>({})); if(!response.ok) throw new Error(String(body.detail||`Request failed (${response.status})`).replaceAll("_"," "));
