@@ -50,7 +50,8 @@ class GatewayProvisioningResponse(BaseModel):
     vapid_public_key: str = Field(..., min_length=16, max_length=512)
     subscription_endpoint: str = Field(..., min_length=12, max_length=2048)
     delivery_endpoint: str = Field(..., min_length=12, max_length=2048)
-    lifecycle_endpoint: str = Field(..., min_length=12, max_length=2048)
+    rotation_endpoint: str = Field(..., min_length=12, max_length=2048)
+    revocation_endpoint: str = Field(..., min_length=12, max_length=2048)
     registration_contract_version: Literal["hexe.web-push-registration.v1"]
     delivery_contract_version: Literal["hexe.web-push-gateway.v1"]
     registration_key_id: str = Field(..., min_length=16, max_length=256)
@@ -84,11 +85,6 @@ class WebPushGatewayBootstrapService:
         if not parsed.path.endswith("/v1/cores/bootstrap"):
             return ""
         return str(parsed)
-
-    def _operation_url(self, operation: str) -> str:
-        if not self._bootstrap_url:
-            return ""
-        return self._bootstrap_url[: -len("bootstrap")] + operation
 
     async def status(self) -> dict:
         record = await self._settings.get_sensitive(self._credential_ref)
@@ -131,7 +127,10 @@ class WebPushGatewayBootstrapService:
             "registration_key_id": key_id,
             "registration_key_algorithm": "EdDSA",
         }
-        response = await self._post(self._operation_url(operation), request_body)
+        operation_url = self._bootstrap_url if operation == "bootstrap" else str(existing.get("rotation_endpoint") or "")
+        if not operation_url:
+            raise HTTPException(status_code=409, detail="notification_gateway_lifecycle_endpoint_missing")
+        response = await self._post(operation_url, request_body)
         if response.status_code not in {200, 201}:
             raise self._gateway_error(response)
         try:
@@ -149,7 +148,8 @@ class WebPushGatewayBootstrapService:
             "vapid_public_key": value.vapid_public_key,
             "subscription_endpoint": value.subscription_endpoint,
             "delivery_endpoint": value.delivery_endpoint,
-            "lifecycle_endpoint": value.lifecycle_endpoint,
+            "rotation_endpoint": value.rotation_endpoint,
+            "revocation_endpoint": value.revocation_endpoint,
             "registration_key_id": value.registration_key_id,
             "registration_public_key": public_key,
             "credential_version": value.delivery_credential.version,
@@ -175,12 +175,15 @@ class WebPushGatewayBootstrapService:
             "canonical_origin": canonical_origin,
             "registration_key_id": existing.get("registration_key_id"),
         }
-        response = await self._post(self._operation_url("revoke"), body)
+        revocation_endpoint = str(existing.get("revocation_endpoint") or "")
+        if not revocation_endpoint:
+            raise HTTPException(status_code=409, detail="notification_gateway_lifecycle_endpoint_missing")
+        response = await self._post(revocation_endpoint, body)
         if response.status_code not in {200, 202, 204}:
             raise self._gateway_error(response)
         revoked = {
             key: value for key, value in existing.items()
-            if key not in {"secret", "vapid_public_key", "subscription_endpoint", "delivery_endpoint", "lifecycle_endpoint"}
+            if key not in {"secret", "vapid_public_key", "subscription_endpoint", "delivery_endpoint", "rotation_endpoint", "revocation_endpoint"}
         }
         revoked.update({"state": "revoked", "scopes": [], "updated_at": datetime.now(timezone.utc).isoformat()})
         await self._settings.set_sensitive(self._credential_ref, revoked)
@@ -226,7 +229,8 @@ class WebPushGatewayBootstrapService:
         required_paths = (
             (value.subscription_endpoint, "/v1/subscriptions"),
             (value.delivery_endpoint, "/v1/notifications"),
-            (value.lifecycle_endpoint, f"/v1/cores/{core_id}"),
+            (value.rotation_endpoint, "/v1/cores/rotate"),
+            (value.revocation_endpoint, "/v1/cores/revoke"),
         )
         for raw, required_path in required_paths:
             try:

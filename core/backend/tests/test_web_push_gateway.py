@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import hashlib
+import hmac
 import json
 import os
 import tempfile
@@ -32,7 +33,7 @@ class TestWebPushGateway(unittest.TestCase):
         now = datetime.now(timezone.utc).isoformat()
         self.devices._conn.execute("INSERT INTO web_app_devices VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)", ("alice-phone", "core-test", self.user["user_id"], "Phone", "public-key", "test", now, now))
         self.devices._conn.execute("INSERT INTO web_app_notification_subscriptions VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 'active')", ("alice-phone", "core-test", self.user["user_id"], "sub_opaque", "gateway-test", now, now))
-        asyncio.run(self.settings.set("gateway-credential", {"core_id": "core-test", "scopes": ["notification.publish", "notification.subscription.delete"], "secret": "s" * 48}))
+        asyncio.run(self.settings.set("gateway-credential", {"core_id": "core-test", "scopes": ["notification.publish", "notification.subscription.delete"], "credential_version": "legacy-v1", "secret": "s" * 48}))
 
     def tearDown(self): self.tmp.cleanup()
 
@@ -59,12 +60,16 @@ class TestWebPushGateway(unittest.TestCase):
         self.assertEqual(body["core_id"], "core-test")
         self.assertEqual(body["subscription_ref"], "sub_opaque")
         self.assertNotIn("secret", request.content.decode())
-        assertion = request.headers["Authorization"].split(" ", 1)[1].split(".", 1)[0]
+        assertion, signature = request.headers["Authorization"].split(" ", 1)[1].split(".", 1)
         claims = json.loads(base64.urlsafe_b64decode(assertion + "=" * (-len(assertion) % 4)))
         self.assertEqual(claims["aud"], "gateway-test")
+        self.assertEqual(claims["core_id"], "core-test")
+        self.assertEqual(claims["credential_version"], "legacy-v1")
         self.assertEqual(claims["scp"], ["notification.publish"])
         self.assertTrue(claims["jti"])
         self.assertEqual(claims["body_sha256"], hashlib.sha256(request.content).hexdigest())
+        expected = base64.urlsafe_b64encode(hmac.new(("s" * 48).encode(), assertion.encode("ascii"), hashlib.sha256).digest()).decode().rstrip("=")
+        self.assertEqual(signature, expected)
 
     def test_retry_dead_letter_and_restart_persistence(self):
         self.add_intent()
@@ -100,6 +105,8 @@ class TestWebPushGateway(unittest.TestCase):
         assertion = request.headers["Authorization"].split(" ", 1)[1].split(".", 1)[0]
         claims = json.loads(base64.urlsafe_b64decode(assertion + "=" * (-len(assertion) % 4)))
         self.assertEqual(claims["scp"], ["notification.subscription.delete"])
+        self.assertEqual(claims["core_id"], "core-test")
+        self.assertEqual(claims["credential_version"], "legacy-v1")
         self.assertEqual(claims["body_sha256"], hashlib.sha256(b"").hexdigest())
         self.assertEqual(asyncio.run(publisher.cleanup_due())["deleted"], 0)
 
@@ -112,7 +119,7 @@ class TestWebPushGateway(unittest.TestCase):
 
     def test_wrong_core_or_scope_credential_fails_closed(self):
         self.add_intent()
-        asyncio.run(self.settings.set("gateway-credential", {"core_id": "other", "scopes": ["notification.publish"], "secret": "s" * 48}))
+        asyncio.run(self.settings.set("gateway-credential", {"core_id": "other", "scopes": ["notification.publish"], "credential_version": "legacy-v1", "secret": "s" * 48}))
         publisher = self.publisher(lambda request: self.fail("gateway must not be called"))
         self.assertFalse(asyncio.run(publisher.safe_status())["configured"])
         self.assertEqual(asyncio.run(publisher.publish_due())["accepted"], 0)
@@ -123,7 +130,7 @@ class TestWebPushGateway(unittest.TestCase):
             "core_id": "core-test", "state": "active", "gateway_audience": "provisioned-audience",
             "delivery_endpoint": "https://gateway.example/custom/notifications",
             "subscription_endpoint": "https://gateway.example/custom/subscriptions",
-            "scopes": ["notification.publish", "notification.subscription.delete"], "secret": "p" * 48,
+            "scopes": ["notification.publish", "notification.subscription.delete"], "credential_version": "v9", "secret": "p" * 48,
         }))
         self.add_intent("evt-provisioned")
         requests = []
@@ -134,6 +141,7 @@ class TestWebPushGateway(unittest.TestCase):
         assertion = requests[0].headers["Authorization"].split(" ", 1)[1].split(".", 1)[0]
         claims = json.loads(base64.urlsafe_b64decode(assertion + "=" * (-len(assertion) % 4)))
         self.assertEqual(claims["aud"], "provisioned-audience")
+        self.assertEqual(claims["credential_version"], "v9")
         self.assertNotIn("p" * 16, json.dumps(asyncio.run(publisher.safe_status())))
 
     def test_rate_limit_retries_and_auth_failure_is_permanent(self):

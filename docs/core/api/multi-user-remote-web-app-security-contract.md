@@ -441,12 +441,18 @@ The Core human token is never forwarded.
 
 Core strictly validates that the one-time response matches its Core and key
 identities, fixed gateway audience, exact publish/delete scope set, valid VAPID
-public key, and same-origin exact v1 endpoints. The returned per-Core delivery
+public key, and same-origin exact v1 endpoints. Bootstrap returns distinct
+`/v1/cores/rotate` and `/v1/cores/revoke` endpoints; Core persists those
+validated URLs and does not derive lifecycle routes from an unrelated path.
+The returned per-Core delivery
 credential and registration private key live only in the sensitive settings
 table, which is excluded from ordinary settings APIs. Browser configuration,
 safe status, audit, logs, and coordination evidence expose only public values
-and lifecycle metadata. Rotation requires a fresh operator token and replaces
-both the registration key and delivery credential. Revocation is applied at
+and lifecycle metadata. Every publish or unattended-cleanup assertion carries
+the exact `core_id` and `credential_version`, hashes the transmitted body, and
+is HMAC-SHA256 signed over canonical unpadded-base64url JSON. Rotation requires
+a fresh operator token and atomically replaces both the registration key and
+delivery credential; v1 has no old-credential overlap. Revocation is applied at
 the gateway before Core removes the active credential locally. The shared
 contract remains proposed until Website implements and passes the matching
 contract tests.

@@ -4,6 +4,14 @@ Chosen fix: Moved the tracked Core docs tree to root docs and removed the tracke
 What changed: Updated root README links/layout, updated branding validators to scan shared root docs, and kept the active task queue normalized under docs/New_tasks.txt.
 Verification: Branding validators passed for both Core and Supervisor; tracked docs now live under root docs with no tracked files under core/docs or supervisor/docs.
 ###########
+Task #1017
+Step objective: Make Core's gateway assertions and lifecycle routing interoperable.
+Issue cause: Assertions omitted credential version and lifecycle routing was derived from the bootstrap URL despite the response advertising a different endpoint shape.
+Chosen fix: Bind assertions to Core and credential version, and require explicit validated rotation and revocation endpoints.
+What changed: Added shared assertion construction, strict credential-version requirements, explicit lifecycle endpoints, atomic no-overlap rotation semantics, and focused signature/routing tests.
+Verification: 24 focused Web Push gateway, bootstrap, registration, and notification-policy tests passed; environment documentation registry validation passed.
+
+###########
 Task #973
 Step objective: Improve Supervisor Fleet offline/health UI semantics and operator diagnostics
 Issue cause: Fleet rows could show stale/offline freshness while still displaying health as OK, leaving operators to infer heartbeat state from timestamps.

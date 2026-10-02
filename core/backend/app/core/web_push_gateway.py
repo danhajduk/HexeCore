@@ -7,7 +7,7 @@ import json
 import secrets
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, NamedTuple
 from urllib.parse import quote
 
 import httpx
@@ -27,6 +27,11 @@ GATEWAY_CONTRACT_VERSION = "hexe.web-push-gateway.v1"
 
 def _b64url(value: bytes) -> str:
     return base64.urlsafe_b64encode(value).decode().rstrip("=")
+
+
+class GatewayCredentialMaterial(NamedTuple):
+    secret: str
+    version: str
 
 
 class WebPushGatewayPublisher:
@@ -76,15 +81,13 @@ class WebPushGatewayPublisher:
         for row in await self._devices.pending_notification_cleanup(core_id=self._core_id):
             ref = str(row["subscription_ref"])
             issued = int(selected_now.timestamp())
-            assertion_payload = {
-                "iss": self._core_id, "sub": self._core_id, "aud": self._audience,
-                "scp": ["notification.subscription.delete"], "iat": issued, "exp": issued + 60,
-                "jti": secrets.token_urlsafe(18), "body_sha256": hashlib.sha256(b"").hexdigest(),
-            }
-            assertion_raw = _b64url(json.dumps(assertion_payload, sort_keys=True, separators=(",", ":")).encode())
-            signature = _b64url(hmac.new(credential.encode(), assertion_raw.encode(), hashlib.sha256).digest())
             headers = {
-                "Authorization": f"HexeAssertion {assertion_raw}.{signature}",
+                "Authorization": self._authorization_assertion(
+                    credential,
+                    scope="notification.subscription.delete",
+                    body=b"",
+                    issued=issued,
+                ),
                 "Idempotency-Key": f"{self._core_id}:subscription-delete:{row['device_id']}:{hashlib.sha256(ref.encode()).hexdigest()}",
             }
             try:
@@ -118,7 +121,7 @@ class WebPushGatewayPublisher:
             self._subscription_url = subscription_url
             self._audience = audience
 
-    async def _credential(self, required_scope: str = "notification.publish") -> str | None:
+    async def _credential(self, required_scope: str = "notification.publish") -> GatewayCredentialMaterial | None:
         value = await self._settings.get_sensitive(self._credential_ref)
         if not isinstance(value, dict):
             value = await self._settings.get(self._credential_ref)
@@ -128,10 +131,28 @@ class WebPushGatewayPublisher:
             if value.get("state") not in {None, "active"}:
                 return None
             secret = str(value.get("secret") or "")
-            return secret if len(secret) >= 32 else None
+            version = str(value.get("credential_version") or "").strip()
+            return GatewayCredentialMaterial(secret, version) if len(secret) >= 32 and version else None
         return None
 
-    async def _publish_one(self, row: dict[str, Any], credential: str, now: datetime) -> str:
+    def _authorization_assertion(self, credential: GatewayCredentialMaterial, *, scope: str, body: bytes, issued: int) -> str:
+        assertion_payload = {
+            "iss": self._core_id,
+            "sub": self._core_id,
+            "core_id": self._core_id,
+            "aud": self._audience,
+            "scp": [scope],
+            "credential_version": credential.version,
+            "iat": issued,
+            "exp": issued + 60,
+            "jti": secrets.token_urlsafe(18),
+            "body_sha256": hashlib.sha256(body).hexdigest(),
+        }
+        assertion_raw = _b64url(json.dumps(assertion_payload, sort_keys=True, separators=(",", ":")).encode("utf-8"))
+        signature = _b64url(hmac.new(credential.secret.encode("utf-8"), assertion_raw.encode("ascii"), hashlib.sha256).digest())
+        return f"HexeAssertion {assertion_raw}.{signature}"
+
+    async def _publish_one(self, row: dict[str, Any], credential: GatewayCredentialMaterial, now: datetime) -> str:
         expires = now + timedelta(minutes=10)
         body = {
             "contract_version": GATEWAY_CONTRACT_VERSION,
@@ -144,14 +165,7 @@ class WebPushGatewayPublisher:
         }
         encoded = json.dumps(body, sort_keys=True, separators=(",", ":")).encode()
         issued = int(now.timestamp())
-        assertion_payload = {
-            "iss": self._core_id, "sub": self._core_id, "aud": self._audience,
-            "scp": ["notification.publish"], "iat": issued, "exp": issued + 60,
-            "jti": secrets.token_urlsafe(18), "body_sha256": hashlib.sha256(encoded).hexdigest(),
-        }
-        assertion_raw = _b64url(json.dumps(assertion_payload, sort_keys=True, separators=(",", ":")).encode())
-        signature = _b64url(hmac.new(credential.encode(), assertion_raw.encode(), hashlib.sha256).digest())
-        headers = {"Authorization": f"HexeAssertion {assertion_raw}.{signature}", "Idempotency-Key": f"{self._core_id}:{row['event_id']}:{row['device_id']}:{row['category']}", "Content-Type": "application/json"}
+        headers = {"Authorization": self._authorization_assertion(credential, scope="notification.publish", body=encoded, issued=issued), "Idempotency-Key": f"{self._core_id}:{row['event_id']}:{row['device_id']}:{row['category']}", "Content-Type": "application/json"}
         attempts = int(row.get("attempt_count") or 0) + 1
         try:
             if self._client is not None:

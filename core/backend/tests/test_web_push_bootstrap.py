@@ -35,7 +35,8 @@ def gateway_response(request: httpx.Request, *, secret: str = SECRET_ONE, versio
         "vapid_public_key": VAPID_PUBLIC_KEY,
         "subscription_endpoint": "https://gateway.example/v1/subscriptions",
         "delivery_endpoint": "https://gateway.example/v1/notifications",
-        "lifecycle_endpoint": f"https://gateway.example/v1/cores/{body['core_id']}",
+        "rotation_endpoint": "https://gateway.example/v1/cores/rotate",
+        "revocation_endpoint": "https://gateway.example/v1/cores/revoke",
         "registration_contract_version": "hexe.web-push-registration.v1",
         "delivery_contract_version": "hexe.web-push-gateway.v1",
         "registration_key_id": body["registration_key_id"],
@@ -142,7 +143,9 @@ def test_gateway_expiry_replay_wrong_core_and_duplicate_errors_are_safe():
 
 def test_scope_restriction_rotation_and_immediate_revocation():
     version = {"value": 0}
+    requested_urls = []
     def handler(request):
+        requested_urls.append(str(request.url))
         body = json.loads(request.content)
         if body["operation"] == "revoke":
             return httpx.Response(204)
@@ -161,12 +164,14 @@ def test_scope_restriction_rotation_and_immediate_revocation():
         old_public = asyncio.run(fixture.issuer.public_key())
         rotated = fixture.client.post("/api/web-app/notification-gateway/bootstrap/rotate", headers=fixture.owner, json={"password": "owner-pass", "bootstrap_token": "rotate" + "x" * 26})
         assert rotated.status_code == 200, rotated.text
+        assert requested_urls[-1] == "https://gateway.example/v1/cores/rotate"
         assert rotated.json()["credential_version"] == "v3"
         assert asyncio.run(fixture.issuer.public_key()) != old_public
         record = asyncio.run(fixture.settings.get_sensitive("notification_gateway_credential"))
         assert record["secret"] == SECRET_TWO
         revoked = fixture.client.post("/api/web-app/notification-gateway/bootstrap/revoke", headers=fixture.owner, json={"password": "owner-pass", "bootstrap_token": "revoke" + "x" * 26})
         assert revoked.status_code == 200, revoked.text
+        assert requested_urls[-1] == "https://gateway.example/v1/cores/revoke"
         assert revoked.json()["state"] == "revoked"
         assert revoked.json()["configured"] is False
         record = asyncio.run(fixture.settings.get_sensitive("notification_gateway_credential"))
@@ -174,5 +179,26 @@ def test_scope_restriction_rotation_and_immediate_revocation():
         assert (asyncio.run(fixture.issuer.runtime_configuration()))["configured"] is False
         assert SECRET_ONE not in fixture.client.get("/api/web-app/notification-gateway/bootstrap/status", headers=fixture.owner).text
         assert SECRET_TWO not in fixture.client.get("/api/web-app/notification-gateway/bootstrap/status", headers=fixture.owner).text
+    finally:
+        fixture.close()
+
+
+def test_lifecycle_endpoints_must_be_exact_and_same_origin():
+    def handler(request):
+        response = gateway_response(request)
+        payload = response.json()
+        payload["rotation_endpoint"] = "https://attacker.example/v1/cores/rotate"
+        return httpx.Response(201, json=payload)
+
+    fixture = BootstrapFixture(handler)
+    try:
+        response = fixture.client.post(
+            "/api/web-app/notification-gateway/bootstrap",
+            headers=fixture.owner,
+            json={"password": "owner-pass", "bootstrap_token": "endpoint" + "x" * 24},
+        )
+        assert response.status_code == 502
+        assert response.json()["detail"] == "notification_gateway_endpoint_origin_mismatch"
+        assert asyncio.run(fixture.settings.get_sensitive("notification_gateway_credential")) is None
     finally:
         fixture.close()
