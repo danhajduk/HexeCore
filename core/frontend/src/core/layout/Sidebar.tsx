@@ -28,8 +28,9 @@ const addonItemsCore: NavItem[] = [
   { label: "Addons", path: "/addons" },
 ];
 const storeItems: NavItem[] = [{ label: "Store", path: "/store" }];
-const systemItems: NavItem[] = [
+export const SYSTEM_NAV_ITEMS: NavItem[] = [
   { label: "Settings", path: "/settings" },
+  { label: "Users", path: "/settings/users", nested: true },
   { label: "Supervisor", path: "/settings/supervisor", nested: true },
   { label: "Edge Gateway", path: "/settings/edge", nested: true },
   { label: "Scheduler", path: "/settings/scheduler", nested: true },
@@ -77,7 +78,7 @@ export default function Sidebar({ isAdmin }: { isAdmin: boolean }) {
         { title: "Home", items: homeItems },
         { title: branding.addonsName, items: addonItemsCore.map((item) => ({ ...item, label: `${branding.addonsName} & ${branding.nodesName}` })) },
         { title: "Store", items: storeItems },
-        { title: "System", items: systemItems },
+        { title: "System", items: SYSTEM_NAV_ITEMS },
         { title: `${branding.addonsName} UIs`, items: dynamicAddonItems },
       ].filter((section) => section.items.length > 0)
     : [{ title: "Home", items: homeItems }];

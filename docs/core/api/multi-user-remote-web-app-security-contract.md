@@ -471,6 +471,13 @@ Core records redacted events for:
 - authorization denial for privileged or cross-user access
 - notification recipient-policy decisions and gateway delivery outcomes
 
+The standard local administration UI exposes account lifecycle controls at
+`/settings/users`, linked as **Users** beneath **Settings**. The page uses the
+existing admin-authenticated `/api/admin/users` boundary and supports the
+current `owner`, `admin`, `member`, and `guest` roles. Disabling or deleting a
+user retains the backend's session-revocation, enrolled-device disablement,
+last-enabled-owner, step-up, and audit protections.
+
 Audit identity uses stable `user_id`, plus session/device ids when relevant.
 Passwords, password hashes, raw tokens, one-time proofs, cookies, private keys,
 push endpoints, and provider credentials are never logged.

@@ -4,7 +4,6 @@ import "./settings.css";
 import AdminReloadCard from "./settings/AdminReloadCard";
 import RegistryAdminCard from "./settings/RegistryAdminCard";
 import ControlPlaneCard from "./settings/ControlPlaneCard";
-import UserManagementCard from "./settings/UserManagementCard";
 import MqttAdminFoundationCard from "./settings/MqttAdminFoundationCard";
 import { getTheme, setTheme as applyTheme } from "../../theme/theme";
 import { DEFAULT_PLATFORM_CORE_NAME, usePlatformBranding } from "../branding";
@@ -498,14 +497,6 @@ export default function Settings() {
           <p>Managed addon endpoint inventory for registration, health, and capability metadata.</p>
         </div>
         <RegistryAdminCard />
-      </section>
-
-      <section className="settings-section">
-        <div className="settings-section-head">
-          <h2>Security / Access</h2>
-          <p>Administrative account lifecycle controls for operator access management.</p>
-        </div>
-        <UserManagementCard />
       </section>
 
       <section className="settings-section settings-section-dev">

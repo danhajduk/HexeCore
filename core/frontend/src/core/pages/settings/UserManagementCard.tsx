@@ -9,6 +9,8 @@ type AdminUser = {
   updated_at?: string;
 };
 
+export const USER_ROLES = ["owner", "admin", "member", "guest"] as const;
+
 export default function UserManagementCard() {
   const [items, setItems] = useState<AdminUser[]>([]);
   const [username, setUsername] = useState("");
@@ -91,7 +93,7 @@ export default function UserManagementCard() {
       <div className="admin-header">
         <div>
           <div className="admin-title">User Management</div>
-          <div className="admin-subtitle">Create, update, and remove admin/guest users.</div>
+          <div className="admin-subtitle">Create, update, enable, disable, and remove Core users.</div>
         </div>
       </div>
 
@@ -107,8 +109,7 @@ export default function UserManagementCard() {
         <label className="admin-label">
           <div className="admin-label-text">Role</div>
           <select value={role} onChange={(e) => setRole(e.target.value)} className="admin-input">
-            <option value="guest">guest</option>
-            <option value="admin">admin</option>
+            {USER_ROLES.map((value) => <option value={value} key={value}>{value}</option>)}
           </select>
         </label>
         <label className="admin-label">
