@@ -461,4 +461,5 @@ Step objective: Connect the installed PWA to the registration contract through a
 Chosen fix: Add enable, rotate, and disable controls that request permission on click, send raw Push API material directly to the gateway without credentials, and persist only the opaque gateway reference in Core.
 What changed: Added PushManager lifecycle integration plus service-worker push display and safe `/app` notification-click navigation.
 Verification: All 95 frontend tests passed and the production TypeScript/Vite build succeeded.
+External validation: The running Core has no registration URL or VAPID public key configured, and the Website gateway currently exposes only health/readiness. Live browser-to-gateway registration remains blocked on Website Task 3 despite the completed Core contract.
 ###########
