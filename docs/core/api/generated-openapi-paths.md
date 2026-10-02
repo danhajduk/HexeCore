@@ -5,7 +5,7 @@ Status: Generated
 This file is generated from `openapi-paths.snapshot.json`.
 Do not edit path rows by hand; run `python tools/update_api_route_appendix.py --write`.
 
-Path count: 291
+Path count: 293
 
 | Path | Methods |
 | --- | --- |
@@ -299,4 +299,6 @@ Path count: 291
 | `/api/web-app/conversations/{conversation_id}/messages/stream` | `POST` |
 | `/api/web-app/notification-gateway/credential/rotate` | `POST` |
 | `/api/web-app/notification-gateway/status` | `GET` |
+| `/api/web-app/notification-subscriptions/config` | `GET` |
+| `/api/web-app/notification-subscriptions/grants` | `POST` |
 | `/api/web-app/notifications/test` | `POST` |

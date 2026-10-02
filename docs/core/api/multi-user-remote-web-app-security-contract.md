@@ -410,6 +410,27 @@ queue cleanup only for the affected device. The role-gated
 and status counts only, never gateway URLs, subscription references, assertion
 material, or credentials.
 
+Task 1015 adds the `hexe.web-push-registration.v1` browser handoff. An enrolled
+device reads `GET /api/web-app/notification-subscriptions/config` and requests
+a registration or deletion grant from
+`POST /api/web-app/notification-subscriptions/grants`. Core signs each grant
+with a Core-local Ed25519 key and binds its Core, user, device, gateway
+audience, operation, expiry, and unique replay identifier. The gateway receives
+the public verification key, never the signing key, Core human token, refresh
+token, or reusable `notification.publish` credential. It must validate every
+binding and atomically consume the replay identifier before accepting raw Push
+API subscription material. The browser sends that raw material directly to the
+configured HTTPS gateway, then stores only its returned opaque
+`subscription_ref` in Core. Deletion grants return only the current opaque
+reference and are operation-bound; permission is requested solely from an
+explicit user action in the installed PWA.
+
+When a device, user, or stored subscription is revoked without an active
+browser, Core processes the pending opaque reference through the gateway's
+authenticated deletion route. That cleanup assertion is short-lived and bound
+to `notification.subscription.delete`; retryable failures remain pending, and
+successful or already-absent subscriptions become cleanup-complete.
+
 ## Audit Requirements
 
 Core records redacted events for:

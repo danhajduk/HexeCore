@@ -86,6 +86,30 @@ class TestWebPushGateway(unittest.TestCase):
         self.assertEqual(row["cleanup_state"], "pending")
         self.assertIsNone(asyncio.run(self.devices.get_device("alice-phone"))["revoked_at"])
 
+    def test_revocation_cleanup_is_authenticated_and_idempotent(self):
+        asyncio.run(self.devices.delete_notification_subscription(device_id="alice-phone", core_id="core-test", user_id=self.user["user_id"]))
+        requests = []
+        def handler(request):
+            requests.append(request)
+            return httpx.Response(204)
+        publisher = self.publisher(handler)
+        result = asyncio.run(publisher.cleanup_due(now=datetime(2026, 10, 2, tzinfo=timezone.utc)))
+        self.assertEqual(result["deleted"], 1)
+        request = requests[0]
+        self.assertEqual(request.method, "DELETE")
+        assertion = request.headers["Authorization"].split(" ", 1)[1].split(".", 1)[0]
+        claims = json.loads(base64.urlsafe_b64decode(assertion + "=" * (-len(assertion) % 4)))
+        self.assertEqual(claims["scp"], ["notification.subscription.delete"])
+        self.assertEqual(claims["body_sha256"], hashlib.sha256(b"").hexdigest())
+        self.assertEqual(asyncio.run(publisher.cleanup_due())["deleted"], 0)
+
+    def test_cleanup_gateway_outage_remains_pending(self):
+        asyncio.run(self.devices.delete_notification_subscription(device_id="alice-phone", core_id="core-test", user_id=self.user["user_id"]))
+        result = asyncio.run(self.publisher(lambda request: httpx.Response(503)).cleanup_due())
+        self.assertEqual(result["retry"], 1)
+        row = self.devices._conn.execute("SELECT cleanup_state FROM web_app_notification_subscriptions WHERE device_id='alice-phone'").fetchone()
+        self.assertEqual(row["cleanup_state"], "pending")
+
     def test_wrong_core_or_scope_credential_fails_closed(self):
         self.add_intent()
         asyncio.run(self.settings.set("gateway-credential", {"core_id": "other", "scopes": ["notification.publish"], "secret": "s" * 48}))

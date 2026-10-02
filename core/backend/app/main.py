@@ -30,6 +30,8 @@ from .core import (
     WebNotificationPolicyService,
     WebPushGatewayPublisher,
     build_web_push_gateway_router,
+    WebPushRegistrationGrantIssuer,
+    build_web_push_registration_router,
     ConversationStore,
     CoreChatExecutor,
     build_conversation_router,
@@ -767,6 +769,7 @@ def create_app() -> FastAPI:
                 try:
                     publisher = getattr(app.state, "web_push_gateway_publisher", None)
                     if publisher is not None:
+                        await publisher.cleanup_due()
                         await publisher.publish_due()
                 except Exception:
                     log.exception("Web Push gateway delivery loop failed")
@@ -1225,6 +1228,18 @@ def create_app() -> FastAPI:
         max_attempts=notification_gateway_max_attempts,
     )
     app.state.web_push_gateway_publisher = web_push_gateway_publisher
+    try:
+        web_push_registration_ttl = int(os.getenv("HEXE_NOTIFICATION_GATEWAY_REGISTRATION_GRANT_TTL_SECONDS", "120"))
+    except ValueError:
+        web_push_registration_ttl = 120
+    web_push_registration_issuer = WebPushRegistrationGrantIssuer(
+        settings_store,
+        gateway_url=str(os.getenv("HEXE_NOTIFICATION_GATEWAY_REGISTRATION_URL", "")).strip(),
+        gateway_audience=str(os.getenv("HEXE_NOTIFICATION_GATEWAY_AUDIENCE", "hexe-notification-gateway")).strip() or "hexe-notification-gateway",
+        vapid_public_key=str(os.getenv("HEXE_NOTIFICATION_GATEWAY_VAPID_PUBLIC_KEY", "")).strip(),
+        ttl_seconds=web_push_registration_ttl,
+    )
+    app.state.web_push_registration_issuer = web_push_registration_issuer
     app.state.node_domain_event_promoter = NodeDomainEventPromoterService(
         mqtt_manager,
         mqtt_integration_state_store,
@@ -1386,6 +1401,7 @@ def create_app() -> FastAPI:
     app.include_router(build_device_enrollment_router(web_app_enrollment_store, users_store, service_token_keys, audit_store, settings_store), prefix="/api/auth", tags=["web-app-enrollment"])
     app.include_router(build_web_app_router(service_token_keys, users_store, web_app_enrollment_store, settings_store, web_notification_policy), prefix="/api/web-app", tags=["web-app"])
     app.include_router(build_web_push_gateway_router(web_push_gateway_publisher, service_token_keys, users_store, audit_store), prefix="/api/web-app", tags=["web-push-gateway"])
+    app.include_router(build_web_push_registration_router(web_push_registration_issuer, service_token_keys, users_store, web_app_enrollment_store, settings_store), prefix="/api/web-app", tags=["web-push-registration"])
     app.include_router(build_conversation_router(conversation_store, web_chat_executor, service_token_keys, users_store, web_app_enrollment_store, settings_store, audit_store), prefix="/api/web-app", tags=["web-app-conversations"])
     app.include_router(
         build_service_access_router(

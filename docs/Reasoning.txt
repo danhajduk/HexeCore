@@ -451,3 +451,10 @@ Chosen fix: Serialize browser refresh rotation behind one shared promise, retry 
 What changed: Authentication failures now return to a clean sign-in view instead of leaving an unauthenticated assistant shell; initial signed-out loading no longer sends a redundant bootstrap request.
 Verification: Frontend tests and production typecheck/build passed before deployment.
 ###########
+Task #1015
+Step objective: Implement the Core-owned Web Push registration contract required before Task 1014 validation.
+Issue cause: The PWA has device-bound opaque subscription storage and Core-to-gateway delivery, but no safe browser-to-gateway subscription handoff.
+Chosen fix: Add short-lived device-bound signed grants and a user-initiated PushManager lifecycle while keeping provider subscription material out of Core.
+What changed: Added an Ed25519-signed registration/deletion grant contract, enrolled-device authorization, public gateway/VAPID configuration, replay-validation helper, and authenticated retryable cleanup for revoked opaque subscriptions.
+Verification: 33 focused registration, gateway, and device-enrollment tests passed; OpenAPI snapshot and environment registry checks passed.
+###########

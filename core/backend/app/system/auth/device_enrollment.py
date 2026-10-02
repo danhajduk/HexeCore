@@ -306,6 +306,16 @@ class WebAppEnrollmentStore:
             ).fetchone)
             return dict(row) if row else None
 
+    async def get_notification_subscription(self, *, device_id: str, core_id: str, user_id: str) -> dict[str, Any] | None:
+        async with self._lock:
+            row = await asyncio.to_thread(
+                self._conn.execute(
+                    "SELECT * FROM web_app_notification_subscriptions WHERE device_id=? AND core_id=? AND user_id=? AND deleted_at IS NULL",
+                    (device_id, core_id, user_id),
+                ).fetchone
+            )
+            return dict(row) if row else None
+
     async def list_devices(self, user_id: str) -> list[dict[str, Any]]:
         async with self._lock:
             rows = await asyncio.to_thread(
@@ -488,6 +498,25 @@ class WebAppEnrollmentStore:
                 self._conn.execute,
                 "UPDATE web_app_notification_subscriptions SET deleted_at=?, updated_at=?, cleanup_state='pending' WHERE device_id=? AND core_id=? AND user_id=? AND deleted_at IS NULL",
                 (now, now, device_id, core_id, user_id),
+            )
+            return changed.rowcount == 1
+
+    async def pending_notification_cleanup(self, *, core_id: str, limit: int = 100) -> list[dict[str, Any]]:
+        async with self._lock:
+            rows = await asyncio.to_thread(
+                self._conn.execute(
+                    "SELECT * FROM web_app_notification_subscriptions WHERE core_id=? AND cleanup_state='pending' ORDER BY updated_at, device_id LIMIT ?",
+                    (core_id, max(1, min(limit, 500))),
+                ).fetchall
+            )
+            return [dict(row) for row in rows]
+
+    async def mark_notification_cleanup_complete(self, *, device_id: str, core_id: str, subscription_ref: str) -> bool:
+        async with self._lock:
+            changed = await asyncio.to_thread(
+                self._conn.execute,
+                "UPDATE web_app_notification_subscriptions SET cleanup_state='complete', updated_at=? WHERE device_id=? AND core_id=? AND subscription_ref=? AND cleanup_state='pending'",
+                (_now_iso(), device_id, core_id, subscription_ref),
             )
             return changed.rowcount == 1
 

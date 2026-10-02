@@ -1281,9 +1281,30 @@
       "sensitive": false
     },
     {
+      "default": "120",
+      "description": "Lifetime in seconds for single-use device-bound Web Push registration and deletion grants; clamped to 30 through 300 seconds.",
+      "name": "HEXE_NOTIFICATION_GATEWAY_REGISTRATION_GRANT_TTL_SECONDS",
+      "owner": "Auth and service access",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "HTTPS endpoint used by the PWA for gateway subscription registration and deletion; unset keeps browser registration unavailable.",
+      "name": "HEXE_NOTIFICATION_GATEWAY_REGISTRATION_URL",
+      "owner": "Auth and service access",
+      "sensitive": false
+    },
+    {
       "default": null,
       "description": "HTTPS base URL for the central Cloudflare Web Push gateway; unset keeps delivery safely unconfigured.",
       "name": "HEXE_NOTIFICATION_GATEWAY_URL",
+      "owner": "Auth and service access",
+      "sensitive": false
+    },
+    {
+      "default": null,
+      "description": "Public VAPID application-server key used by enrolled browsers when creating Push API subscriptions.",
+      "name": "HEXE_NOTIFICATION_GATEWAY_VAPID_PUBLIC_KEY",
       "owner": "Auth and service access",
       "sensitive": false
     },

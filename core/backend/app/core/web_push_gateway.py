@@ -8,6 +8,7 @@ import secrets
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 from fastapi import APIRouter, Header, HTTPException
@@ -61,6 +62,45 @@ class WebPushGatewayPublisher:
         for row in rows:
             outcome = await self._publish_one(row, credential, selected_now)
             counts[outcome] += 1
+        return counts
+
+    async def cleanup_due(self, *, now: datetime | None = None) -> dict[str, int]:
+        selected_now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+        counts = {"deleted": 0, "retry": 0, "failed": 0}
+        credential = await self._credential()
+        if credential is None or not self._gateway_url:
+            return counts
+        for row in await self._devices.pending_notification_cleanup(core_id=self._core_id):
+            ref = str(row["subscription_ref"])
+            issued = int(selected_now.timestamp())
+            assertion_payload = {
+                "iss": self._core_id, "sub": self._core_id, "aud": self._audience,
+                "scp": ["notification.subscription.delete"], "iat": issued, "exp": issued + 60,
+                "jti": secrets.token_urlsafe(18), "body_sha256": hashlib.sha256(b"").hexdigest(),
+            }
+            assertion_raw = _b64url(json.dumps(assertion_payload, sort_keys=True, separators=(",", ":")).encode())
+            signature = _b64url(hmac.new(credential.encode(), assertion_raw.encode(), hashlib.sha256).digest())
+            headers = {
+                "Authorization": f"HexeAssertion {assertion_raw}.{signature}",
+                "Idempotency-Key": f"{self._core_id}:subscription-delete:{row['device_id']}:{hashlib.sha256(ref.encode()).hexdigest()}",
+            }
+            try:
+                path = f"{self._gateway_url}/v1/subscriptions/{quote(ref, safe='')}"
+                if self._client is not None:
+                    response = await self._client.delete(path, headers=headers)
+                else:
+                    async with httpx.AsyncClient(timeout=10.0, follow_redirects=False) as client:
+                        response = await client.delete(path, headers=headers)
+            except (httpx.TimeoutException, httpx.NetworkError):
+                counts["retry"] += 1
+                continue
+            if response.status_code in {200, 202, 204, 404, 410}:
+                await self._devices.mark_notification_cleanup_complete(device_id=str(row["device_id"]), core_id=self._core_id, subscription_ref=ref)
+                counts["deleted"] += 1
+            elif response.status_code in {408, 425, 429} or response.status_code >= 500:
+                counts["retry"] += 1
+            else:
+                counts["failed"] += 1
         return counts
 
     async def _credential(self) -> str | None:
