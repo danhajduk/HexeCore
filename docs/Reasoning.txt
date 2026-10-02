@@ -457,4 +457,8 @@ Issue cause: The PWA has device-bound opaque subscription storage and Core-to-ga
 Chosen fix: Add short-lived device-bound signed grants and a user-initiated PushManager lifecycle while keeping provider subscription material out of Core.
 What changed: Added an Ed25519-signed registration/deletion grant contract, enrolled-device authorization, public gateway/VAPID configuration, replay-validation helper, and authenticated retryable cleanup for revoked opaque subscriptions.
 Verification: 33 focused registration, gateway, and device-enrollment tests passed; OpenAPI snapshot and environment registry checks passed.
+Step objective: Connect the installed PWA to the registration contract through an explicit user action.
+Chosen fix: Add enable, rotate, and disable controls that request permission on click, send raw Push API material directly to the gateway without credentials, and persist only the opaque gateway reference in Core.
+What changed: Added PushManager lifecycle integration plus service-worker push display and safe `/app` notification-click navigation.
+Verification: All 95 frontend tests passed and the production TypeScript/Vite build succeeded.
 ###########
