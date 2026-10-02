@@ -431,6 +431,26 @@ authenticated deletion route. That cleanup assertion is short-lived and bound
 to `notification.subscription.delete`; retryable failures remain pending, and
 successful or already-absent subscriptions become cleanup-complete.
 
+Task 1016 provisions this trust boundary through
+`hexe.web-push-gateway-bootstrap.v1`. Only an authenticated Core owner who
+re-enters their password may submit a short-lived single-use operator token to
+Core. Core sends that token server-to-server to its fixed configured gateway
+bootstrap endpoint together with its stable Core id, canonical HTTPS origin,
+registration-grant Ed25519 public key, algorithm, key id, and contract version.
+The Core human token is never forwarded.
+
+Core strictly validates that the one-time response matches its Core and key
+identities, fixed gateway audience, exact publish/delete scope set, valid VAPID
+public key, and same-origin exact v1 endpoints. The returned per-Core delivery
+credential and registration private key live only in the sensitive settings
+table, which is excluded from ordinary settings APIs. Browser configuration,
+safe status, audit, logs, and coordination evidence expose only public values
+and lifecycle metadata. Rotation requires a fresh operator token and replaces
+both the registration key and delivery credential. Revocation is applied at
+the gateway before Core removes the active credential locally. The shared
+contract remains proposed until Website implements and passes the matching
+contract tests.
+
 ## Audit Requirements
 
 Core records redacted events for:

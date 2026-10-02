@@ -25,6 +25,7 @@ from app.system.users.store import UsersStore
 
 REGISTRATION_CONTRACT_VERSION = "hexe.web-push-registration.v1"
 _SIGNING_KEY_REF = "web_push_registration_signing_key_v1"
+GATEWAY_CREDENTIAL_REF = "notification_gateway_credential"
 
 
 def _b64url(value: bytes) -> str:
@@ -96,12 +97,14 @@ class WebPushRegistrationGrantIssuer:
         gateway_url: str,
         gateway_audience: str,
         vapid_public_key: str,
+        credential_ref: str = GATEWAY_CREDENTIAL_REF,
         ttl_seconds: int = 120,
     ) -> None:
         self._settings = settings
         self.gateway_url = _gateway_url(gateway_url)
         self.gateway_audience = str(gateway_audience or "").strip()
         self.vapid_public_key = str(vapid_public_key or "").strip()
+        self._credential_ref = credential_ref
         self.ttl_seconds = max(30, min(int(ttl_seconds), 300))
         self._key_lock = asyncio.Lock()
 
@@ -109,9 +112,47 @@ class WebPushRegistrationGrantIssuer:
     def configured(self) -> bool:
         return bool(self.gateway_url and self.gateway_audience and self.vapid_public_key)
 
+    @staticmethod
+    def key_id(core_id: str) -> str:
+        return f"{core_id}:web-push-registration:v1"
+
+    async def runtime_configuration(self) -> dict:
+        record = await self._settings.get_sensitive(self._credential_ref)
+        if isinstance(record, dict) and record.get("state") == "active":
+            return {
+                "configured": True,
+                "gateway_url": str(record.get("subscription_endpoint") or ""),
+                "gateway_audience": str(record.get("gateway_audience") or ""),
+                "vapid_public_key": str(record.get("vapid_public_key") or ""),
+            }
+        return {
+            "configured": self.configured,
+            "gateway_url": self.gateway_url,
+            "gateway_audience": self.gateway_audience,
+            "vapid_public_key": self.vapid_public_key,
+        }
+
+    @staticmethod
+    def generate_signing_key() -> tuple[str, str]:
+        key = Ed25519PrivateKey.generate()
+        private_raw = key.private_bytes(serialization.Encoding.Raw, serialization.PrivateFormat.Raw, serialization.NoEncryption())
+        public_raw = key.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+        return _b64url(private_raw), _b64url(public_raw)
+
+    async def install_signing_key(self, private_key: str) -> None:
+        raw = base64.urlsafe_b64decode(private_key + "=" * (-len(private_key) % 4))
+        Ed25519PrivateKey.from_private_bytes(raw)
+        await self._settings.set_sensitive(_SIGNING_KEY_REF, {"private_key": private_key, "created_at": datetime.now(timezone.utc).isoformat()})
+
     async def _private_key(self) -> Ed25519PrivateKey:
         async with self._key_lock:
-            saved = await self._settings.get(_SIGNING_KEY_REF)
+            saved = await self._settings.get_sensitive(_SIGNING_KEY_REF)
+            if not isinstance(saved, dict):
+                legacy = await self._settings.get(_SIGNING_KEY_REF)
+                if isinstance(legacy, dict):
+                    saved = legacy
+                    await self._settings.set_sensitive(_SIGNING_KEY_REF, legacy)
+                    await self._settings.delete(_SIGNING_KEY_REF)
             encoded = str(saved.get("private_key") or "") if isinstance(saved, dict) else ""
             if encoded:
                 try:
@@ -121,7 +162,7 @@ class WebPushRegistrationGrantIssuer:
                     pass
             key = Ed25519PrivateKey.generate()
             raw = key.private_bytes(serialization.Encoding.Raw, serialization.PrivateFormat.Raw, serialization.NoEncryption())
-            await self._settings.set(_SIGNING_KEY_REF, {"private_key": _b64url(raw), "created_at": datetime.now(timezone.utc).isoformat()})
+            await self._settings.set_sensitive(_SIGNING_KEY_REF, {"private_key": _b64url(raw), "created_at": datetime.now(timezone.utc).isoformat()})
             return key
 
     async def public_key(self) -> str:
@@ -144,7 +185,10 @@ class WebPushRegistrationGrantIssuer:
             "exp": now + self.ttl_seconds,
             "jti": secrets.token_urlsafe(24),
         }
-        header = {"alg": "EdDSA", "typ": "JWT", "kid": f"{core_id}:web-push-registration:v1"}
+        configuration = await self.runtime_configuration()
+        audience = str(configuration.get("gateway_audience") or self.gateway_audience)
+        claims["aud"] = audience
+        header = {"alg": "EdDSA", "typ": "JWT", "kid": self.key_id(core_id)}
         signing_input = f"{_b64url(json.dumps(header, sort_keys=True, separators=(',', ':')).encode())}.{_b64url(json.dumps(claims, sort_keys=True, separators=(',', ':')).encode())}"
         signature = await self._private_key()
         return f"{signing_input}.{_b64url(signature.sign(signing_input.encode()))}", claims
@@ -176,13 +220,14 @@ def build_web_push_registration_router(
     @router.get("/notification-subscriptions/config")
     async def registration_config(authorization: str | None = Header(default=None)):
         _, _, identity = await enrolled(authorization)
+        configuration = await issuer.runtime_configuration()
         return {
             "contract_version": REGISTRATION_CONTRACT_VERSION,
-            "configured": issuer.configured,
+            "configured": bool(configuration["configured"]),
             "core_id": identity.core_id,
-            "gateway_url": issuer.gateway_url if issuer.configured else None,
-            "gateway_audience": issuer.gateway_audience,
-            "vapid_public_key": issuer.vapid_public_key if issuer.configured else None,
+            "gateway_url": configuration["gateway_url"] if configuration["configured"] else None,
+            "gateway_audience": configuration["gateway_audience"],
+            "vapid_public_key": configuration["vapid_public_key"] if configuration["configured"] else None,
             "grant_public_key": await issuer.public_key(),
             "grant_algorithm": "EdDSA",
         }
@@ -190,7 +235,8 @@ def build_web_push_registration_router(
     @router.post("/notification-subscriptions/grants")
     async def issue_grant(body: RegistrationGrantRequest, authorization: str | None = Header(default=None)):
         principal, device, identity = await enrolled(authorization)
-        if not issuer.configured:
+        configuration = await issuer.runtime_configuration()
+        if not configuration["configured"]:
             raise HTTPException(status_code=503, detail="notification_gateway_registration_unavailable")
         subscription = await devices.get_notification_subscription(
             device_id=str(device["device_id"]), core_id=identity.core_id, user_id=principal.user_id
@@ -208,8 +254,8 @@ def build_web_push_registration_router(
             "contract_version": REGISTRATION_CONTRACT_VERSION,
             "grant": grant,
             "expires_at": datetime.fromtimestamp(claims["exp"], timezone.utc).isoformat(),
-            "gateway_url": issuer.gateway_url,
-            "gateway_audience": issuer.gateway_audience,
+            "gateway_url": configuration["gateway_url"],
+            "gateway_audience": configuration["gateway_audience"],
             "subscription_ref": subscription_ref if body.operation == "delete" else None,
         }
 

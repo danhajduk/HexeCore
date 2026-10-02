@@ -11,8 +11,7 @@ from typing import Any
 from urllib.parse import quote
 
 import httpx
-from fastapi import APIRouter, Header, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Header
 
 from app.system.settings.store import SettingsStore
 from app.system.auth.device_enrollment import WebAppEnrollmentStore
@@ -37,6 +36,8 @@ class WebPushGatewayPublisher:
         self._settings = settings
         self._core_id = core_id
         self._gateway_url = self._validated_gateway_url(gateway_url)
+        self._notification_url = f"{self._gateway_url}/v1/notifications" if self._gateway_url else ""
+        self._subscription_url = f"{self._gateway_url}/v1/subscriptions" if self._gateway_url else ""
         self._credential_ref = credential_ref
         self._audience = audience
         self._client = client
@@ -56,8 +57,9 @@ class WebPushGatewayPublisher:
         selected_now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
         rows = await self._intents.due(selected_now.isoformat())
         counts = {"accepted": 0, "retry": 0, "dead": 0, "invalid_subscription": 0}
-        credential = await self._credential()
-        if credential is None or not self._gateway_url:
+        await self._refresh_provisioned_configuration()
+        credential = await self._credential("notification.publish")
+        if credential is None or not self._notification_url:
             return counts
         for row in rows:
             outcome = await self._publish_one(row, credential, selected_now)
@@ -67,8 +69,9 @@ class WebPushGatewayPublisher:
     async def cleanup_due(self, *, now: datetime | None = None) -> dict[str, int]:
         selected_now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
         counts = {"deleted": 0, "retry": 0, "failed": 0}
-        credential = await self._credential()
-        if credential is None or not self._gateway_url:
+        await self._refresh_provisioned_configuration()
+        credential = await self._credential("notification.subscription.delete")
+        if credential is None or not self._subscription_url:
             return counts
         for row in await self._devices.pending_notification_cleanup(core_id=self._core_id):
             ref = str(row["subscription_ref"])
@@ -85,7 +88,7 @@ class WebPushGatewayPublisher:
                 "Idempotency-Key": f"{self._core_id}:subscription-delete:{row['device_id']}:{hashlib.sha256(ref.encode()).hexdigest()}",
             }
             try:
-                path = f"{self._gateway_url}/v1/subscriptions/{quote(ref, safe='')}"
+                path = f"{self._subscription_url}/{quote(ref, safe='')}"
                 if self._client is not None:
                     response = await self._client.delete(path, headers=headers)
                 else:
@@ -103,10 +106,26 @@ class WebPushGatewayPublisher:
                 counts["failed"] += 1
         return counts
 
-    async def _credential(self) -> str | None:
-        value = await self._settings.get(self._credential_ref)
+    async def _refresh_provisioned_configuration(self) -> None:
+        value = await self._settings.get_sensitive(self._credential_ref)
+        if not isinstance(value, dict) or value.get("state") != "active" or value.get("core_id") != self._core_id:
+            return
+        notification_url = self._validated_gateway_url(str(value.get("delivery_endpoint") or ""))
+        subscription_url = self._validated_gateway_url(str(value.get("subscription_endpoint") or ""))
+        audience = str(value.get("gateway_audience") or "").strip()
+        if notification_url and subscription_url and audience:
+            self._notification_url = notification_url
+            self._subscription_url = subscription_url
+            self._audience = audience
+
+    async def _credential(self, required_scope: str = "notification.publish") -> str | None:
+        value = await self._settings.get_sensitive(self._credential_ref)
+        if not isinstance(value, dict):
+            value = await self._settings.get(self._credential_ref)
         if isinstance(value, dict):
-            if value.get("core_id") != self._core_id or "notification.publish" not in set(value.get("scopes") or []):
+            if value.get("core_id") != self._core_id or required_scope not in set(value.get("scopes") or []):
+                return None
+            if value.get("state") not in {None, "active"}:
                 return None
             secret = str(value.get("secret") or "")
             return secret if len(secret) >= 32 else None
@@ -136,10 +155,10 @@ class WebPushGatewayPublisher:
         attempts = int(row.get("attempt_count") or 0) + 1
         try:
             if self._client is not None:
-                response = await self._client.post(f"{self._gateway_url}/v1/notifications", content=encoded, headers=headers)
+                response = await self._client.post(self._notification_url, content=encoded, headers=headers)
             else:
                 async with httpx.AsyncClient(timeout=10.0, follow_redirects=False) as client:
-                    response = await client.post(f"{self._gateway_url}/v1/notifications", content=encoded, headers=headers)
+                    response = await client.post(self._notification_url, content=encoded, headers=headers)
         except (httpx.TimeoutException, httpx.NetworkError):
             return await self._retry(row, attempts, now, "gateway_unavailable")
         if response.status_code in {200, 201, 202, 204, 409}:
@@ -164,16 +183,8 @@ class WebPushGatewayPublisher:
         return "retry"
 
     async def safe_status(self) -> dict[str, Any]:
-        return {"configured": bool(self._gateway_url and await self._credential()), "counts": await self._intents.status_counts()}
-
-    async def rotate_credential(self, secret: str) -> None:
-        await self._settings.set(self._credential_ref, {"core_id": self._core_id, "scopes": ["notification.publish"], "secret": secret})
-
-
-class GatewayCredentialRotationRequest(BaseModel):
-    password: str = Field(..., min_length=1, max_length=256)
-    secret: str = Field(..., min_length=32, max_length=512)
-
+        await self._refresh_provisioned_configuration()
+        return {"configured": bool(self._notification_url and await self._credential()), "counts": await self._intents.status_counts()}
 
 def build_web_push_gateway_router(publisher: WebPushGatewayPublisher, keys: ServiceTokenKeyStore, users: UsersStore, audit: AuditLogStore | None = None) -> APIRouter:
     router = APIRouter()
@@ -183,17 +194,5 @@ def build_web_push_gateway_router(publisher: WebPushGatewayPublisher, keys: Serv
         principal = await authenticate_human_token(authorization, keys, users)
         principal.require("users.manage")
         return {"ok": True, **await publisher.safe_status()}
-
-    @router.post("/notification-gateway/credential/rotate")
-    async def rotate_gateway_credential(body: GatewayCredentialRotationRequest, authorization: str | None = Header(default=None)):
-        principal = await authenticate_human_token(authorization, keys, users)
-        principal.require("ownership.manage")
-        verified = await users.verify_credentials(principal.username, body.password)
-        if verified is None or str(verified.get("user_id")) != principal.user_id:
-            raise HTTPException(status_code=403, detail="reauthentication_failed")
-        await publisher.rotate_credential(body.secret)
-        if audit is not None:
-            await audit.record(event_type="web_push_gateway_credential_rotated", actor_role=principal.role, actor_id=principal.user_id, details={"core_id": publisher._core_id})
-        return {"ok": True, "configured": True}
 
     return router

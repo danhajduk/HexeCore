@@ -16,6 +16,7 @@ from .system_notification_service import CoreSystemNotificationService
 from .web_notification_policy import NotificationIntentStore, TrustedNotificationEvent, WebNotificationEventConsumer, WebNotificationPolicyService
 from .web_push_gateway import GATEWAY_CONTRACT_VERSION, WebPushGatewayPublisher, build_web_push_gateway_router
 from .web_push_registration import REGISTRATION_CONTRACT_VERSION, WebPushRegistrationGrantIssuer, build_web_push_registration_router, verify_registration_grant
+from .web_push_bootstrap import BOOTSTRAP_CONTRACT_VERSION, WebPushGatewayBootstrapService, build_web_push_bootstrap_router
 from .web_conversations import ConversationStore, CoreChatExecutor, build_conversation_router
 from .notifications import (
     INTERNAL_EVENT_TOPIC,
@@ -99,6 +100,9 @@ __all__ = [
     "WebPushRegistrationGrantIssuer",
     "build_web_push_registration_router",
     "verify_registration_grant",
+    "BOOTSTRAP_CONTRACT_VERSION",
+    "WebPushGatewayBootstrapService",
+    "build_web_push_bootstrap_router",
     "ConversationStore",
     "CoreChatExecutor",
     "build_conversation_router",

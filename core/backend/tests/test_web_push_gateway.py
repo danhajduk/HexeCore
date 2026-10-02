@@ -32,7 +32,7 @@ class TestWebPushGateway(unittest.TestCase):
         now = datetime.now(timezone.utc).isoformat()
         self.devices._conn.execute("INSERT INTO web_app_devices VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)", ("alice-phone", "core-test", self.user["user_id"], "Phone", "public-key", "test", now, now))
         self.devices._conn.execute("INSERT INTO web_app_notification_subscriptions VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 'active')", ("alice-phone", "core-test", self.user["user_id"], "sub_opaque", "gateway-test", now, now))
-        asyncio.run(self.settings.set("gateway-credential", {"core_id": "core-test", "scopes": ["notification.publish"], "secret": "s" * 48}))
+        asyncio.run(self.settings.set("gateway-credential", {"core_id": "core-test", "scopes": ["notification.publish", "notification.subscription.delete"], "secret": "s" * 48}))
 
     def tearDown(self): self.tmp.cleanup()
 
@@ -117,6 +117,25 @@ class TestWebPushGateway(unittest.TestCase):
         self.assertFalse(asyncio.run(publisher.safe_status())["configured"])
         self.assertEqual(asyncio.run(publisher.publish_due())["accepted"], 0)
 
+    def test_bootstrapped_sensitive_record_drives_delivery_without_secret_exposure(self):
+        asyncio.run(self.settings.delete("gateway-credential"))
+        asyncio.run(self.settings.set_sensitive("gateway-credential", {
+            "core_id": "core-test", "state": "active", "gateway_audience": "provisioned-audience",
+            "delivery_endpoint": "https://gateway.example/custom/notifications",
+            "subscription_endpoint": "https://gateway.example/custom/subscriptions",
+            "scopes": ["notification.publish", "notification.subscription.delete"], "secret": "p" * 48,
+        }))
+        self.add_intent("evt-provisioned")
+        requests = []
+        publisher = self.publisher(lambda request: requests.append(request) or httpx.Response(202))
+        result = asyncio.run(publisher.publish_due())
+        self.assertEqual(result["accepted"], 1)
+        self.assertEqual(str(requests[0].url), "https://gateway.example/custom/notifications")
+        assertion = requests[0].headers["Authorization"].split(" ", 1)[1].split(".", 1)[0]
+        claims = json.loads(base64.urlsafe_b64decode(assertion + "=" * (-len(assertion) % 4)))
+        self.assertEqual(claims["aud"], "provisioned-audience")
+        self.assertNotIn("p" * 16, json.dumps(asyncio.run(publisher.safe_status())))
+
     def test_rate_limit_retries_and_auth_failure_is_permanent(self):
         self.add_intent("evt-rate")
         self.assertEqual(asyncio.run(self.publisher(lambda request: httpx.Response(429)).publish_due())["retry"], 1)
@@ -141,25 +160,12 @@ class TestWebPushGateway(unittest.TestCase):
         self.assertNotIn("gateway.example", response.text)
         self.assertNotIn("sub_opaque", response.text)
         self.assertNotIn("credential", response.text)
-        denied = client.post(
-            "/api/web-app/notification-gateway/credential/rotate",
-            headers={"Authorization": f"Bearer {member['access_token']}"},
-            json={"password": "alice-pass", "secret": "n" * 48},
-        )
-        self.assertEqual(denied.status_code, 403, denied.text)
-        wrong_password = client.post(
-            "/api/web-app/notification-gateway/credential/rotate",
-            headers={"Authorization": f"Bearer {owner['access_token']}"},
-            json={"password": "wrong", "secret": "n" * 48},
-        )
-        self.assertEqual(wrong_password.status_code, 403, wrong_password.text)
-        rotated = client.post(
+        removed = client.post(
             "/api/web-app/notification-gateway/credential/rotate",
             headers={"Authorization": f"Bearer {owner['access_token']}"},
             json={"password": "owner-pass", "secret": "n" * 48},
         )
-        self.assertEqual(rotated.status_code, 200, rotated.text)
-        self.assertNotIn("n" * 16, rotated.text)
+        self.assertEqual(removed.status_code, 404, removed.text)
 
 
 if __name__ == "__main__": unittest.main()

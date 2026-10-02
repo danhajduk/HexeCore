@@ -21,12 +21,25 @@ class SettingsStore:
         self._conn.row_factory = sqlite3.Row
         self._lock = asyncio.Lock()
         self._init_db()
+        try:
+            os.chmod(self.db_path, 0o600)
+        except OSError:
+            pass
 
     def _init_db(self) -> None:
         cur = self._conn.cursor()
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS app_settings (
+              key TEXT PRIMARY KEY,
+              value_json TEXT,
+              updated_at TEXT
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS app_sensitive_settings (
               key TEXT PRIMARY KEY,
               value_json TEXT,
               updated_at TEXT
@@ -43,6 +56,18 @@ class SettingsStore:
 
     async def set(self, key: str, value: Any) -> None:
         await self._run(self._set_sync, key, value)
+
+    async def delete(self, key: str) -> None:
+        await self._run(self._delete_sync, key)
+
+    async def get_sensitive(self, key: str) -> Optional[Any]:
+        return await self._run(self._get_sensitive_sync, key)
+
+    async def set_sensitive(self, key: str, value: Any) -> None:
+        await self._run(self._set_sensitive_sync, key, value)
+
+    async def delete_sensitive(self, key: str) -> None:
+        await self._run(self._delete_sensitive_sync, key)
 
     async def _run(self, fn, *args):
         async with self._lock:
@@ -80,4 +105,34 @@ class SettingsStore:
             """,
             (key, json.dumps(value), _utcnow_iso()),
         )
+        self._conn.commit()
+
+    def _delete_sync(self, key: str) -> None:
+        self._conn.execute("DELETE FROM app_settings WHERE key = ?", (key,))
+        self._conn.commit()
+
+    def _get_sensitive_sync(self, key: str) -> Optional[Any]:
+        row = self._conn.execute("SELECT value_json FROM app_sensitive_settings WHERE key = ?", (key,)).fetchone()
+        if not row:
+            return None
+        try:
+            return json.loads(row["value_json"])
+        except Exception:
+            return None
+
+    def _set_sensitive_sync(self, key: str, value: Any) -> None:
+        self._conn.execute(
+            """
+            INSERT INTO app_sensitive_settings (key, value_json, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(key) DO UPDATE SET
+              value_json=excluded.value_json,
+              updated_at=excluded.updated_at
+            """,
+            (key, json.dumps(value), _utcnow_iso()),
+        )
+        self._conn.commit()
+
+    def _delete_sensitive_sync(self, key: str) -> None:
+        self._conn.execute("DELETE FROM app_sensitive_settings WHERE key = ?", (key,))
         self._conn.commit()

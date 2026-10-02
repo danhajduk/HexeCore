@@ -1267,6 +1267,13 @@
       "sensitive": false
     },
     {
+      "default": null,
+      "description": "Fixed HTTPS /v1/cores/bootstrap endpoint for owner-authorized Web Push gateway provisioning; bootstrap tokens are supplied in request bodies and are never stored in this variable.",
+      "name": "HEXE_NOTIFICATION_GATEWAY_BOOTSTRAP_URL",
+      "owner": "Auth and service access",
+      "sensitive": false
+    },
+    {
       "default": "8",
       "description": "Maximum Web Push gateway delivery attempts before an intent enters dead-letter state.",
       "name": "HEXE_NOTIFICATION_GATEWAY_MAX_ATTEMPTS",

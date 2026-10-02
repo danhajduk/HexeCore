@@ -463,3 +463,10 @@ What changed: Added PushManager lifecycle integration plus service-worker push d
 Verification: All 95 frontend tests passed and the production TypeScript/Vite build succeeded.
 External validation: The running Core has no registration URL or VAPID public key configured, and the Website gateway currently exposes only health/readiness. Live browser-to-gateway registration remains blocked on Website Task 3 despite the completed Core contract.
 ###########
+Task #1016
+Step objective: Implement the Core side of the proposed Web Push gateway bootstrap and credential lifecycle.
+Issue cause: Task 1015 can sign browser registration grants, but the gateway has no trusted provisioning path for the Core public key or a distinct per-Core delivery credential.
+Chosen fix: Add owner step-up server-to-server bootstrap, strict response validation, sensitive settings storage, explicit rotation/revocation, and safe public configuration derived from the provisioned record.
+What changed: Added a non-browser-accessible sensitive settings table, owner step-up bootstrap/rotation/revocation APIs, strict same-origin gateway response validation, dynamic Task 1015 configuration, and sensitive publisher credential loading. Removed the old caller-supplied credential rotation route.
+Verification: 59 focused bootstrap, sensitive-settings, registration, gateway, enrollment, static-serving, and web-app bootstrap tests passed; environment and generated OpenAPI checks passed. The shared proposal remains under contracts/proposed.
+###########

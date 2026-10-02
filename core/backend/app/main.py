@@ -32,6 +32,8 @@ from .core import (
     build_web_push_gateway_router,
     WebPushRegistrationGrantIssuer,
     build_web_push_registration_router,
+    WebPushGatewayBootstrapService,
+    build_web_push_bootstrap_router,
     ConversationStore,
     CoreChatExecutor,
     build_conversation_router,
@@ -1217,13 +1219,14 @@ def create_app() -> FastAPI:
         notification_gateway_max_attempts = max(1, int(os.getenv("HEXE_NOTIFICATION_GATEWAY_MAX_ATTEMPTS", "8")))
     except ValueError:
         notification_gateway_max_attempts = 8
+    notification_gateway_credential_ref = str(os.getenv("HEXE_NOTIFICATION_GATEWAY_AUTH_REF", "notification_gateway_credential")).strip() or "notification_gateway_credential"
     web_push_gateway_publisher = WebPushGatewayPublisher(
         notification_intent_store,
         web_app_enrollment_store,
         settings_store,
         core_id=str(os.getenv("HEXE_CORE_ID", "hexe-core")).strip() or "hexe-core",
         gateway_url=str(os.getenv("HEXE_NOTIFICATION_GATEWAY_URL", "")).strip(),
-        credential_ref=str(os.getenv("HEXE_NOTIFICATION_GATEWAY_AUTH_REF", "notification_gateway_credential")).strip() or "notification_gateway_credential",
+        credential_ref=notification_gateway_credential_ref,
         audience=str(os.getenv("HEXE_NOTIFICATION_GATEWAY_AUDIENCE", "hexe-notification-gateway")).strip() or "hexe-notification-gateway",
         max_attempts=notification_gateway_max_attempts,
     )
@@ -1237,9 +1240,17 @@ def create_app() -> FastAPI:
         gateway_url=str(os.getenv("HEXE_NOTIFICATION_GATEWAY_REGISTRATION_URL", "")).strip(),
         gateway_audience=str(os.getenv("HEXE_NOTIFICATION_GATEWAY_AUDIENCE", "hexe-notification-gateway")).strip() or "hexe-notification-gateway",
         vapid_public_key=str(os.getenv("HEXE_NOTIFICATION_GATEWAY_VAPID_PUBLIC_KEY", "")).strip(),
+        credential_ref=notification_gateway_credential_ref,
         ttl_seconds=web_push_registration_ttl,
     )
     app.state.web_push_registration_issuer = web_push_registration_issuer
+    web_push_bootstrap_service = WebPushGatewayBootstrapService(
+        settings_store,
+        web_push_registration_issuer,
+        bootstrap_url=str(os.getenv("HEXE_NOTIFICATION_GATEWAY_BOOTSTRAP_URL", "")).strip(),
+        credential_ref=notification_gateway_credential_ref,
+    )
+    app.state.web_push_bootstrap_service = web_push_bootstrap_service
     app.state.node_domain_event_promoter = NodeDomainEventPromoterService(
         mqtt_manager,
         mqtt_integration_state_store,
@@ -1402,6 +1413,7 @@ def create_app() -> FastAPI:
     app.include_router(build_web_app_router(service_token_keys, users_store, web_app_enrollment_store, settings_store, web_notification_policy), prefix="/api/web-app", tags=["web-app"])
     app.include_router(build_web_push_gateway_router(web_push_gateway_publisher, service_token_keys, users_store, audit_store), prefix="/api/web-app", tags=["web-push-gateway"])
     app.include_router(build_web_push_registration_router(web_push_registration_issuer, service_token_keys, users_store, web_app_enrollment_store, settings_store), prefix="/api/web-app", tags=["web-push-registration"])
+    app.include_router(build_web_push_bootstrap_router(web_push_bootstrap_service, service_token_keys, users_store, settings_store, audit_store), prefix="/api/web-app", tags=["web-push-bootstrap"])
     app.include_router(build_conversation_router(conversation_store, web_chat_executor, service_token_keys, users_store, web_app_enrollment_store, settings_store, audit_store), prefix="/api/web-app", tags=["web-app-conversations"])
     app.include_router(
         build_service_access_router(

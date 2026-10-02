@@ -51,7 +51,7 @@ Do not edit above this line:
 [FUTURE TODO] Task 1000: Validate and document the inverted BLE onboarding flow across Supervisor and endpoint roles
 [TODO] Task 1013: Define the Core contract for family-aware AI memory
 [TODO] Task 1014: Validate and document the complete Core-hosted web app and notification workflow end to end
-[TODO] Task 1016: Implement trusted Web Push gateway bootstrap and Core credential lifecycle
+[WIP] Task 1016: Implement trusted Web Push gateway bootstrap and Core credential lifecycle
 
 Task 1011: Add Core administration UI for users, mobile devices, sessions, and notification access - Completed on 09/30/2026 21:52
 Task 1012: Implement the Core-hosted installable assistant PWA and per-user conversation boundary - Completed on 09/30/2026 22:03
