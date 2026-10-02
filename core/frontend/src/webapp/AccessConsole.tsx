@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { api, clearSession, login, type WebDevice, type WebSession, type WebUser } from "./api";
+import { accessToken, api, clearSession, login, type WebDevice, type WebSession, type WebUser } from "./api";
 import "./webapp.css";
 
 type Bootstrap = { core: { core_name: string }; user: WebUser & { permissions: string[] }; device: WebDevice; notifications: { state: string } };
@@ -21,6 +21,7 @@ export default function AccessConsole() {
 
   async function load() {
     setError("");
+    if (!accessToken()) return;
     try {
       const value = await api<Bootstrap>("/api/web-app/bootstrap"); setBoot(value); setNeedsDevice(false);
       const [s, d] = await Promise.all([api<{items: WebSession[]}>("/api/auth/user/sessions"), api<{items: WebDevice[]}>("/api/auth/devices")]);

@@ -443,3 +443,11 @@ Chosen fix: Use the persisted platform identity for discovery, enrollment creati
 What changed: Enrollment links now target the canonical host, are clickable, and show a prominent same-device continuation action after approval.
 Verification: Focused enrollment/bootstrap/public-boundary tests and the full frontend test/build suite passed before deployment.
 ###########
+
+Task #1012 follow-up
+Step objective: Prevent the desktop assistant from collapsing to an empty dark shell during access-token renewal.
+Issue cause: Bootstrap and conversation loading begin in parallel. When the access token expired, both requests rotated the same single-use refresh credential; the losing request triggered refresh-reuse handling while the UI retained an unusable access token.
+Chosen fix: Serialize browser refresh rotation behind one shared promise, retry concurrent requests with the same replacement access token, and clear invalid local session material when refresh cannot recover.
+What changed: Authentication failures now return to a clean sign-in view instead of leaving an unauthenticated assistant shell; initial signed-out loading no longer sends a redundant bootstrap request.
+Verification: Frontend tests and production typecheck/build passed before deployment.
+###########
