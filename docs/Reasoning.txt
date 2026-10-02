@@ -516,3 +516,11 @@ What changed: Marked Task 1013 as the sole WIP task after synchronizing and vali
 Verification: Coordination repository validated; accepted request, local task linkage, source, target, and acceptance criteria match.
 
 ###########
+Task #1023
+Step objective: Start the accepted per-Core VAPID provisioning task.
+Issue cause: The current bootstrap contract receives a gateway-owned VAPID public key, so subscriptions are not cryptographically isolated by a Core-owned VAPID identity.
+Chosen fix: Generate and retain the P-256 key pair in Core sensitive settings, provision a private JWK server-to-server during owner-authorized bootstrap/rotation, and expose only the public key to the browser.
+What changed: Promoted Task 1023 as the sole WIP task after synchronizing and validating the accepted coordination request.
+Verification: Local task evidence and request dependency, scope, constraints, and acceptance criteria match.
+
+###########
