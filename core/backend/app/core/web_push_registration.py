@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import asyncio
 import json
 import secrets
 import time
@@ -102,24 +103,26 @@ class WebPushRegistrationGrantIssuer:
         self.gateway_audience = str(gateway_audience or "").strip()
         self.vapid_public_key = str(vapid_public_key or "").strip()
         self.ttl_seconds = max(30, min(int(ttl_seconds), 300))
+        self._key_lock = asyncio.Lock()
 
     @property
     def configured(self) -> bool:
         return bool(self.gateway_url and self.gateway_audience and self.vapid_public_key)
 
     async def _private_key(self) -> Ed25519PrivateKey:
-        saved = await self._settings.get(_SIGNING_KEY_REF)
-        encoded = str(saved.get("private_key") or "") if isinstance(saved, dict) else ""
-        if encoded:
-            try:
-                raw = base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4))
-                return Ed25519PrivateKey.from_private_bytes(raw)
-            except (TypeError, ValueError):
-                pass
-        key = Ed25519PrivateKey.generate()
-        raw = key.private_bytes(serialization.Encoding.Raw, serialization.PrivateFormat.Raw, serialization.NoEncryption())
-        await self._settings.set(_SIGNING_KEY_REF, {"private_key": _b64url(raw), "created_at": datetime.now(timezone.utc).isoformat()})
-        return key
+        async with self._key_lock:
+            saved = await self._settings.get(_SIGNING_KEY_REF)
+            encoded = str(saved.get("private_key") or "") if isinstance(saved, dict) else ""
+            if encoded:
+                try:
+                    raw = base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4))
+                    return Ed25519PrivateKey.from_private_bytes(raw)
+                except (TypeError, ValueError):
+                    pass
+            key = Ed25519PrivateKey.generate()
+            raw = key.private_bytes(serialization.Encoding.Raw, serialization.PrivateFormat.Raw, serialization.NoEncryption())
+            await self._settings.set(_SIGNING_KEY_REF, {"private_key": _b64url(raw), "created_at": datetime.now(timezone.utc).isoformat()})
+            return key
 
     async def public_key(self) -> str:
         key = await self._private_key()
