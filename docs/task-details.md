@@ -1427,6 +1427,9 @@ Original task details:
 ## Task 1018
 Original task details:
 - Depends on: Tasks 1005, 1006, and 1012.
+- Present enrollment as a login-first flow. After username/password verification, determine whether this PWA installation is already registered without granting access to protected app content.
+- If the installation is unknown, show one primary `Enroll this device` action rather than exposing the multi-step administrative enrollment controls.
+- The enrollment action creates the installation key and registers a passkey with required platform user verification. Owners and administrators may authorize their own installation directly; member/guest approval is implemented separately by Task 1019.
 - Fix the `/app` logout/login defect: normal logout must revoke only the active session and must not force an otherwise valid enrolled PWA installation through enrollment again.
 - Persist the installation's enrolled device identifier alongside its existing non-exportable private key in IndexedDB. Do not treat a caller-supplied device id as proof of device identity.
 - Add a challenge-response login flow that proves possession of the enrolled installation key before Core issues a session bound to that `device_id`, authenticated user, and Core.
@@ -1442,3 +1445,32 @@ Original task details:
 - Acceptance: A fresh app launch and a resume after at least five minutes in the background require platform user verification before protected app content is available.
 - Acceptance: Copying or guessing a `device_id` without the installation private key and registered passkey cannot create a device-bound session.
 - Verification: Add focused backend tests for challenge expiry/replay, signature failure, wrong user/Core/device, revoked device, and session binding; frontend tests for logout/relogin, fresh-launch lock, five-minute background lock, cancellation, recovery, and cleared-storage behavior; run frontend build/typecheck and targeted authentication/security tests.
+
+## Task 1019
+Original task details:
+- Depends on: Task 1018 and the Core notification policy/outbox from Tasks 1009-1010.
+- Add a pending installation-approval workflow for authenticated members and guests attempting to enroll an unknown PWA installation.
+- After password verification and the single `Enroll this device` action, create a short-lived request bound to the Core, user, proposed installation key, passkey credential, browser metadata, and replay-safe request id. Do not grant a normal app session before approval.
+- Owners and administrators may enroll their own installation without a second approver. Members and guests require explicit approval from an enabled owner or administrator with the required device-management permission.
+- Send eligible approvers a privacy-safe notification such as `<username> is requesting approval to install the Hexe app`, with a protected Core-relative deep link to the approval screen. Do not include enrollment proofs, credentials, raw keys, or approval tokens in the notification.
+- Show pending, approved, rejected, expired, and cancelled states in the requesting app. Approval must bind exactly the submitted user, Core, installation key, passkey credential, and request id.
+- Prevent self-approval by a member/guest, cross-Core approval, approval after mutation or expiry, duplicate consumption, and approval by a disabled or insufficiently privileged account.
+- Allow an approver to review the username, display name, platform/browser summary, request time, and existing active-device count before approving or rejecting.
+- After approval, require the requesting installation to prove possession of both its installation key and registered passkey before Core issues the first device-bound session.
+- Acceptance: A member can request installation from one unknown phone, an owner/admin receives a safe notification and approves it, and only that phone can complete enrollment and open the app.
+- Acceptance: Rejection, expiry, revocation, replay, wrong approver, wrong Core, and copied-link attempts fail closed without creating a device or session.
+- Verification: Add focused approval authorization, notification redaction/deep-link, expiry/replay, key/passkey binding, cross-Core, cross-user, and end-to-end requesting-device tests.
+
+## Task 1020
+Original task details:
+- Depends on: Task 1012.
+- Replace the mobile assistant's conversation sidebar, chat tabs, and manual `New` control with one continuous visible chat surface.
+- Keep conversation history stored per user under the existing Core ownership, retention, deletion, and audit boundaries, but do not expose a conversation list or prior-chat navigation in the installed app.
+- Continue the current server-side conversation while the authenticated user remains active. Define inactivity as no successfully submitted user message and no completed assistant response for 30 minutes.
+- After 30 minutes of inactivity, the next submitted message automatically starts a new server-side conversation. Make the timeout configurable while using 30 minutes as the default.
+- Do not erase or merge older conversations when a new inactivity-bounded chat begins. Historical records remain isolated by user and available only through future explicitly authorized history/export/administration surfaces, not the normal app chat UI.
+- A fresh launch may resume the current conversation only when it is still within the inactivity window and belongs to the same authenticated user and Core; otherwise begin with an empty chat surface and create a conversation on the next message.
+- Keep the single-chat surface mobile-first, accessible, and compatible with offline/error and passkey-lock states.
+- Acceptance: The installed app shows one chat with no tabs, conversation list, or manual new-chat control; after 30 inactive minutes, the next message starts a new hidden-history conversation automatically.
+- Acceptance: Alice and Bob never see or continue each other's active or historical conversations, and removing history navigation does not weaken server-side ownership checks.
+- Verification: Add frontend tests for single-chat rendering, hidden history, timeout boundary, relaunch inside/outside the window, and offline behavior; add backend tests for automatic conversation rollover and cross-user/Core isolation; run frontend build/typecheck and targeted conversation tests.
