@@ -12,6 +12,13 @@ What changed: Added shared assertion construction, strict credential-version req
 Verification: 24 focused Web Push gateway, bootstrap, registration, and notification-policy tests passed; environment documentation registry validation passed.
 
 ###########
+Task #1017
+Step objective: Hand off the remaining gateway-owned implementation and close the Core follow-up.
+Chosen fix: Keep the shared contract proposed, create a formal Website inbox request, and retain the parent request as blocked until both implementations pass matching tests.
+What changed: Published the clarified proposal and Website request with Core commits and verification evidence; removed Task 1017 from the active queue and recorded completion.
+Verification: Coordination repository validated and both coordination commits were pushed successfully.
+
+###########
 Task #973
 Step objective: Improve Supervisor Fleet offline/health UI semantics and operator diagnostics
 Issue cause: Fleet rows could show stale/offline freshness while still displaying health as OK, leaving operators to infer heartbeat state from timestamps.
