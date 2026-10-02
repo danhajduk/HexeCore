@@ -1474,3 +1474,25 @@ Original task details:
 - Acceptance: The installed app shows one chat with no tabs, conversation list, or manual new-chat control; after 30 inactive minutes, the next message starts a new hidden-history conversation automatically.
 - Acceptance: Alice and Bob never see or continue each other's active or historical conversations, and removing history navigation does not weaken server-side ownership checks.
 - Verification: Add frontend tests for single-chat rendering, hidden history, timeout boundary, relaunch inside/outside the window, and offline behavior; add backend tests for automatic conversation rollover and cross-user/Core isolation; run frontend build/typecheck and targeted conversation tests.
+
+## Task 1021
+Original task details:
+- Depends on: Task 1013 and accepted contract `contracts/accepted/family-identity-authorization-v1.md`.
+- Implement the Core-owned household, person, user-person link, guardian relationship, consent, room, endpoint assignment, authorization-decision, deletion receipt, and portability state required by `hexe.family-identity-authorization.v1`.
+- Preserve `user_id` as the existing authentication/security principal. Introduce `person_id` and `household_id` additively without changing current web-app, session, device, conversation, notification, or Website gateway contracts.
+- Add owner/admin management APIs and subject/guardian-authorized self-service APIs with named permissions, last-owner safeguards, step-up checks for sensitive mutations, audit redaction, optimistic/version conflict handling, and retention rules.
+- Issue short-lived replay-protected Core-to-node family authorization contexts only after verifying the user, optional person link, household, participants, room/endpoint, consent, guardian scope, requested operation, visibility, and risk classification.
+- Deny private or personal-sensitive memory when person identity is missing, probable, unknown, conflicted, wrong-Core, wrong-household, expired, replayed, or not consented. Nodes may narrow but never broaden Core decisions.
+- Coordinate runtime schema/catalog changes and contract tests with the AI Node task `HEXE-AI-0001`; do not send family profiles, consent records, or relationship details to Website/Web Push services.
+- Implement deletion orchestration, node receipts, incomplete-state visibility, export isolation, user-person unlink behavior, and non-resurrection after retention expiry.
+- Verification: Add migrations and focused tests for identifiers/cardinality, authorization matrices, guardian scope, consent lifecycle, room/device ownership, replay/expiry, cross-user/Core/household isolation, deletion/export receipts, audit redaction, and compatibility with existing user/session/device/conversation APIs.
+
+## Task 1022
+Original task details:
+- Depends on: Task 1021 and the local Settings user-management page.
+- Add a protected `Settings → People` page in the standard local Core UI, separate from `Settings → Users`.
+- Let authorized owners/admins create, edit, archive, and inspect people/households; link or unlink one user account; manage guardian relationships, consent purposes, rooms, endpoint assignment, age-band policy metadata, deletion/export requests, and incomplete lifecycle receipts.
+- Clearly distinguish a login account from a real person. Support people without login accounts and users not yet linked to a person.
+- Require step-up authentication for guardian, consent, user-link, export, and deletion changes. Preserve last-owner and current account protections; do not infer age, relationship, or identity from voice/model output.
+- Provide privacy-safe status and error states without displaying biometric templates, raw memory, tokens, private keys, or another person's unauthorized details.
+- Verification: Add responsive frontend tests for people without users, linked/unlinked users, guardian/consent changes, permission denial, step-up, deletion/export state, and account/person distinction; run frontend build/typecheck and targeted backend authorization tests.

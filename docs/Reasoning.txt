@@ -12,6 +12,13 @@ What changed: Added the accepted shared v1 contract and a Core status/reference 
 Verification: Contract covers every HEXE-REQ-0001 acceptance item and explicitly leaves current web-app, session, device, conversation, and Website gateway behavior unchanged.
 
 ###########
+Task #1013
+Step objective: Complete the contract and preserve an explicit implementation path.
+Chosen fix: Publish the v1 contract under accepted coordination contracts, then queue separate Core backend and People UI implementation tasks rather than changing runtime behavior during contract work.
+What changed: Completed Task 1013 and added Tasks 1021-1022 for Core enforcement and local People management.
+Verification: Shared coordination validation and focused Markdown link checks passed; accepted contract commit was pushed.
+
+###########
 Task #1017
 Step objective: Make Core's gateway assertions and lifecycle routing interoperable.
 Issue cause: Assertions omitted credential version and lifecycle routing was derived from the bootstrap URL despite the response advertising a different endpoint shape.
