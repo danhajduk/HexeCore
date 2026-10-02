@@ -469,4 +469,6 @@ Issue cause: Task 1015 can sign browser registration grants, but the gateway has
 Chosen fix: Add owner step-up server-to-server bootstrap, strict response validation, sensitive settings storage, explicit rotation/revocation, and safe public configuration derived from the provisioned record.
 What changed: Added a non-browser-accessible sensitive settings table, owner step-up bootstrap/rotation/revocation APIs, strict same-origin gateway response validation, dynamic Task 1015 configuration, and sensitive publisher credential loading. Removed the old caller-supplied credential rotation route.
 Verification: 59 focused bootstrap, sensitive-settings, registration, gateway, enrollment, static-serving, and web-app bootstrap tests passed; environment and generated OpenAPI checks passed. The shared proposal remains under contracts/proposed.
+Deployment: Core restarted successfully; all four bootstrap lifecycle routes are live, anonymous status access fails with 401, the legacy caller-supplied credential route is absent, and the settings database is mode 0600.
+External validation: Website gateway remains at foundation commit 7ceafc5 with no bootstrap, registry, or subscription implementation. Shared acceptance and movement to contracts/accepted remain blocked on Website Task 3 and matching contract tests.
 ###########
