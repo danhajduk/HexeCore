@@ -60,3 +60,4 @@ Task 1013: Define the Core contract for family-aware AI memory - Completed on 10
 Task 1021: Implement Core household, person, consent, and authorization services - Completed on 10/02/2026 17:20
 Task 1022: Add local People management and user-linking UI - Completed on 10/02/2026 17:21
 Task 1023: Provision and rotate one VAPID identity per Core - Completed on 10/02/2026 17:56
+Task 1024: Establish internal Core engine boundaries and composition registry - Completed on 10/02/2026 18:38

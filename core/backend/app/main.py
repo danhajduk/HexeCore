@@ -121,6 +121,7 @@ from app.system.telemetry import UsageTelemetryStore, build_telemetry_router
 from app.system.audit import AuditLogStore
 from app.system.users import UsersStore, build_users_router
 from app.system.family_identity import FamilyIdentityStore, build_family_identity_router
+from app.engines import CoreEngineRegistration, CoreEngineRegistry
 from app.system.runtime import StandaloneRuntimeService
 from app.system.hardware import HardwareAccessService, HardwareAccessStore, HardwareBlePairingSessionService, HardwareBlePairingSessionStore
 from app.system.repo_status import router as repo_status_router
@@ -1267,6 +1268,28 @@ def create_app() -> FastAPI:
         web_notification_policy,
         core_id=str(os.getenv("HEXE_CORE_ID", "hexe-core")).strip() or "hexe-core",
     )
+    core_engine_registry = CoreEngineRegistry()
+    core_engine_registry.register(CoreEngineRegistration(
+        engine_id="identity-access",
+        owns=("users", "roles", "sessions", "passkeys", "enrolled-devices", "step-up-authentication"),
+    ))
+    core_engine_registry.register(CoreEngineRegistration(
+        engine_id="people-household",
+        owns=("people", "households", "relationships", "consent", "family-authorization"),
+        dependencies=("identity-access",),
+    ))
+    core_engine_registry.register(CoreEngineRegistration(
+        engine_id="notification-policy",
+        owns=("notification-preferences", "recipient-policy", "privacy-filtering", "delivery-intents"),
+        dependencies=("identity-access", "people-household"),
+    ))
+    core_engine_registry.register(CoreEngineRegistration(
+        engine_id="web-push-transport",
+        owns=("push-subscriptions", "vapid-provisioning", "gateway-delivery", "subscription-cleanup"),
+        dependencies=("notification-policy",),
+    ))
+    core_engine_registry.validate()
+    app.state.core_engine_registry = core_engine_registry
     mqtt_dirs = ensure_runtime_dirs(os.getcwd())
     mqtt_live_dir = mqtt_dirs["live"]
     mqtt_credential_store = MqttCredentialStore(

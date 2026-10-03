@@ -1513,3 +1513,34 @@ Original task details:
 - Coordinate all schema changes with Website and keep the bootstrap contract proposed until both implementations agree and pass matching contract tests.
 - Acceptance: Core and Website agree on the versioned schema; Core generates and stores the VAPID private key only in sensitive settings; bootstrap and rotation provision matching per-Core material; the gateway validates the pair and uses only the requesting Core's key; rotation has no unsafe overlap; browser configuration exposes only the correct public key.
 - Verification: Add focused mismatch, malformed JWK, wrong-Core, replay, duplicate bootstrap, rotation, rollback/failure, cross-Core isolation, public configuration, backup/restore, and secret-redaction tests; update Core security/configuration/API documentation and generated artifacts where applicable.
+
+## Task 1024
+Original task details:
+- Introduce an internal Core-engine composition registry without changing existing APIs, schemas, persistence, or runtime behavior.
+- Define explicit ownership and dependency metadata for Identity and Access, People and Household, Notification Policy, and the Web Push transport adapter.
+- Treat all four as required Core runtime components rather than installable add-ons; startup validation must reject duplicate ownership, missing dependencies, and dependency cycles.
+- Expose only a redacted in-process topology snapshot for diagnostics and tests; do not expose credentials, user/person records, device identifiers, or notification payloads.
+- Document why security and privacy authority remains in Core while external gateways and add-ons remain transport/event producers.
+- Verification: focused registry validation tests plus existing Core startup/import tests.
+
+## Task 1025
+Original task details:
+- Build on Task 1024 by encapsulating users, roles, human sessions, passkeys, device enrollment, device-key proof, revocation, and step-up authentication behind a required Identity and Access engine.
+- Preserve current HTTP routes and database compatibility while removing direct cross-subsystem access to Identity and Access tables.
+- Publish privacy-safe internal lifecycle events for session and device revocation without exposing credentials or reusable assertions.
+- Verification: authentication, enrollment, logout/relogin, revocation, passkey, and compatibility tests.
+
+## Task 1026
+Original task details:
+- Build on Tasks 1024-1025 by encapsulating households, people, user-person links, relationships, consent, rooms, endpoint assignments, deletion/export state, and family authorization decisions behind a required People and Household engine.
+- Depend on stable Identity and Access service interfaces rather than directly reading authentication tables.
+- Preserve the distinction between `user_id` security principals and `person_id` real-world identities and preserve existing APIs/contracts.
+- Verification: authorization matrices, consent/guardian lifecycle, user-person linking, deletion/export, and cross-household isolation tests.
+
+## Task 1027
+Original task details:
+- Build on Tasks 1024-1026 by encapsulating notification preferences, recipient resolution, privacy filtering, deduplication, quiet hours, delivery intents, retry policy, and subscription cleanup behind a required Notification Policy engine.
+- Keep the Web Push gateway as a separate transport adapter that receives only already-authorized, privacy-filtered delivery intents and never receives Core human/admin credentials or family records.
+- Let trusted Core engines and add-ons publish validated events; they must not select recipients or bypass Core notification policy.
+- Preserve current browser PushManager, per-Core VAPID, gateway bootstrap, subscription, and notification APIs.
+- Verification: recipient/consent policy, privacy redaction, per-device preferences, deduplication/rate limits, retries, revocation cleanup, and end-to-end Web Push tests.
