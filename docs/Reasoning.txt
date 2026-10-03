@@ -549,3 +549,13 @@ What changed: Promoted Task 1022 as the sole WIP task after committing Task 1021
 Verification: Queue contains one WIP task.
 
 ###########
+
+Task #1022
+Step objective: Deliver a separate responsive People administration surface.
+Chosen fix: Reuse the established Settings and admin-card visual system while keeping people, households, and policy lifecycle controls on their own route.
+What changed: Added Settings → People navigation and management controls for households, people without accounts, optional user links, guardian authority, consent, rooms, endpoints, and incomplete export/deletion requests.
+Verification: All 98 frontend tests passed and the TypeScript/Vite production build succeeded.
+
+#############
+All Tasks completed 10/02/2026 17:21:00
+#############

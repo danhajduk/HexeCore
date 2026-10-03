@@ -58,3 +58,4 @@ Task 1016: Implement trusted Web Push gateway bootstrap and Core credential life
 Task 1017: Finalize Core Web Push gateway interoperability contract - Completed on 10/02/2026 15:11
 Task 1013: Define the Core contract for family-aware AI memory - Completed on 10/02/2026 16:34
 Task 1021: Implement Core household, person, consent, and authorization services - Completed on 10/02/2026 17:20
+Task 1022: Add local People management and user-linking UI - Completed on 10/02/2026 17:21
