@@ -533,3 +533,19 @@ What changed: Reprioritized the local queue after validating the accepted family
 Verification: The queue contains one WIP task and the coordination repository validates.
 
 ###########
+
+Task #1021
+Step objective: Implement additive Core-owned household and person services.
+Chosen fix: Store family identity in separate SQLite tables beside, but not inside, authentication records; authorize management independently and require step-up for sensitive human-token changes.
+What changed: Added households, people, one-to-one user links, guardian authority, consent, rooms, endpoint assignments, lifecycle requests, privacy-safe self views, and deny-by-default family authorization contexts.
+Verification: 10 focused family identity and human-auth tests passed; Python compilation and generated OpenAPI validation passed.
+
+###########
+
+Task #1022
+Step objective: Add a separate local People administration page modeled after Users.
+Chosen fix: Keep Users unchanged and expose People as its own nested Settings route with explicit account/person terminology and controls backed by Task 1021 APIs.
+What changed: Promoted Task 1022 as the sole WIP task after committing Task 1021.
+Verification: Queue contains one WIP task.
+
+###########
