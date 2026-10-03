@@ -31,6 +31,7 @@ const storeItems: NavItem[] = [{ label: "Store", path: "/store" }];
 export const SYSTEM_NAV_ITEMS: NavItem[] = [
   { label: "Settings", path: "/settings" },
   { label: "Users", path: "/settings/users", nested: true },
+  { label: "People", path: "/settings/people", nested: true },
   { label: "Supervisor", path: "/settings/supervisor", nested: true },
   { label: "Edge Gateway", path: "/settings/edge", nested: true },
   { label: "Scheduler", path: "/settings/scheduler", nested: true },

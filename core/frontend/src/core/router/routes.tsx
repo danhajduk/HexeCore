@@ -14,6 +14,7 @@ import EdgeGateway from "../pages/EdgeGateway";
 import SettingsSupervisor from "../pages/SettingsSupervisor";
 import SettingsScheduler from "../pages/SettingsScheduler";
 import SettingsUsers from "../pages/SettingsUsers";
+import SettingsPeople from "../pages/SettingsPeople";
 import AddonStorePage from "../../pages/AddonStorePage";
 import OnboardingNodeApproval from "../pages/OnboardingNodeApproval";
 import NodeReauthApproval from "../pages/NodeReauthApproval";
@@ -70,6 +71,7 @@ export function buildRoutes(isAdmin: boolean, ready: boolean): RouteObject[] {
     { path: "/supervisors/enrollment", element: <SupervisorEnrollment /> },
     { path: "/settings", element: protectedRoute(<Settings />) },
     { path: "/settings/users", element: protectedRoute(<SettingsUsers />) },
+    { path: "/settings/people", element: protectedRoute(<SettingsPeople />) },
     { path: "/settings/edge", element: protectedRoute(<EdgeGateway />) },
     { path: "/settings/supervisor", element: protectedRoute(<SettingsSupervisor />) },
     { path: "/settings/scheduler", element: protectedRoute(<SettingsScheduler />) },
