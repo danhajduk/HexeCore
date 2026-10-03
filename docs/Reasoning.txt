@@ -576,3 +576,12 @@ What changed: Updated Core generation/validation, added a deterministic vector, 
 Verification: 25 focused Core Web Push tests passed; coordination validates and commit `7a8411b` is pushed. Task remains deferred only until Website reruns Miniflare tests under Node 22+.
 
 ###########
+
+Task #1023 completion
+Step objective: Close the jointly verified per-Core VAPID contract.
+What changed: Website supplied a clean Node 22.23.3 interoperability rerun with 14/14 gateway tests, lint, and Wrangler dry-run after Core commit `bca38bd`; the final external blocker is cleared.
+Verification: Core's final focused suite passed 28 tests, Website's gateway suite passed 14/14, and both implementations agree on the full fingerprint and explicit re-subscription rotation behavior.
+
+#############
+All Tasks completed 10/02/2026 17:56:00
+#############
