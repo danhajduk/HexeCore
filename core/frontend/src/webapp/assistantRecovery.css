@@ -1,0 +1,9 @@
+.assistant-recovery {
+  place-items: center;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.assistant-recovery section { max-width: 30rem; }
+.assistant-recovery p { color: #aac4d2; }
+.assistant-recovery button { margin-top: .75rem; background: #70d9ff; color: #06121e; }
