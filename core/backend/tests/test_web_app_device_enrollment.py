@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.system.auth import ServiceTokenKeyStore, WebAppEnrollmentStore, build_device_enrollment_router, build_human_auth_router
-from app.system.auth.device_enrollment import CONTRACT_VERSION
+from app.system.auth.device_enrollment import CONTRACT_VERSION, DEVICE_LOGIN_VERSION
 from app.system.settings.store import SettingsStore
 from app.system.users import UsersStore
 
@@ -70,6 +70,42 @@ class TestWebAppDeviceEnrollment(unittest.TestCase):
         self.assertEqual(complete.json()["claims"]["device_id"], "device-phone-1")
         replay = self.complete(enrollment, Ed25519PrivateKey.generate())
         self.assertEqual(replay.status_code, 409, replay.text)
+
+    def test_logout_then_device_key_login_preserves_enrollment(self):
+        key = Ed25519PrivateKey.generate()
+        enrollment = self.create_approved()
+        completed = self.complete(enrollment, key)
+        old_token = completed.json()["access_token"]
+        logged_out = self.client.post("/api/auth/user/logout", headers={"Authorization": f"Bearer {old_token}"})
+        self.assertEqual(logged_out.status_code, 200, logged_out.text)
+
+        challenged = self.client.post("/api/auth/user/device-login/challenge", json={"username": "Dan", "password": "owner-pass", "device_id": "device-phone-1"})
+        self.assertEqual(challenged.status_code, 200, challenged.text)
+        challenge = challenged.json()
+        message = f"{DEVICE_LOGIN_VERSION}:{challenge['core_id']}:{challenge['challenge_id']}:{challenge['nonce']}:device-phone-1"
+        relogin = self.client.post("/api/auth/user/device-login/complete", json={"challenge_id": challenge["challenge_id"], "signature": b64(key.sign(message.encode()))})
+        self.assertEqual(relogin.status_code, 200, relogin.text)
+        self.assertEqual(relogin.json()["claims"]["device_id"], "device-phone-1")
+        self.assertEqual(self.client.get("/api/auth/devices", headers={"Authorization": f"Bearer {relogin.json()['access_token']}"}).status_code, 200)
+
+        replay = self.client.post("/api/auth/user/device-login/complete", json={"challenge_id": challenge["challenge_id"], "signature": b64(key.sign(message.encode()))})
+        self.assertEqual(replay.status_code, 409, replay.text)
+        self.assertEqual(replay.json()["detail"], "device_login_challenge_replayed")
+
+    def test_device_login_rejects_wrong_key_and_expired_challenge(self):
+        key = Ed25519PrivateKey.generate()
+        self.assertEqual(self.complete(self.create_approved(), key).status_code, 200)
+        challenged = self.client.post("/api/auth/user/device-login/challenge", json={"username": "Dan", "password": "owner-pass", "device_id": "device-phone-1"}).json()
+        wrong = self.client.post("/api/auth/user/device-login/complete", json={"challenge_id": challenged["challenge_id"], "signature": b64(Ed25519PrivateKey.generate().sign(b"wrong"))})
+        self.assertEqual(wrong.status_code, 403, wrong.text)
+
+        expired = self.client.post("/api/auth/user/device-login/challenge", json={"username": "Dan", "password": "owner-pass", "device_id": "device-phone-1"}).json()
+        db = sqlite3.connect(os.path.join(self.tmp.name, "users.db"))
+        db.execute("UPDATE web_app_device_login_challenges SET expires_at=? WHERE challenge_id=?", ((datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat(), expired["challenge_id"]))
+        db.commit(); db.close()
+        response = self.client.post("/api/auth/user/device-login/complete", json={"challenge_id": expired["challenge_id"], "signature": b64(key.sign(b"unused"))})
+        self.assertEqual(response.status_code, 409, response.text)
+        self.assertEqual(response.json()["detail"], "device_login_challenge_expired")
 
     def test_wrong_proof_and_key_possession_fail_closed(self):
         enrollment = self.create_approved()

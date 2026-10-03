@@ -5,7 +5,7 @@ Status: Generated
 This file is generated from `openapi-paths.snapshot.json`.
 Do not edit path rows by hand; run `python tools/update_api_route_appendix.py --write`.
 
-Path count: 296
+Path count: 322
 
 | Path | Methods |
 | --- | --- |
@@ -34,6 +34,18 @@ Path count: 296
 | `/api/addons/{addon_id}/enable` | `POST` |
 | `/api/admin/addons/registry` | `GET, POST` |
 | `/api/admin/addons/registry/{addon_id}` | `DELETE` |
+| `/api/admin/family` | `GET` |
+| `/api/admin/family/consents` | `POST` |
+| `/api/admin/family/endpoint-assignments` | `POST` |
+| `/api/admin/family/guardians` | `POST` |
+| `/api/admin/family/households` | `POST` |
+| `/api/admin/family/lifecycle` | `POST` |
+| `/api/admin/family/me` | `GET` |
+| `/api/admin/family/people` | `POST` |
+| `/api/admin/family/people/{person_id}` | `PUT` |
+| `/api/admin/family/rooms` | `POST` |
+| `/api/admin/family/user-links` | `POST` |
+| `/api/admin/family/user-links/{person_id}` | `DELETE` |
 | `/api/admin/reload` | `POST` |
 | `/api/admin/reload/status` | `GET` |
 | `/api/admin/session/login` | `POST` |
@@ -61,6 +73,8 @@ Path count: 296
 | `/api/auth/devices/{device_id}/rotate-key` | `POST` |
 | `/api/auth/service-token` | `POST` |
 | `/api/auth/service-token/rotate` | `POST` |
+| `/api/auth/user/device-login/challenge` | `POST` |
+| `/api/auth/user/device-login/complete` | `POST` |
 | `/api/auth/user/login` | `POST` |
 | `/api/auth/user/logout` | `POST` |
 | `/api/auth/user/refresh` | `POST` |
@@ -288,6 +302,18 @@ Path count: 296
 | `/api/system/supervisors/{supervisor_id}/update/status` | `GET` |
 | `/api/telemetry/usage` | `GET, POST` |
 | `/api/telemetry/usage/stats` | `GET` |
+| `/api/web-app/admin/family` | `GET` |
+| `/api/web-app/admin/family/consents` | `POST` |
+| `/api/web-app/admin/family/endpoint-assignments` | `POST` |
+| `/api/web-app/admin/family/guardians` | `POST` |
+| `/api/web-app/admin/family/households` | `POST` |
+| `/api/web-app/admin/family/lifecycle` | `POST` |
+| `/api/web-app/admin/family/me` | `GET` |
+| `/api/web-app/admin/family/people` | `POST` |
+| `/api/web-app/admin/family/people/{person_id}` | `PUT` |
+| `/api/web-app/admin/family/rooms` | `POST` |
+| `/api/web-app/admin/family/user-links` | `POST` |
+| `/api/web-app/admin/family/user-links/{person_id}` | `DELETE` |
 | `/api/web-app/admin/users` | `GET, POST` |
 | `/api/web-app/admin/users/{username}` | `DELETE` |
 | `/api/web-app/admin/users/{username}/sessions` | `GET` |

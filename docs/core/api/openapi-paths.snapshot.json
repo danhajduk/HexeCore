@@ -1,5 +1,5 @@
 {
-  "path_count": 320,
+  "path_count": 322,
   "paths": {
     "/api/addons": [
       "get"
@@ -196,6 +196,12 @@
       "post"
     ],
     "/api/auth/service-token/rotate": [
+      "post"
+    ],
+    "/api/auth/user/device-login/challenge": [
+      "post"
+    ],
+    "/api/auth/user/device-login/complete": [
       "post"
     ],
     "/api/auth/user/login": [

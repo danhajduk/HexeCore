@@ -126,6 +126,8 @@ Status: Implemented for Tasks 1005-1006
 Human clients use these routes:
 
 - `POST /api/auth/user/login`
+- `POST /api/auth/user/device-login/challenge`
+- `POST /api/auth/user/device-login/complete`
 - `POST /api/auth/user/refresh`
 - `POST /api/auth/user/logout`
 - `GET /api/auth/user/sessions`
@@ -136,6 +138,12 @@ user id, role, credential revision, and session id. Refresh credentials are
 stored only as SHA-256 verifiers, rotate on use, and revoke the affected session
 when reuse is detected. User disablement, deletion, role/password changes, and
 session revocation are checked against persisted state for every access token.
+
+An enrolled web-app installation relogs in through a two-step device-login
+challenge after password verification. The challenge is short-lived,
+single-use, and bound to the user, Core, and device. Core issues the new
+device-bound session only after verifying the installation's Ed25519 signature.
+Normal logout revokes only the current session and does not revoke enrollment.
 
 The compatible `hexe_admin_session` cookie remains same-origin and is not a
 remote-app credential.

@@ -26,6 +26,7 @@ from .human import _access_token, _iso_after, _refresh_verifier, authenticate_hu
 from .tokens import ServiceTokenKeyStore
 
 CONTRACT_VERSION = "hexe.web-app-enrollment.v1"
+DEVICE_LOGIN_VERSION = "hexe.web-app-device-login.v1"
 DEFAULT_TTL_S = 10 * 60
 NOTIFICATION_CATEGORIES = {
     "security",
@@ -87,6 +88,17 @@ class DeviceKeyRotationRequest(BaseModel):
     new_public_key: str = Field(..., min_length=43, max_length=128)
     old_key_signature: str = Field(..., min_length=43, max_length=256)
     new_key_signature: str = Field(..., min_length=43, max_length=256)
+
+
+class DeviceLoginChallengeRequest(BaseModel):
+    username: str = Field(..., min_length=1, max_length=160)
+    password: str = Field(..., min_length=1, max_length=1024)
+    device_id: str = Field(..., min_length=8, max_length=160)
+
+
+class DeviceLoginCompleteRequest(BaseModel):
+    challenge_id: str = Field(..., min_length=8, max_length=160)
+    signature: str = Field(..., min_length=43, max_length=256)
 
 
 class DeviceUpdateRequest(BaseModel):
@@ -187,8 +199,40 @@ class WebAppEnrollmentStore:
               updated_at TEXT NOT NULL,
               FOREIGN KEY(device_id) REFERENCES web_app_devices(device_id)
             );
+            CREATE TABLE IF NOT EXISTS web_app_device_login_challenges (
+              challenge_id TEXT PRIMARY KEY, core_id TEXT NOT NULL, user_id TEXT NOT NULL,
+              device_id TEXT NOT NULL, nonce TEXT NOT NULL, created_at TEXT NOT NULL,
+              expires_at TEXT NOT NULL, consumed_at TEXT
+            );
             """
         )
+
+    async def create_login_challenge(self, *, core_id: str, user_id: str, device_id: str, ttl_s: int = 120) -> dict[str, Any]:
+        async with self._lock:
+            challenge_id, nonce, created = f"dlc_{uuid.uuid4().hex}", secrets.token_urlsafe(32), _now()
+            expires = created + timedelta(seconds=ttl_s)
+            await asyncio.to_thread(self._conn.execute, "INSERT INTO web_app_device_login_challenges VALUES (?, ?, ?, ?, ?, ?, ?, NULL)", (challenge_id, core_id, user_id, device_id, nonce, created.isoformat(), expires.isoformat()))
+            return {"challenge_id": challenge_id, "core_id": core_id, "device_id": device_id, "nonce": nonce, "expires_at": expires.isoformat()}
+
+    async def consume_login_challenge(self, challenge_id: str) -> dict[str, Any]:
+        async with self._lock:
+            return await asyncio.to_thread(self._consume_login_challenge, challenge_id)
+
+    def _consume_login_challenge(self, challenge_id: str) -> dict[str, Any]:
+        self._conn.execute("BEGIN IMMEDIATE")
+        try:
+            row = self._conn.execute("SELECT * FROM web_app_device_login_challenges WHERE challenge_id=?", (challenge_id,)).fetchone()
+            if row is None: raise RuntimeError("device_login_challenge_invalid")
+            result = dict(row)
+            if result.get("consumed_at"): raise RuntimeError("device_login_challenge_replayed")
+            if datetime.fromisoformat(str(result["expires_at"]).replace("Z", "+00:00")) <= _now(): raise RuntimeError("device_login_challenge_expired")
+            changed = self._conn.execute("UPDATE web_app_device_login_challenges SET consumed_at=? WHERE challenge_id=? AND consumed_at IS NULL", (_now_iso(), challenge_id)).rowcount
+            if changed != 1: raise RuntimeError("device_login_challenge_replayed")
+            self._conn.execute("COMMIT")
+            return result
+        except Exception:
+            self._conn.execute("ROLLBACK")
+            raise
 
     async def create(self, *, core_id: str, user_id: str, created_by: str, display_name: str, replace_device_id: str | None, ttl_s: int) -> tuple[dict[str, Any], str]:
         async with self._lock:
@@ -770,6 +814,37 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
         access, claims = await _access_token(keys, user, session)
         await record("web_app_enrollment_completed", str(user["user_id"]), str(user["role"]), {"enrollment_id": enrollment_id, "device_id": body.device_id, "session_id": session["session_id"]})
         return {"ok": True, "device_id": body.device_id, "access_token": access, "refresh_token": refresh, "token_type": "bearer", "expires_in": 600, "claims": claims}
+
+    @router.post("/user/device-login/challenge")
+    async def device_login_challenge(body: DeviceLoginChallengeRequest):
+        user = await users.verify_credentials(body.username, body.password)
+        device = await store.get_device(body.device_id)
+        core_id, _ = await current_identity()
+        if user is None or device is None or str(device.get("user_id")) != str(user.get("user_id")) or str(device.get("core_id")) != core_id or device.get("revoked_at") or not bool(device.get("enabled", True)):
+            await record("web_app_device_login_failed", "anonymous", "guest", {"reason": "invalid_credentials_or_device"})
+            raise HTTPException(status_code=401, detail="invalid_credentials_or_device")
+        challenge = await store.create_login_challenge(core_id=core_id, user_id=str(user["user_id"]), device_id=body.device_id)
+        await record("web_app_device_login_challenged", str(user["user_id"]), str(user["role"]), {"device_id": body.device_id, "challenge_id": challenge["challenge_id"]})
+        return {"ok": True, "contract_version": DEVICE_LOGIN_VERSION, **challenge}
+
+    @router.post("/user/device-login/complete")
+    async def device_login_complete(body: DeviceLoginCompleteRequest):
+        try:
+            challenge = await store.consume_login_challenge(body.challenge_id)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        device = await store.get_device(str(challenge["device_id"]))
+        user = await users.get_user_by_id(str(challenge["user_id"]))
+        core_id, _ = await current_identity()
+        if device is None or user is None or not bool(user.get("enabled")) or device.get("revoked_at") or not bool(device.get("enabled", True)) or str(device.get("core_id")) != core_id or str(device.get("user_id")) != str(user.get("user_id")):
+            raise HTTPException(status_code=403, detail="enrolled_device_invalid")
+        message = f"{DEVICE_LOGIN_VERSION}:{challenge['core_id']}:{challenge['challenge_id']}:{challenge['nonce']}:{challenge['device_id']}"
+        _verify_signature(str(device["public_key"]), body.signature, message)
+        refresh = secrets.token_urlsafe(48)
+        session = await users.create_session(user_id=str(user["user_id"]), device_id=str(device["device_id"]), refresh_verifier=_refresh_verifier(refresh), expires_at=_iso_after(30 * 24 * 60 * 60))
+        access, claims = await _access_token(keys, user, session)
+        await record("web_app_device_login_succeeded", str(user["user_id"]), str(user["role"]), {"device_id": device["device_id"], "session_id": session["session_id"]})
+        return {"ok": True, "access_token": access, "refresh_token": refresh, "token_type": "bearer", "expires_in": 600, "claims": claims}
 
     @router.post("/device-enrollments/{enrollment_id}/cancel")
     async def cancel(enrollment_id: str, request: Request, authorization: str | None = Header(default=None), x_admin_token: str | None = Header(default=None)):
