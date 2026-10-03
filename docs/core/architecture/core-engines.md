@@ -25,6 +25,13 @@ engine service interfaces.
 User-link validation goes through the Identity and Access service boundary;
 the family store does not query authentication tables directly.
 
+`NotificationPolicyEngine` owns preferences, recipient/privacy policy, delivery
+intents, and trusted-event consumption. Its `WebPushTransport` adapter owns
+gateway bootstrap, VAPID registration grants, publication, retry, and
+subscription cleanup. Only policy-approved intents cross into that transport;
+the adapter depends on identity device services and never receives People and
+Household records.
+
 Add-ons and trusted nodes may produce validated events. They do not select
 recipients or bypass consent and notification policy. The external Web Push
 gateway transports already-authorized, privacy-filtered intents and receives no

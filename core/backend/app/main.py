@@ -23,17 +23,8 @@ from .core import (
     LocalDesktopNotificationConsumer,
     NodeOperationalNotificationService,
     NotificationBridgeService,
-    NotificationIntentStore,
     NodeDomainEventPromoterService,
     NodeNotificationProxyService,
-    WebNotificationEventConsumer,
-    WebNotificationPolicyService,
-    WebPushGatewayPublisher,
-    build_web_push_gateway_router,
-    WebPushRegistrationGrantIssuer,
-    build_web_push_registration_router,
-    WebPushGatewayBootstrapService,
-    build_web_push_bootstrap_router,
     ConversationStore,
     CoreChatExecutor,
     build_conversation_router,
@@ -119,7 +110,7 @@ from app.system.management_access import ManagementAuthorizationService, Managem
 from app.system.policy import PolicyStore, build_policy_router
 from app.system.telemetry import UsageTelemetryStore, build_telemetry_router
 from app.system.audit import AuditLogStore
-from app.engines import CoreEngineRegistration, CoreEngineRegistry, IdentityAccessEngine, PeopleHouseholdEngine
+from app.engines import CoreEngineRegistration, CoreEngineRegistry, IdentityAccessEngine, NotificationPolicyEngine, PeopleHouseholdEngine
 from app.system.runtime import StandaloneRuntimeService
 from app.system.hardware import HardwareAccessService, HardwareAccessStore, HardwareBlePairingSessionService, HardwareBlePairingSessionStore
 from app.system.repo_status import router as repo_status_router
@@ -1222,62 +1213,33 @@ def create_app() -> FastAPI:
         node_registrations_store,
         node_governance_status_service,
     )
-    notification_intent_store = NotificationIntentStore(users_db)
-    web_notification_policy = WebNotificationPolicyService(
-        web_app_enrollment_store,
-        notification_intent_store,
+    notification_engine = NotificationPolicyEngine.create(
+        database_path=users_db,
         core_id=str(os.getenv("HEXE_CORE_ID", "hexe-core")).strip() or "hexe-core",
+        identity=identity_access_engine,
+        people=people_household_engine,
+        settings=settings_store,
         audit=audit_store,
+        mqtt_manager=mqtt_manager,
     )
+    notification_intent_store = notification_engine.intents
+    web_notification_policy = notification_engine.policy
     app.state.notification_intent_store = notification_intent_store
     app.state.web_notification_policy = web_notification_policy
-    try:
-        notification_gateway_max_attempts = max(1, int(os.getenv("HEXE_NOTIFICATION_GATEWAY_MAX_ATTEMPTS", "8")))
-    except ValueError:
-        notification_gateway_max_attempts = 8
-    notification_gateway_credential_ref = str(os.getenv("HEXE_NOTIFICATION_GATEWAY_AUTH_REF", "notification_gateway_credential")).strip() or "notification_gateway_credential"
-    web_push_gateway_publisher = WebPushGatewayPublisher(
-        notification_intent_store,
-        web_app_enrollment_store,
-        settings_store,
-        core_id=str(os.getenv("HEXE_CORE_ID", "hexe-core")).strip() or "hexe-core",
-        gateway_url=str(os.getenv("HEXE_NOTIFICATION_GATEWAY_URL", "")).strip(),
-        credential_ref=notification_gateway_credential_ref,
-        audience=str(os.getenv("HEXE_NOTIFICATION_GATEWAY_AUDIENCE", "hexe-notification-gateway")).strip() or "hexe-notification-gateway",
-        max_attempts=notification_gateway_max_attempts,
-    )
+    web_push_gateway_publisher = notification_engine.transport.publisher
     app.state.web_push_gateway_publisher = web_push_gateway_publisher
-    try:
-        web_push_registration_ttl = int(os.getenv("HEXE_NOTIFICATION_GATEWAY_REGISTRATION_GRANT_TTL_SECONDS", "120"))
-    except ValueError:
-        web_push_registration_ttl = 120
-    web_push_registration_issuer = WebPushRegistrationGrantIssuer(
-        settings_store,
-        gateway_url=str(os.getenv("HEXE_NOTIFICATION_GATEWAY_REGISTRATION_URL", "")).strip(),
-        gateway_audience=str(os.getenv("HEXE_NOTIFICATION_GATEWAY_AUDIENCE", "hexe-notification-gateway")).strip() or "hexe-notification-gateway",
-        vapid_public_key=str(os.getenv("HEXE_NOTIFICATION_GATEWAY_VAPID_PUBLIC_KEY", "")).strip(),
-        credential_ref=notification_gateway_credential_ref,
-        ttl_seconds=web_push_registration_ttl,
-    )
+    web_push_registration_issuer = notification_engine.transport.registration_issuer
     app.state.web_push_registration_issuer = web_push_registration_issuer
-    web_push_bootstrap_service = WebPushGatewayBootstrapService(
-        settings_store,
-        web_push_registration_issuer,
-        bootstrap_url=str(os.getenv("HEXE_NOTIFICATION_GATEWAY_BOOTSTRAP_URL", "")).strip(),
-        credential_ref=notification_gateway_credential_ref,
-    )
+    web_push_bootstrap_service = notification_engine.transport.bootstrap
     app.state.web_push_bootstrap_service = web_push_bootstrap_service
+    app.state.notification_policy_engine = notification_engine
     app.state.node_domain_event_promoter = NodeDomainEventPromoterService(
         mqtt_manager,
         mqtt_integration_state_store,
         mqtt_observability_store,
         core_id=str(os.getenv("HEXE_CORE_ID", "hexe-core")).strip() or "hexe-core",
     )
-    app.state.web_notification_event_consumer = WebNotificationEventConsumer(
-        mqtt_manager,
-        web_notification_policy,
-        core_id=str(os.getenv("HEXE_CORE_ID", "hexe-core")).strip() or "hexe-core",
-    )
+    app.state.web_notification_event_consumer = notification_engine.event_consumer
     core_engine_registry = CoreEngineRegistry()
     core_engine_registry.register(CoreEngineRegistration(
         engine_id="identity-access",
@@ -1448,9 +1410,7 @@ def create_app() -> FastAPI:
     app.include_router(build_auth_router(service_token_keys), prefix="/api/auth", tags=["auth"])
     identity_access_engine.mount_authentication_routes(app)
     app.include_router(build_web_app_router(service_token_keys, users_store, web_app_enrollment_store, settings_store, web_notification_policy), prefix="/api/web-app", tags=["web-app"])
-    app.include_router(build_web_push_gateway_router(web_push_gateway_publisher, service_token_keys, users_store, audit_store), prefix="/api/web-app", tags=["web-push-gateway"])
-    app.include_router(build_web_push_registration_router(web_push_registration_issuer, service_token_keys, users_store, web_app_enrollment_store, settings_store), prefix="/api/web-app", tags=["web-push-registration"])
-    app.include_router(build_web_push_bootstrap_router(web_push_bootstrap_service, service_token_keys, users_store, settings_store, audit_store), prefix="/api/web-app", tags=["web-push-bootstrap"])
+    notification_engine.mount_transport_routes(app, settings_store, audit_store)
     app.include_router(build_conversation_router(conversation_store, web_chat_executor, service_token_keys, users_store, web_app_enrollment_store, settings_store, audit_store), prefix="/api/web-app", tags=["web-app-conversations"])
     app.include_router(
         build_service_access_router(
