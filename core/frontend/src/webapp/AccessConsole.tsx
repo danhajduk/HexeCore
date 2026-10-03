@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { accessToken, api, clearSession, login, type WebDevice, type WebSession, type WebUser } from "./api";
+import { accessToken, api, loginEnrolledDevice, logout, type WebDevice, type WebSession, type WebUser } from "./api";
 import { disableWebPush, enableWebPush } from "./webPush";
 import "./webapp.css";
 
@@ -40,7 +40,7 @@ export default function AccessConsole() {
   }
   useEffect(() => { void load(); }, []);
 
-  async function signIn(event: React.FormEvent) { event.preventDefault(); setBusy(true); setError(""); try { await login(username, password); setPassword(""); await load(); } catch (e) { setError(message(e)); } finally { setBusy(false); } }
+  async function signIn(event: React.FormEvent) { event.preventDefault(); setBusy(true); setError(""); try { await loginEnrolledDevice(username, password); setPassword(""); await load(); } catch (e) { setError(message(e)); } finally { setBusy(false); } }
   async function act(action: () => Promise<unknown>, done: string) { setBusy(true); setError(""); setNotice(""); try { await action(); setNotice(done); await load(); } catch (e) { setError(message(e)); } finally { setBusy(false); } }
   async function createEnrollment() {
     const response = await api<{enrollment: Enrollment}>("/api/auth/device-enrollments", { method: "POST", body: JSON.stringify({ display_name: "Mobile browser", ttl_seconds: 600 }) });
@@ -51,7 +51,7 @@ export default function AccessConsole() {
   if (!boot && !needsDevice) return <main className="webapp"><section className="login-card"><h1>Hexe</h1><p>Sign in to your Core.</p><form onSubmit={signIn}><label>Username<input autoComplete="username" value={username} onChange={e=>setUsername(e.target.value)} /></label><label>Password<input type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} /></label><button disabled={busy}>Sign in</button></form>{error && <p role="alert" className="error">{error}</p>}</section></main>;
 
   return <main className="webapp">
-    <header><div><span className="eyebrow">Mobile access</span><h1>{boot?.core.core_name || "Hexe Core"}</h1></div><button className="secondary" onClick={()=>void clearSession().then(()=>location.assign("/app"))}>Sign out</button></header>
+    <header><div><span className="eyebrow">Mobile access</span><h1>{boot?.core.core_name || "Hexe Core"}</h1></div><button className="secondary" onClick={()=>void logout().then(()=>location.assign("/app"))}>Sign out</button></header>
     {error && <p role="alert" className="banner error">{error}</p>}{notice && <p role="status" className="banner ok">{notice}</p>}
     {needsDevice && <section><h2>Enroll this device</h2><p>Your identity is valid. An owner must explicitly approve this browser before the app can open.</p><button disabled={busy} onClick={()=>void act(createEnrollment,"Enrollment created")}>Create 10-minute enrollment</button>{enrollment && <div className="stack"><a className="deep-link text-link" href={deepLink}>{deepLink}</a><button onClick={()=>void navigator.clipboard.writeText(deepLink)}>Copy deep link</button><button onClick={()=>void act(async()=>{ await api(`/api/auth/device-enrollments/${enrollment.enrollment_id}/approve`,{method:"POST"}); setEnrollmentState("approved"); },"Enrollment approved — continue below")}>Approve</button>{enrollmentState==="approved"&&<a className="continue-enrollment" href={deepLink}>Continue enrollment on this device</a>}<button className="secondary" onClick={()=>void act(async()=>{const s=await api<{status:string}>(`/api/auth/device-enrollments/${enrollment.enrollment_id}`);setEnrollmentState(s.status);},"State refreshed")}>Refresh state</button><strong>Status: {enrollmentState}</strong></div>}</section>}
     {boot && <>
