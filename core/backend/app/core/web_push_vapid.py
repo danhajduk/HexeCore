@@ -22,6 +22,11 @@ def _decode(value: str) -> bytes:
     return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
 
 
+def vapid_key_id(core_id: str, public_raw: bytes) -> str:
+    fingerprint = _b64url(hashlib.sha256(public_raw).digest())
+    return f"{core_id}:web-push-vapid:{fingerprint}"
+
+
 @dataclass(frozen=True)
 class VapidKeyMaterial:
     key_id: str
@@ -53,8 +58,7 @@ class WebPushVapidKeyStore:
         y = numbers.public_numbers.y.to_bytes(32, "big")
         d = numbers.private_value.to_bytes(32, "big")
         public_raw = b"\x04" + x + y
-        fingerprint = _b64url(hashlib.sha256(public_raw).digest())[:22]
-        key_id = f"{core_id}:web-push-vapid:{fingerprint}"
+        key_id = vapid_key_id(core_id, public_raw)
         return VapidKeyMaterial(
             key_id=key_id,
             public_key=_b64url(public_raw),
@@ -86,8 +90,7 @@ class WebPushVapidKeyStore:
             public_raw = b"\x04" + x + y
             if material.public_key != _b64url(public_raw):
                 raise ValueError
-            fingerprint = _b64url(hashlib.sha256(public_raw).digest())[:22]
-            if material.key_id != f"{core_id}:web-push-vapid:{fingerprint}":
+            if material.key_id != vapid_key_id(core_id, public_raw):
                 raise ValueError
         except (KeyError, TypeError, ValueError) as exc:
             raise ValueError("vapid_key_pair_mismatch") from exc

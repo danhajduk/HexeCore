@@ -5,11 +5,18 @@ import tempfile
 
 import pytest
 
-from app.core.web_push_vapid import VapidKeyMaterial, WebPushVapidKeyStore
+from app.core.web_push_vapid import VapidKeyMaterial, WebPushVapidKeyStore, vapid_key_id
 from app.system.settings.store import SettingsStore
 
 
 CORE_ID = "0123456789abcdef"
+
+
+def test_vapid_key_id_uses_full_sha256_contract_fingerprint():
+    assert vapid_key_id(CORE_ID, b"\x04" + b"\x00" * 64) == (
+        "0123456789abcdef:web-push-vapid:We8aWgDzWxpyLaVspwtSpyHzOZhjTU-kJZMB8XD3tr0"
+    )
+    assert len(WebPushVapidKeyStore.generate(CORE_ID).key_id.rsplit(":", 1)[1]) == 43
 
 
 def test_generated_vapid_key_round_trips_through_sensitive_settings_backup():
