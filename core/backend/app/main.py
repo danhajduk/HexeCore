@@ -119,8 +119,7 @@ from app.system.management_access import ManagementAuthorizationService, Managem
 from app.system.policy import PolicyStore, build_policy_router
 from app.system.telemetry import UsageTelemetryStore, build_telemetry_router
 from app.system.audit import AuditLogStore
-from app.system.family_identity import FamilyIdentityStore, build_family_identity_router
-from app.engines import CoreEngineRegistration, CoreEngineRegistry, IdentityAccessEngine
+from app.engines import CoreEngineRegistration, CoreEngineRegistry, IdentityAccessEngine, PeopleHouseholdEngine
 from app.system.runtime import StandaloneRuntimeService
 from app.system.hardware import HardwareAccessService, HardwareAccessStore, HardwareBlePairingSessionService, HardwareBlePairingSessionStore
 from app.system.repo_status import router as repo_status_router
@@ -1057,7 +1056,14 @@ def create_app() -> FastAPI:
         audit=audit_store,
     )
     users_store = identity_access_engine.users
-    family_identity_store = FamilyIdentityStore(users_db, str(os.getenv("HEXE_CORE_ID", "hexe-core")).strip() or "hexe-core")
+    people_household_engine = PeopleHouseholdEngine.create(
+        database_path=users_db,
+        core_id=str(os.getenv("HEXE_CORE_ID", "hexe-core")).strip() or "hexe-core",
+        identity=identity_access_engine,
+        keys=service_token_keys,
+        audit=audit_store,
+    )
+    family_identity_store = people_household_engine.store
     web_app_enrollment_store = identity_access_engine.devices
     seeded_admin_username = os.getenv("HEXE_ADMIN_USERNAME", "admin").strip() or "admin"
     seeded_admin_password = os.getenv("HEXE_ADMIN_PASSWORD", "") or os.getenv("HEXE_ADMIN_TOKEN", "")
@@ -1082,6 +1088,7 @@ def create_app() -> FastAPI:
     app.state.users_store = users_store
     app.state.identity_access_engine = identity_access_engine
     app.state.family_identity_store = family_identity_store
+    app.state.people_household_engine = people_household_engine
     app.state.web_app_enrollment_store = web_app_enrollment_store
     install_sessions_store = InstallSessionsStore()
     node_onboarding_sessions_store = NodeOnboardingSessionsStore()
@@ -1139,8 +1146,7 @@ def create_app() -> FastAPI:
 
     app.include_router(build_settings_router(settings_store, audit_store), prefix="/api/system", tags=["settings"])
     identity_access_engine.mount_admin_routes(app)
-    app.include_router(build_family_identity_router(family_identity_store, users_store, service_token_keys, audit_store), prefix="/api/admin", tags=["admin-family-identity"])
-    app.include_router(build_family_identity_router(family_identity_store, users_store, service_token_keys, audit_store), prefix="/api/web-app/admin", tags=["web-app-admin-family-identity"])
+    people_household_engine.mount_routes(app)
     app.include_router(repo_status_router, prefix="/api/system", tags=["repo"])
     app.include_router(build_stack_health_router(), prefix="/api/system", tags=["stack-health"])
     app.include_router(build_supervisor_status_router(), prefix="/api/system", tags=["supervisor"])

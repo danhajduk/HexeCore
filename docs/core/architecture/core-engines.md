@@ -21,6 +21,10 @@ authentication, session, and device-enrollment routes. Compatibility aliases
 remain in application state while dependent subsystems migrate to narrower
 engine service interfaces.
 
+`PeopleHouseholdEngine` owns family-domain persistence and route composition.
+User-link validation goes through the Identity and Access service boundary;
+the family store does not query authentication tables directly.
+
 Add-ons and trusted nodes may produce validated events. They do not select
 recipients or bypass consent and notification policy. The external Web Push
 gateway transports already-authorized, privacy-filtered intents and receives no

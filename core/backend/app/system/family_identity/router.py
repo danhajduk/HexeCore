@@ -121,6 +121,9 @@ def build_family_identity_router(store: FamilyIdentityStore, users: UsersStore, 
     @router.post("/family/user-links")
     async def link(body: LinkBody, request: Request, x_admin_token: str | None = Header(default=None), authorization: str | None = Header(default=None)):
         actor_id, role, principal = await actor(request, x_admin_token, authorization); await step_up(principal, body.reauth_password)
+        target_user = await users.get_user_by_id(body.user_id)
+        if target_user is None or not bool(target_user.get("enabled")):
+            raise HTTPException(status_code=400, detail="user_not_found")
         saved = await invoke(store.link_user, body.person_id, body.user_id, actor_id)
         await record("family_user_linked", actor_id, role, {"person_id": body.person_id, "user_id": body.user_id})
         return {"ok": True, "link": saved}

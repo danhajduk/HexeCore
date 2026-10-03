@@ -62,3 +62,4 @@ Task 1022: Add local People management and user-linking UI - Completed on 10/02/
 Task 1023: Provision and rotate one VAPID identity per Core - Completed on 10/02/2026 17:56
 Task 1024: Establish internal Core engine boundaries and composition registry - Completed on 10/02/2026 18:38
 Task 1025: Encapsulate Identity and Access as a required Core engine - Completed on 10/02/2026 18:45
+Task 1026: Encapsulate People and Household as a required Core engine - Completed on 10/02/2026 18:49

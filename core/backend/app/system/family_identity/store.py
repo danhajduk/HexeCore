@@ -167,8 +167,6 @@ class FamilyIdentityStore:
 
     def _link_user(self, person_id: str, user_id: str, actor_id: str) -> dict[str, Any]:
         self._person(person_id)
-        if self._conn.execute("SELECT 1 FROM users WHERE user_id=? AND enabled=1", (user_id,)).fetchone() is None:
-            raise FamilyIdentityError("user_not_found")
         try:
             self._conn.execute("INSERT INTO family_user_links VALUES (?,?,?,?,?)", (person_id, user_id, self.core_id, _now(), actor_id))
             self._conn.commit()

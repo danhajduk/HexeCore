@@ -53,8 +53,7 @@ Do not edit above this line:
 [TODO] Task 1018: Preserve enrolled-device login and add passkey-protected app unlock
 [TODO] Task 1019: Add owner-approved enrollment requests and installation notifications
 [TODO] Task 1020: Simplify the mobile assistant to one inactivity-bounded chat
-[WIP] Task 1026: Encapsulate People and Household as a required Core engine
-[TODO] Task 1027: Encapsulate Notification Policy and Web Push transport boundaries
+[WIP] Task 1027: Encapsulate Notification Policy and Web Push transport boundaries
 
 Task 1011: Add Core administration UI for users, mobile devices, sessions, and notification access - Completed on 09/30/2026 21:52
 Task 1012: Implement the Core-hosted installable assistant PWA and per-user conversation boundary - Completed on 09/30/2026 22:03
@@ -67,3 +66,4 @@ Task 1022: Add local People management and user-linking UI - Completed on 10/02/
 Task 1023: Provision and rotate one VAPID identity per Core - Completed on 10/02/2026 17:56
 Task 1024: Establish internal Core engine boundaries and composition registry - Completed on 10/02/2026 18:38
 Task 1025: Encapsulate Identity and Access as a required Core engine - Completed on 10/02/2026 18:45
+Task 1026: Encapsulate People and Household as a required Core engine - Completed on 10/02/2026 18:49
