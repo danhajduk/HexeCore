@@ -524,3 +524,12 @@ What changed: Promoted Task 1023 as the sole WIP task after synchronizing and va
 Verification: Local task evidence and request dependency, scope, constraints, and acceptance criteria match.
 
 ###########
+
+Task #1021
+Step objective: Start the Core household/person service before its dependent People UI.
+Issue cause: Task 1023's Core implementation is committed but shared completion is blocked on the Website gateway, while People management requires the unimplemented Task 1021 service.
+Chosen fix: Defer Task 1023 without discarding it and make Task 1021 the sole WIP task, preserving `user_id` as authentication identity and adding `person_id` separately.
+What changed: Reprioritized the local queue after validating the accepted family identity contract and completed AI Node dependency.
+Verification: The queue contains one WIP task and the coordination repository validates.
+
+###########
