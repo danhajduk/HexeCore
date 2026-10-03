@@ -568,3 +568,11 @@ What changed: Reactivated Task 1023 for the interoperability repair.
 Verification: Pending focused Core and shared evidence validation.
 
 ###########
+
+Task #1023 follow-up
+Step objective: Verify and record the VAPID key-id interoperability repair.
+Chosen fix: Derive `vapid_key_id` from the complete unpadded base64url SHA-256 digest and specify its exact 43-character representation in the shared proposal.
+What changed: Updated Core generation/validation, added a deterministic vector, and recorded the Core commit and Website verification dependency in coordination.
+Verification: 25 focused Core Web Push tests passed; coordination validates and commit `7a8411b` is pushed. Task remains deferred only until Website reruns Miniflare tests under Node 22+.
+
+###########

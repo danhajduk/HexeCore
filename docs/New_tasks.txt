@@ -53,7 +53,7 @@ Do not edit above this line:
 [TODO] Task 1018: Preserve enrolled-device login and add passkey-protected app unlock
 [TODO] Task 1019: Add owner-approved enrollment requests and installation notifications
 [TODO] Task 1020: Simplify the mobile assistant to one inactivity-bounded chat
-[WIP] Task 1023: Provision and rotate one VAPID identity per Core
+[FUTURE TODO] Task 1023: Provision and rotate one VAPID identity per Core
 
 Task 1011: Add Core administration UI for users, mobile devices, sessions, and notification access - Completed on 09/30/2026 21:52
 Task 1012: Implement the Core-hosted installable assistant PWA and per-user conversation boundary - Completed on 09/30/2026 22:03
