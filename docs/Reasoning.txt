@@ -559,3 +559,12 @@ Verification: All 98 frontend tests passed and the TypeScript/Vite production bu
 #############
 All Tasks completed 10/02/2026 17:21:00
 #############
+
+Task #1023 follow-up
+Step objective: Align Core and Website VAPID key identifiers.
+Issue cause: Core truncated the base64url SHA-256 fingerprint to 22 characters while Website validates the complete digest, so real bootstrap would fail.
+Chosen fix: Use the full 32-byte SHA-256 base64url fingerprint and lock the algorithm with a deterministic contract vector.
+What changed: Reactivated Task 1023 for the interoperability repair.
+Verification: Pending focused Core and shared evidence validation.
+
+###########
