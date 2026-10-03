@@ -190,6 +190,23 @@ def test_public_host_allows_only_explicit_anonymous_api_surface():
     assert client().post("/api/auth/token", headers=public).status_code == 404
 
 
+def test_public_host_allows_enrolled_device_login_flow():
+    public = {"Host": "0123456789abcdef.hexe-ai.com"}
+    # The boundary test app has only a GET catch-all; 405 proves middleware
+    # admitted the POST instead of masking it with the public-host 404.
+    assert client().post("/api/auth/user/device-login/challenge", headers=public).status_code == 405
+    assert client().post("/api/auth/user/device-login/complete", headers=public).status_code == 405
+
+
+def test_enrolled_device_login_flow_uses_sensitive_auth_rate_limit():
+    test_client = client(sensitive_auth_rate_limit_per_minute=1)
+    public = {"Host": "0123456789abcdef.hexe-ai.com"}
+    assert test_client.post("/api/auth/user/device-login/challenge", headers=public).status_code == 405
+    limited = test_client.post("/api/auth/user/device-login/challenge", headers=public)
+    assert limited.status_code == 429
+    assert limited.json()["detail"] == "authentication_rate_limit_exceeded"
+
+
 def test_public_host_rejects_admin_token_header():
     response = client().get(
         "/api/system/stats/current",
