@@ -12,10 +12,10 @@ class AuthRole(str, Enum):
 
 
 ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
-    AuthRole.owner.value: frozenset({"core.admin", "users.manage", "ownership.manage", "sessions.manage", "sessions.self"}),
-    AuthRole.admin.value: frozenset({"core.admin", "users.manage", "sessions.manage", "sessions.self"}),
-    AuthRole.member.value: frozenset({"sessions.self"}),
-    AuthRole.guest.value: frozenset({"sessions.self"}),
+    AuthRole.owner.value: frozenset({"core.admin", "users.manage", "people.manage", "people.self", "ownership.manage", "sessions.manage", "sessions.self"}),
+    AuthRole.admin.value: frozenset({"core.admin", "users.manage", "people.manage", "people.self", "sessions.manage", "sessions.self"}),
+    AuthRole.member.value: frozenset({"people.self", "sessions.self"}),
+    AuthRole.guest.value: frozenset({"people.self", "sessions.self"}),
 }
 
 

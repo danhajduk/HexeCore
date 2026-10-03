@@ -1,5 +1,5 @@
 {
-  "path_count": 296,
+  "path_count": 320,
   "paths": {
     "/api/addons": [
       "get"
@@ -75,6 +75,42 @@
       "post"
     ],
     "/api/admin/addons/registry/{addon_id}": [
+      "delete"
+    ],
+    "/api/admin/family": [
+      "get"
+    ],
+    "/api/admin/family/consents": [
+      "post"
+    ],
+    "/api/admin/family/endpoint-assignments": [
+      "post"
+    ],
+    "/api/admin/family/guardians": [
+      "post"
+    ],
+    "/api/admin/family/households": [
+      "post"
+    ],
+    "/api/admin/family/lifecycle": [
+      "post"
+    ],
+    "/api/admin/family/me": [
+      "get"
+    ],
+    "/api/admin/family/people": [
+      "post"
+    ],
+    "/api/admin/family/people/{person_id}": [
+      "put"
+    ],
+    "/api/admin/family/rooms": [
+      "post"
+    ],
+    "/api/admin/family/user-links": [
+      "post"
+    ],
+    "/api/admin/family/user-links/{person_id}": [
       "delete"
     ],
     "/api/admin/reload": [
@@ -864,6 +900,42 @@
     ],
     "/api/telemetry/usage/stats": [
       "get"
+    ],
+    "/api/web-app/admin/family": [
+      "get"
+    ],
+    "/api/web-app/admin/family/consents": [
+      "post"
+    ],
+    "/api/web-app/admin/family/endpoint-assignments": [
+      "post"
+    ],
+    "/api/web-app/admin/family/guardians": [
+      "post"
+    ],
+    "/api/web-app/admin/family/households": [
+      "post"
+    ],
+    "/api/web-app/admin/family/lifecycle": [
+      "post"
+    ],
+    "/api/web-app/admin/family/me": [
+      "get"
+    ],
+    "/api/web-app/admin/family/people": [
+      "post"
+    ],
+    "/api/web-app/admin/family/people/{person_id}": [
+      "put"
+    ],
+    "/api/web-app/admin/family/rooms": [
+      "post"
+    ],
+    "/api/web-app/admin/family/user-links": [
+      "post"
+    ],
+    "/api/web-app/admin/family/user-links/{person_id}": [
+      "delete"
     ],
     "/api/web-app/admin/users": [
       "get",

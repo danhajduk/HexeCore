@@ -465,6 +465,11 @@ contract tests.
 
 ## Audit Requirements
 
+Family identity administration is documented in
+[`family-identity.md`](family-identity.md). Login users and household people
+remain separate records; linking them never transfers credentials, roles,
+sessions, or device ownership.
+
 Core records redacted events for:
 
 - login success and failure
