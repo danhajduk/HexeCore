@@ -15,6 +15,12 @@ The in-process engine registry validates ownership and dependencies during Core
 composition. Its diagnostic snapshot contains only engine identifiers,
 capability ownership, dependencies, and required/optional state.
 
+`IdentityAccessEngine` is the composition owner for the human-user and
+enrolled-device stores and mounts their existing administration,
+authentication, session, and device-enrollment routes. Compatibility aliases
+remain in application state while dependent subsystems migrate to narrower
+engine service interfaces.
+
 Add-ons and trusted nodes may produce validated events. They do not select
 recipients or bypass consent and notification policy. The external Web Push
 gateway transports already-authorized, privacy-filtered intents and receives no

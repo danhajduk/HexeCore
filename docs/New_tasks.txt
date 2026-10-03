@@ -53,7 +53,7 @@ Do not edit above this line:
 [TODO] Task 1018: Preserve enrolled-device login and add passkey-protected app unlock
 [TODO] Task 1019: Add owner-approved enrollment requests and installation notifications
 [TODO] Task 1020: Simplify the mobile assistant to one inactivity-bounded chat
-[TODO] Task 1025: Encapsulate Identity and Access as a required Core engine
+[WIP] Task 1025: Encapsulate Identity and Access as a required Core engine
 [TODO] Task 1026: Encapsulate People and Household as a required Core engine
 [TODO] Task 1027: Encapsulate Notification Policy and Web Push transport boundaries
 

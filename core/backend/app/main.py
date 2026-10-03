@@ -63,7 +63,7 @@ from app.system.sampler import (
 )
 from app.system.config import load_config
 
-from .api.admin import router as admin_router, configure_admin_users_store
+from .api.admin import router as admin_router
 from .system.stats.router import router as stats_router
 
 # NEW: scheduler components
@@ -112,16 +112,15 @@ from app.system.mqtt import (
 )
 from app.system.events import PlatformEventService, build_events_router
 from app.system.services import ServiceCatalogStore, build_service_resolution_router
-from app.system.auth import ServiceTokenKeyStore, WebAppEnrollmentStore, build_auth_router, build_device_enrollment_router, build_human_auth_router, build_web_app_router
+from app.system.auth import ServiceTokenKeyStore, build_auth_router, build_web_app_router
 from app.system.client_catalog import build_client_core_catalog_router
 from app.system.service_access import ServiceAccessGrantStore, build_service_access_router
 from app.system.management_access import ManagementAuthorizationService, ManagementAuthorizationStore, build_management_access_router
 from app.system.policy import PolicyStore, build_policy_router
 from app.system.telemetry import UsageTelemetryStore, build_telemetry_router
 from app.system.audit import AuditLogStore
-from app.system.users import UsersStore, build_users_router
 from app.system.family_identity import FamilyIdentityStore, build_family_identity_router
-from app.engines import CoreEngineRegistration, CoreEngineRegistry
+from app.engines import CoreEngineRegistration, CoreEngineRegistry, IdentityAccessEngine
 from app.system.runtime import StandaloneRuntimeService
 from app.system.hardware import HardwareAccessService, HardwareAccessStore, HardwareBlePairingSessionService, HardwareBlePairingSessionStore
 from app.system.repo_status import router as repo_status_router
@@ -1051,14 +1050,19 @@ def create_app() -> FastAPI:
     conversation_store = ConversationStore(users_db)
     web_chat_executor = CoreChatExecutor(service_catalog_store, service_access_grant_store, service_token_keys, settings_store)
     app.state.conversation_store = conversation_store
-    users_store = UsersStore(users_db)
+    identity_access_engine = IdentityAccessEngine.create(
+        database_path=users_db,
+        keys=service_token_keys,
+        settings=settings_store,
+        audit=audit_store,
+    )
+    users_store = identity_access_engine.users
     family_identity_store = FamilyIdentityStore(users_db, str(os.getenv("HEXE_CORE_ID", "hexe-core")).strip() or "hexe-core")
-    web_app_enrollment_store = WebAppEnrollmentStore(users_db)
+    web_app_enrollment_store = identity_access_engine.devices
     seeded_admin_username = os.getenv("HEXE_ADMIN_USERNAME", "admin").strip() or "admin"
     seeded_admin_password = os.getenv("HEXE_ADMIN_PASSWORD", "") or os.getenv("HEXE_ADMIN_TOKEN", "")
 
     # Admin routes
-    configure_admin_users_store(users_store)
     app.include_router(admin_router, prefix="/api")
 
     app.state.settings_store = settings_store
@@ -1076,6 +1080,7 @@ def create_app() -> FastAPI:
     app.state.store_audit_store = store_audit_store
     app.state.store_sources_store = store_sources_store
     app.state.users_store = users_store
+    app.state.identity_access_engine = identity_access_engine
     app.state.family_identity_store = family_identity_store
     app.state.web_app_enrollment_store = web_app_enrollment_store
     install_sessions_store = InstallSessionsStore()
@@ -1133,8 +1138,7 @@ def create_app() -> FastAPI:
     app.state.internal_scheduler = internal_scheduler
 
     app.include_router(build_settings_router(settings_store, audit_store), prefix="/api/system", tags=["settings"])
-    app.include_router(build_users_router(users_store, audit_store, service_token_keys, web_app_enrollment_store), prefix="/api/admin", tags=["admin-users"])
-    app.include_router(build_users_router(users_store, audit_store, service_token_keys, web_app_enrollment_store), prefix="/api/web-app/admin", tags=["web-app-admin-users"])
+    identity_access_engine.mount_admin_routes(app)
     app.include_router(build_family_identity_router(family_identity_store, users_store, service_token_keys, audit_store), prefix="/api/admin", tags=["admin-family-identity"])
     app.include_router(build_family_identity_router(family_identity_store, users_store, service_token_keys, audit_store), prefix="/api/web-app/admin", tags=["web-app-admin-family-identity"])
     app.include_router(repo_status_router, prefix="/api/system", tags=["repo"])
@@ -1436,8 +1440,7 @@ def create_app() -> FastAPI:
     )
     app.include_router(build_events_router(event_service), prefix="/api/system", tags=["events"])
     app.include_router(build_auth_router(service_token_keys), prefix="/api/auth", tags=["auth"])
-    app.include_router(build_human_auth_router(service_token_keys, users_store, audit_store), prefix="/api/auth", tags=["human-auth"])
-    app.include_router(build_device_enrollment_router(web_app_enrollment_store, users_store, service_token_keys, audit_store, settings_store), prefix="/api/auth", tags=["web-app-enrollment"])
+    identity_access_engine.mount_authentication_routes(app)
     app.include_router(build_web_app_router(service_token_keys, users_store, web_app_enrollment_store, settings_store, web_notification_policy), prefix="/api/web-app", tags=["web-app"])
     app.include_router(build_web_push_gateway_router(web_push_gateway_publisher, service_token_keys, users_store, audit_store), prefix="/api/web-app", tags=["web-push-gateway"])
     app.include_router(build_web_push_registration_router(web_push_registration_issuer, service_token_keys, users_store, web_app_enrollment_store, settings_store), prefix="/api/web-app", tags=["web-push-registration"])
