@@ -1,6 +1,7 @@
 # Core Web App End-to-End Validation
 
-Status: Partially implemented
+Status: Implemented for the user-approved one-user validation scope; two-user
+physical-device isolation is deferred to Task 1028
 
 This record covers Core Task 1014 and the live validation performed on
 2026-10-06. It complements the normative
@@ -44,12 +45,14 @@ store contained four delivered notification intents. Credential values,
 provider endpoints, raw subscriptions, and private keys were not inspected or
 copied into this record.
 
-Persisted live state did not satisfy the complete acceptance topology: three
-active installed-device records belonged to one user, one active push
-subscription existed, and the two active preference records also belonged to
-that user's devices. Two conversations existed for one user. Therefore this
-run does not claim two-user physical-device isolation or two-user closed-app
-delivery.
+The approved one-user live topology contained three active installed-device
+records belonging to one user, one active push subscription, and two active
+preference records belonging to that user's devices. Two conversations existed
+for one user. Four notification
+intents for the active iPhone subscription were accepted and recorded as
+delivered on their first gateway attempt. Gateway delivery is verified; OS
+display while the app was closed is not independently observable from Core.
+This run does not claim cross-user isolation or two-user closed-app delivery.
 
 ## Automated Verification
 
@@ -82,9 +85,9 @@ from repository tests or database state alone:
 | Notification click/deep link | Opens the same Core origin and reauthenticates as needed | Opens the same Core origin and reauthenticates as needed | Not verifiable from current repository state |
 | Badge behavior | Browser/OS dependent | iOS version and permission dependent | Not verifiable from current repository state |
 
-## Completion Checklist
+## Deferred Two-User Checklist
 
-Before completing Task 1014:
+Task 1028 preserves the postponed original acceptance work:
 
 1. Enroll two distinct users on separate physical installed apps, retain one
    active subscription per user, and record only opaque IDs and timestamps.

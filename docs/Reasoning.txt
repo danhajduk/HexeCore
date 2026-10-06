@@ -4,6 +4,16 @@ Chosen fix: Moved the tracked Core docs tree to root docs and removed the tracke
 What changed: Updated root README links/layout, updated branding validators to scan shared root docs, and kept the active task queue normalized under docs/New_tasks.txt.
 Verification: Branding validators passed for both Core and Supervisor; tracked docs now live under root docs with no tracked files under core/docs or supervisor/docs.
 ###########
+
+Task #1014 completion
+Step objective: Close the user-approved one-user validation scope without losing the original two-user acceptance criteria.
+Chosen fix: Treat the active iPhone subscription and four first-attempt gateway deliveries as one-user transport evidence, explicitly stop at the unobservable OS-display boundary, and defer cross-user physical validation to Task 1028.
+What changed: Completed local Task 1014, added deferred Task 1028, and kept the shared request open for its original acceptance criteria.
+Verification: Gateway health/readiness remained 200; one active subscription and four first-attempt delivered intents were persisted for the enrolled iPhone user.
+
+#############
+All Tasks completed 10/06/2026 16:19:00
+#############
 Task #1013
 Step objective: Define the accepted Core-to-node family identity and authorization boundary.
 Issue cause: Existing Core authentication implements users but has no household/person, guardian, consent, or family-memory authorization model.

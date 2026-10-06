@@ -1352,6 +1352,11 @@ Original task details:
 
 ## Task 1014
 Original task details:
+- Scope decision on 2026-10-06: complete the currently verifiable one-user live
+  acceptance pass. Preserve the original two-user physical-device isolation
+  acceptance as deferred Task 1028; do not treat one-user evidence as proof of
+  cross-user isolation or complete the shared coordination request from this
+  reduced local scope.
 - Coordination request: `HEXE-REQ-20260930-WEBAPP-CORE` from `website` to `core`.
 - Depends on: Tasks 1004 through 1012 and the matching website/Cloudflare notification-gateway implementation.
 - Goal: Validate and document the complete Core-hosted multi-user installed-web-app workflow against a real tunnel-exposed Core.
@@ -1367,6 +1372,26 @@ Original task details:
 - Acceptance: Evidence demonstrates isolation across users, devices, Cores, and notification subscriptions.
 - Verification: Run targeted backend/frontend/security tests, OpenAPI and environment checks, mirror-drift validation, and live tunnel/Web Push tests; record any physical-device limitation explicitly.
 - Verification: Record implementation commits and acceptance evidence in `HEXE-REQ-20260930-WEBAPP-CORE` before completing or archiving the coordination request.
+
+## Task 1028
+Original task details:
+- Status: Deferred by explicit user direction on 2026-10-06.
+- Coordination request: `HEXE-REQ-20260930-WEBAPP-CORE` remains open.
+- Goal: Complete the original Task 1014 two-user physical-device acceptance
+  matrix after a second user has a separate installed app and active push
+  subscription.
+- Exercise separate users, roles, sessions, enrolled devices, preferences,
+  conversations, subscriptions, notifications, audits, quiet hours, redaction,
+  deep links, and supported badge behavior.
+- Verify scoped revocation of one session, one device, and one user without
+  affecting the other user, followed by the explicit all-mobile-access case.
+- Cover Android/Chromium and iOS Home Screen where hardware is available and
+  record any remaining platform limitation explicitly.
+- Repair or separately disposition the pre-existing Core/Supervisor source
+  mirror drift without overwriting unrelated dirty Bluetooth work.
+- Record final evidence and commits in `HEXE-REQ-20260930-WEBAPP-CORE`, then
+  complete or archive that shared request only when its original acceptance
+  criteria are actually satisfied.
 
 ## Task 1013
 Original task details:
