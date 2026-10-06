@@ -54,9 +54,12 @@ self.addEventListener("notificationclick", event => {
     const windows = await clients.matchAll({ type: "window", includeUncontrolled: true });
     for (const client of windows) {
       if (!("focus" in client)) continue;
+      client.postMessage({ type: "notification.open", path });
       if ("navigate" in client) {
         const navigated = await client.navigate(path);
-        return (navigated || client).focus();
+        const target = navigated || client;
+        target.postMessage({ type: "notification.open", path });
+        return target.focus();
       }
       return client.focus();
     }

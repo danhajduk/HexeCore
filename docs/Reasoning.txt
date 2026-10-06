@@ -5,6 +5,14 @@ What changed: Updated root README links/layout, updated branding validators to s
 Verification: Branding validators passed for both Core and Supervisor; tracked docs now live under root docs with no tracked files under core/docs or supervisor/docs.
 ###########
 
+Task #1014 iOS standalone click fallback
+Step objective: Open the notification panel when iOS keeps the standalone app at `/app`.
+Issue cause: iOS fetched worker v3 but ignored `WindowClient.navigate()` and restored the existing standalone window at its start URL.
+Chosen fix: Post a typed `notification.open` message from the worker to the focused client, handle it in the app by opening and refreshing the panel, and bump the worker registration URL.
+Verification: Pending tests, build, deployment, worker activation, and physical retest.
+
+###########
+
 Task #1014 iOS notification click repair
 Step objective: Make a notification tap open the in-app notification panel.
 Issue cause: The service worker called `client.navigate(path)` without awaiting it, then immediately focused the existing iOS app window; the observed request remained `/app` instead of `/app/notifications`.
