@@ -5,6 +5,14 @@ What changed: Updated root README links/layout, updated branding validators to s
 Verification: Branding validators passed for both Core and Supervisor; tracked docs now live under root docs with no tracked files under core/docs or supervisor/docs.
 ###########
 
+Task #1014 iOS notification click repair
+Step objective: Make a notification tap open the in-app notification panel.
+Issue cause: The service worker called `client.navigate(path)` without awaiting it, then immediately focused the existing iOS app window; the observed request remained `/app` instead of `/app/notifications`.
+Chosen fix: Await navigation before focusing the client and bump the shell cache so installed apps activate the new worker.
+Verification: Pending PWA tests, build, live deployment, service-worker refresh, and physical retest.
+
+###########
+
 Task #1014 notification resend correction
 Step objective: Restore gateway-valid notification deep links.
 Issue cause: The gateway accepts `/app` or `/app/...` navigation paths, so `/app?notifications=1` caused a permanent 422-class rejection.
