@@ -17,6 +17,7 @@ from app.system.auth import (
 )
 from app.system.settings.store import SettingsStore
 from app.system.users import UsersStore
+from app.core.web_notification_policy import NotificationIntentStore, WebNotificationPolicyService
 
 
 class TestWebAppBootstrap:
@@ -32,13 +33,19 @@ class TestWebAppBootstrap:
         self.settings = SettingsStore(os.path.join(base, "settings.db"))
         self.users = UsersStore(os.path.join(base, "users.db"))
         self.devices = WebAppEnrollmentStore(os.path.join(base, "users.db"))
+        self.intents = NotificationIntentStore(os.path.join(base, "users.db"))
+        self.notification_policy = WebNotificationPolicyService(
+            self.devices,
+            self.intents,
+            core_id="0123456789abcdef",
+        )
         self.keys = ServiceTokenKeyStore(self.settings)
         asyncio.run(self.users.upsert_user(username="member", role="member", enabled=True, password="member-pass"))
         self.user = asyncio.run(self.users.get_user("member"))
         app = FastAPI()
         app.include_router(build_human_auth_router(self.keys, self.users), prefix="/api/auth")
         app.include_router(
-            build_web_app_router(self.keys, self.users, self.devices, self.settings, realtime_heartbeat_s=0.05),
+            build_web_app_router(self.keys, self.users, self.devices, self.settings, self.notification_policy, realtime_heartbeat_s=0.05),
             prefix="/api/web-app",
         )
         self.client = TestClient(app)
@@ -197,6 +204,41 @@ class TestWebAppBootstrap:
         payload = response.json()
         assert payload["features"]["administration"] is True
         assert "core.admin" in payload["user"]["permissions"]
+
+    def test_notification_feed_is_scoped_to_enrolled_user_and_device(self) -> None:
+        self._enroll_device()
+        asyncio.run(self.users.upsert_user(username="other", role="member", enabled=True, password="other-pass"))
+        other = asyncio.run(self.users.get_user("other"))
+        now = "2026-09-30T00:00:00+00:00"
+        self.devices._conn.execute(
+            "INSERT INTO web_app_devices VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)",
+            ("other-device", "0123456789abcdef", other["user_id"], "Other phone", "other-key", "mobile", now, now),
+        )
+        base = {
+            "core_id": "0123456789abcdef",
+            "subscription_ref": "opaque-ref",
+            "gateway_audience": "hexe-notification-gateway",
+            "category": "task-completion",
+            "severity": "info",
+            "privacy_level": "generic",
+            "title": "Task update",
+            "body": "Open Hexe to view details.",
+            "navigation_path": "/app?notifications=1",
+            "created_at": now,
+        }
+        assert asyncio.run(self.intents.create({**base, "event_id": "member-event", "user_id": self.user["user_id"], "device_id": "device-123"}))
+        assert asyncio.run(self.intents.create({**base, "event_id": "other-event", "user_id": other["user_id"], "device_id": "other-device"}))
+
+        login = self._login("device-123")
+        response = self.client.get(
+            "/api/web-app/notifications",
+            headers={"Authorization": f"Bearer {login['access_token']}"},
+        )
+        assert response.status_code == 200, response.text
+        assert [item["event_id"] for item in response.json()["items"]] == ["member-event"]
+        assert "subscription_ref" not in response.text
+        assert "user_id" not in response.text
+        assert "device_id" not in response.text
 
     def test_realtime_authenticates_enrolled_device_and_handles_ping(self) -> None:
         self._enroll_device()

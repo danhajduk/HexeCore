@@ -183,6 +183,21 @@ class NotificationIntentStore:
             ).fetchall)
             return {str(row["status"]): int(row["count"]) for row in rows}
 
+    async def recent_for_device(self, *, core_id: str, user_id: str, device_id: str, limit: int = 50) -> list[dict[str, Any]]:
+        selected_limit = max(1, min(int(limit), 100))
+        async with self._lock:
+            cursor = await asyncio.to_thread(
+                self._conn.execute,
+                """SELECT intent_id, event_id, category, severity, privacy_level,
+                          title, body, navigation_path, created_at, status, delivered_at
+                   FROM web_app_notification_intents
+                   WHERE core_id=? AND user_id=? AND device_id=?
+                   ORDER BY intent_id DESC LIMIT ?""",
+                (core_id, user_id, device_id, selected_limit),
+            )
+            rows = await asyncio.to_thread(cursor.fetchall)
+            return [dict(row) for row in rows]
+
 
 class WebNotificationPolicyService:
     def __init__(self, devices: WebAppEnrollmentStore, intents: NotificationIntentStore, *, core_id: str, audit: AuditLogStore | None = None, rate_limit: int = 5, rate_window_s: int = 300) -> None:
@@ -230,6 +245,14 @@ class WebNotificationPolicyService:
                 deduplicated += 1
                 await self._audit_decision(event, target["user_id"], target["device_id"], "suppressed", "duplicate_event", category)
         return {"ok": True, "created": created, "suppressed": suppressed, "deduplicated": deduplicated}
+
+    async def recent_for_device(self, *, user_id: str, device_id: str, limit: int = 50) -> list[dict[str, Any]]:
+        return await self._intents.recent_for_device(
+            core_id=self._core_id,
+            user_id=user_id,
+            device_id=device_id,
+            limit=limit,
+        )
 
     @staticmethod
     def _category(event_type: str) -> str | None:

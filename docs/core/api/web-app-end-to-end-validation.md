@@ -1,7 +1,7 @@
 # Core Web App End-to-End Validation
 
-Status: Implemented for the user-approved one-user validation scope; two-user
-physical-device isolation is deferred to Task 1028
+Status: Partially implemented for the user-approved one-user validation scope;
+two-user physical-device isolation is deferred to Task 1028
 
 This record covers Core Task 1014 and the live validation performed on
 2026-10-06. It complements the normative
@@ -48,11 +48,30 @@ copied into this record.
 The approved one-user live topology contained three active installed-device
 records belonging to one user, one active push subscription, and two active
 preference records belonging to that user's devices. Two conversations existed
-for one user. Four notification
-intents for the active iPhone subscription were accepted and recorded as
-delivered on their first gateway attempt. Gateway delivery is verified; OS
-display while the app was closed is not independently observable from Core.
-This run does not claim cross-user isolation or two-user closed-app delivery.
+for one user. Four historical notification intents for the active iPhone
+subscription were accepted and recorded as delivered on their first gateway
+attempt. A fresh acceptance event on 2026-10-06 was also created and accepted
+by the gateway on its first attempt. The user then confirmed that iOS displayed
+the fresh **Task update** notification, verifying the one-user Core-to-gateway-
+to-iOS path. Gateway acceptance alone remains insufficient proof; this result
+includes direct physical confirmation. This run does not claim cross-user
+isolation or two-user delivery.
+
+The acceptance check also exposed a separate app defect: Core persisted the
+notification, but the PWA had no in-app notification surface and its deep link
+targeted a route that did not exist. The PWA now reads the enrolled-device-
+scoped `GET /api/web-app/notifications` feed, displays a notification panel,
+refreshes it every 15 seconds while visible, and uses
+`/app?notifications=1` as the valid notification-click target. The feed omits
+subscription references and user/device identifiers and is constrained by the
+authenticated token's enrolled user and device.
+
+Production push latency includes a gateway queue boundary. Core submits the
+intent immediately, but the Website gateway currently drains its durable queue
+on a once-per-minute cron. Normal latency is therefore approximately 0-60
+seconds before provider delivery, plus APNs/iOS scheduling time. Immediate
+post-enqueue delivery is Website-owned follow-up work; the minute cron remains
+necessary for retries.
 
 ## Automated Verification
 
@@ -119,6 +138,9 @@ Task 1028 preserves the postponed original acceptance work:
 - If delivery is accepted but not observed, correlate the opaque intent and
   device identifiers across Core audit/outbox state and gateway redacted
   telemetry. Do not log the raw subscription endpoint.
+- If the OS notification arrives but the in-app list is stale, reopen the
+  notification panel or use **Refresh**. A visible app polls at 15-second
+  intervals; an expired or revoked enrolled session must reauthenticate.
 - If a revoked device still appears in browser storage, server-side revocation
   remains authoritative. Clear the local installation only after preserving
   the server-side audit evidence.

@@ -112,11 +112,23 @@ def build_web_app_router(
                 source_id=identity.core_id,
                 subject_user_id=principal.user_id,
                 summary="Your Hexe notifications are working.",
-                navigation_path="/app/settings/notifications",
+                navigation_path="/app?notifications=1",
             ),
             trusted_source=True,
         )
         return {"ok": True, "queued": int(result.get("created", 0)), "suppressed": int(result.get("suppressed", 0))}
+
+    @router.get("/notifications")
+    async def notifications(authorization: str | None = Header(default=None)):
+        principal, device, _ = await enrolled_principal(authorization)
+        if notification_policy is None:
+            raise HTTPException(status_code=503, detail="notification_policy_unavailable")
+        return {
+            "items": await notification_policy.recent_for_device(
+                user_id=principal.user_id,
+                device_id=str(device["device_id"]),
+            )
+        }
 
     async def close_for_auth_error(websocket: WebSocket, exc: HTTPException) -> None:
         code = 4401 if exc.status_code == 401 else 4403

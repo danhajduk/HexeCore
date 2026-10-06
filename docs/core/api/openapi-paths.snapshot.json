@@ -1,5 +1,5 @@
 {
-  "path_count": 322,
+  "path_count": 323,
   "paths": {
     "/api/addons": [
       "get"
@@ -993,6 +993,9 @@
     ],
     "/api/web-app/notification-subscriptions/grants": [
       "post"
+    ],
+    "/api/web-app/notifications": [
+      "get"
     ],
     "/api/web-app/notifications/test": [
       "post"

@@ -351,6 +351,12 @@ reports only safe booleans for subscription and preference state. Delivery is
 reported unavailable until the Task 1010 gateway publisher exists; the opaque
 subscription reference is never included.
 
+An enrolled device may read its bounded in-app notification history at
+`GET /api/web-app/notifications`. The query is fixed to the authenticated
+token's Core, user, and device and returns only display-safe intent metadata;
+it never returns an opaque subscription reference, gateway credential, raw
+provider endpoint, or another device's notifications.
+
 Disabling or deleting a Core user also revokes that user's sessions, disables
 every retained device owned by that user, and moves only those devices' active
 subscriptions to `pending` cleanup. Other users' devices and subscriptions are

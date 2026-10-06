@@ -14,6 +14,24 @@ Verification: Gateway health/readiness remained 200; one active subscription and
 #############
 All Tasks completed 10/06/2026 16:19:00
 #############
+
+Task #1014 correction
+Step objective: Require physical receipt rather than gateway acceptance for the one-user completion claim.
+Issue cause: Historical gateway-accepted intents were incorrectly treated as sufficient current notification evidence, and the completion beep was a local HexeVoice cue rather than Web Push.
+Chosen fix: Reopen Task 1014, send a fresh policy-approved event through the production gateway, and wait for user confirmation of iPhone receipt.
+What changed: Fresh event `acceptance-c93c96d9da24491fa18db29bf51d3c0e` created one intent and the gateway accepted it on attempt one with no error at 2026-10-06T23:21:16Z.
+Verification: Core status is `delivered`, which means gateway acceptance only; physical OS display remains pending.
+
+###########
+
+Task #1014 in-app notification defect
+Step objective: Make accepted notifications visible inside the installed assistant app.
+Issue cause: The PWA implemented Web Push subscription controls but no notification feed or panel, and test notifications deep-linked to an unimplemented route.
+Chosen fix: Add a user-and-device-scoped safe notification feed, a responsive PWA panel with 15-second visible polling, and a valid `/app?notifications=1` deep link.
+What changed: Added the feed API, ownership-isolation test, frontend normalization/panel, and API artifacts. Recorded the Website gateway's once-per-minute delivery cron as the primary queue delay.
+Verification: The user physically confirmed the fresh iOS Task update notification; 26 focused backend tests, 101 frontend tests, and the production build passed before final deployment verification.
+
+###########
 Task #1013
 Step objective: Define the accepted Core-to-node family identity and authorization boundary.
 Issue cause: Existing Core authentication implements users but has no household/person, guardian, consent, or family-memory authorization model.
