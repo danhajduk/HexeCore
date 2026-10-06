@@ -24,10 +24,10 @@ Status: Implemented
   addresses retain the dashboard at `/`. The legacy `/remote` prefix is not an
   alias and returns 404. `X-Forwarded-Host` is considered only from a loopback
   proxy peer; arbitrary forwarded headers cannot select the remote surface.
-- `/app` is a chromeless mobile-first surface. Until Task 1012 installs the
-  assistant PWA, it shows an explicit unavailable placeholder rather than the
-  existing administration dashboard. The current dashboard is exposed remotely
-  only through the explicit authenticated `/admin` route.
+- `/app` is the chromeless, installable mobile-first assistant PWA. Its
+  service worker provides the implemented offline/update shell while excluding
+  `/api/` from caching. The administration dashboard is exposed remotely only
+  through the explicit authenticated `/admin` route and role-gated navigation.
 - The default production browser model is same-origin: Core UI, `/api/*`, node proxy routes, and addon proxy routes share the Core public origin.
 - Vite remains a development workflow only. Development CORS origins are enabled only when `HEXE_ENABLE_DEV_CORS=1` or explicit `HEXE_CORS_ALLOW_ORIGINS` values are configured.
 - Production install, update, backend reload, and reload-all scripts rebuild the frontend artifact before restarting Core services.
@@ -119,7 +119,9 @@ Status: Implemented
 Status: Not developed
 
 - Formal feature-flag framework across frontend capabilities.
-- Offline-first UI behavior.
+- Full offline assistant execution and conversation mutation. The current
+  service worker provides an offline shell but does not cache authenticated API
+  data or claim offline task execution.
 
 ## Archived Legacy Behavior
 
@@ -130,6 +132,7 @@ Status: Implemented
 ## See Also
 
 - [API Reference](../api/api-reference.md)
+- [Web App End-to-End Validation](../api/web-app-end-to-end-validation.md)
 - [Addon Platform](../../addons/addon-platform.md)
 - [MQTT Platform](../../mqtt/mqtt-platform.md)
 - [Operators Guide](../../operators-guide.md)

@@ -33,6 +33,12 @@ Rules:
 
 Trust still relies on stored credentials, trust tokens, governance, and service/node policy.
 
+For the installed web app, Tunnel terminates transport at the same Core origin;
+Core still authenticates the user, session, and enrolled device and authorizes
+every protected API. The external Web Push gateway is a separate outbound
+transport and does not become an ingress authorization authority. See
+[Core Web App End-to-End Validation](./web-app-end-to-end-validation.md).
+
 ## Responsibilities
 
 Core:

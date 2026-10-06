@@ -40,6 +40,12 @@ Status: Implemented
 Named permissions are resolved centrally. Owner changes require an owner;
 members and guests cannot administer users or acquire an administrative cookie.
 
+Installed PWA access additionally binds the human session to a Core-owned
+enrolled device. Device, session, conversation, preference, and subscription
+ownership are enforced independently of Tunnel reachability. The current live
+acceptance status and physical-device matrix are recorded in
+[Core Web App End-to-End Validation](./web-app-end-to-end-validation.md).
+
 ## Admin Session Configuration
 
 Status: Implemented

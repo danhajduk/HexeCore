@@ -11,6 +11,7 @@ This folder is the canonical home for Hexe Core API and backend control-plane do
 - [data-and-state.md](./data-and-state.md)
 - [family-identity-authorization-contract.md](./family-identity-authorization-contract.md)
 - [multi-user-remote-web-app-security-contract.md](./multi-user-remote-web-app-security-contract.md)
+- [web-app-end-to-end-validation.md](./web-app-end-to-end-validation.md)
 - [node-ui-card-response-contracts.md](./node-ui-card-response-contracts.md)
 - [node-ui-manifest-contract.md](./node-ui-manifest-contract.md)
 - [openapi-snapshot.md](./openapi-snapshot.md)

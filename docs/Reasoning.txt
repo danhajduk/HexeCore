@@ -585,3 +585,11 @@ Verification: Core's final focused suite passed 28 tests, Website's gateway suit
 #############
 All Tasks completed 10/02/2026 17:56:00
 #############
+
+Task #1014
+Step objective: Validate the deployed Core web app and Web Push boundary.
+Chosen fix: Record live and automated evidence without treating repository tests as physical-device proof.
+What changed: Corrected one stale permission expectation and added a focused architecture, validation, platform, privacy, and troubleshooting record with canonical cross-links.
+Verification: Public Core and gateway probes passed; 100 frontend tests and build passed; 21 Website gateway/fallback tests passed; 107 backend tests passed; OpenAPI and Markdown-link checks passed. Two-user physical-device acceptance and mirror repair remain open.
+
+###########

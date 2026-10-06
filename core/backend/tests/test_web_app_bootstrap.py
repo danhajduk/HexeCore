@@ -84,7 +84,7 @@ class TestWebAppBootstrap:
         assert response.status_code == 200, response.text
         payload = response.json()
         assert payload["core"]["core_id"] == "0123456789abcdef"
-        assert payload["user"]["permissions"] == ["sessions.self"]
+        assert payload["user"]["permissions"] == ["people.self", "sessions.self"]
         assert payload["device"]["device_id"] == "device-123"
         assert payload["device"]["display_name"] == "Dan's phone"
         assert payload["device"]["platform"] == "mobile"

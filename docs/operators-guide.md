@@ -39,6 +39,10 @@ python tools/report_ignored_artifacts.py
 
 The report distinguishes source-owned areas from local dependency caches, build output, runtime state, logs, and private operator config. It does not delete anything unless `--delete` is provided.
 
+For the public installed PWA, Web Push gateway readiness, safe live probes,
+platform installation requirements, and the Task 1014 acceptance matrix, use
+[Core Web App End-to-End Validation](./core/api/web-app-end-to-end-validation.md).
+
 ## 3) Recovery Basics
 
 Status: Implemented
