@@ -5,6 +5,14 @@ What changed: Updated root README links/layout, updated branding validators to s
 Verification: Branding validators passed for both Core and Supervisor; tracked docs now live under root docs with no tracked files under core/docs or supervisor/docs.
 ###########
 
+Task #1014 iOS click-marker race repair
+Step objective: Consume the persistent marker after iOS completes its asynchronous app launch.
+Issue cause: The app could check Cache Storage before the notification-click worker finished writing the marker, then never check again.
+Chosen fix: Recheck on `pageshow`, visibility changes, and every 500 ms during the first 10 seconds after launch; bump the worker registration URL again.
+Verification: Pending tests, build, deployment, and physical retest.
+
+###########
+
 Task #1014 persistent iOS click handoff
 Step objective: Survive iOS relaunching the Home Screen app at its fixed start URL.
 Issue cause: iOS discarded both the requested deep-link path and the transient service-worker message when relaunching the standalone app.
