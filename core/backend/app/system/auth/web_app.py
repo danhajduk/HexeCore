@@ -112,7 +112,7 @@ def build_web_app_router(
                 source_id=identity.core_id,
                 subject_user_id=principal.user_id,
                 summary="Your Hexe notifications are working.",
-                navigation_path="/app?notifications=1",
+                navigation_path="/app/notifications",
             ),
             trusted_source=True,
         )

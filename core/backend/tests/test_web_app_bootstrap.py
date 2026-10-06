@@ -223,7 +223,7 @@ class TestWebAppBootstrap:
             "privacy_level": "generic",
             "title": "Task update",
             "body": "Open Hexe to view details.",
-            "navigation_path": "/app?notifications=1",
+            "navigation_path": "/app/notifications",
             "created_at": now,
         }
         assert asyncio.run(self.intents.create({**base, "event_id": "member-event", "user_id": self.user["user_id"], "device_id": "device-123"}))

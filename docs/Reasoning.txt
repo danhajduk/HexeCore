@@ -5,6 +5,14 @@ What changed: Updated root README links/layout, updated branding validators to s
 Verification: Branding validators passed for both Core and Supervisor; tracked docs now live under root docs with no tracked files under core/docs or supervisor/docs.
 ###########
 
+Task #1014 notification resend correction
+Step objective: Restore gateway-valid notification deep links.
+Issue cause: The gateway accepts `/app` or `/app/...` navigation paths, so `/app?notifications=1` caused a permanent 422-class rejection.
+Chosen fix: Use `/app/notifications` and mount the notification panel at that PWA route.
+Verification: Pending focused tests, build, deployment, and fresh iPhone resend.
+
+###########
+
 Task #1014 completion
 Step objective: Close the user-approved one-user validation scope without losing the original two-user acceptance criteria.
 Chosen fix: Treat the active iPhone subscription and four first-attempt gateway deliveries as one-user transport evidence, explicitly stop at the unobservable OS-display boundary, and defer cross-user physical validation to Task 1028.

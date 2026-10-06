@@ -62,7 +62,7 @@ notification, but the PWA had no in-app notification surface and its deep link
 targeted a route that did not exist. The PWA now reads the enrolled-device-
 scoped `GET /api/web-app/notifications` feed, displays a notification panel,
 refreshes it every 15 seconds while visible, and uses
-`/app?notifications=1` as the valid notification-click target. The feed omits
+`/app/notifications` as the valid notification-click target. The feed omits
 subscription references and user/device identifiers and is constrained by the
 authenticated token's enrolled user and device.
 

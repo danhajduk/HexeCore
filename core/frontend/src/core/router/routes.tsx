@@ -51,6 +51,7 @@ export function buildRoutes(isAdmin: boolean, ready: boolean): RouteObject[] {
     { path: "/", element: <Home /> },
     { path: "/admin", element: protectedRoute(<Home />) },
     { path: "/app", element: <AssistantErrorBoundary><AssistantApp /></AssistantErrorBoundary> },
+    { path: "/app/notifications", element: <AssistantErrorBoundary><AssistantApp /></AssistantErrorBoundary> },
     { path: "/app/conversations/:conversationId", element: <AssistantErrorBoundary><AssistantApp /></AssistantErrorBoundary> },
     { path: "/app/access", element: <AccessConsole /> },
     { path: "/app/enroll", element: <EnrollmentPage /> },
