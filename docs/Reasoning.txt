@@ -5,6 +5,14 @@ What changed: Updated root README links/layout, updated branding validators to s
 Verification: Branding validators passed for both Core and Supervisor; tracked docs now live under root docs with no tracked files under core/docs or supervisor/docs.
 ###########
 
+Task #1014 iOS feed-driven presentation
+Step objective: Open the in-app panel without relying on an iOS notification-click event.
+Issue cause: Physical retests showed iOS consistently launching the PWA at `/app` without delivering a usable click navigation, client message, or persistent worker marker.
+Chosen fix: Auto-open the panel once for each newly observed feed event less than ten minutes old, with the last opened event id retained locally.
+Verification: Pending tests, build, deployment, and physical retest.
+
+###########
+
 Task #1014 iOS click-marker race repair
 Step objective: Consume the persistent marker after iOS completes its asynchronous app launch.
 Issue cause: The app could check Cache Storage before the notification-click worker finished writing the marker, then never check again.

@@ -66,6 +66,14 @@ refreshes it every 15 seconds while visible, and uses
 subscription references and user/device identifiers and is constrained by the
 authenticated token's enrolled user and device.
 
+On the tested iPhone, tapping a Web Push notification consistently launched
+the installed app at its fixed `/app` start URL without dispatching a usable
+`notificationclick` navigation or message handoff. The app therefore also
+opens the panel once for each newly observed notification less than ten minutes
+old, keyed by `event_id` in local browser storage. This provides deterministic
+in-app presentation from the authenticated feed without weakening server-side
+ownership checks or repeatedly reopening an already-seen event.
+
 Production push latency includes a gateway queue boundary. Core submits the
 intent immediately, but the Website gateway currently drains its durable queue
 on a once-per-minute cron. Normal latency is therefore approximately 0-60
