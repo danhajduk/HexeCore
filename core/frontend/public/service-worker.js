@@ -1,4 +1,5 @@
-const CACHE = "hexe-app-v3";
+const CACHE = "hexe-app-v4";
+const STATE_CACHE = "hexe-app-state";
 const SHELL = ["/app", "/site.webmanifest", "/favicon.svg", "/web-app-manifest-192x192.png", "/offline.html"];
 
 self.addEventListener("install", event => event.waitUntil(
@@ -51,6 +52,8 @@ self.addEventListener("notificationclick", event => {
   event.notification.close();
   const path = event.notification.data && typeof event.notification.data.path === "string" && event.notification.data.path.startsWith("/app") ? event.notification.data.path : "/app";
   event.waitUntil((async () => {
+    const state = await caches.open(STATE_CACHE);
+    await state.put("/__notification-open", new Response("1", { headers: { "cache-control": "no-store" } }));
     const windows = await clients.matchAll({ type: "window", includeUncontrolled: true });
     for (const client of windows) {
       if (!("focus" in client)) continue;

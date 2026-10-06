@@ -10,7 +10,7 @@ import "./theme/themes/light.css";
 initTheme();
 document.title = DEFAULT_PLATFORM_CORE_NAME;
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
-  window.addEventListener("load", () => void navigator.serviceWorker.register("/service-worker.js?v=3"));
+  window.addEventListener("load", () => void navigator.serviceWorker.register("/service-worker.js?v=4"));
 }
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

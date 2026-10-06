@@ -5,6 +5,14 @@ What changed: Updated root README links/layout, updated branding validators to s
 Verification: Branding validators passed for both Core and Supervisor; tracked docs now live under root docs with no tracked files under core/docs or supervisor/docs.
 ###########
 
+Task #1014 persistent iOS click handoff
+Step objective: Survive iOS relaunching the Home Screen app at its fixed start URL.
+Issue cause: iOS discarded both the requested deep-link path and the transient service-worker message when relaunching the standalone app.
+Chosen fix: Persist a content-free notification-open marker in Cache Storage before launch and consume/delete it when the app starts.
+Verification: Pending tests, build, deployment, worker activation, and physical retest.
+
+###########
+
 Task #1014 iOS standalone click fallback
 Step objective: Open the notification panel when iOS keeps the standalone app at `/app`.
 Issue cause: iOS fetched worker v3 but ignored `WindowClient.navigate()` and restored the existing standalone window at its start URL.
