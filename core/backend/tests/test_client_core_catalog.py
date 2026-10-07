@@ -67,3 +67,22 @@ def test_client_core_catalog_publishes_schema_and_documents() -> None:
     assert "Status: Implemented" in management.text
     assert "Workload service tokens are" in management.text
     assert "X-Hexe-Management-Authorization" in management.text
+
+
+def test_client_core_catalog_publishes_assistant_assertion_schemas() -> None:
+    client = _client()
+
+    catalog = client.get("/api/schemas/client-core/v1").json()
+    schemas = {item["name"]: item for item in catalog["schemas"]}
+    assert schemas["assistant-actor-assertion-claims.v1.schema.json"]["status"] == "Implemented"
+    assert schemas["assistant-approval-assertion-claims.v1.schema.json"]["status"] == "Implemented"
+
+    actor = client.get(schemas["assistant-actor-assertion-claims.v1.schema.json"]["api_path"])
+    approval = client.get(schemas["assistant-approval-assertion-claims.v1.schema.json"]["api_path"])
+    assert actor.status_code == approval.status_code == 200
+    assert actor.json()["$id"].endswith("assistant-actor-assertion-claims.v1.schema.json")
+    assert approval.json()["$id"].endswith("assistant-approval-assertion-claims.v1.schema.json")
+    assert actor.json()["additionalProperties"] is False
+    assert approval.json()["additionalProperties"] is False
+    assert "authorization_epochs" in actor.json()["required"]
+    assert "approval" in approval.json()["required"]

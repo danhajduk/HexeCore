@@ -5,10 +5,85 @@ from typing import Literal
 
 from fastapi import APIRouter
 from fastapi.responses import PlainTextResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 ImplementationStatus = Literal["Implemented", "Partially implemented", "Not implemented"]
+
+
+class AssistantActorEvidence(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    evidence_type: str = Field(min_length=1)
+    provider: str = Field(min_length=1)
+    observed_at: datetime
+    confidence_band: str | None = None
+    verification_state: str | None = None
+
+
+class AssistantActorClaims(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["human_user", "person", "anonymous"]
+    identity_state: Literal["verified", "probable", "unknown", "conflicted"]
+    user_id: str | None = None
+    person_id: str | None = None
+    confidence: float | None = Field(default=None, ge=0, le=1)
+    evidence: list[AssistantActorEvidence] = Field(default_factory=list)
+
+
+class AssistantActorConstraints(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    room_id: str | None = None
+    endpoint_id: str | None = None
+    device_id: str | None = None
+
+
+class AssistantAuthorizationEpochs(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    user: int | None = Field(default=None, ge=0)
+    device: int | None = Field(default=None, ge=0)
+    node: int = Field(ge=0)
+    household: int | None = Field(default=None, ge=0)
+
+
+class AssistantActorAssertionClaims(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    iss: str = Field(min_length=1)
+    aud: str = Field(min_length=1)
+    sub: str = Field(pattern=r"^actor:(user|person|anonymous):[^:]+$")
+    iat: int
+    nbf: int
+    exp: int
+    jti: str = Field(min_length=1)
+    core_id: str = Field(min_length=1)
+    household_id: str | None = None
+    requester_node_id: str = Field(min_length=1)
+    conversation_id: str = Field(min_length=1)
+    turn_id: str = Field(min_length=1)
+    actor: AssistantActorClaims
+    scope: list[str] = Field(min_length=1)
+    constraints: AssistantActorConstraints
+    authorization_epochs: AssistantAuthorizationEpochs
+
+
+class AssistantApprovalBinding(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    approval_id: str = Field(min_length=1)
+    action: str = Field(min_length=1)
+    intent_id: str = Field(min_length=1)
+    intent_revision: str = Field(min_length=1)
+    canonical_arguments_hash: str = Field(pattern=r"^[a-fA-F0-9]{64}$")
+    target_capability: str = Field(min_length=1)
+    correlation_id: str = Field(min_length=1)
+
+
+class AssistantApprovalAssertionClaims(AssistantActorAssertionClaims):
+    approval: AssistantApprovalBinding
 
 
 class ClientApiEntry(BaseModel):
@@ -89,6 +164,11 @@ contract is published at
 
 Provider adoption remains partially implemented: each resolved service node
 must enforce the contract at its own execution and management endpoints.
+
+The catalog also publishes the Core-owned `assistant.v1` actor and approval
+assertion claim schemas. These assertions are short-lived, turn-bound, and
+separate from caller service authorization. They never contain transcript or
+biometric data.
 
 Operator-facing node management uses a separate node-bound authorization
 contract. It is published at
@@ -403,6 +483,8 @@ def _catalog_payload() -> ClientCoreCatalogResponse:
         schemas=[
             ClientSchemaEntry(name="openapi.json", status="Implemented", api_path="/openapi.json"),
             ClientSchemaEntry(name="schema-catalog.v1.response.schema.json", schema_id="#/components/schemas/ClientCoreCatalogResponse", status="Implemented", api_path="/api/schemas/client-core/v1/schema-catalog.v1.response.schema.json"),
+            ClientSchemaEntry(name="assistant-actor-assertion-claims.v1.schema.json", schema_id="https://hexe.local/schemas/client-core/v1/assistant-actor-assertion-claims.v1.schema.json", status="Implemented", api_path="/api/schemas/client-core/v1/assistant-actor-assertion-claims.v1.schema.json"),
+            ClientSchemaEntry(name="assistant-approval-assertion-claims.v1.schema.json", schema_id="https://hexe.local/schemas/client-core/v1/assistant-approval-assertion-claims.v1.schema.json", status="Implemented", api_path="/api/schemas/client-core/v1/assistant-approval-assertion-claims.v1.schema.json"),
             ClientSchemaEntry(name="hardware-access-request.schema.json", status="Implemented", api_path="/api/system/nodes/hardware/access-requests/schema"),
         ],
         documents=[
@@ -479,6 +561,18 @@ def build_client_core_catalog_router() -> APIRouter:
     @router.get("/schemas/client-core/v1/schema-catalog.v1.response.schema.json")
     def get_client_core_catalog_schema() -> dict[str, object]:
         return ClientCoreCatalogResponse.model_json_schema()
+
+    @router.get("/schemas/client-core/v1/assistant-actor-assertion-claims.v1.schema.json")
+    def get_assistant_actor_assertion_claims_schema() -> dict[str, object]:
+        schema = AssistantActorAssertionClaims.model_json_schema()
+        schema["$id"] = "https://hexe.local/schemas/client-core/v1/assistant-actor-assertion-claims.v1.schema.json"
+        return schema
+
+    @router.get("/schemas/client-core/v1/assistant-approval-assertion-claims.v1.schema.json")
+    def get_assistant_approval_assertion_claims_schema() -> dict[str, object]:
+        schema = AssistantApprovalAssertionClaims.model_json_schema()
+        schema["$id"] = "https://hexe.local/schemas/client-core/v1/assistant-approval-assertion-claims.v1.schema.json"
+        return schema
 
     @router.get("/schemas/client-core/v1/README.md", response_class=PlainTextResponse)
     def get_client_core_readme() -> str:
