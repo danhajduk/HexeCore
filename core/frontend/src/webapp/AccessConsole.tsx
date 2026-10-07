@@ -19,6 +19,7 @@ export default function AccessConsole() {
   const [newUser, setNewUser] = useState({ username: "", password: "", role: "member" });
   const [reauth, setReauth] = useState("");
   const [enrolled, setEnrolled] = useState(false);
+  const [passkeyUpgrade, setPasskeyUpgrade] = useState(false);
   const canManage = useMemo(() => boot?.user.permissions.includes("users.manage") || (!boot && needsDevice), [boot, needsDevice]);
 
   async function load() {
@@ -41,8 +42,8 @@ export default function AccessConsole() {
   }
   useEffect(() => { void enrolledDeviceId().then(value=>setEnrolled(Boolean(value))); void load(); }, []);
 
-  async function signIn(event: React.FormEvent) { event.preventDefault(); setBusy(true); setError(""); try { await loginEnrolledDevice(username, password); setPassword(""); await load(); } catch (e) { setError(message(e)); } finally { setBusy(false); } }
-  async function unlock() { setBusy(true); setError(""); try { await loginEnrolledDevice("", ""); await load(); } catch (e) { const value=message(e); if(value.includes("passkey upgrade requires password")){setEnrolled(false);setNotice("Sign in once to add a passkey to this enrolled device.");} else setError(value); } finally { setBusy(false); } }
+  async function signIn(event: React.FormEvent) { event.preventDefault(); setBusy(true); setError(""); try { await loginEnrolledDevice(username, password); setPassword(""); if(enrolled||passkeyUpgrade){location.assign("/app");return;} await load(); } catch (e) { setError(message(e)); } finally { setBusy(false); } }
+  async function unlock() { setBusy(true); setError(""); try { await loginEnrolledDevice("", ""); location.assign("/app"); } catch (e) { const value=message(e); if(value.includes("passkey upgrade requires password")){setPasskeyUpgrade(true);setEnrolled(false);setNotice("Sign in once to add a passkey to this enrolled device.");} else setError(value); } finally { setBusy(false); } }
   async function act(action: () => Promise<unknown>, done: string) { setBusy(true); setError(""); setNotice(""); try { await action(); setNotice(done); await load(); } catch (e) { setError(message(e)); } finally { setBusy(false); } }
   async function createEnrollment() {
     const response = await api<{enrollment: Enrollment}>("/api/auth/device-enrollments", { method: "POST", body: JSON.stringify({ display_name: "Mobile browser", ttl_seconds: 600 }) });
