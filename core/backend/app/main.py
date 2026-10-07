@@ -1392,6 +1392,7 @@ def create_app() -> FastAPI:
             hardware_access_service=hardware_access_service,
             ble_pairing_session_service=hardware_ble_pairing_session_service,
             audit_store=audit_store,
+            assistant_assertions=assistant_assertions,
         ),
         prefix="/api",
     )

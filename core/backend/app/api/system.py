@@ -35,6 +35,7 @@ def build_system_router(
     hardware_access_service: HardwareAccessService | None = None,
     ble_pairing_session_service: HardwareBlePairingSessionService | None = None,
     audit_store: AuditLogStore | None = None,
+    assistant_assertions=None,
 ) -> APIRouter:
     source_router = _legacy.build_system_router(
         registry=registry,
@@ -61,5 +62,6 @@ def build_system_router(
         hardware_access_service=hardware_access_service,
         ble_pairing_session_service=ble_pairing_session_service,
         audit_store=audit_store,
+        assistant_assertions=assistant_assertions,
     )
     return compose_system_domain_router(source_router)

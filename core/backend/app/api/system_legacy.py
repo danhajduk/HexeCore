@@ -567,6 +567,7 @@ def build_system_router(
     hardware_access_service: HardwareAccessService | None = None,
     ble_pairing_session_service: HardwareBlePairingSessionService | None = None,
     audit_store: AuditLogStore | None = None,
+    assistant_assertions=None,
 ) -> APIRouter:
     router = APIRouter()
     runtime = runtime_service or StandaloneRuntimeService()
@@ -3717,6 +3718,8 @@ def build_system_router(
             except Exception:
                 trust_removed = False
         await _deprovision_node_mqtt_principal(str(node_id or ""), reason=f"node_delete:{node_id}")
+        if assistant_assertions is not None:
+            await assistant_assertions.bump_authorization_epoch(kind="node", identifier=str(node_id))
         _record_audit(
             audit_store,
             event_type="node_registration_deleted",
@@ -3763,6 +3766,8 @@ def build_system_router(
             except Exception:
                 trust_removed = False
         await _deprovision_node_mqtt_principal(str(node_id or ""), reason=f"node_revoke:{node_id}")
+        if assistant_assertions is not None:
+            await assistant_assertions.bump_authorization_epoch(kind="node", identifier=str(node_id))
         _record_audit(
             audit_store,
             event_type="node_registration_revoked",

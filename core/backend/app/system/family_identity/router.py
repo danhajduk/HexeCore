@@ -52,7 +52,7 @@ class LifecycleBody(StepUp):
     kind: str
 
 
-def build_family_identity_router(store: FamilyIdentityStore, users: UsersStore, keys: ServiceTokenKeyStore, audit: AuditLogStore | None = None) -> APIRouter:
+def build_family_identity_router(store: FamilyIdentityStore, users: UsersStore, keys: ServiceTokenKeyStore, audit: AuditLogStore | None = None, assistant_assertions=None) -> APIRouter:
     router = APIRouter()
 
     async def actor(request: Request, admin_token: str | None, authorization: str | None):
@@ -84,6 +84,23 @@ def build_family_identity_router(store: FamilyIdentityStore, users: UsersStore, 
             code = str(exc)
             raise HTTPException(status_code=409 if code in {"version_conflict", "user_or_person_already_linked"} else 400, detail=code) from exc
 
+    async def revoke_family_authority(*, household_id: str | None = None, user_id: str | None = None) -> None:
+        if assistant_assertions is None:
+            return
+        if household_id:
+            await assistant_assertions.bump_authorization_epoch(kind="household", identifier=household_id)
+        if user_id:
+            await assistant_assertions.bump_authorization_epoch(kind="user", identifier=user_id)
+
+    async def person_authority(person_id: str) -> tuple[str | None, str | None]:
+        state = await store.snapshot()
+        person = next((item for item in state["people"] if item["person_id"] == person_id), None)
+        link = next((item for item in state["user_links"] if item["person_id"] == person_id), None)
+        return (
+            (str(person.get("household_id") or "") or None) if person else None,
+            (str(link.get("user_id") or "") or None) if link else None,
+        )
+
     @router.get("/family/me")
     async def self_view(authorization: str | None = Header(default=None)):
         principal = await authenticate_human_token(authorization, keys, users)
@@ -114,7 +131,10 @@ def build_family_identity_router(store: FamilyIdentityStore, users: UsersStore, 
     async def update_person(person_id: str, body: PersonUpdate, request: Request, x_admin_token: str | None = Header(default=None), authorization: str | None = Header(default=None)):
         actor_id, role, principal = await actor(request, x_admin_token, authorization)
         await step_up(principal, body.reauth_password)
+        household_id, user_id = await person_authority(person_id) if body.archive else (None, None)
         saved = await invoke(store.update_person, person_id, body.display_name, body.age_band, body.expected_version, body.archive)
+        if body.archive:
+            await revoke_family_authority(household_id=household_id, user_id=user_id)
         await record("family_person_updated", actor_id, role, {"person_id": person_id, "version": saved["version"], "status": saved["status"]})
         return {"ok": True, "person": saved}
 
@@ -125,13 +145,17 @@ def build_family_identity_router(store: FamilyIdentityStore, users: UsersStore, 
         if target_user is None or not bool(target_user.get("enabled")):
             raise HTTPException(status_code=400, detail="user_not_found")
         saved = await invoke(store.link_user, body.person_id, body.user_id, actor_id)
+        household_id, _ = await person_authority(body.person_id)
+        await revoke_family_authority(household_id=household_id, user_id=body.user_id)
         await record("family_user_linked", actor_id, role, {"person_id": body.person_id, "user_id": body.user_id})
         return {"ok": True, "link": saved}
 
     @router.delete("/family/user-links/{person_id}")
     async def unlink(person_id: str, request: Request, body: StepUp | None = None, x_admin_token: str | None = Header(default=None), authorization: str | None = Header(default=None)):
         actor_id, role, principal = await actor(request, x_admin_token, authorization); await step_up(principal, body.reauth_password if body else None)
+        household_id, user_id = await person_authority(person_id)
         if not await store.unlink_user(person_id): raise HTTPException(status_code=404, detail="link_not_found")
+        await revoke_family_authority(household_id=household_id, user_id=user_id)
         await record("family_user_unlinked", actor_id, role, {"person_id": person_id})
         return {"ok": True}
 

@@ -1,3 +1,4 @@
+import asyncio
 import os
 import tempfile
 import unittest
@@ -18,6 +19,8 @@ except Exception:  # pragma: no cover
 from app.system.onboarding import NodeOnboardingSessionsStore, NodeRegistrationsStore, NodeTrustIssuanceService, NodeTrustStore
 from app.system.mqtt.credential_store import MqttCredentialStore
 from app.system.mqtt.integration_state import MqttIntegrationStateStore
+from app.system.assistant_auth import AssistantAssertionService
+from app.system.settings.store import SettingsStore
 from app.api import system as system_api
 
 
@@ -60,6 +63,9 @@ class TestNodeRegistrationsApi(unittest.TestCase):
         self.mqtt_state_store = MqttIntegrationStateStore(str(Path(self.tmpdir.name) / "mqtt_integration_state.json"))
         self.mqtt_credential_store = MqttCredentialStore(str(Path(self.tmpdir.name) / "mqtt_credentials.json"))
         self.runtime_reconciler = _FakeRuntimeReconciler()
+        self.assistant_assertions = AssistantAssertionService(
+            SettingsStore(str(Path(self.tmpdir.name) / "settings.db"))
+        )
         app = FastAPI()
         app.include_router(
             build_system_router(
@@ -70,6 +76,7 @@ class TestNodeRegistrationsApi(unittest.TestCase):
                 onboarding_sessions_store=self.sessions,
                 node_registrations_store=self.registrations,
                 node_trust_issuance=self.trust_issuance,
+                assistant_assertions=self.assistant_assertions,
             ),
             prefix="/api",
         )
@@ -253,7 +260,6 @@ class TestNodeRegistrationsApi(unittest.TestCase):
         )
         self.assertEqual(approve.status_code, 200, approve.text)
         node_id = approve.json()["registration"]["node_id"]
-
         finalized = self.client.get(
             f"/api/system/nodes/onboarding/sessions/{session_id}/finalize?node_nonce=nonce-api-4"
         )
@@ -459,6 +465,11 @@ class TestNodeRegistrationsApi(unittest.TestCase):
         )
         self.assertEqual(approve.status_code, 200, approve.text)
         node_id = approve.json()["registration"]["node_id"]
+        before = asyncio.run(
+            self.assistant_assertions.authorization_epochs(
+                user_id=None, device_id=None, node_id=node_id, household_id=None
+            )
+        )
 
         finalized = self.client.get(
             f"/api/system/nodes/onboarding/sessions/{session_id}/finalize?node_nonce=nonce-api-revoke"
@@ -479,6 +490,12 @@ class TestNodeRegistrationsApi(unittest.TestCase):
         assert trust_record is not None
         self.assertEqual(trust_record.trust_status, "revoked")
         self.assertEqual(trust_record.revocation_action, "revoke")
+        after = asyncio.run(
+            self.assistant_assertions.authorization_epochs(
+                user_id=None, device_id=None, node_id=node_id, household_id=None
+            )
+        )
+        self.assertEqual(after["node"], int(before["node"] or 0) + 1)
 
 
 if __name__ == "__main__":

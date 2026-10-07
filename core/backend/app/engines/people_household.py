@@ -42,7 +42,13 @@ class PeopleHouseholdEngine:
             ("/api/web-app/admin", "web-app-admin-family-identity"),
         ):
             app.include_router(
-                build_family_identity_router(self.store, self.identity.users, self.keys, self.audit),
+                build_family_identity_router(
+                    self.store,
+                    self.identity.users,
+                    self.keys,
+                    self.audit,
+                    self.identity.assistant_assertions,
+                ),
                 prefix=prefix,
                 tags=[tag],
             )

@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from app.system.auth import ServiceTokenKeyStore, build_human_auth_router
 from app.system.family_identity import FamilyIdentityStore, build_family_identity_router
 from app.system.settings.store import SettingsStore
+from app.system.assistant_auth import AssistantAssertionService
 from app.system.users import UsersStore
 
 
@@ -21,9 +22,13 @@ def test_people_are_distinct_from_users_and_sensitive_changes_require_step_up():
         settings = SettingsStore(os.path.join(temporary, "settings.db"))
         keys = ServiceTokenKeyStore(settings)
         family = FamilyIdentityStore(db, "core-family-test")
+        assistant_assertions = AssistantAssertionService(settings)
         app = FastAPI()
         app.include_router(build_human_auth_router(keys, users), prefix="/api/auth")
-        app.include_router(build_family_identity_router(family, users, keys), prefix="/api/web-app/admin")
+        app.include_router(
+            build_family_identity_router(family, users, keys, assistant_assertions=assistant_assertions),
+            prefix="/api/web-app/admin",
+        )
         client = TestClient(app)
         login = client.post("/api/auth/user/login", json={"username": "Owner", "password": "owner-pass"}).json()
         auth = {"Authorization": f"Bearer {login['access_token']}"}
@@ -38,6 +43,31 @@ def test_people_are_distinct_from_users_and_sensitive_changes_require_step_up():
         person_id = person.json()["person"]["person_id"]
         link = client.post("/api/web-app/admin/family/user-links", headers=auth, json={"person_id": person_id, "user_id": member["user_id"], "reauth_password": "owner-pass"})
         assert link.status_code == 200, link.text
+        linked_epochs = asyncio.run(
+            assistant_assertions.authorization_epochs(
+                user_id=member["user_id"], device_id=None, node_id="core", household_id=household_id
+            )
+        )
+        assert linked_epochs["user"] == 1
+        assert linked_epochs["household"] == 1
+
+        unlink = client.request(
+            "DELETE",
+            f"/api/web-app/admin/family/user-links/{person_id}",
+            headers=auth,
+            json={"reauth_password": "owner-pass"},
+        )
+        assert unlink.status_code == 200, unlink.text
+        unlinked_epochs = asyncio.run(
+            assistant_assertions.authorization_epochs(
+                user_id=member["user_id"], device_id=None, node_id="core", household_id=household_id
+            )
+        )
+        assert unlinked_epochs["user"] == 2
+        assert unlinked_epochs["household"] == 2
+
+        relink = client.post("/api/web-app/admin/family/user-links", headers=auth, json={"person_id": person_id, "user_id": member["user_id"], "reauth_password": "owner-pass"})
+        assert relink.status_code == 200, relink.text
 
         snapshot = client.get("/api/web-app/admin/family", headers=auth).json()
         assert snapshot["people"][0]["person_id"] != owner["user_id"]
