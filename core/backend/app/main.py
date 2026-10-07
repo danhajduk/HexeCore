@@ -1046,6 +1046,7 @@ def create_app() -> FastAPI:
         keys=service_token_keys,
         settings=settings_store,
         audit=audit_store,
+        assistant_assertions=assistant_assertions,
     )
     users_store = identity_access_engine.users
     people_household_engine = PeopleHouseholdEngine.create(

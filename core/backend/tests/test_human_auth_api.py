@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.system.auth import ServiceTokenKeyStore, WebAppEnrollmentStore, build_human_auth_router
+from app.system.assistant_auth import AssistantAssertionService
 from app.system.users import UsersStore, build_users_router
 
 
@@ -31,13 +32,14 @@ class TestHumanAuthApi(unittest.TestCase):
         self.users = UsersStore(os.path.join(self.tmp.name, "users.db"))
         self.devices = WebAppEnrollmentStore(os.path.join(self.tmp.name, "users.db"))
         self.keys = ServiceTokenKeyStore(_Settings())
+        self.assistant_assertions = AssistantAssertionService(_Settings())
         asyncio.run(self.users.ensure_admin_user("Dan", "owner-pass"))
         asyncio.run(self.users.ensure_admin_user("admin", "admin-pass"))
         asyncio.run(self.users.migrate_initial_owner("Dan", "0123456789abcdef"))
         asyncio.run(self.users.upsert_user(username="member", role="member", enabled=True, password="member-pass"))
         app = FastAPI()
-        app.include_router(build_human_auth_router(self.keys, self.users), prefix="/api/auth")
-        app.include_router(build_users_router(self.users, key_store=self.keys, devices_store=self.devices), prefix="/api/admin")
+        app.include_router(build_human_auth_router(self.keys, self.users, assistant_assertions=self.assistant_assertions), prefix="/api/auth")
+        app.include_router(build_users_router(self.users, key_store=self.keys, devices_store=self.devices, assistant_assertions=self.assistant_assertions), prefix="/api/admin")
         self.client = TestClient(app)
 
     def tearDown(self):
@@ -55,6 +57,20 @@ class TestHumanAuthApi(unittest.TestCase):
         self.assertEqual(owner["user"]["role"], "owner")
         self.assertEqual(admin["user"]["role"], "admin")
         self.assertNotEqual(owner["user"]["user_id"], admin["user"]["user_id"])
+
+    def test_session_revocation_bumps_assistant_user_epoch(self):
+        login = self.login("member", "member-pass")
+        user_id = login["user"]["user_id"]
+        before = asyncio.run(self.assistant_assertions.authorization_epochs(user_id=user_id, device_id=None, node_id="core", household_id=None))
+
+        response = self.client.delete(
+            f"/api/auth/user/sessions/{login['claims']['session_id']}",
+            headers={"Authorization": f"Bearer {login['access_token']}"},
+        )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        after = asyncio.run(self.assistant_assertions.authorization_epochs(user_id=user_id, device_id=None, node_id="core", household_id=None))
+        self.assertEqual(after["user"], int(before["user"] or 0) + 1)
 
     def test_access_claims_refresh_rotation_and_reuse_revocation(self):
         login = self.login("member", "member-pass")

@@ -14,6 +14,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.system.auth import ServiceTokenKeyStore, WebAppEnrollmentStore, build_device_enrollment_router, build_human_auth_router
+from app.system.assistant_auth import AssistantAssertionService
 from app.system.auth.device_enrollment import CONTRACT_VERSION, DEVICE_LOGIN_VERSION
 from app.system.settings.store import SettingsStore
 from app.system.users import UsersStore
@@ -36,11 +37,12 @@ class TestWebAppDeviceEnrollment(unittest.TestCase):
         asyncio.run(self.settings.set("platform.core_id", "0123456789abcdef"))
         asyncio.run(self.settings.set("core.id", "0123456789abcdef"))
         self.users, self.store, self.keys = UsersStore(path), WebAppEnrollmentStore(path), ServiceTokenKeyStore(self.settings)
+        self.assistant_assertions = AssistantAssertionService(self.settings)
         asyncio.run(self.users.ensure_admin_user("Dan", "owner-pass"))
         asyncio.run(self.users.migrate_initial_owner("Dan", "0123456789abcdef"))
         app = FastAPI()
         app.include_router(build_human_auth_router(self.keys, self.users), prefix="/api/auth")
-        app.include_router(build_device_enrollment_router(self.store, self.users, self.keys, settings=self.settings), prefix="/api/auth")
+        app.include_router(build_device_enrollment_router(self.store, self.users, self.keys, settings=self.settings, assistant_assertions=self.assistant_assertions), prefix="/api/auth")
         self.client = TestClient(app)
         login = self.client.post("/api/auth/user/login", json={"username": "Dan", "password": "owner-pass"}).json()
         self.auth = {"Authorization": f"Bearer {login['access_token']}"}
@@ -476,6 +478,11 @@ class TestWebAppDeviceEnrollment(unittest.TestCase):
             json={"subscription_ref": "sub_disable-reference", "gateway_audience": "hexe-notification-gateway"},
         )
         self.assertEqual(registered.status_code, 200, registered.text)
+        before = asyncio.run(
+            self.assistant_assertions.authorization_epochs(
+                user_id=None, device_id="device-phone-1", node_id="core", household_id=None
+            )
+        )
 
         disabled = self.client.patch(
             "/api/auth/devices/admin/device-phone-1/state",
@@ -484,6 +491,12 @@ class TestWebAppDeviceEnrollment(unittest.TestCase):
         )
         self.assertEqual(disabled.status_code, 200, disabled.text)
         self.assertFalse(disabled.json()["device"]["enabled"])
+        after = asyncio.run(
+            self.assistant_assertions.authorization_epochs(
+                user_id=None, device_id="device-phone-1", node_id="core", household_id=None
+            )
+        )
+        self.assertEqual(after["device"], int(before["device"] or 0) + 1)
         self.assertEqual(self.client.get("/api/auth/devices", headers=device_headers).status_code, 401)
         db = sqlite3.connect(os.path.join(self.tmp.name, "users.db"))
         cleanup = db.execute("SELECT deleted_at, cleanup_state FROM web_app_notification_subscriptions WHERE device_id='device-phone-1'").fetchone()

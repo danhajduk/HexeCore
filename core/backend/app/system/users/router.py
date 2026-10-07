@@ -13,6 +13,7 @@ from app.system.auth.tokens import ServiceTokenKeyStore
 from .store import UsersStore
 
 if TYPE_CHECKING:
+    from app.system.assistant_auth.service import AssistantAssertionService
     from app.system.auth.device_enrollment import WebAppEnrollmentStore
 
 
@@ -28,7 +29,7 @@ class UserDeleteRequest(BaseModel):
     reauth_password: str | None = None
 
 
-def build_users_router(users_store: UsersStore, audit_store: AuditLogStore | None = None, key_store: ServiceTokenKeyStore | None = None, devices_store: WebAppEnrollmentStore | None = None) -> APIRouter:
+def build_users_router(users_store: UsersStore, audit_store: AuditLogStore | None = None, key_store: ServiceTokenKeyStore | None = None, devices_store: WebAppEnrollmentStore | None = None, assistant_assertions: AssistantAssertionService | None = None) -> APIRouter:
     router = APIRouter()
 
     async def require_user_admin(request: Request, x_admin_token: str | None, authorization: str | None):
@@ -88,6 +89,12 @@ def build_users_router(users_store: UsersStore, audit_store: AuditLogStore | Non
             await users_store.revoke_user_sessions(str(saved["user_id"]), reason="user_disabled")
             if devices_store is not None:
                 disabled_device_count = await devices_store.disable_user_devices(str(saved["user_id"]))
+        if existing is not None and (
+            str(existing.get("role")) != str(saved.get("role"))
+            or bool(existing.get("enabled")) != bool(saved.get("enabled"))
+            or bool(body.password)
+        ) and assistant_assertions is not None:
+            await assistant_assertions.bump_authorization_epoch(kind="user", identifier=str(saved["user_id"]))
 
         if audit_store is not None:
             await audit_store.record(
@@ -120,6 +127,8 @@ def build_users_router(users_store: UsersStore, audit_store: AuditLogStore | Non
             raise HTTPException(status_code=404, detail="user_not_found")
         if not await users_store.revoke_session(session_id, reason="administrator_revoked", user_id=str(user["user_id"])):
             raise HTTPException(status_code=404, detail="session_not_found")
+        if assistant_assertions is not None:
+            await assistant_assertions.bump_authorization_epoch(kind="user", identifier=str(user["user_id"]))
         if audit_store is not None:
             await audit_store.record(event_type="human_session_revoked", actor_role=actor_role, actor_id=actor_id, details={"user_id": user["user_id"], "session_id": session_id})
         return {"ok": True, "session_id": session_id}
@@ -144,6 +153,8 @@ def build_users_router(users_store: UsersStore, audit_store: AuditLogStore | Non
             await users_store.revoke_user_sessions(str(existing["user_id"]), reason="user_deleted")
             if devices_store is not None:
                 disabled_device_count = await devices_store.disable_user_devices(str(existing["user_id"]))
+            if assistant_assertions is not None:
+                await assistant_assertions.bump_authorization_epoch(kind="user", identifier=str(existing["user_id"]))
 
         if audit_store is not None:
             await audit_store.record(

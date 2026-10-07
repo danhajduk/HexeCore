@@ -732,7 +732,7 @@ def _verify_signature(public_key: str, signature: str, message: str) -> None:
         raise HTTPException(status_code=403, detail="device_key_proof_invalid") from exc
 
 
-def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersStore, keys: ServiceTokenKeyStore, audit: AuditLogStore | None = None, settings: SettingsStore | None = None) -> APIRouter:
+def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersStore, keys: ServiceTokenKeyStore, audit: AuditLogStore | None = None, settings: SettingsStore | None = None, assistant_assertions=None) -> APIRouter:
     router = APIRouter()
     notification_gateway_audience = str(os.getenv("HEXE_NOTIFICATION_GATEWAY_AUDIENCE", "hexe-notification-gateway")).strip() or "hexe-notification-gateway"
     retention_days = _env_positive_int("HEXE_WEB_APP_RETENTION_DAYS", 30)
@@ -1013,6 +1013,8 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
         if not await store.revoke_device(device_id, str(device["user_id"])):
             raise HTTPException(status_code=404, detail="device_not_found")
         await users.revoke_device_sessions(device_id, reason="administrator_revoked_device")
+        if assistant_assertions is not None:
+            await assistant_assertions.bump_authorization_epoch(kind="device", identifier=device_id)
         await record(
             "web_app_device_administrator_revoked",
             principal.user_id,
@@ -1054,6 +1056,8 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
             raise HTTPException(status_code=404, detail="device_not_found")
         if not body.enabled:
             await users.revoke_device_sessions(device_id, reason="administrator_disabled_device")
+            if assistant_assertions is not None:
+                await assistant_assertions.bump_authorization_epoch(kind="device", identifier=device_id)
         await record(
             "web_app_device_enabled_changed",
             principal.user_id,
@@ -1077,6 +1081,8 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
         if not await store.revoke_device(device_id, principal.user_id):
             raise HTTPException(status_code=404, detail="device_not_found")
         await users.revoke_device_sessions(device_id, reason="device_revoked")
+        if assistant_assertions is not None:
+            await assistant_assertions.bump_authorization_epoch(kind="device", identifier=device_id)
         await record("web_app_device_revoked", principal.user_id, principal.role, {"device_id": device_id})
         return {"ok": True, "device_id": device_id}
 

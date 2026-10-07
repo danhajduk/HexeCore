@@ -107,7 +107,7 @@ async def authenticate_human_token(authorization: str | None, key_store: Service
     return HumanPrincipal(user_id, str(user["username"]), str(user["role"]), session_id, session.get("device_id") or None)
 
 
-def build_human_auth_router(key_store: ServiceTokenKeyStore, users: UsersStore, audit: AuditLogStore | None = None) -> APIRouter:
+def build_human_auth_router(key_store: ServiceTokenKeyStore, users: UsersStore, audit: AuditLogStore | None = None, assistant_assertions=None) -> APIRouter:
     router = APIRouter()
 
     async def record(event_type: str, actor_id: str, role: str, details: dict[str, object]) -> None:
@@ -151,6 +151,8 @@ def build_human_auth_router(key_store: ServiceTokenKeyStore, users: UsersStore, 
     async def logout(authorization: str | None = Header(default=None)):
         principal = await authenticate_human_token(authorization, key_store, users)
         await users.revoke_session(principal.session_id, reason="logout", user_id=principal.user_id)
+        if assistant_assertions is not None:
+            await assistant_assertions.bump_authorization_epoch(kind="user", identifier=principal.user_id)
         await record("human_logout", principal.user_id, principal.role, {"session_id": principal.session_id})
         return {"ok": True}
 
@@ -159,6 +161,8 @@ def build_human_auth_router(key_store: ServiceTokenKeyStore, users: UsersStore, 
         principal = await authenticate_human_token(authorization, key_store, users)
         if not await users.revoke_session(session_id, reason="user_revoked", user_id=principal.user_id):
             raise HTTPException(status_code=404, detail="session_not_found")
+        if assistant_assertions is not None:
+            await assistant_assertions.bump_authorization_epoch(kind="user", identifier=principal.user_id)
         await record("human_session_revoked", principal.user_id, principal.role, {"session_id": session_id})
         return {"ok": True, "session_id": session_id}
 
