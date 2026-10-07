@@ -8,6 +8,31 @@ from app.system.onboarding.capability_manifest import (
 
 
 class TestNodeCapabilityManifest(unittest.TestCase):
+    def _assistant_endpoint(self, node_id: str, capability: str) -> dict:
+        operations = {
+            "interaction.assistant.turn": {
+                "submit": {"method": "POST", "path": "/api/interaction/assistant/v1/turns", "scope": "assistant.turn.submit"},
+                "cancel": {"method": "POST", "path": "/api/interaction/assistant/v1/turns/{turn_id}/cancel", "scope": "assistant.turn.cancel"},
+                "resume": {"method": "POST", "path": "/api/interaction/assistant/v1/turns/{turn_id}/approvals", "scope": "assistant.turn.resume"},
+            },
+            "interaction.assistant.intents": {
+                "list": {"method": "GET", "path": "/api/interaction/assistant/v1/intents", "scope": "assistant.intent.list"},
+                "register": {"method": "POST", "path": "/api/interaction/assistant/v1/intents", "scope": "assistant.intent.register"},
+                "update": {"method": "PUT", "path": "/api/interaction/assistant/v1/intents/{intent_id}", "scope": "assistant.intent.update"},
+                "lifecycle": {"method": "POST", "path": "/api/interaction/assistant/v1/intents/{intent_id}/lifecycle", "scope": "assistant.intent.lifecycle"},
+                "match": {"method": "POST", "path": "/api/interaction/assistant/v1/intents/match", "scope": "assistant.intent.match"},
+            },
+        }
+        audience = f"node-service:{node_id}:{capability}"
+        return {
+            "service_id": audience,
+            "audience": audience,
+            "contract_version": "assistant.v1",
+            "schema_catalog": "/api/schemas/client-node/v2",
+            "health_path": "/health/ready",
+            "operations": operations[capability],
+        }
+
     def _payload(self) -> dict:
         return {
             "manifest_version": CAPABILITY_DECLARATION_SCHEMA_VERSION,
@@ -132,6 +157,44 @@ class TestNodeCapabilityManifest(unittest.TestCase):
     def test_rejects_provider_intelligence_outside_supported_providers(self) -> None:
         payload = self._payload()
         payload["provider_intelligence"] = [{"provider": "anthropic", "available_models": []}]
+        with self.assertRaises(CapabilityManifestValidationError):
+            validate_capability_declaration(payload)
+
+    def test_accepts_exact_assistant_capability_metadata(self) -> None:
+        payload = self._payload()
+        node_id = payload["node"]["node_id"]
+        capability = "interaction.assistant.turn"
+        payload["declared_task_families"] = [capability]
+        payload["declared_capabilities"] = [capability]
+        payload["capability_endpoints"] = {capability: self._assistant_endpoint(node_id, capability)}
+
+        validated = validate_capability_declaration(payload)
+
+        self.assertEqual(validated["capability_endpoints"][capability]["audience"], f"node-service:{node_id}:{capability}")
+
+    def test_rejects_assistant_capability_without_exact_audience(self) -> None:
+        payload = self._payload()
+        node_id = payload["node"]["node_id"]
+        capability = "interaction.assistant.intents"
+        payload["declared_task_families"] = [capability]
+        payload["declared_capabilities"] = [capability]
+        endpoint = self._assistant_endpoint(node_id, capability)
+        endpoint["audience"] = "node-service:node-other:interaction.assistant.intents"
+        payload["capability_endpoints"] = {capability: endpoint}
+
+        with self.assertRaises(CapabilityManifestValidationError):
+            validate_capability_declaration(payload)
+
+    def test_rejects_assistant_capability_with_incomplete_operations(self) -> None:
+        payload = self._payload()
+        node_id = payload["node"]["node_id"]
+        capability = "interaction.assistant.turn"
+        payload["declared_task_families"] = [capability]
+        payload["declared_capabilities"] = [capability]
+        endpoint = self._assistant_endpoint(node_id, capability)
+        del endpoint["operations"]["resume"]
+        payload["capability_endpoints"] = {capability: endpoint}
+
         with self.assertRaises(CapabilityManifestValidationError):
             validate_capability_declaration(payload)
 

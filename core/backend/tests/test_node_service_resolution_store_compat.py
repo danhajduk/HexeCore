@@ -174,6 +174,62 @@ class TestNodeServiceResolutionStoreCompat(unittest.TestCase):
             self.assertEqual([candidate.provider for candidate in resolved.candidates], ["piper"])
             self.assertEqual(resolved.candidates[0].execution_endpoint_url, "http://127.0.0.1:9004/api/tts/synthesize")
 
+    def test_resolution_preserves_assistant_service_identity_and_operation_scopes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "node_registrations.json"
+            capability = "interaction.assistant.turn"
+            service_id = f"node-service:node-interaction:{capability}"
+            payload = {
+                "schema_version": "4",
+                "items": [
+                    {
+                        "node_id": "node-interaction",
+                        "node_type": "interaction-node",
+                        "node_name": "interaction",
+                        "node_software_version": "1.0.0",
+                        "trust_status": "trusted",
+                        "requested_api_base_url": "http://127.0.0.1:9003",
+                        "provided_task_families": [capability],
+                        "capability_endpoints": {
+                            capability: {
+                                "service_id": service_id,
+                                "audience": service_id,
+                                "url": "http://127.0.0.1:9003/api/interaction/assistant/v1/turns",
+                                "operations": {
+                                    "submit": {"scope": "assistant.turn.submit"},
+                                    "cancel": {"scope": "assistant.turn.cancel"},
+                                    "resume": {"scope": "assistant.turn.resume"},
+                                },
+                            }
+                        },
+                        "enabled_providers": [],
+                        "created_at": "2026-10-06T00:00:00+00:00",
+                        "updated_at": "2026-10-06T00:00:00+00:00",
+                    }
+                ],
+                "session_to_node": {},
+            }
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            registrations = NodeRegistrationsStore(path=path)
+            service = NodeServiceResolutionService(_EmptyCatalogStore(), node_registrations_store=registrations)
+
+            resolved = asyncio.run(
+                service.resolve_for_node(
+                    request=TaskExecutionResolutionRequest(node_id="node-voice", task_family=capability),
+                    governance_bundle={"routing_policy_constraints": {"allowed_task_families": [capability]}},
+                    budget_service=_PermissiveBudgetService(),
+                )
+            )
+
+            self.assertEqual(resolved.selected_service_id, service_id)
+            self.assertEqual(len(resolved.candidates), 1)
+            candidate = resolved.candidates[0]
+            self.assertEqual(candidate.provider_node_id, "node-interaction")
+            self.assertEqual(
+                candidate.required_scopes,
+                ["assistant.turn.submit", "assistant.turn.cancel", "assistant.turn.resume"],
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

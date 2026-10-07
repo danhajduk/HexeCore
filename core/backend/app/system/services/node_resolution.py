@@ -251,9 +251,10 @@ class NodeServiceResolutionService:
             if not providers:
                 providers = [""]
             for provider in providers:
+                declared_service_id = _clean_text(capability_endpoint.get("service_id"))
                 out.append(
                     {
-                        "service_id": f"node-service:{registration.node_id}:{provider or 'default'}",
+                        "service_id": declared_service_id or f"node-service:{registration.node_id}:{provider or 'default'}",
                         "service_type": "node-runtime",
                         "service": "node-runtime",
                         "node_id": registration.node_id,
@@ -269,7 +270,11 @@ class NodeServiceResolutionService:
                         "declared_capacity": service_capacity_by_node.get(registration.node_id, {}),
                         "auth_mode": "service_token",
                         "auth_modes": ["service_token"],
-                        "required_scopes": [f"service.execute:{task_family}"],
+                        "required_scopes": [
+                            str(item.get("scope") or "").strip()
+                            for item in list((capability_endpoint.get("operations") or {}).values())
+                            if isinstance(item, dict) and str(item.get("scope") or "").strip()
+                        ] or [f"service.execute:{task_family}"],
                         "addon_registry": {
                             "node_id": registration.node_id,
                             "node_name": getattr(registration, "node_name", None),
@@ -379,7 +384,11 @@ class NodeServiceResolutionService:
                 # Provider metadata describes execution compatibility; it is not
                 # an authorization grant. Ordinary resolved-service tokens carry
                 # only Core-derived task execution authority.
-                required_scopes = [f"service.execute:{task_family}"]
+                required_scopes = (
+                    [str(scope).strip() for scope in list(item.get("required_scopes") or []) if str(scope).strip()]
+                    if task_family.startswith("interaction.assistant.")
+                    else [f"service.execute:{task_family}"]
+                )
 
                 capability_endpoint = item.get("capability_endpoint") if isinstance(item.get("capability_endpoint"), dict) else {}
                 execution_endpoint_url = _clean_text(item.get("execution_endpoint_url") or _endpoint_url(capability_endpoint))

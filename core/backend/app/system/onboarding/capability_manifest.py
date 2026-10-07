@@ -9,6 +9,24 @@ CAPABILITY_DECLARATION_SCHEMA_VERSION = "1.0"
 SUPPORTED_CAPABILITY_DECLARATION_VERSIONS = {CAPABILITY_DECLARATION_SCHEMA_VERSION}
 _ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{1,127}$")
 _TASK_FAMILY_RE = re.compile(r"^[a-z0-9][a-z0-9._/-]{1,127}$")
+_ASSISTANT_CAPABILITY_OPERATIONS = {
+    "interaction.assistant.turn": {
+        "submit": ("POST", "/api/interaction/assistant/v1/turns", "assistant.turn.submit"),
+        "cancel": ("POST", "/api/interaction/assistant/v1/turns/{turn_id}/cancel", "assistant.turn.cancel"),
+        "resume": ("POST", "/api/interaction/assistant/v1/turns/{turn_id}/approvals", "assistant.turn.resume"),
+    },
+    "interaction.assistant.intents": {
+        "list": ("GET", "/api/interaction/assistant/v1/intents", "assistant.intent.list"),
+        "register": ("POST", "/api/interaction/assistant/v1/intents", "assistant.intent.register"),
+        "update": ("PUT", "/api/interaction/assistant/v1/intents/{intent_id}", "assistant.intent.update"),
+        "lifecycle": (
+            "POST",
+            "/api/interaction/assistant/v1/intents/{intent_id}/lifecycle",
+            "assistant.intent.lifecycle",
+        ),
+        "match": ("POST", "/api/interaction/assistant/v1/intents/match", "assistant.intent.match"),
+    },
+}
 
 
 class CapabilityManifestValidationError(ValueError):
@@ -273,6 +291,37 @@ class CapabilityDeclaration(BaseModel):
         declared = set(provider_families)
         if endpoint_keys - declared:
             raise ValueError("capability_endpoint_not_declared")
+        for capability, required_operations in _ASSISTANT_CAPABILITY_OPERATIONS.items():
+            if capability not in declared:
+                continue
+            endpoint = self.capability_endpoints.get(capability)
+            if not isinstance(endpoint, dict):
+                raise ValueError("assistant_capability_endpoint_required")
+            expected_audience = f"node-service:{self.node.node_id}:{capability}"
+            if str(endpoint.get("service_id") or "").strip() != expected_audience:
+                raise ValueError("assistant_capability_service_id_invalid")
+            if str(endpoint.get("audience") or "").strip() != expected_audience:
+                raise ValueError("assistant_capability_audience_invalid")
+            if str(endpoint.get("contract_version") or "").strip() != "assistant.v1":
+                raise ValueError("assistant_capability_contract_version_invalid")
+            if str(endpoint.get("schema_catalog") or "").strip() != "/api/schemas/client-node/v2":
+                raise ValueError("assistant_capability_schema_catalog_invalid")
+            health_path = str(endpoint.get("health_path") or "").strip()
+            if not health_path.startswith("/"):
+                raise ValueError("assistant_capability_health_path_invalid")
+            operations = endpoint.get("operations")
+            if not isinstance(operations, dict):
+                raise ValueError("assistant_capability_operations_required")
+            for operation, (method, path, scope) in required_operations.items():
+                metadata = operations.get(operation)
+                if not isinstance(metadata, dict):
+                    raise ValueError("assistant_capability_operation_missing")
+                if str(metadata.get("method") or "").strip().upper() != method:
+                    raise ValueError("assistant_capability_operation_method_invalid")
+                if str(metadata.get("path") or "").strip() != path:
+                    raise ValueError("assistant_capability_operation_path_invalid")
+                if str(metadata.get("scope") or "").strip() != scope:
+                    raise ValueError("assistant_capability_operation_scope_invalid")
         supported = set(self.supported_providers)
         for provider in self.enabled_providers:
             if provider not in supported:

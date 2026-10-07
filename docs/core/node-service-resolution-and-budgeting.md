@@ -208,6 +208,23 @@ Example:
 
 For `task.image_generation` with provider `openai`, Core defaults an unspecified model to `gpt-image-1-mini`. Callers may also send `preferred_model` or `model_id` as `mini`; Core resolves that shorthand to `gpt-image-1-mini` during resolution and authorization.
 
+### Assistant Engine declarations
+
+An Interaction node that provides `interaction.assistant.turn` or
+`interaction.assistant.intents` must include complete endpoint metadata for the
+declared capability. Core requires an exact provider-instance `service_id` and
+matching `audience` in the form
+`node-service:<node_id>:<capability>`, contract version `assistant.v1`, the
+standard `/api/schemas/client-node/v2` schema catalog, an absolute health path,
+and every v1 operation with its fixed method, path, and narrow Assistant scope.
+Core rejects incomplete or substituted Assistant metadata at declaration time.
+
+Resolution preserves that exact service identity and returns the operation
+scopes declared for the selected Assistant capability. This lets Voice or
+another authorized node call Interaction directly with Core-issued caller and
+actor authorization; Core does not relay node-originated transcripts. Browser
+turns remain behind the authenticated Core Web App boundary.
+
 ### Governance Freshness Gate
 
 Resolution and authorization are blocked when the node governance freshness state is `outdated`.
