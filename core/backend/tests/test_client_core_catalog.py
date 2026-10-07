@@ -38,6 +38,7 @@ def test_client_core_catalog_reports_implemented_core_security_and_provider_adop
     assert payload["current_security"]["provider_token_verification"].startswith("Implemented")
     assert payload["current_security"]["assistant_assertion_verification"].startswith("EdDSA")
     assert api_paths["/.well-known/hexe-core-jwks.json"]["authentication"] == "Public verification material"
+    assert api_paths["/api/system/nodes/assistant/actor-assertions"]["status"] == "Implemented"
     assert api_paths["/api/system/nodes/assistant/assertions/introspect"]["status"] == "Implemented"
     assert proposals["universal_resolved_service_enforcement"]["status"] == "Partially implemented"
     assert proposals["governed_privileged_scope_issuance"]["status"] == "Implemented"

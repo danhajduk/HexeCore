@@ -36,6 +36,19 @@ AI_PRIVILEGED_SCOPES = frozenset(
         "ai.services.read",
     }
 )
+ASSISTANT_PRIVILEGED_SCOPES = frozenset(
+    {
+        "assistant.turn.submit",
+        "assistant.turn.cancel",
+        "assistant.turn.resume",
+        "assistant.intent.list",
+        "assistant.intent.register",
+        "assistant.intent.update",
+        "assistant.intent.lifecycle",
+        "assistant.intent.match",
+    }
+)
+PRIVILEGED_SCOPES = AI_PRIVILEGED_SCOPES | ASSISTANT_PRIVILEGED_SCOPES
 SERVICE_TOKEN_ISSUER = "hexe-core"
 SERVICE_ACCESS_TOKEN_TTL_SECONDS = 600
 INTROSPECTION_RATE_LIMIT = 120
@@ -191,7 +204,7 @@ class ServiceAccessGrantCreate(BaseModel):
     @classmethod
     def validate_scopes(cls, value: list[str]) -> list[str]:
         scopes = _clean_scopes(value)
-        unsupported = sorted(set(scopes) - AI_PRIVILEGED_SCOPES)
+        unsupported = sorted(set(scopes) - PRIVILEGED_SCOPES)
         if unsupported:
             raise ValueError(f"unsupported_privileged_scopes:{','.join(unsupported)}")
         return scopes

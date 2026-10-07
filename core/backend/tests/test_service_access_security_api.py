@@ -253,6 +253,18 @@ class TestServiceAccessSecurityApi:
         )
         assert unsupported.status_code == 422
 
+        assistant = self.client.post(
+            "/api/system/nodes/service-access/grants",
+            headers={"X-Admin-Token": "admin-test-token"},
+            json={
+                "subject_node_id": self.caller_id,
+                "audience": "node-service:node-interaction-1:interaction.assistant.turn",
+                "scopes": ["assistant.turn.submit", "assistant.turn.cancel"],
+            },
+        )
+        assert assistant.status_code == 200
+        assert assistant.json()["grant"]["scopes"] == ["assistant.turn.cancel", "assistant.turn.submit"]
+
     def test_admin_can_inspect_and_update_grant(self) -> None:
         grant = self._create_grant(["ai.prompts.read"])
         headers = {"X-Admin-Token": "admin-test-token"}

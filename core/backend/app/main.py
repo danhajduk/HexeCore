@@ -1441,6 +1441,8 @@ def create_app() -> FastAPI:
             assistant_assertions,
             trust=node_trust_issuance,
             registrations=node_registrations_store,
+            grants=service_access_grant_store,
+            family=family_identity_store,
             issuer=str(os.getenv("HEXE_CORE_ID", "hexe-core")),
         )
     )

@@ -43,6 +43,16 @@ and current authorization epochs, and atomically consumes approval assertions
 when requested. Invalid assertions return stable inactive error codes; foreign
 audiences and untrusted providers fail with authorization errors.
 
+Trusted channel nodes request an actor assertion through
+`POST /api/system/nodes/assistant/actor-assertions`. Core requires the caller's
+node ID to match the request, an active exact-audience service-access grant,
+and a trusted Interaction provider audience. Person evidence must resolve to
+an active Core-owned person and household; endpoint context must match Core's
+room assignment. Node-originated assertions never acquire a `user_id`.
+Claimed verified speaker identity is downgraded to probable unless evidence is
+present and confidence is at least 0.90. Unknown, probable, and conflicted
+actors receive submit authority only.
+
 Provider introspection, governed privileged-scope issuance, and lifetime-based
 rotation retention are implemented. Universal provider enforcement is marked
 `Partially implemented` because each service node must adopt the contract.

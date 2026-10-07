@@ -13,6 +13,7 @@ from app.system.assistant_auth import (
     build_assistant_auth_router,
 )
 from app.system.settings.store import SettingsStore
+from app.system.service_access import ServiceAccessGrantStore
 
 
 def test_actor_assertion_round_trip_and_jwks(tmp_path):
@@ -334,3 +335,139 @@ def test_provider_introspection_endpoint_authenticates_owner_and_returns_stable_
     assert wrong_turn.json() == {"active": False, "error_code": "actor_assertion_binding_invalid", "claims": None}
     assert foreign.status_code == 403
     assert foreign.json()["detail"] == "assistant_assertion_audience_not_owned"
+
+
+def test_trusted_voice_issuance_uses_exact_grant_and_core_person_state(tmp_path):
+    settings = SettingsStore(str(tmp_path / "settings.db"))
+    service = AssistantAssertionService(settings)
+    audience = "node-service:node-interaction-1:interaction.assistant.turn"
+    grants = ServiceAccessGrantStore(tmp_path / "grants.json")
+    grants.create(
+        subject_node_id="node-voice-1",
+        audience=audience,
+        scopes=["assistant.turn.submit"],
+        expires_at=None,
+    )
+
+    class Trust:
+        def authenticate_node(self, node_id, token_value):
+            return object() if node_id in {"node-voice-1", "node-interaction-1"} and token_value == "trusted" else None
+
+    class Registration:
+        def __init__(self, node_type):
+            self.node_type = node_type
+            self.trust_status = "trusted"
+
+    class Registrations:
+        def get(self, node_id):
+            if node_id == "node-voice-1":
+                return Registration("voice")
+            if node_id == "node-interaction-1":
+                return Registration("interaction")
+            return None
+
+    class Family:
+        async def snapshot(self):
+            return {
+                "people": [{"person_id": "person-1", "household_id": "household-1", "status": "active"}],
+                "endpoint_assignments": [{"endpoint_id": "voice-kitchen", "household_id": "household-1", "room_id": "kitchen"}],
+            }
+
+    app = FastAPI()
+    app.include_router(
+        build_assistant_auth_router(
+            service,
+            trust=Trust(),
+            registrations=Registrations(),
+            grants=grants,
+            family=Family(),
+            issuer="core-1",
+        )
+    )
+    client = TestClient(app)
+    request = {
+        "requester_node_id": "node-voice-1",
+        "audience": audience,
+        "conversation_id": "conv-1",
+        "turn_id": "turn-1",
+        "actor_kind": "person",
+        "identity_state": "verified",
+        "requested_scopes": ["assistant.turn.submit"],
+        "person_id": "person-1",
+        "household_id": "household-1",
+        "room_id": "kitchen",
+        "endpoint_id": "voice-kitchen",
+        "confidence": 0.94,
+        "evidence": [{"evidence_type": "speaker_id", "provider": "hexevoice", "observed_at": "2026-10-07T04:00:00Z"}],
+    }
+
+    issued = client.post(
+        "/api/system/nodes/assistant/actor-assertions",
+        json=request,
+        headers={"X-Node-Id": "node-voice-1", "X-Node-Trust-Token": "trusted"},
+    )
+    mismatch = client.post(
+        "/api/system/nodes/assistant/actor-assertions",
+        json={**request, "requester_node_id": "node-other"},
+        headers={"X-Node-Id": "node-voice-1", "X-Node-Trust-Token": "trusted"},
+    )
+
+    assert issued.status_code == 200
+    assert issued.json()["claims"]["sub"] == "actor:person:person-1"
+    assert issued.json()["claims"]["actor"]["identity_state"] == "verified"
+    assert issued.json()["claims"]["actor"]["user_id"] is None
+    assert issued.json()["claims"]["household_id"] == "household-1"
+    assert mismatch.status_code == 403
+    assert mismatch.json()["detail"] == "assistant_requester_mismatch"
+
+
+def test_voice_person_evidence_downgrades_without_verification_threshold(tmp_path):
+    settings = SettingsStore(str(tmp_path / "settings.db"))
+    service = AssistantAssertionService(settings)
+    audience = "node-service:node-interaction-1:interaction.assistant.turn"
+    grants = ServiceAccessGrantStore(tmp_path / "grants.json")
+    grants.create(subject_node_id="node-voice-1", audience=audience, scopes=["assistant.turn.submit"], expires_at=None)
+
+    class Trust:
+        def authenticate_node(self, node_id, token_value):
+            return object()
+
+    class Registration:
+        trust_status = "trusted"
+
+        def __init__(self, node_type):
+            self.node_type = node_type
+
+    class Registrations:
+        def get(self, node_id):
+            return Registration("interaction" if node_id == "node-interaction-1" else "voice")
+
+    class Family:
+        async def snapshot(self):
+            return {
+                "people": [{"person_id": "person-1", "household_id": "household-1", "status": "active"}],
+                "endpoint_assignments": [],
+            }
+
+    app = FastAPI()
+    app.include_router(build_assistant_auth_router(service, trust=Trust(), registrations=Registrations(), grants=grants, family=Family(), issuer="core-1"))
+    response = TestClient(app).post(
+        "/api/system/nodes/assistant/actor-assertions",
+        json={
+            "requester_node_id": "node-voice-1",
+            "audience": audience,
+            "conversation_id": "conv-1",
+            "turn_id": "turn-1",
+            "actor_kind": "person",
+            "identity_state": "verified",
+            "requested_scopes": ["assistant.turn.submit"],
+            "person_id": "person-1",
+            "household_id": "household-1",
+            "confidence": 0.7,
+            "evidence": [{"evidence_type": "speaker_id", "provider": "hexevoice", "observed_at": "2026-10-07T04:00:00Z"}],
+        },
+        headers={"X-Node-Id": "node-voice-1", "X-Node-Trust-Token": "trusted"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["claims"]["actor"]["identity_state"] == "probable"

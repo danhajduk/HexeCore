@@ -240,6 +240,11 @@ The supported AI management scopes are `ai.prompts.read`, `ai.prompts.write`,
 `ai.image_templates.review`, `ai.jobs.read`, `ai.jobs.cancel`,
 `ai.artifacts.read`, `ai.artifacts.ack`, and `ai.services.read`.
 
+The supported Assistant service scopes are `assistant.turn.submit`,
+`assistant.turn.cancel`, `assistant.turn.resume`, `assistant.intent.list`,
+`assistant.intent.register`, `assistant.intent.update`,
+`assistant.intent.lifecycle`, and `assistant.intent.match`.
+
 Administrators manage grants at
 `/api/system/nodes/service-access/grants`. Trusted callers exchange an active
 grant for a 600-second token at
@@ -460,6 +465,7 @@ def _catalog_payload() -> ClientCoreCatalogResponse:
             _api("service_token_introspection", "POST", "/api/system/nodes/services/introspect", "Validate a Core-issued service token for the authenticated provider.", "X-Node-Id and X-Node-Trust-Token"),
             _api("service_access_authorize", "POST", "/api/system/nodes/service-access/authorize", "Issue a service-management token from an explicit Core-owned grant."),
             _api("assistant_jwks", "GET", "/.well-known/hexe-core-jwks.json", "Read public Ed25519 keys for local Assistant assertion verification.", "Public verification material"),
+            _api("assistant_actor_assertion_issue", "POST", "/api/system/nodes/assistant/actor-assertions", "Issue a short-lived actor assertion from trusted node evidence and a Core-owned exact-audience grant."),
             _api("assistant_assertion_introspection", "POST", "/api/system/nodes/assistant/assertions/introspect", "Recheck Assistant assertion binding, scopes, authorization epochs, and single-use approval state.", "X-Node-Id and X-Node-Trust-Token"),
             _api("service_access_grant_list", "GET", "/api/system/nodes/service-access/grants", "List privileged service-access grants.", "Core administrator"),
             _api("service_access_grant_create", "POST", "/api/system/nodes/service-access/grants", "Create a privileged service-access grant.", "Core administrator"),
