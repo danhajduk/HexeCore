@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { accessToken, api, enrolledDeviceId, loginEnrolledDevice, logout, type WebDevice, type WebSession, type WebUser } from "./api";
 import { disableWebPush, enableWebPush } from "./webPush";
 import { accessPrompt } from "./accessState";
@@ -20,7 +20,9 @@ export default function AccessConsole() {
   const [newUser, setNewUser] = useState({ username: "", password: "", role: "member" });
   const [reauth, setReauth] = useState("");
   const [enrolled, setEnrolled] = useState<boolean | null>(null);
+  const [autoUnlockPending, setAutoUnlockPending] = useState(false);
   const [passkeyUpgrade, setPasskeyUpgrade] = useState(false);
+  const autoUnlockStarted = useRef(false);
   const canManage = useMemo(() => boot?.user.permissions.includes("users.manage") || (!boot && needsDevice), [boot, needsDevice]);
 
   async function load() {
@@ -42,12 +44,13 @@ export default function AccessConsole() {
     }
   }
   useEffect(() => {
-    void enrolledDeviceId().then(value=>setEnrolled(Boolean(value))).catch(()=>setEnrolled(false));
+    void enrolledDeviceId().then(value=>{setAutoUnlockPending(Boolean(value));setEnrolled(Boolean(value));}).catch(()=>setEnrolled(false));
     void load();
   }, []);
 
   async function signIn(event: React.FormEvent) { event.preventDefault(); setBusy(true); setError(""); try { await loginEnrolledDevice(username, password); setPassword(""); if(enrolled===true||passkeyUpgrade){location.assign("/app");return;} await load(); } catch (e) { setError(message(e)); } finally { setBusy(false); } }
-  async function unlock() { setBusy(true); setError(""); try { await loginEnrolledDevice("", ""); location.assign("/app"); } catch (e) { const value=message(e); if(value.includes("passkey upgrade requires password")){setPasskeyUpgrade(true);setEnrolled(false);setNotice("Sign in once to add a passkey to this enrolled device.");} else setError(value); } finally { setBusy(false); } }
+  async function unlock(automatic = false) { setBusy(true); setError(""); try { await loginEnrolledDevice("", ""); location.assign("/app"); } catch (e) { const value=message(e); if(value.includes("passkey upgrade requires password")){setPasskeyUpgrade(true);setEnrolled(false);setNotice("Sign in once to add a passkey to this enrolled device.");} else setError(value); if(automatic)setAutoUnlockPending(false); } finally { setBusy(false); } }
+  useEffect(()=>{if(enrolled!==true||!autoUnlockPending||autoUnlockStarted.current)return;autoUnlockStarted.current=true;void unlock(true);},[enrolled,autoUnlockPending]);
   async function act(action: () => Promise<unknown>, done: string) { setBusy(true); setError(""); setNotice(""); try { await action(); setNotice(done); await load(); } catch (e) { setError(message(e)); } finally { setBusy(false); } }
   async function createEnrollment() {
     const response = await api<{enrollment: Enrollment}>("/api/auth/device-enrollments", { method: "POST", body: JSON.stringify({ display_name: "Mobile browser", ttl_seconds: 600 }) });
@@ -64,7 +67,7 @@ export default function AccessConsole() {
   if (!boot && !needsDevice) {
     const prompt = accessPrompt(enrolled);
     if (prompt === "loading") return <main className="webapp locked-webapp"><section className="login-card lock-card" aria-live="polite"><h1>Hexe</h1><p>Checking this device…</p></section></main>;
-    return <main className={`webapp ${prompt==="passkey"?"locked-webapp":""}`}><section className={`login-card ${prompt==="passkey"?"lock-card":""}`}><h1>Hexe</h1>{prompt==="passkey"?<><div className="lock-emblem" aria-hidden="true"><span /></div><div className="lock-copy"><h2>Welcome back</h2><p>Use your device passkey to unlock Hexe.</p></div><button className="unlock-button" disabled={busy} onClick={()=>void unlock()}>{busy?"Verifying…":"Unlock Hexe"}</button></>:<><p>{notice||"Sign in to your Core."}</p><form onSubmit={signIn}><label>Username<input autoComplete="username" value={username} onChange={e=>setUsername(e.target.value)} /></label><label>Password<input type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} /></label><button disabled={busy}>Sign in</button></form></>}{error && <p role="alert" className="error">{error}</p>}</section></main>;
+    return <main className={`webapp ${prompt==="passkey"?"locked-webapp":""}`}><section className={`login-card ${prompt==="passkey"?"lock-card":""}`}><h1>Hexe</h1>{prompt==="passkey"?<><div className="lock-emblem" aria-hidden="true"><span /></div><div className="lock-copy"><h2>Welcome back</h2><p>{autoUnlockPending?"Requesting your device passkey…":"Use your device passkey to unlock Hexe."}</p></div>{!autoUnlockPending&&<button className="unlock-button" disabled={busy} onClick={()=>void unlock()}>{busy?"Verifying…":"Unlock Hexe"}</button>}</>:<><p>{notice||"Sign in to your Core."}</p><form onSubmit={signIn}><label>Username<input autoComplete="username" value={username} onChange={e=>setUsername(e.target.value)} /></label><label>Password<input type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} /></label><button disabled={busy}>Sign in</button></form></>}{error && <p role="alert" className="error">{error}</p>}</section></main>;
   }
 
   return <main className="webapp">
