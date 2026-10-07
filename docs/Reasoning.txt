@@ -5,6 +5,14 @@ What changed: Updated root README links/layout, updated branding validators to s
 Verification: Branding validators passed for both Core and Supervisor; tracked docs now live under root docs with no tracked files under core/docs or supervisor/docs.
 ###########
 
+Task #1014 notification age-window correction
+Step objective: Keep the pending in-app presentation valid across delayed iOS delivery and later authentication refresh.
+Issue cause: The app authenticated 11 minutes 30 seconds after the newest event, just outside the temporary 10-minute window, so it loaded the count but suppressed the panel.
+Chosen fix: Extend the one-time unseen-event presentation window to 24 hours while retaining event-id deduplication.
+Verification: Pending build, deployment, and physical reload.
+
+###########
+
 Task #1014 iOS feed-driven presentation
 Step objective: Open the in-app panel without relying on an iOS notification-click event.
 Issue cause: Physical retests showed iOS consistently launching the PWA at `/app` without delivering a usable click navigation, client message, or persistent worker marker.

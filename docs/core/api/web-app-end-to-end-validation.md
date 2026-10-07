@@ -69,7 +69,7 @@ authenticated token's enrolled user and device.
 On the tested iPhone, tapping a Web Push notification consistently launched
 the installed app at its fixed `/app` start URL without dispatching a usable
 `notificationclick` navigation or message handoff. The app therefore also
-opens the panel once for each newly observed notification less than ten minutes
+opens the panel once for each newly observed notification less than 24 hours
 old, keyed by `event_id` in local browser storage. This provides deterministic
 in-app presentation from the authenticated feed without weakening server-side
 ownership checks or repeatedly reopening an already-seen event.
