@@ -46,6 +46,8 @@ ASSISTANT_PRIVILEGED_SCOPES = frozenset(
         "assistant.intent.update",
         "assistant.intent.lifecycle",
         "assistant.intent.match",
+        "assistant.speaker_enrollment.read",
+        "assistant.speaker_enrollment.write",
     }
 )
 PRIVILEGED_SCOPES = AI_PRIVILEGED_SCOPES | ASSISTANT_PRIVILEGED_SCOPES

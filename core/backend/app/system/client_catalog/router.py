@@ -7,6 +7,17 @@ from fastapi import APIRouter
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.system.assistant_auth.router import (
+    IntentExecutionAuthorizeRequest,
+    IntentExecutionAuthorizeResponse,
+    IntentExecutionIntrospectRequest,
+    IntentExecutionIntrospectionResponse,
+    SpeakerEnrollmentDirectoryResponse,
+    SpeakerEnrollmentGrantConsumeRequest,
+    SpeakerEnrollmentGrantRequest,
+    SpeakerEnrollmentGrantResponse,
+)
+
 
 ImplementationStatus = Literal["Implemented", "Partially implemented", "Not implemented"]
 
@@ -467,6 +478,12 @@ def _catalog_payload() -> ClientCoreCatalogResponse:
             _api("assistant_jwks", "GET", "/.well-known/hexe-core-jwks.json", "Read public Ed25519 keys for local Assistant assertion verification.", "Public verification material"),
             _api("assistant_actor_assertion_issue", "POST", "/api/system/nodes/assistant/actor-assertions", "Issue a short-lived actor assertion from trusted node evidence and a Core-owned exact-audience grant."),
             _api("assistant_assertion_introspection", "POST", "/api/system/nodes/assistant/assertions/introspect", "Recheck Assistant assertion binding, scopes, authorization epochs, and single-use approval state.", "X-Node-Id and X-Node-Trust-Token"),
+            _api("assistant_intent_execution_authorize", "POST", "/api/system/nodes/assistant/intent-executions/authorize", "Exchange an Interaction-bound actor assertion for an opaque exact-owner intent execution reference.", "Trusted Interaction node"),
+            _api("assistant_intent_execution_introspect", "POST", "/api/system/nodes/assistant/intent-executions/introspect", "Validate exact owner, actor authority, binding, expiry, revocation, and replay state.", "Trusted intent-owner node"),
+            _api("speaker_enrollment_people", "GET", "/api/system/nodes/assistant/speaker-enrollment/people", "List consent-eligible people in the Voice endpoint household.", "Trusted Voice node with enrollment grant"),
+            _api("speaker_enrollment_grant_issue", "POST", "/api/system/nodes/assistant/speaker-enrollment/grants", "Issue a short-lived one-time speaker enrollment grant.", "Trusted Voice node with enrollment grant"),
+            _api("speaker_enrollment_grant_consume", "POST", "/api/system/nodes/assistant/speaker-enrollment/grants/consume", "Consume a speaker enrollment grant with exact bindings.", "Trusted Voice node"),
+            _api("speaker_enrollment_binding_status", "GET", "/api/system/nodes/assistant/speaker-enrollment/bindings/{person_id}/status", "Refresh consent, person, and household binding validity.", "Trusted Voice node with enrollment grant"),
             _api("web_assistant_approval_list", "GET", "/api/web-app/conversations/{conversation_id}/approvals", "List the authenticated user's durable Assistant approvals for one owned conversation.", "Authenticated enrolled Web App device"),
             _api("web_assistant_approval_decision", "POST", "/api/web-app/conversations/{conversation_id}/approvals/{approval_id}/decision", "Approve or deny one pending Assistant action; approval resumes Interaction with a fresh exact-binding assertion.", "Authenticated enrolled Web App device"),
             _api("service_access_grant_list", "GET", "/api/system/nodes/service-access/grants", "List privileged service-access grants.", "Core administrator"),
@@ -496,6 +513,8 @@ def _catalog_payload() -> ClientCoreCatalogResponse:
             ClientSchemaEntry(name="schema-catalog.v1.response.schema.json", schema_id="#/components/schemas/ClientCoreCatalogResponse", status="Implemented", api_path="/api/schemas/client-core/v1/schema-catalog.v1.response.schema.json"),
             ClientSchemaEntry(name="assistant-actor-assertion-claims.v1.schema.json", schema_id="https://hexe.local/schemas/client-core/v1/assistant-actor-assertion-claims.v1.schema.json", status="Implemented", api_path="/api/schemas/client-core/v1/assistant-actor-assertion-claims.v1.schema.json"),
             ClientSchemaEntry(name="assistant-approval-assertion-claims.v1.schema.json", schema_id="https://hexe.local/schemas/client-core/v1/assistant-approval-assertion-claims.v1.schema.json", status="Implemented", api_path="/api/schemas/client-core/v1/assistant-approval-assertion-claims.v1.schema.json"),
+            ClientSchemaEntry(name="assistant-intent-execution-authorization.v1.schema.json", schema_id="https://hexe.local/schemas/client-core/v1/assistant-intent-execution-authorization.v1.schema.json", status="Implemented", api_path="/api/schemas/client-core/v1/assistant-intent-execution-authorization.v1.schema.json"),
+            ClientSchemaEntry(name="voice-speaker-enrollment.v1.schema.json", schema_id="https://hexe.local/schemas/client-core/v1/voice-speaker-enrollment.v1.schema.json", status="Implemented", api_path="/api/schemas/client-core/v1/voice-speaker-enrollment.v1.schema.json"),
             ClientSchemaEntry(name="hardware-access-request.schema.json", status="Implemented", api_path="/api/system/nodes/hardware/access-requests/schema"),
         ],
         documents=[
@@ -584,6 +603,35 @@ def build_client_core_catalog_router() -> APIRouter:
         schema = AssistantApprovalAssertionClaims.model_json_schema()
         schema["$id"] = "https://hexe.local/schemas/client-core/v1/assistant-approval-assertion-claims.v1.schema.json"
         return schema
+
+    @router.get("/schemas/client-core/v1/assistant-intent-execution-authorization.v1.schema.json")
+    def get_assistant_intent_execution_schema() -> dict[str, object]:
+        schema = {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://hexe.local/schemas/client-core/v1/assistant-intent-execution-authorization.v1.schema.json",
+            "title": "Assistant Intent Execution Authorization V1",
+            "$defs": {
+                "authorize_request": IntentExecutionAuthorizeRequest.model_json_schema(),
+                "authorize_response": IntentExecutionAuthorizeResponse.model_json_schema(),
+                "introspect_request": IntentExecutionIntrospectRequest.model_json_schema(),
+                "introspect_response": IntentExecutionIntrospectionResponse.model_json_schema(),
+            },
+        }
+        return schema
+
+    @router.get("/schemas/client-core/v1/voice-speaker-enrollment.v1.schema.json")
+    def get_voice_speaker_enrollment_schema() -> dict[str, object]:
+        return {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://hexe.local/schemas/client-core/v1/voice-speaker-enrollment.v1.schema.json",
+            "title": "Voice Speaker Enrollment V1",
+            "$defs": {
+                "directory_response": SpeakerEnrollmentDirectoryResponse.model_json_schema(),
+                "grant_request": SpeakerEnrollmentGrantRequest.model_json_schema(),
+                "grant_response": SpeakerEnrollmentGrantResponse.model_json_schema(),
+                "grant_consume_request": SpeakerEnrollmentGrantConsumeRequest.model_json_schema(),
+            },
+        }
 
     @router.get("/schemas/client-core/v1/README.md", response_class=PlainTextResponse)
     def get_client_core_readme() -> str:

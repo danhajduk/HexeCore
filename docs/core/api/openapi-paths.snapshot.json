@@ -1,5 +1,5 @@
 {
-  "path_count": 331,
+  "path_count": 339,
   "paths": {
     "/.well-known/hexe-core-jwks.json": [
       "get"
@@ -290,6 +290,9 @@
     "/api/schemas/client-core/v1/assistant-approval-assertion-claims.v1.schema.json": [
       "get"
     ],
+    "/api/schemas/client-core/v1/assistant-intent-execution-authorization.v1.schema.json": [
+      "get"
+    ],
     "/api/schemas/client-core/v1/node-management-authorization-contract.md": [
       "get"
     ],
@@ -297,6 +300,9 @@
       "get"
     ],
     "/api/schemas/client-core/v1/service-token-security-contract.md": [
+      "get"
+    ],
+    "/api/schemas/client-core/v1/voice-speaker-enrollment.v1.schema.json": [
       "get"
     ],
     "/api/services/register": [
@@ -596,6 +602,24 @@
     ],
     "/api/system/nodes/assistant/assertions/introspect": [
       "post"
+    ],
+    "/api/system/nodes/assistant/intent-executions/authorize": [
+      "post"
+    ],
+    "/api/system/nodes/assistant/intent-executions/introspect": [
+      "post"
+    ],
+    "/api/system/nodes/assistant/speaker-enrollment/bindings/{person_id}/status": [
+      "get"
+    ],
+    "/api/system/nodes/assistant/speaker-enrollment/grants": [
+      "post"
+    ],
+    "/api/system/nodes/assistant/speaker-enrollment/grants/consume": [
+      "post"
+    ],
+    "/api/system/nodes/assistant/speaker-enrollment/people": [
+      "get"
     ],
     "/api/system/nodes/budgets": [
       "get"

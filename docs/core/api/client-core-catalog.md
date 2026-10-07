@@ -8,6 +8,8 @@ Core publishes a client-oriented discovery catalog for trusted node developers:
 - `GET /api/schemas/client-core/v1/schema-catalog.v1.response.schema.json`
 - `GET /api/schemas/client-core/v1/assistant-actor-assertion-claims.v1.schema.json`
 - `GET /api/schemas/client-core/v1/assistant-approval-assertion-claims.v1.schema.json`
+- `GET /api/schemas/client-core/v1/assistant-intent-execution-authorization.v1.schema.json`
+- `GET /api/schemas/client-core/v1/voice-speaker-enrollment.v1.schema.json`
 - `GET /.well-known/hexe-core-jwks.json`
 - `GET /api/schemas/client-core/v1/README.md`
 
@@ -52,6 +54,35 @@ room assignment. Node-originated assertions never acquire a `user_id`.
 Claimed verified speaker identity is downgraded to probable unless evidence is
 present and confidence is at least 0.90. Unknown, probable, and conflicted
 actors receive submit authority only.
+
+## Intent-owner execution authorization
+
+Interaction exchanges a currently valid actor assertion through
+`POST /api/system/nodes/assistant/intent-executions/authorize`. Core returns an
+opaque 60-second reference bound to the exact owner node and service audience,
+actor and identity state, conversation and turn, intent contract and revision,
+action and capability, canonical argument hash, correlation ID, and scopes.
+The owner authenticates with node trust and calls
+`POST /api/system/nodes/assistant/intent-executions/introspect` before domain
+execution. Core rechecks authorization epochs, exact ownership and every
+binding. Same-binding retries are observable as replayed and changed bindings
+fail closed. The exchange never returns the upstream assertion, display name,
+speaker evidence, transcript, or service credential.
+
+## Voice Speaker ID enrollment
+
+An explicitly granted Voice node uses the `core-service:<core-id>:voice.speaker-enrollment`
+audience with `assistant.speaker_enrollment.read` and
+`assistant.speaker_enrollment.write`. Core derives the household from the
+Voice endpoint assignment and lists only active people with live granted
+`speaker-recognition` consent. Directory rows contain only an opaque person ID,
+safe enrollment label, and eligibility/status fields.
+
+Enrollment grants expire after two minutes, are bound to the Voice node,
+person, household, endpoint, enrollment session, and purpose, and are
+single-use. Voice can poll the binding-status endpoint; consent withdrawal,
+person archival, or household/endpoint removal invalidates enrollment use.
+Audio, embeddings, voiceprints, and speaker profiles remain on Voice.
 
 Provider introspection, governed privileged-scope issuance, and lifetime-based
 rotation retention are implemented. Universal provider enforcement is marked

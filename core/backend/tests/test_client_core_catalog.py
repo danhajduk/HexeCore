@@ -40,6 +40,8 @@ def test_client_core_catalog_reports_implemented_core_security_and_provider_adop
     assert api_paths["/.well-known/hexe-core-jwks.json"]["authentication"] == "Public verification material"
     assert api_paths["/api/system/nodes/assistant/actor-assertions"]["status"] == "Implemented"
     assert api_paths["/api/system/nodes/assistant/assertions/introspect"]["status"] == "Implemented"
+    assert api_paths["/api/system/nodes/assistant/intent-executions/authorize"]["status"] == "Implemented"
+    assert api_paths["/api/system/nodes/assistant/speaker-enrollment/people"]["status"] == "Implemented"
     assert proposals["universal_resolved_service_enforcement"]["status"] == "Partially implemented"
     assert proposals["governed_privileged_scope_issuance"]["status"] == "Implemented"
     assert proposals["universal_node_management_authorization"]["status"] == "Implemented"
@@ -90,3 +92,9 @@ def test_client_core_catalog_publishes_assistant_assertion_schemas() -> None:
     assert approval.json()["additionalProperties"] is False
     assert "authorization_epochs" in actor.json()["required"]
     assert "approval" in approval.json()["required"]
+
+    intent_execution = client.get(schemas["assistant-intent-execution-authorization.v1.schema.json"]["api_path"])
+    speaker_enrollment = client.get(schemas["voice-speaker-enrollment.v1.schema.json"]["api_path"])
+    assert intent_execution.status_code == speaker_enrollment.status_code == 200
+    assert {"authorize_request", "authorize_response", "introspect_request", "introspect_response"}.issubset(intent_execution.json()["$defs"])
+    assert {"directory_response", "grant_request", "grant_response", "grant_consume_request"}.issubset(speaker_enrollment.json()["$defs"])

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import secrets
 import time
@@ -16,6 +17,8 @@ from app.system.settings.store import SettingsStore
 ASSISTANT_ASSERTION_KEYRING_REF = "assistant.assertion.signing_keys.v1"
 ASSISTANT_AUTHORIZATION_EPOCHS_REF = "assistant.authorization_epochs.v1"
 ASSISTANT_CONSUMED_APPROVALS_REF = "assistant.consumed_approvals.v1"
+ASSISTANT_INTENT_EXECUTIONS_REF = "assistant.intent_executions.v1"
+ASSISTANT_ENROLLMENT_GRANTS_REF = "assistant.speaker_enrollment_grants.v1"
 ASSISTANT_ASSERTION_TTL_SECONDS = 60
 ASSISTANT_ASSERTION_CLOCK_SKEW_SECONDS = 30
 ASSISTANT_ASSERTION_MAX_KEY_HISTORY = 3
@@ -331,6 +334,152 @@ class AssistantAssertionService:
             raise AssistantAssertionError("approval_assertion_replayed")
         consumed[jti] = int(exp)
         await self._settings.set(ASSISTANT_CONSUMED_APPROVALS_REF, consumed)
+
+    async def issue_intent_execution_reference(
+        self,
+        *,
+        actor_claims: dict[str, Any],
+        owner_node_id: str,
+        owner_audience: str,
+        intent_id: str,
+        contract_version: str,
+        intent_revision: str,
+        action: str,
+        target_capability: str,
+        canonical_arguments_hash: str,
+        correlation_id: str,
+        required_scopes: list[str],
+        effective_scopes: list[str],
+        now: int | None = None,
+    ) -> tuple[str, dict[str, Any]]:
+        if len(canonical_arguments_hash) != 64 or any(character not in "0123456789abcdefABCDEF" for character in canonical_arguments_hash):
+            raise AssistantAssertionError("intent_execution_arguments_hash_invalid")
+        selected_now = int(time.time()) if now is None else int(now)
+        actor = actor_claims.get("actor") if isinstance(actor_claims.get("actor"), dict) else {}
+        required = sorted({str(item).strip() for item in required_scopes if str(item).strip()})
+        effective = sorted({str(item).strip() for item in effective_scopes if str(item).strip()})
+        if any(scope not in effective for scope in required):
+            raise AssistantAssertionError("intent_execution_scope_insufficient")
+        values = {
+            "owner_node_id": owner_node_id,
+            "owner_audience": owner_audience,
+            "requester_node_id": str(actor_claims.get("requester_node_id") or ""),
+            "actor_id": str(actor_claims.get("sub") or ""),
+            "identity_state": str(actor.get("identity_state") or "unknown"),
+            "conversation_id": str(actor_claims.get("conversation_id") or ""),
+            "turn_id": str(actor_claims.get("turn_id") or ""),
+            "intent_id": intent_id,
+            "contract_version": contract_version,
+            "intent_revision": intent_revision,
+            "action": action,
+            "target_capability": target_capability,
+            "canonical_arguments_hash": canonical_arguments_hash.lower(),
+            "correlation_id": correlation_id,
+        }
+        if any(not str(value).strip() for value in values.values()):
+            raise AssistantAssertionError("intent_execution_binding_required")
+        reference = f"ixr_{secrets.token_urlsafe(32)}"
+        digest = hashlib.sha256(reference.encode("utf-8")).hexdigest()
+        record = {
+            **values,
+            "required_scopes": required,
+            "effective_scopes": effective,
+            "authorization_epochs": actor_claims.get("authorization_epochs"),
+            "actor_user_id": actor.get("user_id"),
+            "actor_person_id": actor.get("person_id"),
+            "actor_household_id": actor_claims.get("household_id"),
+            "actor_device_id": (actor_claims.get("constraints") or {}).get("device_id") if isinstance(actor_claims.get("constraints"), dict) else None,
+            "issued_at": selected_now,
+            "expires_at": selected_now + ASSISTANT_ASSERTION_TTL_SECONDS,
+            "consumed_at": None,
+        }
+        raw = await self._settings.get_sensitive(ASSISTANT_INTENT_EXECUTIONS_REF)
+        records = {str(key): value for key, value in dict(raw or {}).items() if isinstance(value, dict) and int(value.get("expires_at") or 0) + ASSISTANT_ASSERTION_CLOCK_SKEW_SECONDS >= selected_now}
+        records[digest] = record
+        await self._settings.set_sensitive(ASSISTANT_INTENT_EXECUTIONS_REF, records)
+        return reference, record
+
+    async def introspect_intent_execution_reference(
+        self,
+        reference: str,
+        *,
+        owner_node_id: str,
+        bindings: dict[str, str],
+        consume: bool = True,
+        now: int | None = None,
+    ) -> dict[str, Any]:
+        selected_now = int(time.time()) if now is None else int(now)
+        digest = hashlib.sha256(str(reference).encode("utf-8")).hexdigest()
+        raw = await self._settings.get_sensitive(ASSISTANT_INTENT_EXECUTIONS_REF)
+        records = dict(raw or {})
+        record = records.get(digest)
+        if not isinstance(record, dict):
+            raise AssistantAssertionError("intent_execution_reference_unknown")
+        if int(record.get("expires_at") or 0) <= selected_now:
+            raise AssistantAssertionError("intent_execution_reference_expired")
+        if record.get("owner_node_id") != owner_node_id:
+            raise AssistantAssertionError("intent_execution_owner_mismatch")
+        if any(str(record.get(key) or "") != str(value or "") for key, value in bindings.items()):
+            raise AssistantAssertionError("intent_execution_binding_mismatch")
+        current_epochs = await self.authorization_epochs(
+            user_id=str(record.get("actor_user_id") or "") or None,
+            device_id=str(record.get("actor_device_id") or "") or None,
+            node_id=str(record.get("requester_node_id") or ""),
+            household_id=str(record.get("actor_household_id") or "") or None,
+        )
+        expected_epochs = record.get("authorization_epochs") if isinstance(record.get("authorization_epochs"), dict) else {}
+        if current_epochs != expected_epochs:
+            raise AssistantAssertionError("intent_execution_authorization_revoked")
+        replayed = record.get("consumed_at") is not None
+        if consume and not replayed:
+            record["consumed_at"] = selected_now
+            records[digest] = record
+            await self._settings.set_sensitive(ASSISTANT_INTENT_EXECUTIONS_REF, records)
+        return {**record, "replayed": replayed}
+
+    async def issue_speaker_enrollment_grant(
+        self,
+        *,
+        node_id: str,
+        person_id: str,
+        household_id: str,
+        endpoint_id: str,
+        enrollment_session_id: str,
+        now: int | None = None,
+    ) -> tuple[str, dict[str, Any]]:
+        selected_now = int(time.time()) if now is None else int(now)
+        reference = f"seg_{secrets.token_urlsafe(32)}"
+        digest = hashlib.sha256(reference.encode("utf-8")).hexdigest()
+        record = {
+            "node_id": node_id, "person_id": person_id, "household_id": household_id,
+            "endpoint_id": endpoint_id, "enrollment_session_id": enrollment_session_id,
+            "purpose": "speaker-recognition", "issued_at": selected_now,
+            "expires_at": selected_now + 120, "consumed_at": None,
+        }
+        raw = await self._settings.get_sensitive(ASSISTANT_ENROLLMENT_GRANTS_REF)
+        records = {str(key): value for key, value in dict(raw or {}).items() if isinstance(value, dict) and int(value.get("expires_at") or 0) + ASSISTANT_ASSERTION_CLOCK_SKEW_SECONDS >= selected_now}
+        records[digest] = record
+        await self._settings.set_sensitive(ASSISTANT_ENROLLMENT_GRANTS_REF, records)
+        return reference, record
+
+    async def consume_speaker_enrollment_grant(self, reference: str, *, bindings: dict[str, str], now: int | None = None) -> dict[str, Any]:
+        selected_now = int(time.time()) if now is None else int(now)
+        digest = hashlib.sha256(str(reference).encode("utf-8")).hexdigest()
+        raw = await self._settings.get_sensitive(ASSISTANT_ENROLLMENT_GRANTS_REF)
+        records = dict(raw or {})
+        record = records.get(digest)
+        if not isinstance(record, dict):
+            raise AssistantAssertionError("speaker_enrollment_grant_unknown")
+        if int(record.get("expires_at") or 0) <= selected_now:
+            raise AssistantAssertionError("speaker_enrollment_grant_expired")
+        if any(str(record.get(key) or "") != str(value or "") for key, value in bindings.items()):
+            raise AssistantAssertionError("speaker_enrollment_grant_binding_mismatch")
+        if record.get("consumed_at") is not None:
+            raise AssistantAssertionError("speaker_enrollment_grant_replayed")
+        record["consumed_at"] = selected_now
+        records[digest] = record
+        await self._settings.set_sensitive(ASSISTANT_ENROLLMENT_GRANTS_REF, records)
+        return record
 
 
 def verify_assistant_assertion(

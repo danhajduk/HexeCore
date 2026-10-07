@@ -471,3 +471,130 @@ def test_voice_person_evidence_downgrades_without_verification_threshold(tmp_pat
 
     assert response.status_code == 200
     assert response.json()["claims"]["actor"]["identity_state"] == "probable"
+
+
+def test_interaction_exchanges_unknown_actor_for_exact_owner_execution_reference(tmp_path):
+    now = int(__import__("time").time())
+    settings = SettingsStore(str(tmp_path / "settings.db"))
+    service = AssistantAssertionService(settings)
+    interaction_audience = "node-service:node-interaction-1:interaction.assistant.turn"
+    actor_token, _ = asyncio.run(service.issue_actor_assertion(
+        core_id="core-1", audience=interaction_audience, requester_node_id="node-voice-1",
+        conversation_id="conv-1", turn_id="turn-1", actor_kind="anonymous",
+        identity_state="unknown", scopes=["assistant.turn.submit"], now=now,
+    ))
+
+    class Trust:
+        def authenticate_node(self, node_id, token_value):
+            return object() if token_value == "trusted" else None
+
+    class Registration:
+        trust_status = "trusted"
+        def __init__(self, node_type): self.node_type = node_type
+
+    class Registrations:
+        def get(self, node_id):
+            return Registration("interaction" if node_id == "node-interaction-1" else "voice") if node_id in {"node-interaction-1", "node-voice-1"} else None
+
+    app = FastAPI()
+    app.include_router(build_assistant_auth_router(service, trust=Trust(), registrations=Registrations(), issuer="core-1"))
+    client = TestClient(app)
+    binding = {
+        "intent_id": "voice.timer.create", "contract_version": "1", "intent_revision": "7",
+        "action": "timer.create", "target_capability": "voice.timer", "canonical_arguments_hash": "a" * 64,
+        "correlation_id": "corr-1",
+    }
+    issued = client.post("/api/system/nodes/assistant/intent-executions/authorize", headers={"X-Node-Id": "node-interaction-1", "X-Node-Trust-Token": "trusted"}, json={
+        "actor_assertion": actor_token, "requester_node_id": "node-voice-1", "interaction_audience": interaction_audience,
+        "owner_audience": "node-service:node-voice-1:voice.timer", "conversation_id": "conv-1", "turn_id": "turn-1",
+        **binding, "required_scopes": ["timer.create"], "risk": "ordinary",
+    })
+    assert issued.status_code == 200, issued.text
+    assert "actor" not in issued.text and actor_token not in issued.text
+    reference = issued.json()["authorization_ref"]
+
+    wrong_owner = client.post("/api/system/nodes/assistant/intent-executions/introspect", headers={"X-Node-Id": "node-interaction-1", "X-Node-Trust-Token": "trusted"}, json={"authorization_ref": reference, **binding})
+    active = client.post("/api/system/nodes/assistant/intent-executions/introspect", headers={"X-Node-Id": "node-voice-1", "X-Node-Trust-Token": "trusted"}, json={"authorization_ref": reference, **binding})
+    replay = client.post("/api/system/nodes/assistant/intent-executions/introspect", headers={"X-Node-Id": "node-voice-1", "X-Node-Trust-Token": "trusted"}, json={"authorization_ref": reference, **binding})
+    changed = client.post("/api/system/nodes/assistant/intent-executions/introspect", headers={"X-Node-Id": "node-voice-1", "X-Node-Trust-Token": "trusted"}, json={"authorization_ref": reference, **binding, "canonical_arguments_hash": "b" * 64})
+
+    assert wrong_owner.json() == {"active": False, "error_code": "intent_execution_owner_mismatch"}
+    assert active.json()["active"] is True and active.json()["identity_state"] == "unknown"
+    assert active.json()["effective_scopes"] == ["timer.create"]
+    assert replay.json()["replayed"] is True
+    assert changed.json() == {"active": False, "error_code": "intent_execution_binding_mismatch"}
+
+
+def test_unknown_actor_cannot_receive_admin_execution_authority(tmp_path):
+    now = int(__import__("time").time())
+    service = AssistantAssertionService(SettingsStore(str(tmp_path / "settings.db")))
+    audience = "node-service:node-interaction-1:interaction.assistant.turn"
+    actor_token, _ = asyncio.run(service.issue_actor_assertion(core_id="core-1", audience=audience, requester_node_id="node-voice-1", conversation_id="conv", turn_id="turn", actor_kind="anonymous", identity_state="unknown", scopes=["assistant.turn.submit"], now=now))
+    class Trust:
+        def authenticate_node(self, node_id, token_value): return object()
+    class Registration:
+        trust_status = "trusted"
+        def __init__(self, node_type): self.node_type = node_type
+    class Registrations:
+        def get(self, node_id): return Registration("interaction" if node_id == "node-interaction-1" else "voice")
+    app = FastAPI()
+    app.include_router(build_assistant_auth_router(service, trust=Trust(), registrations=Registrations(), issuer="core-1"))
+    response = TestClient(app).post("/api/system/nodes/assistant/intent-executions/authorize", headers={"X-Node-Id": "node-interaction-1", "X-Node-Trust-Token": "trusted"}, json={
+        "actor_assertion": actor_token, "requester_node_id": "node-voice-1", "interaction_audience": audience,
+        "owner_audience": "node-service:node-voice-1:voice.admin", "conversation_id": "conv", "turn_id": "turn",
+        "intent_id": "voice.admin", "contract_version": "1", "intent_revision": "1", "action": "admin.change",
+        "target_capability": "voice.admin", "canonical_arguments_hash": "c" * 64, "correlation_id": "corr",
+        "required_scopes": ["admin.change"], "risk": "admin",
+    })
+    assert response.status_code == 403
+    assert response.json()["detail"] == "intent_execution_admin_scope_required"
+
+
+def test_voice_speaker_enrollment_directory_grant_and_revocation_status(tmp_path):
+    settings = SettingsStore(str(tmp_path / "settings.db"))
+    service = AssistantAssertionService(settings)
+    grants = ServiceAccessGrantStore(tmp_path / "grants.json")
+    grants.create(subject_node_id="node-voice-1", audience="core-service:core-1:voice.speaker-enrollment", scopes=["assistant.speaker_enrollment.read", "assistant.speaker_enrollment.write"], expires_at=None)
+
+    class Trust:
+        def authenticate_node(self, node_id, token_value): return object() if node_id == "node-voice-1" and token_value == "trusted" else None
+    class Registration:
+        trust_status = "trusted"; node_type = "voice"
+    class Registrations:
+        def get(self, node_id): return Registration() if node_id == "node-voice-1" else None
+    class Family:
+        denied = False
+        async def snapshot(self):
+            return {
+                "endpoint_assignments": [{"endpoint_id": "kitchen", "household_id": "hh-1", "room_id": "room-1"}],
+                "people": [
+                    {"person_id": "person-1", "household_id": "hh-1", "display_name": "Alice", "status": "active"},
+                    {"person_id": "person-other", "household_id": "hh-2", "display_name": "Other", "status": "active"},
+                ],
+                "consents": [
+                    {"person_id": "person-1", "purpose": "speaker-recognition", "decision": "denied" if self.denied else "granted", "status": "active", "expires_at": None},
+                    {"person_id": "person-other", "purpose": "speaker-recognition", "decision": "granted", "status": "active", "expires_at": None},
+                ],
+            }
+    family = Family()
+    app = FastAPI()
+    app.include_router(build_assistant_auth_router(service, trust=Trust(), registrations=Registrations(), grants=grants, family=family, issuer="core-1"))
+    client = TestClient(app); headers = {"X-Node-Id": "node-voice-1", "X-Node-Trust-Token": "trusted"}
+    people = client.get("/api/system/nodes/assistant/speaker-enrollment/people", params={"endpoint_id": "kitchen", "enrollment_session_id": "session-1"}, headers=headers)
+    assert people.status_code == 200
+    assert people.json()["items"] == [{"person_id": "person-1", "enrollment_label": "Alice", "consent_state": "granted", "eligibility_state": "eligible", "enrollment_status": "available", "reason": None}]
+    assert "hh-2" not in people.text
+    issued = client.post("/api/system/nodes/assistant/speaker-enrollment/grants", headers=headers, json={"person_id": "person-1", "endpoint_id": "kitchen", "enrollment_session_id": "session-1"})
+    assert issued.status_code == 200, issued.text
+    grant_ref = issued.json()["grant_ref"]
+    consumed = client.post("/api/system/nodes/assistant/speaker-enrollment/grants/consume", headers=headers, json={"grant_ref": grant_ref, "person_id": "person-1", "endpoint_id": "kitchen", "enrollment_session_id": "session-1"})
+    replay = client.post("/api/system/nodes/assistant/speaker-enrollment/grants/consume", headers=headers, json={"grant_ref": grant_ref, "person_id": "person-1", "endpoint_id": "kitchen", "enrollment_session_id": "session-1"})
+    assert consumed.json()["active"] is True
+    assert replay.json() == {"active": False, "error_code": "speaker_enrollment_grant_replayed"}
+    issued_before_withdrawal = client.post("/api/system/nodes/assistant/speaker-enrollment/grants", headers=headers, json={"person_id": "person-1", "endpoint_id": "kitchen", "enrollment_session_id": "session-2"})
+    assert issued_before_withdrawal.status_code == 200
+    family.denied = True
+    revoked = client.post("/api/system/nodes/assistant/speaker-enrollment/grants/consume", headers=headers, json={"grant_ref": issued_before_withdrawal.json()["grant_ref"], "person_id": "person-1", "endpoint_id": "kitchen", "enrollment_session_id": "session-2"})
+    assert revoked.json() == {"active": False, "error_code": "speaker_enrollment_authority_revoked"}
+    status = client.get("/api/system/nodes/assistant/speaker-enrollment/bindings/person-1/status", params={"endpoint_id": "kitchen"}, headers=headers)
+    assert status.json() == {"active": False, "person_id": "person-1", "reason": "consent_not_granted"}
