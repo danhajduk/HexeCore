@@ -25,6 +25,10 @@ class ServiceCatalogStore:
         async with self._lock:
             await asyncio.to_thread(self._upsert_sync, service_name, payload)
 
+    async def delete_catalog(self, service_name: str) -> bool:
+        async with self._lock:
+            return await asyncio.to_thread(self._delete_sync, service_name)
+
     async def upsert_service(
         self,
         *,
@@ -106,3 +110,11 @@ class ServiceCatalogStore:
         item["last_seen"] = _utcnow_iso()
         data[service_name] = item
         self._write_sync(data)
+
+    def _delete_sync(self, service_name: str) -> bool:
+        data = self._read_sync()
+        if service_name not in data:
+            return False
+        del data[service_name]
+        self._write_sync(data)
+        return True

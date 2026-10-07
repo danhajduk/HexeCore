@@ -108,6 +108,7 @@ from app.system.client_catalog import build_client_core_catalog_router
 from app.system.service_access import ServiceAccessGrantStore, build_service_access_router
 from app.system.management_access import ManagementAuthorizationService, ManagementAuthorizationStore, build_management_access_router
 from app.system.assistant_auth import AssistantAssertionService, build_assistant_auth_router
+from app.system.onboarding.assistant_services import reconcile_assistant_services
 from app.system.policy import PolicyStore, build_policy_router
 from app.system.telemetry import UsageTelemetryStore, build_telemetry_router
 from app.system.audit import AuditLogStore
@@ -175,6 +176,18 @@ def create_app() -> FastAPI:
         app.state.latest_api_metrics = None
         app.state.latest_system_snapshot = None
         app.state.startup_warmup_tasks = []
+
+        registrations = getattr(app.state, "node_registrations_store", None)
+        if registrations is not None:
+            for registration in registrations.list():
+                if str(getattr(registration, "trust_status", "") or "").strip().lower() != "trusted":
+                    continue
+                await reconcile_assistant_services(
+                    registration,
+                    service_catalog_store=getattr(app.state, "service_catalog_store", None),
+                    service_access_grant_store=getattr(app.state, "service_access_grant_store", None),
+                    core_service_subject=str(os.getenv("HEXE_CORE_ID", "hexe-core")).strip() or "hexe-core",
+                )
 
         asyncio.create_task(stats_fast_sampler_loop(app, interval_s=cfg.stats_fast_interval_s))
         asyncio.create_task(
@@ -1373,6 +1386,8 @@ def create_app() -> FastAPI:
             mqtt_manager=mqtt_manager,
             service_token_key_store=service_token_keys,
             service_catalog_store=service_catalog_store,
+            service_access_grant_store=service_access_grant_store,
+            core_service_subject=str(os.getenv("HEXE_CORE_ID", "hexe-core")).strip() or "hexe-core",
             mqtt_approval_service=mqtt_registration_approval,
             mqtt_integration_state_store=mqtt_integration_state_store,
             mqtt_credential_store=mqtt_credential_store,

@@ -219,6 +219,15 @@ standard `/api/schemas/client-node/v2` schema catalog, an absolute health path,
 and every v1 operation with its fixed method, path, and narrow Assistant scope.
 Core rejects incomplete or substituted Assistant metadata at declaration time.
 
+After accepting a trusted Assistant declaration, Core reconciles each Assistant
+capability into the runtime service catalog using the declared provider-instance
+identity and endpoint. Core also maintains a least-privilege grant from the Core
+service identity to `interaction.assistant.turn` for `assistant.turn.submit` and
+`assistant.turn.resume`. Startup reconciliation rebuilds these derived runtime
+records from persisted trusted registrations after a restart. Node registry
+responses include the accepted `capability_endpoints` metadata for operator
+inspection.
+
 Resolution preserves that exact service identity and returns the operation
 scopes declared for the selected Assistant capability. This lets Voice or
 another authorized node call Interaction directly with Core-issued caller and

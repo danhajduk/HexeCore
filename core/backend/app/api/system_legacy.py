@@ -67,6 +67,7 @@ from ..system.onboarding import (
     validate_capability_declaration,
 )
 from ..system.onboarding.provider_capability_normalization import normalize_capacity_descriptor
+from ..system.onboarding.assistant_services import reconcile_assistant_services
 from ..system.runtime import StandaloneRuntimeService
 from ..system.services import NodeServiceResolutionService, ServiceCatalogStore
 from ..system.services.node_resolution import normalize_model_preference_for_task
@@ -548,6 +549,8 @@ def build_system_router(
     mqtt_manager=None,
     service_token_key_store=None,
     service_catalog_store: ServiceCatalogStore | None = None,
+    service_access_grant_store=None,
+    core_service_subject: str | None = None,
     mqtt_approval_service=None,
     mqtt_integration_state_store=None,
     mqtt_credential_store=None,
@@ -1370,7 +1373,7 @@ def build_system_router(
         return {"ok": True, "items": payload}
 
     @router.post("/system/nodes/capabilities/declaration")
-    def declare_node_capabilities(
+    async def declare_node_capabilities(
         body: NodeCapabilityDeclarationRequest,
         request: Request,
         x_node_trust_token: str | None = Header(default=None),
@@ -1453,6 +1456,12 @@ def build_system_router(
             registration.provider_intelligence = [dict(item) for item in list(profile.provider_intelligence or []) if isinstance(item, dict)]
         registration.capability_profile_id = profile.profile_id if profile is not None else None
         node_registrations_store.upsert(registration)
+        await reconcile_assistant_services(
+            registration,
+            service_catalog_store=service_catalog_store,
+            service_access_grant_store=service_access_grant_store,
+            core_service_subject=core_service_subject,
+        )
         if model_routing_registry_service is not None and profile is not None:
             model_routing_registry_service.record_provider_intelligence(
                 node_id=node_id,

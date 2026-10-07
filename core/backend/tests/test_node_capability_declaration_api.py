@@ -1,3 +1,4 @@
+import asyncio
 import os
 import tempfile
 import unittest
@@ -29,6 +30,8 @@ from app.system.onboarding.capability_profiles import NodeCapabilityProfilesStor
 from app.system.onboarding.governance import NodeGovernanceService, NodeGovernanceStore
 from app.system.onboarding.governance_status import NodeGovernanceStatusService, NodeGovernanceStatusStore
 from app.system.onboarding.provider_model_policy import ProviderModelApprovalPolicyService, ProviderModelPolicyStore
+from app.system.service_access import ServiceAccessGrantStore
+from app.system.services.store import ServiceCatalogStore
 from app.api import system as system_api
 
 
@@ -72,6 +75,8 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
         self.governance_service = NodeGovernanceService(self.governance_store)
         self.governance_status_store = NodeGovernanceStatusStore(path=Path(self.tmpdir.name) / "node_governance_status.json")
         self.governance_status_service = NodeGovernanceStatusService(self.governance_status_store)
+        self.service_catalog = ServiceCatalogStore(str(Path(self.tmpdir.name) / "service_catalogs.json"))
+        self.service_grants = ServiceAccessGrantStore(Path(self.tmpdir.name) / "service_access_grants.json")
         app = FastAPI()
         app.include_router(
             build_system_router(
@@ -84,6 +89,9 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
                 node_governance_status_service=self.governance_status_service,
                 provider_model_policy_service=self.provider_policy_service,
                 model_routing_registry_service=self.routing_registry_service,
+                service_catalog_store=self.service_catalog,
+                service_access_grant_store=self.service_grants,
+                core_service_subject="core-test",
             ),
             prefix="/api",
         )
@@ -272,6 +280,97 @@ class TestNodeCapabilityDeclarationApi(unittest.TestCase):
         assert registration is not None
         self.assertEqual(registration.provided_task_families, ["task.voice.intent.dispatch"])
         self.assertEqual(registration.requested_task_families, ["task.chat"])
+
+    def test_assistant_declaration_reconciles_catalog_grant_and_registry_view(self) -> None:
+        node_id, trust_token = self._trusted_node()
+        manifest = self._manifest(node_id)
+        manifest["node"]["node_type"] = "interaction-node"
+        manifest["declared_task_families"] = ["interaction.assistant.turn", "interaction.assistant.intents"]
+        manifest["declared_capabilities"] = list(manifest["declared_task_families"])
+        manifest["supported_providers"] = ["hexe-interaction"]
+        manifest["enabled_providers"] = ["hexe-interaction"]
+        manifest["provider_intelligence"] = []
+
+        def endpoint(capability: str, method: str, path: str, operations: dict) -> dict:
+            audience = f"node-service:{node_id}:{capability}"
+            return {
+                "transport": "http",
+                "method": method,
+                "path": path,
+                "url": f"http://interaction.local:9005{path}",
+                "provider_ids": ["hexe-interaction"],
+                "service_id": audience,
+                "audience": audience,
+                "contract_version": "assistant.v1",
+                "schema_catalog": "/api/schemas/client-node/v2",
+                "health_path": "/health/ready",
+                "operations": operations,
+            }
+
+        manifest["capability_endpoints"] = {
+            "interaction.assistant.turn": endpoint(
+                "interaction.assistant.turn",
+                "POST",
+                "/api/interaction/assistant/v1/turns",
+                {
+                    "submit": {"method": "POST", "path": "/api/interaction/assistant/v1/turns", "scope": "assistant.turn.submit"},
+                    "cancel": {"method": "POST", "path": "/api/interaction/assistant/v1/turns/{turn_id}/cancel", "scope": "assistant.turn.cancel"},
+                    "resume": {"method": "POST", "path": "/api/interaction/assistant/v1/turns/{turn_id}/approvals", "scope": "assistant.turn.resume"},
+                },
+            ),
+            "interaction.assistant.intents": endpoint(
+                "interaction.assistant.intents",
+                "GET",
+                "/api/interaction/assistant/v1/intents",
+                {
+                    "list": {"method": "GET", "path": "/api/interaction/assistant/v1/intents", "scope": "assistant.intent.list"},
+                    "register": {"method": "POST", "path": "/api/interaction/assistant/v1/intents", "scope": "assistant.intent.register"},
+                    "update": {"method": "PUT", "path": "/api/interaction/assistant/v1/intents/{intent_id}", "scope": "assistant.intent.update"},
+                    "lifecycle": {"method": "POST", "path": "/api/interaction/assistant/v1/intents/{intent_id}/lifecycle", "scope": "assistant.intent.lifecycle"},
+                    "match": {"method": "POST", "path": "/api/interaction/assistant/v1/intents/match", "scope": "assistant.intent.match"},
+                },
+            ),
+        }
+
+        declared = self.client.post(
+            "/api/system/nodes/capabilities/declaration",
+            json={"manifest": manifest},
+            headers={"X-Node-Trust-Token": trust_token},
+        )
+        self.assertEqual(declared.status_code, 200, declared.text)
+
+        catalogs = asyncio.run(self.service_catalog.all_catalogs())
+        turn_audience = f"node-service:{node_id}:interaction.assistant.turn"
+        self.assertEqual(catalogs[turn_audience]["endpoint"], "http://interaction.local:9005/api/interaction/assistant/v1/turns")
+        self.assertEqual(catalogs[turn_audience]["required_scopes"], [
+            "assistant.turn.cancel",
+            "assistant.turn.resume",
+            "assistant.turn.submit",
+        ])
+        grant = self.service_grants.find_authorizing(
+            subject_node_id="core-test",
+            audience=turn_audience,
+            required_scopes=["assistant.turn.submit", "assistant.turn.resume"],
+        )
+        self.assertIsNotNone(grant)
+
+        redeclared = self.client.post(
+            "/api/system/nodes/capabilities/declaration",
+            json={"manifest": manifest},
+            headers={"X-Node-Trust-Token": trust_token},
+        )
+        self.assertEqual(redeclared.status_code, 200, redeclared.text)
+        self.assertEqual(len(self.service_grants.list()), 1)
+
+        registration = self.client.get(
+            f"/api/system/nodes/registrations/{node_id}",
+            headers={"X-Admin-Token": "test-token"},
+        )
+        self.assertEqual(registration.status_code, 200, registration.text)
+        self.assertEqual(
+            registration.json()["registration"]["capability_endpoints"]["interaction.assistant.turn"]["service_id"],
+            turn_audience,
+        )
 
     def test_rejects_untrusted_node_token(self) -> None:
         node_id, _trust_token = self._trusted_node()

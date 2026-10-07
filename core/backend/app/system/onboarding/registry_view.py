@@ -85,6 +85,11 @@ def node_registry_payload(item, node_governance_status_service: NodeGovernanceSt
         "declared_capabilities": list(getattr(item, "declared_capabilities", []) or []),
         "provided_task_families": provided_task_families,
         "requested_task_families": requested_task_families,
+        "capability_endpoints": {
+            str(key): dict(value)
+            for key, value in dict(getattr(item, "capability_endpoints", {}) or {}).items()
+            if str(key).strip() and isinstance(value, dict)
+        },
         "enabled_providers": list(getattr(item, "enabled_providers", []) or []),
         "provider_intelligence": [dict(v) for v in list(getattr(item, "provider_intelligence", []) or []) if isinstance(v, dict)],
         "capability_declaration_version": getattr(item, "capability_declaration_version", None),

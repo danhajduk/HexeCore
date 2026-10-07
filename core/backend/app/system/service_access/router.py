@@ -192,6 +192,28 @@ class ServiceAccessGrantStore:
                 return grant
         return None
 
+    def ensure_active(
+        self,
+        *,
+        subject_node_id: str,
+        audience: str,
+        scopes: list[str],
+    ) -> ServiceAccessGrant:
+        required = _clean_scopes(scopes)
+        existing = self.find_authorizing(
+            subject_node_id=subject_node_id,
+            audience=audience,
+            required_scopes=required,
+        )
+        if existing is not None:
+            return existing
+        return self.create(
+            subject_node_id=subject_node_id,
+            audience=audience,
+            scopes=required,
+            expires_at=None,
+        )
+
 
 class ServiceAccessGrantCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
