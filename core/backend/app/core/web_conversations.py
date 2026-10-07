@@ -42,6 +42,10 @@ class ConversationMessage(BaseModel):
     mode: str = Field(default="text", pattern="^(text|voice)$")
 
 
+class ApprovalDecision(BaseModel):
+    decision: str = Field(pattern="^(approve|deny)$")
+
+
 class ConversationStore:
     def __init__(self, db_path: str, *, retention_days: int = 30, max_messages: int = 200) -> None:
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
@@ -66,6 +70,17 @@ class ConversationStore:
           FOREIGN KEY(conversation_id) REFERENCES web_app_conversations(conversation_id));
         CREATE INDEX IF NOT EXISTS web_app_assistant_event_owner_idx
           ON web_app_conversation_assistant_events(user_id, conversation_id, turn_id, sequence);
+        CREATE TABLE IF NOT EXISTS web_app_assistant_approvals (
+          approval_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, conversation_id TEXT NOT NULL,
+          turn_id TEXT NOT NULL, service_id TEXT NOT NULL, endpoint_url TEXT NOT NULL,
+          action TEXT NOT NULL, intent_id TEXT NOT NULL, intent_revision TEXT NOT NULL,
+          canonical_arguments_hash TEXT NOT NULL, target_capability TEXT NOT NULL,
+          correlation_id TEXT NOT NULL, required_scopes_json TEXT NOT NULL,
+          safe_summary TEXT NOT NULL, device_id TEXT, status TEXT NOT NULL,
+          created_at TEXT NOT NULL, expires_at TEXT NOT NULL, decided_at TEXT,
+          UNIQUE(turn_id, approval_id));
+        CREATE INDEX IF NOT EXISTS web_app_assistant_approval_owner_idx
+          ON web_app_assistant_approvals(user_id, conversation_id, status, created_at);
         """)
 
     async def create(self, user_id: str, title: str) -> dict[str, Any]:
@@ -148,6 +163,84 @@ class ConversationStore:
         ).fetchall()
         return [json.loads(str(row["payload_json"])) for row in rows]
 
+    async def create_approval(self, *, user_id: str, conversation_id: str, turn_id: str, service_id: str, endpoint_url: str, device_id: str | None, data: dict[str, Any]) -> dict[str, Any]:
+        async with self._lock:
+            return await asyncio.to_thread(self._create_approval, user_id, conversation_id, turn_id, service_id, endpoint_url, device_id, data)
+
+    def _create_approval(self, user_id: str, conversation_id: str, turn_id: str, service_id: str, endpoint_url: str, device_id: str | None, data: dict[str, Any]) -> dict[str, Any]:
+        required = ("approval_id", "action", "intent_id", "intent_revision", "canonical_arguments_hash", "target_capability", "correlation_id")
+        if any(not str(data.get(key) or "").strip() for key in required):
+            raise RuntimeError("assistant_approval_binding_invalid")
+        argument_hash = str(data["canonical_arguments_hash"]).lower()
+        if len(argument_hash) != 64 or any(char not in "0123456789abcdef" for char in argument_hash):
+            raise RuntimeError("assistant_approval_binding_invalid")
+        scopes = sorted({str(item).strip() for item in list(data.get("required_scopes") or []) if str(item).strip()})
+        if not scopes:
+            raise RuntimeError("assistant_approval_scope_required")
+        now = datetime.now(timezone.utc)
+        expires_at = now + timedelta(minutes=10)
+        values = (
+            str(data["approval_id"]), user_id, conversation_id, turn_id, service_id, endpoint_url,
+            str(data["action"]), str(data["intent_id"]), str(data["intent_revision"]), argument_hash,
+            str(data["target_capability"]), str(data["correlation_id"]), json.dumps(scopes),
+            str(data.get("safe_summary") or data.get("summary") or "Approval required")[:500],
+            device_id, "pending", now.isoformat(), expires_at.isoformat(), None,
+        )
+        with self._conn:
+            self._conn.execute("INSERT OR IGNORE INTO web_app_assistant_approvals VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", values)
+        row = self._conn.execute("SELECT * FROM web_app_assistant_approvals WHERE approval_id=? AND user_id=? AND conversation_id=?", (values[0], user_id, conversation_id)).fetchone()
+        if row is None:
+            raise RuntimeError("assistant_approval_conflict")
+        return self._public_approval(dict(row))
+
+    @staticmethod
+    def _public_approval(row: dict[str, Any]) -> dict[str, Any]:
+        return {key: row.get(key) for key in ("approval_id", "conversation_id", "turn_id", "action", "intent_id", "intent_revision", "target_capability", "safe_summary", "status", "created_at", "expires_at", "decided_at")}
+
+    async def list_approvals(self, user_id: str, conversation_id: str) -> list[dict[str, Any]]:
+        async with self._lock:
+            return await asyncio.to_thread(self._list_approvals, user_id, conversation_id)
+
+    def _list_approvals(self, user_id: str, conversation_id: str) -> list[dict[str, Any]]:
+        now = _now()
+        with self._conn:
+            self._conn.execute("UPDATE web_app_assistant_approvals SET status='expired' WHERE user_id=? AND conversation_id=? AND status='pending' AND expires_at<=?", (user_id, conversation_id, now))
+        rows = self._conn.execute("SELECT * FROM web_app_assistant_approvals WHERE user_id=? AND conversation_id=? ORDER BY created_at DESC", (user_id, conversation_id)).fetchall()
+        return [self._public_approval(dict(row)) for row in rows]
+
+    async def decide_approval(self, user_id: str, conversation_id: str, approval_id: str, decision: str) -> dict[str, Any] | None:
+        async with self._lock:
+            return await asyncio.to_thread(self._decide_approval, user_id, conversation_id, approval_id, decision)
+
+    def _decide_approval(self, user_id: str, conversation_id: str, approval_id: str, decision: str) -> dict[str, Any] | None:
+        row = self._conn.execute("SELECT * FROM web_app_assistant_approvals WHERE approval_id=? AND user_id=? AND conversation_id=?", (approval_id, user_id, conversation_id)).fetchone()
+        if row is None:
+            return None
+        item = dict(row)
+        requested_status = "approved" if decision == "approve" else "denied"
+        if item["status"] == requested_status:
+            item["required_scopes"] = json.loads(str(item.pop("required_scopes_json")))
+            return item
+        if item["status"] != "pending" or str(item["expires_at"]) <= _now():
+            raise RuntimeError("assistant_approval_not_pending")
+        status = requested_status
+        decided_at = _now()
+        with self._conn:
+            changed = self._conn.execute("UPDATE web_app_assistant_approvals SET status=?,decided_at=? WHERE approval_id=? AND status='pending'", (status, decided_at, approval_id)).rowcount
+        if changed != 1:
+            raise RuntimeError("assistant_approval_not_pending")
+        item.update({"status": status, "decided_at": decided_at})
+        item["required_scopes"] = json.loads(str(item.pop("required_scopes_json")))
+        return item
+
+    async def complete_approval(self, user_id: str, approval_id: str) -> None:
+        async with self._lock:
+            await asyncio.to_thread(
+                self._conn.execute,
+                "UPDATE web_app_assistant_approvals SET status='completed' WHERE approval_id=? AND user_id=? AND status='approved'",
+                (approval_id, user_id),
+            )
+
 
 class CoreChatExecutor:
     def __init__(self, catalog: ServiceCatalogStore, grants: ServiceAccessGrantStore, keys: ServiceTokenKeyStore, settings: SettingsStore, *, assistant_assertions: AssistantAssertionService | None = None, family: FamilyIdentityStore | None = None, conversations: ConversationStore | None = None, client: httpx.AsyncClient | None = None) -> None:
@@ -218,7 +311,7 @@ class CoreChatExecutor:
         response.raise_for_status()
         if "application/x-ndjson" not in str(response.headers.get("content-type") or "").lower():
             raise RuntimeError("assistant_event_media_type_invalid")
-        events=[]; expected_sequence=1; terminal=None; final_text=""
+        events=[]; expected_sequence=1; terminal=None; final_text=""; approval_data=None
         for line in response.text.splitlines():
             if not line.strip(): continue
             try: event=json.loads(line)
@@ -229,12 +322,63 @@ class CoreChatExecutor:
                 raise RuntimeError("assistant_event_contract_invalid")
             expected_sequence+=1; events.append(event); event_type=str(event.get("type") or "")
             if event_type=="assistant.content.final": final_text=str((event.get("data") or {}).get("text") or "").strip()
+            if event_type=="assistant.approval.required":
+                if approval_data is not None:
+                    raise RuntimeError("assistant_multiple_approvals_invalid")
+                approval_data=dict(event["data"])
             if event_type in {"assistant.turn.completed","assistant.turn.failed","assistant.turn.cancelled"}:
                 terminal=event_type
+        await self._conversations.append_assistant_events(user_id,conversation_id,turn_id,events)
+        if approval_data is not None:
+            if terminal is not None:
+                raise RuntimeError("assistant_approval_terminal_invalid")
+            approval = await self._conversations.create_approval(
+                user_id=user_id, conversation_id=conversation_id, turn_id=turn_id,
+                service_id=audience, endpoint_url=endpoint, device_id=device_id, data=approval_data,
+            )
+            return str(approval["safe_summary"])
         if terminal!="assistant.turn.completed": raise RuntimeError("assistant_turn_not_completed")
         if not final_text: raise RuntimeError("assistant_provider_empty_response")
-        await self._conversations.append_assistant_events(user_id,conversation_id,turn_id,events)
         return final_text
+
+    async def resume_approval(self, *, approval: dict[str, Any], user_id: str, device_id: str | None) -> str:
+        if self._assistant_assertions is None or self._family is None or self._conversations is None:
+            raise RuntimeError("assistant_core_context_unavailable")
+        service=await self._catalog.resolve("interaction.assistant.turn")
+        if service is None or str(service.get("service_id") or "").strip()!=str(approval["service_id"]):
+            raise RuntimeError("assistant_approval_provider_changed")
+        audience=str(approval["service_id"]); subject=(await load_platform_identity(self._settings)).core_id
+        scopes=["assistant.turn.resume"]
+        grant=self._grants.find_authorizing(subject_node_id=subject,audience=audience,required_scopes=scopes)
+        if grant is None: raise RuntimeError("assistant_provider_not_authorized")
+        now=int(time.time()); key=await self._keys.active_key(); provider_node_id=audience.split(":",3)[1] if audience.startswith("node-service:") else None
+        claims={"iss":SERVICE_TOKEN_ISSUER,"sub":subject,"aud":audience,"scp":scopes,"iat":now,"exp":now+120,"jti":f"access-{uuid.uuid4().hex}","token_use":"node_service_access","authorization_id":grant.grant_id,"provider_node_id":provider_node_id}
+        service_token=sign_hs256({"alg":"HS256","typ":"JWT","kid":str(key["kid"])},claims,str(key["secret"])); await self._keys.record_token_expiry(kid=str(key["kid"]),exp=now+120)
+        self_view=await self._family.self_view(user_id); person=self_view.get("person") if isinstance(self_view,dict) else None
+        person_id=str(person.get("person_id") or "") if isinstance(person,dict) else ""; household_id=str(person.get("household_id") or "") if isinstance(person,dict) else ""
+        actor_scopes=list(approval.get("required_scopes") or [])
+        _,actor_claims=await self._assistant_assertions.issue_actor_assertion(core_id=subject,audience=audience,requester_node_id=subject,conversation_id=str(approval["conversation_id"]),turn_id=str(approval["turn_id"]),actor_kind="human_user",identity_state="verified",scopes=actor_scopes,user_id=user_id,person_id=person_id or None,household_id=household_id or None,device_id=device_id)
+        approval_token,_=await self._assistant_assertions.issue_approval_assertion(actor_claims=actor_claims,approval_id=str(approval["approval_id"]),action=str(approval["action"]),intent_id=str(approval["intent_id"]),intent_revision=str(approval["intent_revision"]),canonical_arguments_hash=str(approval["canonical_arguments_hash"]),target_capability=str(approval["target_capability"]),correlation_id=str(approval["correlation_id"]))
+        endpoint=urljoin(str(approval["endpoint_url"]).rstrip("/")+"/",f"{approval['turn_id']}/approvals")
+        payload={"contract_version":"assistant.approval-resume.v1","turn_id":approval["turn_id"],"approval_assertion":approval_token}
+        client=self._client or httpx.AsyncClient(timeout=65)
+        try: response=await client.post(endpoint,headers={"Authorization":f"Bearer {service_token}","X-Hexe-Requester-Node-Id":subject,"Accept":"application/x-ndjson"},json=payload)
+        finally:
+            if self._client is None: await client.aclose()
+        response.raise_for_status()
+        events=[]; final_text=""; terminal=None
+        for line in response.text.splitlines():
+            if not line.strip(): continue
+            try: event=json.loads(line)
+            except json.JSONDecodeError as exc: raise RuntimeError("assistant_event_invalid_json") from exc
+            if event.get("contract_version")!="assistant.event.v1" or event.get("turn_id")!=approval["turn_id"] or event.get("conversation_id")!=approval["conversation_id"] or not isinstance(event.get("data"),dict): raise RuntimeError("assistant_event_contract_invalid")
+            events.append(event); event_type=str(event.get("type") or "")
+            if event_type=="assistant.content.final": final_text=str(event["data"].get("text") or "").strip()
+            if event_type=="assistant.task.result" and not final_text: final_text="Approved action completed."
+            if event_type in {"assistant.turn.completed","assistant.turn.failed","assistant.turn.cancelled"}: terminal=event_type
+        if terminal!="assistant.turn.completed": raise RuntimeError("assistant_turn_not_completed")
+        await self._conversations.append_assistant_events(user_id,str(approval["conversation_id"]),str(approval["turn_id"]),events)
+        return final_text or "Approved action completed."
 
 
 def build_conversation_router(store: ConversationStore, executor: CoreChatExecutor, keys: ServiceTokenKeyStore, users: UsersStore, devices: WebAppEnrollmentStore, settings: SettingsStore, audit: AuditLogStore | None=None) -> APIRouter:
@@ -264,6 +408,27 @@ def build_conversation_router(store: ConversationStore, executor: CoreChatExecut
         if not await store.delete(p.user_id,conversation_id): raise HTTPException(404,"conversation_not_found")
         if audit: await audit.record(event_type="web_conversation_deleted",actor_role=p.role,actor_id=p.user_id,details={"conversation_id":conversation_id})
         return {"ok":True}
+    @router.get("/conversations/{conversation_id}/approvals")
+    async def list_approvals(conversation_id: str,authorization: str|None=Header(default=None)):
+        p=await principal(authorization)
+        if await store.get(p.user_id,conversation_id) is None: raise HTTPException(404,"conversation_not_found")
+        return {"ok":True,"items":await store.list_approvals(p.user_id,conversation_id)}
+    @router.post("/conversations/{conversation_id}/approvals/{approval_id}/decision")
+    async def decide_approval(conversation_id: str,approval_id: str,body: ApprovalDecision,authorization: str|None=Header(default=None)):
+        p=await principal(authorization)
+        if await store.get(p.user_id,conversation_id) is None: raise HTTPException(404,"conversation_not_found")
+        try: approval=await store.decide_approval(p.user_id,conversation_id,approval_id,body.decision)
+        except RuntimeError as exc: raise HTTPException(409,str(exc)) from exc
+        if approval is None: raise HTTPException(404,"assistant_approval_not_found")
+        if body.decision=="deny":
+            if audit: await audit.record(event_type="assistant_approval_denied",actor_role=p.role,actor_id=p.user_id,details={"conversation_id":conversation_id,"approval_id":approval_id})
+            return {"ok":True,"approval":ConversationStore._public_approval(approval)}
+        try: reply=await executor.resume_approval(approval=approval,user_id=p.user_id,device_id=p.device_id)
+        except (RuntimeError,httpx.HTTPError) as exc: raise HTTPException(503,str(exc)[:120]) from exc
+        await store.complete_approval(p.user_id,approval_id)
+        assistant=await store.append(p.user_id,conversation_id,"assistant",reply,"text")
+        if audit: await audit.record(event_type="assistant_approval_completed",actor_role=p.role,actor_id=p.user_id,details={"conversation_id":conversation_id,"approval_id":approval_id})
+        return {"ok":True,"approval":{**ConversationStore._public_approval(approval),"status":"completed"},"assistant_message":assistant}
     @router.post("/conversations/{conversation_id}/messages")
     async def send_message(conversation_id: str,body: ConversationMessage,authorization: str|None=Header(default=None)):
         p=await principal(authorization); user_message=await store.append(p.user_id,conversation_id,"user",body.text.strip(),body.mode)

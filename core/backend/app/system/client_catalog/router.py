@@ -467,6 +467,8 @@ def _catalog_payload() -> ClientCoreCatalogResponse:
             _api("assistant_jwks", "GET", "/.well-known/hexe-core-jwks.json", "Read public Ed25519 keys for local Assistant assertion verification.", "Public verification material"),
             _api("assistant_actor_assertion_issue", "POST", "/api/system/nodes/assistant/actor-assertions", "Issue a short-lived actor assertion from trusted node evidence and a Core-owned exact-audience grant."),
             _api("assistant_assertion_introspection", "POST", "/api/system/nodes/assistant/assertions/introspect", "Recheck Assistant assertion binding, scopes, authorization epochs, and single-use approval state.", "X-Node-Id and X-Node-Trust-Token"),
+            _api("web_assistant_approval_list", "GET", "/api/web-app/conversations/{conversation_id}/approvals", "List the authenticated user's durable Assistant approvals for one owned conversation.", "Authenticated enrolled Web App device"),
+            _api("web_assistant_approval_decision", "POST", "/api/web-app/conversations/{conversation_id}/approvals/{approval_id}/decision", "Approve or deny one pending Assistant action; approval resumes Interaction with a fresh exact-binding assertion.", "Authenticated enrolled Web App device"),
             _api("service_access_grant_list", "GET", "/api/system/nodes/service-access/grants", "List privileged service-access grants.", "Core administrator"),
             _api("service_access_grant_create", "POST", "/api/system/nodes/service-access/grants", "Create a privileged service-access grant.", "Core administrator"),
             _api("service_access_grant_detail", "GET", "/api/system/nodes/service-access/grants/{grant_id}", "Read one privileged service-access grant.", "Core administrator"),

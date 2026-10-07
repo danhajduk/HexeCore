@@ -253,9 +253,18 @@ caller's accepted message and assistant completion; failures expose a generic
 availability code. When `interaction.assistant.turn` is registered, Core
 selects that exact provider, requires an active `assistant.turn.submit` grant,
 issues separate caller and actor authorization, and submits
-`assistant.turn.v1`. It validates contiguous `assistant.event.v1` sequences,
-requires one final completion, and durably stores the validated event stream
-under the authenticated user and conversation before persisting final content.
+`assistant.turn.v1`. It validates contiguous `assistant.event.v1` sequences
+and durably stores the validated event stream under the authenticated user and
+conversation. A normal turn requires one final completion. A consequential
+turn may instead stop at one `assistant.approval.required` event; Core persists
+the exact action, intent revision, canonical arguments hash, target capability,
+correlation, scopes, provider audience, owner, and ten-minute expiry.
+Authenticated enrolled devices list and decide only approvals belonging to
+their user and conversation. Approval creates a fresh 60-second assertion bound
+to those exact values and calls Interaction's approval-resume route with a
+separate `assistant.turn.resume` service token. Denials never issue an assertion
+or invoke the provider. Repeated identical decisions are idempotent; changed,
+expired, cross-user, and already-terminal decisions fail closed.
 If the new capability is absent during migration, Core retains the existing
 governed `task.chat` path; it never falls back after an advertised Assistant
 provider fails. Browser callers cannot select an upstream endpoint, supply

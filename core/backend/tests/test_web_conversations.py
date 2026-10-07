@@ -52,6 +52,23 @@ class TestConversationStore:
         assert asyncio.run(self.store.assistant_events("alice", conversation["conversation_id"], "turn-1")) == [event]
         assert asyncio.run(self.store.assistant_events("bob", conversation["conversation_id"], "turn-1")) == []
 
+    def test_approval_is_owner_scoped_and_single_decision(self):
+        conversation = asyncio.run(self.store.create("alice", "Approval"))
+        data = {
+            "approval_id": "approval-1", "action": "timer.create", "intent_id": "timer.create",
+            "intent_revision": "1", "canonical_arguments_hash": "a" * 64,
+            "target_capability": "timer.create", "correlation_id": "correlation-1",
+            "required_scopes": ["timer.create"], "safe_summary": "Create a ten minute timer?",
+        }
+        saved = asyncio.run(self.store.create_approval(user_id="alice", conversation_id=conversation["conversation_id"], turn_id="turn-1", service_id="service-1", endpoint_url="http://interaction/turns", device_id="phone-1", data=data))
+        assert saved["status"] == "pending"
+        assert asyncio.run(self.store.list_approvals("bob", conversation["conversation_id"])) == []
+        assert asyncio.run(self.store.decide_approval("bob", conversation["conversation_id"], "approval-1", "approve")) is None
+        approved = asyncio.run(self.store.decide_approval("alice", conversation["conversation_id"], "approval-1", "approve"))
+        assert approved is not None and approved["required_scopes"] == ["timer.create"]
+        repeated = asyncio.run(self.store.decide_approval("alice", conversation["conversation_id"], "approval-1", "approve"))
+        assert repeated is not None and repeated["status"] == "approved"
+
 
 class _Executor:
     async def execute(self, *, conversation_id, text, history, **_context):
@@ -107,6 +124,66 @@ def test_core_executor_prefers_assistant_contract_and_persists_ordered_events(tm
     assert [event["type"] for event in events] == ["assistant.turn.accepted", "assistant.content.final", "assistant.turn.completed"]
 
 
+def test_core_executor_persists_approval_wait(tmp_path):
+    settings = SettingsStore(str(tmp_path / "settings.db")); keys = ServiceTokenKeyStore(settings)
+    assertions = AssistantAssertionService(settings); store = ConversationStore(str(tmp_path / "conversations.db"))
+    conversation = asyncio.run(store.create("user-1", "Approval")); core_id = asyncio.run(load_platform_identity(settings)).core_id
+    audience = "node-service:node-interaction-1:interaction.assistant.turn"
+    class Catalog:
+        async def resolve(self, capability): return {"service_id": audience, "base_url": "http://interaction.local:9005"}
+    class Grants:
+        def find_authorizing(self, **_kwargs): return SimpleNamespace(grant_id="grant-1")
+    class Family:
+        async def self_view(self, _user_id): return {"linked": True, "person": {"person_id": "person-1", "household_id": "household-1"}}
+    async def handler(request):
+        payload=json.loads(request.content)
+        events=[
+            {"contract_version":"assistant.event.v1","event_id":"evt-1","turn_id":payload["turn_id"],"conversation_id":payload["conversation_id"],"sequence":1,"type":"assistant.turn.accepted","occurred_at":"2026-10-07T04:00:00Z","data":{}},
+            {"contract_version":"assistant.event.v1","event_id":"evt-2","turn_id":payload["turn_id"],"conversation_id":payload["conversation_id"],"sequence":2,"type":"assistant.approval.required","occurred_at":"2026-10-07T04:00:01Z","data":{"approval_id":"approval-1","action":"timer.create","intent_id":"timer.create","intent_revision":"1","canonical_arguments_hash":"a"*64,"target_capability":"timer.create","correlation_id":"correlation-1","required_scopes":["timer.create"],"safe_summary":"Create timer?"}},
+        ]
+        return httpx.Response(200,headers={"content-type":"application/x-ndjson"},text="\n".join(json.dumps(event) for event in events))
+    async def execute():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            executor=CoreChatExecutor(Catalog(),Grants(),keys,settings,assistant_assertions=assertions,family=Family(),conversations=store,client=client)
+            return await executor.execute(conversation_id=conversation["conversation_id"],text="timer",history=[],user_id="user-1",device_id="device-1")
+    assert asyncio.run(execute()) == "Create timer?"
+    approvals=asyncio.run(store.list_approvals("user-1",conversation["conversation_id"]))
+    assert approvals[0]["approval_id"] == "approval-1" and approvals[0]["status"] == "pending"
+
+
+def test_core_executor_resumes_exact_approval_binding(tmp_path):
+    settings=SettingsStore(str(tmp_path/"settings.db")); keys=ServiceTokenKeyStore(settings); assertions=AssistantAssertionService(settings)
+    store=ConversationStore(str(tmp_path/"conversations.db")); conversation=asyncio.run(store.create("user-1","Resume")); core_id=asyncio.run(load_platform_identity(settings)).core_id
+    audience="node-service:node-interaction-1:interaction.assistant.turn"
+    data={"approval_id":"approval-1","action":"timer.create","intent_id":"timer.create","intent_revision":"1","canonical_arguments_hash":"a"*64,"target_capability":"timer.create","correlation_id":"correlation-1","required_scopes":["timer.create"],"safe_summary":"Create timer?"}
+    asyncio.run(store.create_approval(user_id="user-1",conversation_id=conversation["conversation_id"],turn_id="turn-1",service_id=audience,endpoint_url="http://interaction.local:9005/api/interaction/assistant/v1/turns",device_id="device-1",data=data))
+    approval=asyncio.run(store.decide_approval("user-1",conversation["conversation_id"],"approval-1","approve")); assert approval is not None
+    class Catalog:
+        async def resolve(self, _capability): return {"service_id":audience,"base_url":"http://interaction.local:9005"}
+    class Grants:
+        def find_authorizing(self, **kwargs):
+            assert kwargs["required_scopes"] == ["assistant.turn.resume"]
+            return SimpleNamespace(grant_id="grant-resume")
+    class Family:
+        async def self_view(self, _user_id): return {"linked":True,"person":{"person_id":"person-1","household_id":"household-1"}}
+    async def handler(request):
+        payload=json.loads(request.content)
+        assert request.url.path == "/api/interaction/assistant/v1/turns/turn-1/approvals"
+        assert payload["contract_version"] == "assistant.approval-resume.v1"
+        assert payload["approval_assertion"].count(".") == 2
+        events=[
+            {"contract_version":"assistant.event.v1","event_id":"evt-1","turn_id":"turn-1","conversation_id":conversation["conversation_id"],"sequence":1,"type":"assistant.approval.required","occurred_at":"2026-10-07T04:00:00Z","data":data},
+            {"contract_version":"assistant.event.v1","event_id":"evt-2","turn_id":"turn-1","conversation_id":conversation["conversation_id"],"sequence":2,"type":"assistant.task.result","occurred_at":"2026-10-07T04:00:01Z","data":{"status":"created"}},
+            {"contract_version":"assistant.event.v1","event_id":"evt-3","turn_id":"turn-1","conversation_id":conversation["conversation_id"],"sequence":3,"type":"assistant.turn.completed","occurred_at":"2026-10-07T04:00:02Z","data":{}},
+        ]
+        return httpx.Response(200,headers={"content-type":"application/x-ndjson"},text="\n".join(json.dumps(event) for event in events))
+    async def resume():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            executor=CoreChatExecutor(Catalog(),Grants(),keys,settings,assistant_assertions=assertions,family=Family(),conversations=store,client=client)
+            return await executor.resume_approval(approval=approval,user_id="user-1",device_id="device-1")
+    assert asyncio.run(resume()) == "Approved action completed."
+
+
 class TestConversationApi:
     def setup_method(self):
         self.tmp=tempfile.TemporaryDirectory(); path=os.path.join(self.tmp.name,"users.db")
@@ -130,3 +207,16 @@ class TestConversationApi:
         streamed=self.client.post(f"/api/web-app/conversations/{cid}/messages/stream",headers=alice,json={"text":"stream me","mode":"text"})
         assert streamed.status_code==200
         assert [json.loads(line)["type"] for line in streamed.text.splitlines()] == ["conversation.message.accepted","conversation.message.completed"]
+
+    def test_approval_list_and_denial_are_owner_scoped(self):
+        alice={"Authorization":f"Bearer {self.token('alice')}"}; bob={"Authorization":f"Bearer {self.token('bob')}"}
+        created=self.client.post("/api/web-app/conversations",headers=alice,json={"title":"Approval"}); cid=created.json()["conversation"]["conversation_id"]
+        alice_user=asyncio.run(self.users.get_user("alice"))
+        asyncio.run(self.store.create_approval(user_id=alice_user["user_id"],conversation_id=cid,turn_id="turn-1",service_id="service-1",endpoint_url="http://interaction/turns",device_id="alice-phone",data={"approval_id":"approval-1","action":"timer.create","intent_id":"timer.create","intent_revision":"1","canonical_arguments_hash":"a"*64,"target_capability":"timer.create","correlation_id":"correlation-1","required_scopes":["timer.create"],"safe_summary":"Create timer?"}))
+        listed=self.client.get(f"/api/web-app/conversations/{cid}/approvals",headers=alice)
+        assert listed.status_code==200 and listed.json()["items"][0]["status"]=="pending"
+        assert self.client.get(f"/api/web-app/conversations/{cid}/approvals",headers=bob).status_code==404
+        denied=self.client.post(f"/api/web-app/conversations/{cid}/approvals/approval-1/decision",headers=alice,json={"decision":"deny"})
+        assert denied.status_code==200 and denied.json()["approval"]["status"]=="denied"
+        changed=self.client.post(f"/api/web-app/conversations/{cid}/approvals/approval-1/decision",headers=alice,json={"decision":"approve"})
+        assert changed.status_code==409

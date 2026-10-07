@@ -1,5 +1,5 @@
 {
-  "path_count": 329,
+  "path_count": 331,
   "paths": {
     "/.well-known/hexe-core-jwks.json": [
       "get"
@@ -984,6 +984,12 @@
     "/api/web-app/conversations/{conversation_id}": [
       "delete",
       "get"
+    ],
+    "/api/web-app/conversations/{conversation_id}/approvals": [
+      "get"
+    ],
+    "/api/web-app/conversations/{conversation_id}/approvals/{approval_id}/decision": [
+      "post"
     ],
     "/api/web-app/conversations/{conversation_id}/messages": [
       "post"
