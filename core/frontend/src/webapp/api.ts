@@ -5,6 +5,7 @@ export type WebDevice = { device_id: string; user_id?: string; display_name: str
 const ACCESS_KEY = "hexe.web.access";
 const REFRESH_KEY = "refresh";
 const DEVICE_ID_KEY = "device-id";
+const UNLOCKED_KEY = "hexe.web.unlocked";
 const DEVICE_LOGIN_VERSION = "hexe.web-app-device-login.v1";
 let refreshPromise: Promise<string | null> | null = null;
 
@@ -14,13 +15,15 @@ async function credentials<T>(mode: IDBTransactionMode, action: (store: IDBObjec
 }
 
 export function accessToken(): string { return sessionStorage.getItem(ACCESS_KEY) || ""; }
-async function clearLocalSession(): Promise<void> { sessionStorage.removeItem(ACCESS_KEY); await credentials("readwrite",store=>store.delete(REFRESH_KEY)); }
+export function sessionUnlocked(): boolean { return sessionStorage.getItem(UNLOCKED_KEY) === "1"; }
+export function discardAccessToken(): void { sessionStorage.removeItem(ACCESS_KEY); sessionStorage.removeItem(UNLOCKED_KEY); }
+async function clearLocalSession(): Promise<void> { discardAccessToken(); await credentials("readwrite",store=>store.delete(REFRESH_KEY)); }
 export async function clearSession(): Promise<void> {
   const token=accessToken();
   try { if(token)await fetch("/api/auth/user/logout",{method:"POST",headers:{Authorization:`Bearer ${token}`}}); }
   finally { await clearLocalSession(); }
 }
-export async function saveSession(access: string, refresh: string): Promise<void> { sessionStorage.setItem(ACCESS_KEY, access); await credentials("readwrite",store=>store.put(refresh,REFRESH_KEY)); }
+export async function saveSession(access: string, refresh: string): Promise<void> { sessionStorage.setItem(ACCESS_KEY, access); sessionStorage.setItem(UNLOCKED_KEY,"1"); await credentials("readwrite",store=>store.put(refresh,REFRESH_KEY)); }
 export async function rememberEnrolledDevice(deviceId: string): Promise<void> { await credentials("readwrite",store=>store.put(deviceId,DEVICE_ID_KEY)); }
 
 export async function enrolledDeviceId(): Promise<string | null> {
