@@ -1040,7 +1040,6 @@ def create_app() -> FastAPI:
         os.path.join(os.getcwd(), "var", "users.db"),
     )
     conversation_store = ConversationStore(users_db)
-    web_chat_executor = CoreChatExecutor(service_catalog_store, service_access_grant_store, service_token_keys, settings_store)
     app.state.conversation_store = conversation_store
     identity_access_engine = IdentityAccessEngine.create(
         database_path=users_db,
@@ -1057,6 +1056,15 @@ def create_app() -> FastAPI:
         audit=audit_store,
     )
     family_identity_store = people_household_engine.store
+    web_chat_executor = CoreChatExecutor(
+        service_catalog_store,
+        service_access_grant_store,
+        service_token_keys,
+        settings_store,
+        assistant_assertions=assistant_assertions,
+        family=family_identity_store,
+        conversations=conversation_store,
+    )
     web_app_enrollment_store = identity_access_engine.devices
     seeded_admin_username = os.getenv("HEXE_ADMIN_USERNAME", "admin").strip() or "admin"
     seeded_admin_password = os.getenv("HEXE_ADMIN_PASSWORD", "") or os.getenv("HEXE_ADMIN_TOKEN", "")

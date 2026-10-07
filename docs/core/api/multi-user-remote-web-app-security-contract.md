@@ -250,10 +250,16 @@ enrolled device, then scopes the database operation to the authenticated stable
 user ID. Conversation history is bounded to 200 messages and inactive
 conversations age out after 30 days. The NDJSON streaming route emits only the
 caller's accepted message and assistant completion; failures expose a generic
-availability code. Core resolves the registered `task.chat` provider, requires
-an active service-access grant for the Core subject, and signs a short-lived,
-task-scoped service token tied to that grant. Browser callers cannot select an
-upstream endpoint, supply provider authorization, or receive the service token.
+availability code. When `interaction.assistant.turn` is registered, Core
+selects that exact provider, requires an active `assistant.turn.submit` grant,
+issues separate caller and actor authorization, and submits
+`assistant.turn.v1`. It validates contiguous `assistant.event.v1` sequences,
+requires one final completion, and durably stores the validated event stream
+under the authenticated user and conversation before persisting final content.
+If the new capability is absent during migration, Core retains the existing
+governed `task.chat` path; it never falls back after an advertised Assistant
+provider fails. Browser callers cannot select an upstream endpoint, supply
+provider authorization, or receive either token.
 
 The production `/app` surface is an installable, mobile-first PWA. Its service
 worker never intercepts or caches `/api/` responses. The short-lived access

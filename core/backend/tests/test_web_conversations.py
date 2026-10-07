@@ -2,11 +2,15 @@ import asyncio
 import json
 import os
 import tempfile
+from types import SimpleNamespace
+
+import httpx
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.core.web_conversations import ConversationStore, build_conversation_router
+from app.core.web_conversations import ConversationStore, CoreChatExecutor, build_conversation_router
+from app.system.assistant_auth import AssistantAssertionService
 from app.system.auth import ServiceTokenKeyStore, WebAppEnrollmentStore, build_human_auth_router
 from app.system.settings.store import SettingsStore
 from app.system.platform_identity import load_platform_identity
@@ -40,10 +44,67 @@ class TestConversationStore:
         assert len(loaded["messages"]) == 20
         assert loaded["messages"][0]["content"] == "message 5"
 
+    def test_assistant_events_are_idempotent_and_owner_scoped(self):
+        conversation = asyncio.run(self.store.create("alice", "Events"))
+        event = {"contract_version":"assistant.event.v1","event_id":"evt-1","turn_id":"turn-1","conversation_id":conversation["conversation_id"],"sequence":1,"type":"assistant.turn.accepted","occurred_at":"2026-10-07T04:00:00Z","data":{}}
+        asyncio.run(self.store.append_assistant_events("alice", conversation["conversation_id"], "turn-1", [event]))
+        asyncio.run(self.store.append_assistant_events("alice", conversation["conversation_id"], "turn-1", [event]))
+        assert asyncio.run(self.store.assistant_events("alice", conversation["conversation_id"], "turn-1")) == [event]
+        assert asyncio.run(self.store.assistant_events("bob", conversation["conversation_id"], "turn-1")) == []
+
 
 class _Executor:
-    async def execute(self, *, conversation_id, text, history):
+    async def execute(self, *, conversation_id, text, history, **_context):
         return f"reply:{text}"
+
+
+def test_core_executor_prefers_assistant_contract_and_persists_ordered_events(tmp_path):
+    settings = SettingsStore(str(tmp_path / "settings.db"))
+    keys = ServiceTokenKeyStore(settings)
+    assertions = AssistantAssertionService(settings)
+    store = ConversationStore(str(tmp_path / "conversations.db"))
+    conversation = asyncio.run(store.create("user-1", "Assistant"))
+    core_id = asyncio.run(load_platform_identity(settings)).core_id
+    audience = "node-service:node-interaction-1:interaction.assistant.turn"
+
+    class Catalog:
+        async def resolve(self, capability):
+            assert capability == "interaction.assistant.turn"
+            return {"service_id": audience, "base_url": "http://interaction.local:9005"}
+
+    class Grants:
+        def find_authorizing(self, **kwargs):
+            assert kwargs == {"subject_node_id": core_id, "audience": audience, "required_scopes": ["assistant.turn.submit"]}
+            return SimpleNamespace(grant_id="grant-1")
+
+    class Family:
+        async def self_view(self, user_id):
+            assert user_id == "user-1"
+            return {"linked": True, "person": {"person_id": "person-1", "household_id": "household-1"}}
+
+    async def handler(request):
+        payload = json.loads(request.content)
+        assert request.url.path == "/api/interaction/assistant/v1/turns"
+        assert payload["actor"]["user_id"] == "user-1"
+        assert payload["actor"]["person_id"] == "person-1"
+        assert payload["authorization"]["actor_assertion"].count(".") == 2
+        events = [
+            {"contract_version":"assistant.event.v1","event_id":"evt-1","turn_id":payload["turn_id"],"conversation_id":payload["conversation_id"],"sequence":1,"type":"assistant.turn.accepted","occurred_at":"2026-10-07T04:00:00Z","data":{}},
+            {"contract_version":"assistant.event.v1","event_id":"evt-2","turn_id":payload["turn_id"],"conversation_id":payload["conversation_id"],"sequence":2,"type":"assistant.content.final","occurred_at":"2026-10-07T04:00:01Z","data":{"text":"Assistant reply"}},
+            {"contract_version":"assistant.event.v1","event_id":"evt-3","turn_id":payload["turn_id"],"conversation_id":payload["conversation_id"],"sequence":3,"type":"assistant.turn.completed","occurred_at":"2026-10-07T04:00:02Z","data":{}},
+        ]
+        return httpx.Response(200, headers={"content-type":"application/x-ndjson"}, text="\n".join(json.dumps(event) for event in events))
+
+    async def execute():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            executor = CoreChatExecutor(Catalog(), Grants(), keys, settings, assistant_assertions=assertions, family=Family(), conversations=store, client=client)
+            return await executor.execute(conversation_id=conversation["conversation_id"], text="hello", history=[], user_id="user-1", device_id="device-1")
+
+    assert asyncio.run(execute()) == "Assistant reply"
+    rows = store._conn.execute("SELECT turn_id FROM web_app_conversation_assistant_events LIMIT 1").fetchall()
+    assert len(rows) == 1
+    events = asyncio.run(store.assistant_events("user-1", conversation["conversation_id"], str(rows[0]["turn_id"])))
+    assert [event["type"] for event in events] == ["assistant.turn.accepted", "assistant.content.final", "assistant.turn.completed"]
 
 
 class TestConversationApi:

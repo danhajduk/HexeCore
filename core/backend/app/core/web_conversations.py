@@ -16,6 +16,8 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.system.audit import AuditLogStore
+from app.system.assistant_auth import AssistantAssertionService
+from app.system.family_identity import FamilyIdentityStore
 from app.system.auth.device_enrollment import WebAppEnrollmentStore
 from app.system.auth.human import HumanPrincipal, authenticate_human_token
 from app.system.auth.tokens import ServiceTokenKeyStore, sign_hs256
@@ -56,6 +58,14 @@ class ConversationStore:
           role TEXT NOT NULL, content TEXT NOT NULL, mode TEXT NOT NULL, created_at TEXT NOT NULL,
           FOREIGN KEY(conversation_id) REFERENCES web_app_conversations(conversation_id));
         CREATE INDEX IF NOT EXISTS web_app_conversation_owner_idx ON web_app_conversations(user_id, updated_at);
+        CREATE TABLE IF NOT EXISTS web_app_conversation_assistant_events (
+          event_id TEXT PRIMARY KEY, turn_id TEXT NOT NULL, conversation_id TEXT NOT NULL,
+          user_id TEXT NOT NULL, sequence INTEGER NOT NULL, event_type TEXT NOT NULL,
+          payload_json TEXT NOT NULL, occurred_at TEXT NOT NULL,
+          UNIQUE(turn_id, sequence),
+          FOREIGN KEY(conversation_id) REFERENCES web_app_conversations(conversation_id));
+        CREATE INDEX IF NOT EXISTS web_app_assistant_event_owner_idx
+          ON web_app_conversation_assistant_events(user_id, conversation_id, turn_id, sequence);
         """)
 
     async def create(self, user_id: str, title: str) -> dict[str, Any]:
@@ -96,11 +106,59 @@ class ConversationStore:
     def _delete(self, user_id: str, conversation_id: str) -> bool:
         return self._conn.execute("UPDATE web_app_conversations SET deleted_at=? WHERE conversation_id=? AND user_id=? AND deleted_at IS NULL",(_now(),conversation_id,user_id)).rowcount==1
 
+    async def append_assistant_events(self, user_id: str, conversation_id: str, turn_id: str, events: list[dict[str, Any]]) -> None:
+        async with self._lock:
+            await asyncio.to_thread(self._append_assistant_events, user_id, conversation_id, turn_id, events)
+
+    def _append_assistant_events(self, user_id: str, conversation_id: str, turn_id: str, events: list[dict[str, Any]]) -> None:
+        owner = self._conn.execute(
+            "SELECT 1 FROM web_app_conversations WHERE conversation_id=? AND user_id=? AND deleted_at IS NULL",
+            (conversation_id, user_id),
+        ).fetchone()
+        if owner is None:
+            raise RuntimeError("conversation_not_found")
+        with self._conn:
+            for event in events:
+                payload = json.dumps(event, sort_keys=True, separators=(",", ":"))
+                try:
+                    self._conn.execute(
+                        "INSERT INTO web_app_conversation_assistant_events VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        (
+                            str(event["event_id"]), turn_id, conversation_id, user_id,
+                            int(event["sequence"]), str(event["type"]), payload,
+                            str(event["occurred_at"]),
+                        ),
+                    )
+                except sqlite3.IntegrityError:
+                    existing = self._conn.execute(
+                        "SELECT payload_json FROM web_app_conversation_assistant_events WHERE turn_id=? AND sequence=?",
+                        (turn_id, int(event["sequence"])),
+                    ).fetchone()
+                    if existing is None or str(existing["payload_json"]) != payload:
+                        raise RuntimeError("assistant_event_conflict")
+
+    async def assistant_events(self, user_id: str, conversation_id: str, turn_id: str) -> list[dict[str, Any]]:
+        async with self._lock:
+            return await asyncio.to_thread(self._assistant_events, user_id, conversation_id, turn_id)
+
+    def _assistant_events(self, user_id: str, conversation_id: str, turn_id: str) -> list[dict[str, Any]]:
+        rows = self._conn.execute(
+            "SELECT payload_json FROM web_app_conversation_assistant_events WHERE user_id=? AND conversation_id=? AND turn_id=? ORDER BY sequence",
+            (user_id, conversation_id, turn_id),
+        ).fetchall()
+        return [json.loads(str(row["payload_json"])) for row in rows]
+
 
 class CoreChatExecutor:
-    def __init__(self, catalog: ServiceCatalogStore, grants: ServiceAccessGrantStore, keys: ServiceTokenKeyStore, settings: SettingsStore, *, client: httpx.AsyncClient | None = None) -> None:
+    def __init__(self, catalog: ServiceCatalogStore, grants: ServiceAccessGrantStore, keys: ServiceTokenKeyStore, settings: SettingsStore, *, assistant_assertions: AssistantAssertionService | None = None, family: FamilyIdentityStore | None = None, conversations: ConversationStore | None = None, client: httpx.AsyncClient | None = None) -> None:
         self._catalog,self._grants,self._keys,self._settings,self._client=catalog,grants,keys,settings,client
-    async def execute(self, *, conversation_id: str, text: str, history: list[dict[str, Any]]) -> str:
+        self._assistant_assertions,self._family,self._conversations=assistant_assertions,family,conversations
+    async def execute(self, *, conversation_id: str, text: str, history: list[dict[str, Any]], user_id: str | None = None, device_id: str | None = None, mode: str = "text") -> str:
+        assistant=await self._catalog.resolve("interaction.assistant.turn")
+        if assistant is not None:
+            if not user_id or self._assistant_assertions is None or self._family is None or self._conversations is None:
+                raise RuntimeError("assistant_core_context_unavailable")
+            return await self._execute_assistant(service=assistant,conversation_id=conversation_id,text=text,history=history,user_id=user_id,device_id=device_id,mode=mode)
         service=await self._catalog.resolve("task.chat")
         if service is None: raise RuntimeError("assistant_provider_unavailable")
         endpoint=str(service.get("execution_endpoint_url") or service.get("endpoint") or service.get("base_url") or "").strip()
@@ -124,6 +182,59 @@ class CoreChatExecutor:
         reply=str(output.get("reply_text") or output.get("text") or data.get("reply_text") or data.get("text") or "").strip()
         if not reply: raise RuntimeError("assistant_provider_empty_response")
         return reply
+
+    async def _execute_assistant(self, *, service: dict[str, Any], conversation_id: str, text: str, history: list[dict[str, Any]], user_id: str, device_id: str | None, mode: str) -> str:
+        endpoint=str(service.get("execution_endpoint_url") or service.get("endpoint") or service.get("base_url") or "").strip()
+        if not endpoint: raise RuntimeError("assistant_provider_endpoint_missing")
+        if not endpoint.rstrip("/").endswith("/api/interaction/assistant/v1/turns"):
+            endpoint=urljoin(endpoint.rstrip("/")+"/","api/interaction/assistant/v1/turns")
+        identity=await load_platform_identity(self._settings); subject=identity.core_id
+        audience=str(service.get("service_id") or "").strip()
+        if not audience: raise RuntimeError("assistant_provider_identity_missing")
+        scopes=["assistant.turn.submit"]
+        grant=self._grants.find_authorizing(subject_node_id=subject,audience=audience,required_scopes=scopes)
+        if grant is None: raise RuntimeError("assistant_provider_not_authorized")
+        now=int(time.time()); key=await self._keys.active_key(); turn_id=f"turn_{uuid.uuid4().hex}"
+        provider_node_id=audience.split(":",3)[1] if audience.startswith("node-service:") else None
+        claims={"iss":SERVICE_TOKEN_ISSUER,"sub":subject,"aud":audience,"scp":scopes,"iat":now,"exp":now+120,"jti":f"access-{uuid.uuid4().hex}","token_use":"node_service_access","authorization_id":grant.grant_id,"provider_node_id":provider_node_id}
+        service_token=sign_hs256({"alg":"HS256","typ":"JWT","kid":str(key["kid"])},claims,str(key["secret"])); await self._keys.record_token_expiry(kid=str(key["kid"]),exp=now+120)
+        self_view=await self._family.self_view(user_id); person=self_view.get("person") if isinstance(self_view,dict) else None
+        person_id=str(person.get("person_id") or "") if isinstance(person,dict) else ""
+        household_id=str(person.get("household_id") or "") if isinstance(person,dict) else ""
+        actor_token,_=await self._assistant_assertions.issue_actor_assertion(core_id=identity.core_id,audience=audience,requester_node_id=identity.core_id,conversation_id=conversation_id,turn_id=turn_id,actor_kind="human_user",identity_state="verified",scopes=scopes,user_id=user_id,person_id=person_id or None,household_id=household_id or None,device_id=device_id)
+        payload={
+            "contract_version":"assistant.turn.v1","turn_id":turn_id,"conversation_id":conversation_id,
+            "requester":{"node_id":identity.core_id,"core_id":identity.core_id},
+            "actor":{"actor_id":user_id,"actor_kind":"human_user","identity_state":"verified","user_id":user_id,"person_id":person_id or None,"confidence":None,"evidence":[]},
+            "input":{"mode":"voice_transcript" if mode=="voice" else "text","text":text,"language":"en-US","transcript_id":f"transcript_{uuid.uuid4().hex}" if mode=="voice" else None},
+            "context":{"locale":"en-US","time_zone":"UTC","device_id":device_id,"room_id":None,"endpoint_id":None,"history":history[-20:],"summary":None},
+            "authorization":{"actor_assertion":actor_token,"requested_scopes":scopes},
+            "delivery":{"after_sequence":0},
+        }
+        client=self._client or httpx.AsyncClient(timeout=65)
+        try: response=await client.post(endpoint,headers={"Authorization":f"Bearer {service_token}","X-Hexe-Requester-Node-Id":subject,"Accept":"application/x-ndjson"},json=payload)
+        finally:
+            if self._client is None: await client.aclose()
+        response.raise_for_status()
+        if "application/x-ndjson" not in str(response.headers.get("content-type") or "").lower():
+            raise RuntimeError("assistant_event_media_type_invalid")
+        events=[]; expected_sequence=1; terminal=None; final_text=""
+        for line in response.text.splitlines():
+            if not line.strip(): continue
+            try: event=json.loads(line)
+            except json.JSONDecodeError as exc: raise RuntimeError("assistant_event_invalid_json") from exc
+            if terminal is not None:
+                raise RuntimeError("assistant_event_after_terminal")
+            if event.get("contract_version")!="assistant.event.v1" or event.get("turn_id")!=turn_id or event.get("conversation_id")!=conversation_id or int(event.get("sequence") or 0)!=expected_sequence or not str(event.get("event_id") or "") or not str(event.get("occurred_at") or "") or not isinstance(event.get("data"),dict):
+                raise RuntimeError("assistant_event_contract_invalid")
+            expected_sequence+=1; events.append(event); event_type=str(event.get("type") or "")
+            if event_type=="assistant.content.final": final_text=str((event.get("data") or {}).get("text") or "").strip()
+            if event_type in {"assistant.turn.completed","assistant.turn.failed","assistant.turn.cancelled"}:
+                terminal=event_type
+        if terminal!="assistant.turn.completed": raise RuntimeError("assistant_turn_not_completed")
+        if not final_text: raise RuntimeError("assistant_provider_empty_response")
+        await self._conversations.append_assistant_events(user_id,conversation_id,turn_id,events)
+        return final_text
 
 
 def build_conversation_router(store: ConversationStore, executor: CoreChatExecutor, keys: ServiceTokenKeyStore, users: UsersStore, devices: WebAppEnrollmentStore, settings: SettingsStore, audit: AuditLogStore | None=None) -> APIRouter:
@@ -158,7 +269,7 @@ def build_conversation_router(store: ConversationStore, executor: CoreChatExecut
         p=await principal(authorization); user_message=await store.append(p.user_id,conversation_id,"user",body.text.strip(),body.mode)
         if user_message is None: raise HTTPException(404,"conversation_not_found")
         current=await store.get(p.user_id,conversation_id) or {"messages":[]}
-        try: reply=await executor.execute(conversation_id=conversation_id,text=body.text.strip(),history=current["messages"])
+        try: reply=await executor.execute(conversation_id=conversation_id,text=body.text.strip(),history=current["messages"],user_id=p.user_id,device_id=p.device_id,mode=body.mode)
         except (RuntimeError,httpx.HTTPError) as exc: raise HTTPException(503,str(exc)[:120]) from exc
         assistant=await store.append(p.user_id,conversation_id,"assistant",reply,"text")
         if audit: await audit.record(event_type="web_conversation_turn",actor_role=p.role,actor_id=p.user_id,details={"conversation_id":conversation_id,"mode":body.mode})
@@ -172,7 +283,7 @@ def build_conversation_router(store: ConversationStore, executor: CoreChatExecut
             yield json.dumps({"type":"conversation.message.accepted","message":user_message},separators=(",",":"))+"\n"
             current=await store.get(p.user_id,conversation_id) or {"messages":[]}
             try:
-                reply=await executor.execute(conversation_id=conversation_id,text=body.text.strip(),history=current["messages"])
+                reply=await executor.execute(conversation_id=conversation_id,text=body.text.strip(),history=current["messages"],user_id=p.user_id,device_id=p.device_id,mode=body.mode)
                 assistant=await store.append(p.user_id,conversation_id,"assistant",reply,"text")
                 if audit: await audit.record(event_type="web_conversation_turn",actor_role=p.role,actor_id=p.user_id,details={"conversation_id":conversation_id,"mode":body.mode})
                 yield json.dumps({"type":"conversation.message.completed","message":assistant},separators=(",",":"))+"\n"
