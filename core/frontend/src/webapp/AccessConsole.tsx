@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { accessToken, api, enrolledDeviceId, loginEnrolledDevice, logout, type WebDevice, type WebSession, type WebUser } from "./api";
 import { disableWebPush, enableWebPush } from "./webPush";
+import { accessPrompt } from "./accessState";
 import "./webapp.css";
 
 type Bootstrap = { core: { core_name: string }; user: WebUser & { permissions: string[] }; device: WebDevice; notifications: { state: string } };
@@ -18,7 +19,7 @@ export default function AccessConsole() {
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null); const [enrollmentState, setEnrollmentState] = useState("");
   const [newUser, setNewUser] = useState({ username: "", password: "", role: "member" });
   const [reauth, setReauth] = useState("");
-  const [enrolled, setEnrolled] = useState(false);
+  const [enrolled, setEnrolled] = useState<boolean | null>(null);
   const [passkeyUpgrade, setPasskeyUpgrade] = useState(false);
   const canManage = useMemo(() => boot?.user.permissions.includes("users.manage") || (!boot && needsDevice), [boot, needsDevice]);
 
@@ -40,9 +41,12 @@ export default function AccessConsole() {
       } else setError(message(e));
     }
   }
-  useEffect(() => { void enrolledDeviceId().then(value=>setEnrolled(Boolean(value))); void load(); }, []);
+  useEffect(() => {
+    void enrolledDeviceId().then(value=>setEnrolled(Boolean(value))).catch(()=>setEnrolled(false));
+    void load();
+  }, []);
 
-  async function signIn(event: React.FormEvent) { event.preventDefault(); setBusy(true); setError(""); try { await loginEnrolledDevice(username, password); setPassword(""); if(enrolled||passkeyUpgrade){location.assign("/app");return;} await load(); } catch (e) { setError(message(e)); } finally { setBusy(false); } }
+  async function signIn(event: React.FormEvent) { event.preventDefault(); setBusy(true); setError(""); try { await loginEnrolledDevice(username, password); setPassword(""); if(enrolled===true||passkeyUpgrade){location.assign("/app");return;} await load(); } catch (e) { setError(message(e)); } finally { setBusy(false); } }
   async function unlock() { setBusy(true); setError(""); try { await loginEnrolledDevice("", ""); location.assign("/app"); } catch (e) { const value=message(e); if(value.includes("passkey upgrade requires password")){setPasskeyUpgrade(true);setEnrolled(false);setNotice("Sign in once to add a passkey to this enrolled device.");} else setError(value); } finally { setBusy(false); } }
   async function act(action: () => Promise<unknown>, done: string) { setBusy(true); setError(""); setNotice(""); try { await action(); setNotice(done); await load(); } catch (e) { setError(message(e)); } finally { setBusy(false); } }
   async function createEnrollment() {
@@ -57,7 +61,11 @@ export default function AccessConsole() {
   }
   const deepLink = enrollment ? `https://${enrollment.public_hostname}/app/enroll?enrollment_id=${encodeURIComponent(enrollment.enrollment_id)}&proof=${encodeURIComponent(enrollment.proof)}&core_id=${encodeURIComponent(enrollment.core_id)}` : "";
 
-  if (!boot && !needsDevice) return <main className={`webapp ${enrolled?"locked-webapp":""}`}><section className={`login-card ${enrolled?"lock-card":""}`}><h1>Hexe</h1>{enrolled?<><div className="lock-emblem" aria-hidden="true"><span /></div><div className="lock-copy"><h2>Welcome back</h2><p>Use your device passkey to unlock Hexe.</p></div><button className="unlock-button" disabled={busy} onClick={()=>void unlock()}>{busy?"Verifying…":"Unlock Hexe"}</button></>:<><p>{notice||"Sign in to your Core."}</p><form onSubmit={signIn}><label>Username<input autoComplete="username" value={username} onChange={e=>setUsername(e.target.value)} /></label><label>Password<input type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} /></label><button disabled={busy}>Sign in</button></form></>}{error && <p role="alert" className="error">{error}</p>}</section></main>;
+  if (!boot && !needsDevice) {
+    const prompt = accessPrompt(enrolled);
+    if (prompt === "loading") return <main className="webapp locked-webapp"><section className="login-card lock-card" aria-live="polite"><h1>Hexe</h1><p>Checking this device…</p></section></main>;
+    return <main className={`webapp ${prompt==="passkey"?"locked-webapp":""}`}><section className={`login-card ${prompt==="passkey"?"lock-card":""}`}><h1>Hexe</h1>{prompt==="passkey"?<><div className="lock-emblem" aria-hidden="true"><span /></div><div className="lock-copy"><h2>Welcome back</h2><p>Use your device passkey to unlock Hexe.</p></div><button className="unlock-button" disabled={busy} onClick={()=>void unlock()}>{busy?"Verifying…":"Unlock Hexe"}</button></>:<><p>{notice||"Sign in to your Core."}</p><form onSubmit={signIn}><label>Username<input autoComplete="username" value={username} onChange={e=>setUsername(e.target.value)} /></label><label>Password<input type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} /></label><button disabled={busy}>Sign in</button></form></>}{error && <p role="alert" className="error">{error}</p>}</section></main>;
+  }
 
   return <main className="webapp">
     <header><div><span className="eyebrow">Mobile access</span><h1>{boot?.core.core_name || "Hexe Core"}</h1></div><button className="secondary" onClick={()=>void logout().then(()=>location.assign("/app"))}>Sign out</button></header>
