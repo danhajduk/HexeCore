@@ -36,6 +36,8 @@ def test_client_core_catalog_reports_implemented_core_security_and_provider_adop
     assert introspection["status"] == "Implemented"
     assert introspection["proposed_api_path"] == "/api/system/nodes/services/introspect"
     assert payload["current_security"]["provider_token_verification"].startswith("Implemented")
+    assert payload["current_security"]["assistant_assertion_verification"].startswith("EdDSA")
+    assert api_paths["/.well-known/hexe-core-jwks.json"]["authentication"] == "Public verification material"
     assert proposals["universal_resolved_service_enforcement"]["status"] == "Partially implemented"
     assert proposals["governed_privileged_scope_issuance"]["status"] == "Implemented"
     assert proposals["universal_node_management_authorization"]["status"] == "Implemented"

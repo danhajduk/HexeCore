@@ -439,6 +439,7 @@ def _catalog_payload() -> ClientCoreCatalogResponse:
             "service_authorization": "Core resolution plus governance and budget checks issue short-lived service tokens.",
             "token_signing": "HS256 signing keys remain private to Core and rotate through the Core key ring.",
             "provider_token_verification": "Implemented through POST /api/system/nodes/services/introspect.",
+            "assistant_assertion_verification": "EdDSA public verification keys are published through the Core JWKS endpoint.",
             "node_management_authorization": "Implemented through node-bound operator authorization and trusted-node introspection.",
         },
         apis=[
@@ -458,6 +459,7 @@ def _catalog_payload() -> ClientCoreCatalogResponse:
             _api("service_authorize", "POST", "/api/system/nodes/services/authorize", "Authorize a resolved candidate and issue a short-lived service token."),
             _api("service_token_introspection", "POST", "/api/system/nodes/services/introspect", "Validate a Core-issued service token for the authenticated provider.", "X-Node-Id and X-Node-Trust-Token"),
             _api("service_access_authorize", "POST", "/api/system/nodes/service-access/authorize", "Issue a service-management token from an explicit Core-owned grant."),
+            _api("assistant_jwks", "GET", "/.well-known/hexe-core-jwks.json", "Read public Ed25519 keys for local Assistant assertion verification.", "Public verification material"),
             _api("service_access_grant_list", "GET", "/api/system/nodes/service-access/grants", "List privileged service-access grants.", "Core administrator"),
             _api("service_access_grant_create", "POST", "/api/system/nodes/service-access/grants", "Create a privileged service-access grant.", "Core administrator"),
             _api("service_access_grant_detail", "GET", "/api/system/nodes/service-access/grants/{grant_id}", "Read one privileged service-access grant.", "Core administrator"),

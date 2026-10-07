@@ -8,6 +8,7 @@ Core publishes a client-oriented discovery catalog for trusted node developers:
 - `GET /api/schemas/client-core/v1/schema-catalog.v1.response.schema.json`
 - `GET /api/schemas/client-core/v1/assistant-actor-assertion-claims.v1.schema.json`
 - `GET /api/schemas/client-core/v1/assistant-approval-assertion-claims.v1.schema.json`
+- `GET /.well-known/hexe-core-jwks.json`
 - `GET /api/schemas/client-core/v1/README.md`
 
 The catalog identifies the current onboarding, capability, governance, budget,
@@ -28,6 +29,11 @@ Assistant Engine audience, Core, conversation, and turn. Approval assertions
 add an exact action, intent revision, canonical argument hash, target
 capability, and single-use approval correlation. Neither schema permits
 transcripts, raw audio, biometric material, or general profile data.
+
+The JWKS endpoint publishes only active or still-valid retired Ed25519 public
+verification keys. Assistant signing keys remain in Core's sensitive settings
+boundary, and retired public keys remain discoverable only through the latest
+assertion expiry plus the 30-second clock-skew window.
 
 Provider introspection, governed privileged-scope issuance, and lifetime-based
 rotation retention are implemented. Universal provider enforcement is marked
