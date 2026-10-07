@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { accessToken, api, loginEnrolledDevice, logout, type WebDevice, type WebSession, type WebUser } from "./api";
+import { accessToken, api, enrolledDeviceId, loginEnrolledDevice, logout, type WebDevice, type WebSession, type WebUser } from "./api";
 import { disableWebPush, enableWebPush } from "./webPush";
 import "./webapp.css";
 
@@ -18,6 +18,7 @@ export default function AccessConsole() {
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null); const [enrollmentState, setEnrollmentState] = useState("");
   const [newUser, setNewUser] = useState({ username: "", password: "", role: "member" });
   const [reauth, setReauth] = useState("");
+  const [enrolled, setEnrolled] = useState(false);
   const canManage = useMemo(() => boot?.user.permissions.includes("users.manage") || (!boot && needsDevice), [boot, needsDevice]);
 
   async function load() {
@@ -38,22 +39,29 @@ export default function AccessConsole() {
       } else setError(message(e));
     }
   }
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void enrolledDeviceId().then(value=>setEnrolled(Boolean(value))); void load(); }, []);
 
   async function signIn(event: React.FormEvent) { event.preventDefault(); setBusy(true); setError(""); try { await loginEnrolledDevice(username, password); setPassword(""); await load(); } catch (e) { setError(message(e)); } finally { setBusy(false); } }
+  async function unlock() { setBusy(true); setError(""); try { await loginEnrolledDevice("", ""); await load(); } catch (e) { const value=message(e); if(value.includes("passkey upgrade requires password")){setEnrolled(false);setNotice("Sign in once to add a passkey to this enrolled device.");} else setError(value); } finally { setBusy(false); } }
   async function act(action: () => Promise<unknown>, done: string) { setBusy(true); setError(""); setNotice(""); try { await action(); setNotice(done); await load(); } catch (e) { setError(message(e)); } finally { setBusy(false); } }
   async function createEnrollment() {
     const response = await api<{enrollment: Enrollment}>("/api/auth/device-enrollments", { method: "POST", body: JSON.stringify({ display_name: "Mobile browser", ttl_seconds: 600 }) });
     setEnrollment(response.enrollment); setEnrollmentState("pending");
   }
+  async function enrollThisDevice() {
+    const response = await api<{enrollment: Enrollment}>("/api/auth/device-enrollments", { method: "POST", body: JSON.stringify({ display_name: "Mobile browser", ttl_seconds: 600 }) });
+    await api(`/api/auth/device-enrollments/${response.enrollment.enrollment_id}/approve`,{method:"POST"});
+    const target=`https://${response.enrollment.public_hostname}/app/enroll?enrollment_id=${encodeURIComponent(response.enrollment.enrollment_id)}&proof=${encodeURIComponent(response.enrollment.proof)}&core_id=${encodeURIComponent(response.enrollment.core_id)}`;
+    location.assign(target);
+  }
   const deepLink = enrollment ? `https://${enrollment.public_hostname}/app/enroll?enrollment_id=${encodeURIComponent(enrollment.enrollment_id)}&proof=${encodeURIComponent(enrollment.proof)}&core_id=${encodeURIComponent(enrollment.core_id)}` : "";
 
-  if (!boot && !needsDevice) return <main className="webapp"><section className="login-card"><h1>Hexe</h1><p>Sign in to your Core.</p><form onSubmit={signIn}><label>Username<input autoComplete="username" value={username} onChange={e=>setUsername(e.target.value)} /></label><label>Password<input type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} /></label><button disabled={busy}>Sign in</button></form>{error && <p role="alert" className="error">{error}</p>}</section></main>;
+  if (!boot && !needsDevice) return <main className="webapp"><section className="login-card"><h1>Hexe</h1>{enrolled?<><p>This app is locked. Verify with your device passkey to continue.</p><button disabled={busy} onClick={()=>void unlock()}>{busy?"Verifying…":"Unlock Hexe"}</button></>:<><p>{notice||"Sign in to your Core."}</p><form onSubmit={signIn}><label>Username<input autoComplete="username" value={username} onChange={e=>setUsername(e.target.value)} /></label><label>Password<input type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} /></label><button disabled={busy}>Sign in</button></form></>}{error && <p role="alert" className="error">{error}</p>}</section></main>;
 
   return <main className="webapp">
     <header><div><span className="eyebrow">Mobile access</span><h1>{boot?.core.core_name || "Hexe Core"}</h1></div><button className="secondary" onClick={()=>void logout().then(()=>location.assign("/app"))}>Sign out</button></header>
     {error && <p role="alert" className="banner error">{error}</p>}{notice && <p role="status" className="banner ok">{notice}</p>}
-    {needsDevice && <section><h2>Enroll this device</h2><p>Your identity is valid. An owner must explicitly approve this browser before the app can open.</p><button disabled={busy} onClick={()=>void act(createEnrollment,"Enrollment created")}>Create 10-minute enrollment</button>{enrollment && <div className="stack"><a className="deep-link text-link" href={deepLink}>{deepLink}</a><button onClick={()=>void navigator.clipboard.writeText(deepLink)}>Copy deep link</button><button onClick={()=>void act(async()=>{ await api(`/api/auth/device-enrollments/${enrollment.enrollment_id}/approve`,{method:"POST"}); setEnrollmentState("approved"); },"Enrollment approved — continue below")}>Approve</button>{enrollmentState==="approved"&&<a className="continue-enrollment" href={deepLink}>Continue enrollment on this device</a>}<button className="secondary" onClick={()=>void act(async()=>{const s=await api<{status:string}>(`/api/auth/device-enrollments/${enrollment.enrollment_id}`);setEnrollmentState(s.status);},"State refreshed")}>Refresh state</button><strong>Status: {enrollmentState}</strong></div>}</section>}
+    {needsDevice && <section><h2>Enroll this device</h2><p>Your identity is verified. Secure this installation with its local key and a platform passkey.</p><button disabled={busy} onClick={()=>void act(enrollThisDevice,"Opening secure enrollment")}>Enroll this device</button></section>}
     {boot && <>
       <section><h2>Your access</h2><div className="facts"><span>{boot.user.username}</span><span>{boot.user.role}</span><span>Push: {boot.notifications.state}</span></div></section>
       <section><h2>Sessions</h2><div className="cards">{sessions.map(s=><article key={s.session_id}><strong>{s.session_id.slice(0,12)}…</strong><small>Last used {date(s.last_used_at)}</small><button className="danger" disabled={busy} onClick={()=>void act(()=>api(`/api/auth/user/sessions/${s.session_id}`,{method:"DELETE"}),"Session revoked")}>Revoke</button></article>)}</div></section>

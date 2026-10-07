@@ -4,6 +4,7 @@ pydantic>=2.6
 psutil>=5.9.0
 httpx
 cryptography>=42.0
+webauthn>=3.0,<3.1
 dbus-next>=0.2.3
 pytest>=8.0
 speedtest-cli>=2.1.3

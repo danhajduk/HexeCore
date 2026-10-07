@@ -694,3 +694,11 @@ What changed: Corrected one stale permission expectation and added a focused arc
 Verification: Public Core and gateway probes passed; 100 frontend tests and build passed; 21 Website gateway/fallback tests passed; 107 backend tests passed; OpenAPI and Markdown-link checks passed. Two-user physical-device acceptance and mirror repair remain open.
 
 ###########
+
+Task #1018
+Step objective: Preserve enrolled-device identity while adding passkey-protected launch and relogin.
+Chosen fix: Bind a required platform WebAuthn credential to each enrolled user/device and require it together with the existing non-exportable installation-key proof. Existing enrolled installations receive a one-time password-authenticated upgrade without changing their device id.
+What changed: Added proof-gated passkey registration, passwordless dual-proof device login, five-minute background re-lock, locked/offline/recovery UI states, and a single owner/admin self-enrollment action.
+Verification: Focused backend security tests and frontend build passed; deployment and physical iPhone verification remain pending.
+
+###########

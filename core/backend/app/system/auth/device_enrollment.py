@@ -16,6 +16,8 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator, model_validator
+from webauthn import verify_authentication_response, verify_registration_response
+from webauthn.helpers.exceptions import InvalidAuthenticationResponse, InvalidRegistrationResponse
 
 from app.api.admin import admin_request_actor, require_admin_token
 from app.system.audit import AuditLogStore
@@ -54,6 +56,10 @@ def _decode_b64url(value: str) -> bytes:
     return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
 
 
+def _encode_b64url(value: bytes) -> str:
+    return base64.urlsafe_b64encode(value).decode("ascii").rstrip("=")
+
+
 def _proof_hash(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
@@ -72,6 +78,7 @@ class EnrollmentCompleteRequest(BaseModel):
     signature: str = Field(..., min_length=43, max_length=256)
     platform: str | None = Field(default=None, max_length=80)
     browser_metadata: dict[str, str] = Field(default_factory=dict)
+    passkey_credential: dict[str, Any]
 
     @field_validator("browser_metadata")
     @classmethod
@@ -84,6 +91,10 @@ class EnrollmentCompleteRequest(BaseModel):
         return value
 
 
+class EnrollmentPasskeyOptionsRequest(BaseModel):
+    proof: str = Field(..., min_length=32, max_length=512)
+
+
 class DeviceKeyRotationRequest(BaseModel):
     new_public_key: str = Field(..., min_length=43, max_length=128)
     old_key_signature: str = Field(..., min_length=43, max_length=256)
@@ -91,14 +102,15 @@ class DeviceKeyRotationRequest(BaseModel):
 
 
 class DeviceLoginChallengeRequest(BaseModel):
-    username: str = Field(..., min_length=1, max_length=160)
-    password: str = Field(..., min_length=1, max_length=1024)
     device_id: str = Field(..., min_length=8, max_length=160)
+    username: str | None = Field(default=None, min_length=1, max_length=160)
+    password: str | None = Field(default=None, min_length=1, max_length=1024)
 
 
 class DeviceLoginCompleteRequest(BaseModel):
     challenge_id: str = Field(..., min_length=8, max_length=160)
     signature: str = Field(..., min_length=43, max_length=256)
+    passkey_credential: dict[str, Any]
 
 
 class DeviceUpdateRequest(BaseModel):
@@ -204,6 +216,12 @@ class WebAppEnrollmentStore:
               device_id TEXT NOT NULL, nonce TEXT NOT NULL, created_at TEXT NOT NULL,
               expires_at TEXT NOT NULL, consumed_at TEXT
             );
+            CREATE TABLE IF NOT EXISTS web_app_passkeys (
+              credential_id TEXT PRIMARY KEY, core_id TEXT NOT NULL, user_id TEXT NOT NULL,
+              device_id TEXT NOT NULL UNIQUE, public_key TEXT NOT NULL, sign_count INTEGER NOT NULL,
+              created_at TEXT NOT NULL, last_used_at TEXT,
+              FOREIGN KEY(device_id) REFERENCES web_app_devices(device_id)
+            );
             """
         )
 
@@ -281,11 +299,11 @@ class WebAppEnrollmentStore:
         if datetime.fromisoformat(str(row["expires_at"]).replace("Z", "+00:00")) <= _now():
             raise RuntimeError("enrollment_expired")
 
-    async def consume(self, *, enrollment_id: str, proof: str, device_id: str, public_key: str, platform: str | None, browser_metadata: dict[str, str] | None = None) -> dict[str, Any]:
+    async def consume(self, *, enrollment_id: str, proof: str, device_id: str, public_key: str, platform: str | None, browser_metadata: dict[str, str] | None = None, passkey: dict[str, Any] | None = None) -> dict[str, Any]:
         async with self._lock:
-            return await asyncio.to_thread(self._consume, enrollment_id, proof, device_id, public_key, platform, browser_metadata or {})
+            return await asyncio.to_thread(self._consume, enrollment_id, proof, device_id, public_key, platform, browser_metadata or {}, passkey)
 
-    def _consume(self, enrollment_id, proof, device_id, public_key, platform, browser_metadata):
+    def _consume(self, enrollment_id, proof, device_id, public_key, platform, browser_metadata, passkey):
         self._conn.execute("BEGIN IMMEDIATE")
         try:
             row = self._get(enrollment_id)
@@ -324,6 +342,11 @@ class WebAppEnrollmentStore:
                 "INSERT INTO web_app_device_state VALUES (?, 1, ?, ?, ?) ON CONFLICT(device_id) DO UPDATE SET enabled=1, last_seen_at=excluded.last_seen_at, browser_metadata_json=excluded.browser_metadata_json, updated_at=excluded.updated_at",
                 (device_id, now, json.dumps(browser_metadata, sort_keys=True, separators=(",", ":")), now),
             )
+            if passkey is not None:
+                self._conn.execute(
+                    "INSERT INTO web_app_passkeys VALUES (?, ?, ?, ?, ?, ?, ?, NULL)",
+                    (passkey["credential_id"], row["core_id"], row["user_id"], device_id, passkey["public_key"], passkey["sign_count"], now),
+                )
             changed = self._conn.execute("UPDATE web_app_enrollments SET status='consumed', consumed_at=?, device_id=? WHERE enrollment_id=? AND status='approved'", (now, device_id, enrollment_id)).rowcount
             if changed != 1: raise RuntimeError("enrollment_already_consumed")
             self._conn.execute("COMMIT")
@@ -349,6 +372,23 @@ class WebAppEnrollmentStore:
                 (device_id,),
             ).fetchone)
             return dict(row) if row else None
+
+    async def register_passkey(self, *, credential_id: str, core_id: str, user_id: str, device_id: str, public_key: str, sign_count: int) -> None:
+        async with self._lock:
+            await asyncio.to_thread(
+                self._conn.execute,
+                "INSERT INTO web_app_passkeys VALUES (?, ?, ?, ?, ?, ?, ?, NULL)",
+                (credential_id, core_id, user_id, device_id, public_key, sign_count, _now_iso()),
+            )
+
+    async def get_passkey(self, device_id: str) -> dict[str, Any] | None:
+        async with self._lock:
+            row = await asyncio.to_thread(self._conn.execute("SELECT * FROM web_app_passkeys WHERE device_id=?", (device_id,)).fetchone)
+            return dict(row) if row else None
+
+    async def update_passkey_counter(self, credential_id: str, sign_count: int) -> None:
+        async with self._lock:
+            await asyncio.to_thread(self._conn.execute, "UPDATE web_app_passkeys SET sign_count=?, last_used_at=? WHERE credential_id=?", (sign_count, _now_iso(), credential_id))
 
     async def get_notification_subscription(self, *, device_id: str, core_id: str, user_id: str) -> dict[str, Any] | None:
         async with self._lock:
@@ -791,14 +831,54 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
             await record("web_app_enrollment_expired", str(enrollment["created_by"]), "admin", {"enrollment_id": enrollment_id})
         return {"ok": True, "enrollment_id": enrollment_id, "status": state, "expires_at": enrollment["expires_at"], "device_id": enrollment.get("device_id")}
 
+    @router.post("/device-enrollments/{enrollment_id}/passkey-options")
+    async def passkey_options(enrollment_id: str, body: EnrollmentPasskeyOptionsRequest):
+        enrollment = await store.get(enrollment_id)
+        if enrollment is None:
+            raise HTTPException(status_code=404, detail="enrollment_not_found")
+        if not secrets.compare_digest(str(enrollment["proof_hash"]), _proof_hash(body.proof)):
+            raise HTTPException(status_code=403, detail="enrollment_proof_invalid")
+        if str(enrollment["status"]) != "approved" or datetime.fromisoformat(str(enrollment["expires_at"]).replace("Z", "+00:00")) <= _now():
+            raise HTTPException(status_code=409, detail="enrollment_not_approved")
+        user = await users.get_user_by_id(str(enrollment["user_id"]))
+        core_id, hostname = await current_identity()
+        if user is None or str(enrollment["core_id"]) != core_id:
+            raise HTTPException(status_code=403, detail="enrollment_identity_invalid")
+        return {
+            "challenge": enrollment["challenge"],
+            "rp": {"id": hostname, "name": "Hexe Core"},
+            "user": {"id": _encode_b64url(str(user["user_id"]).encode()), "name": user["username"], "displayName": user["username"]},
+            "timeout": 120000,
+            "attestation": "none",
+            "authenticatorSelection": {"authenticatorAttachment": "platform", "residentKey": "required", "userVerification": "required"},
+            "pubKeyCredParams": [{"type": "public-key", "alg": -7}, {"type": "public-key", "alg": -8}],
+        }
+
     @router.post("/device-enrollments/{enrollment_id}/complete")
     async def complete(enrollment_id: str, body: EnrollmentCompleteRequest):
         enrollment = await store.get(enrollment_id)
         if enrollment is None: raise HTTPException(status_code=404, detail="enrollment_not_found")
+        core_id, hostname = await current_identity()
+        if str(enrollment["core_id"]) != core_id:
+            raise HTTPException(status_code=403, detail="enrollment_core_mismatch")
+        try:
+            verified_passkey = verify_registration_response(
+                credential=body.passkey_credential,
+                expected_challenge=_decode_b64url(str(enrollment["challenge"])),
+                expected_rp_id=hostname,
+                expected_origin=f"https://{hostname}",
+                require_user_verification=True,
+            )
+        except (InvalidRegistrationResponse, ValueError, TypeError) as exc:
+            raise HTTPException(status_code=403, detail="passkey_registration_invalid") from exc
         message = f"{CONTRACT_VERSION}:{enrollment['core_id']}:{enrollment_id}:{body.device_id}"
         try:
             _verify_signature(body.public_key, body.signature, message)
-            consumed = await store.consume(enrollment_id=enrollment_id, proof=body.proof, device_id=body.device_id, public_key=body.public_key, platform=body.platform, browser_metadata=body.browser_metadata)
+            consumed = await store.consume(
+                enrollment_id=enrollment_id, proof=body.proof, device_id=body.device_id,
+                public_key=body.public_key, platform=body.platform, browser_metadata=body.browser_metadata,
+                passkey={"credential_id": _encode_b64url(verified_passkey.credential_id), "public_key": _encode_b64url(verified_passkey.credential_public_key), "sign_count": verified_passkey.sign_count},
+            )
         except HTTPException:
             await record("web_app_enrollment_failed", "anonymous", "guest", {"enrollment_id": enrollment_id, "reason": "device_key_proof_invalid"})
             raise
@@ -817,15 +897,30 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
 
     @router.post("/user/device-login/challenge")
     async def device_login_challenge(body: DeviceLoginChallengeRequest):
-        user = await users.verify_credentials(body.username, body.password)
         device = await store.get_device(body.device_id)
+        user = await users.get_user_by_id(str(device["user_id"])) if device is not None else None
+        passkey = await store.get_passkey(body.device_id)
         core_id, _ = await current_identity()
-        if user is None or device is None or str(device.get("user_id")) != str(user.get("user_id")) or str(device.get("core_id")) != core_id or device.get("revoked_at") or not bool(device.get("enabled", True)):
+        if user is None or device is None or not bool(user.get("enabled")) or str(device.get("user_id")) != str(user.get("user_id")) or str(device.get("core_id")) != core_id or device.get("revoked_at") or not bool(device.get("enabled", True)):
             await record("web_app_device_login_failed", "anonymous", "guest", {"reason": "invalid_credentials_or_device"})
             raise HTTPException(status_code=401, detail="invalid_credentials_or_device")
+        if passkey is None:
+            verified_user = await users.verify_credentials(body.username or "", body.password or "")
+            if verified_user is None or str(verified_user["user_id"]) != str(user["user_id"]):
+                raise HTTPException(status_code=401, detail="passkey_upgrade_requires_password")
         challenge = await store.create_login_challenge(core_id=core_id, user_id=str(user["user_id"]), device_id=body.device_id)
         await record("web_app_device_login_challenged", str(user["user_id"]), str(user["role"]), {"device_id": body.device_id, "challenge_id": challenge["challenge_id"]})
-        return {"ok": True, "contract_version": DEVICE_LOGIN_VERSION, **challenge}
+        response = {"ok": True, "contract_version": DEVICE_LOGIN_VERSION, **challenge}
+        if passkey is not None:
+            return {**response, "credential_id": passkey["credential_id"]}
+        _, hostname = await current_identity()
+        return {**response, "passkey_registration_required": True, "registration_options": {
+            "challenge": challenge["nonce"], "rp": {"id": hostname, "name": "Hexe Core"},
+            "user": {"id": _encode_b64url(str(user["user_id"]).encode()), "name": user["username"], "displayName": user["username"]},
+            "timeout": 120000, "attestation": "none",
+            "authenticatorSelection": {"authenticatorAttachment": "platform", "residentKey": "required", "userVerification": "required"},
+            "pubKeyCredParams": [{"type": "public-key", "alg": -7}, {"type": "public-key", "alg": -8}],
+        }}
 
     @router.post("/user/device-login/complete")
     async def device_login_complete(body: DeviceLoginCompleteRequest):
@@ -834,12 +929,35 @@ def build_device_enrollment_router(store: WebAppEnrollmentStore, users: UsersSto
         except RuntimeError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         device = await store.get_device(str(challenge["device_id"]))
+        passkey = await store.get_passkey(str(challenge["device_id"]))
         user = await users.get_user_by_id(str(challenge["user_id"]))
-        core_id, _ = await current_identity()
+        core_id, hostname = await current_identity()
         if device is None or user is None or not bool(user.get("enabled")) or device.get("revoked_at") or not bool(device.get("enabled", True)) or str(device.get("core_id")) != core_id or str(device.get("user_id")) != str(user.get("user_id")):
             raise HTTPException(status_code=403, detail="enrolled_device_invalid")
         message = f"{DEVICE_LOGIN_VERSION}:{challenge['core_id']}:{challenge['challenge_id']}:{challenge['nonce']}:{challenge['device_id']}"
         _verify_signature(str(device["public_key"]), body.signature, message)
+        try:
+            if passkey is None:
+                registered = verify_registration_response(
+                    credential=body.passkey_credential, expected_challenge=_decode_b64url(str(challenge["nonce"])),
+                    expected_rp_id=hostname, expected_origin=f"https://{hostname}", require_user_verification=True,
+                )
+                await store.register_passkey(credential_id=_encode_b64url(registered.credential_id), core_id=core_id, user_id=str(user["user_id"]), device_id=str(device["device_id"]), public_key=_encode_b64url(registered.credential_public_key), sign_count=registered.sign_count)
+            else:
+                verified_passkey = verify_authentication_response(
+                credential=body.passkey_credential,
+                expected_challenge=_decode_b64url(str(challenge["nonce"])),
+                expected_rp_id=hostname,
+                expected_origin=f"https://{hostname}",
+                credential_public_key=_decode_b64url(str(passkey["public_key"])),
+                credential_current_sign_count=int(passkey["sign_count"]),
+                require_user_verification=True,
+                )
+                if _encode_b64url(verified_passkey.credential_id) != str(passkey["credential_id"]):
+                    raise HTTPException(status_code=403, detail="passkey_credential_mismatch")
+                await store.update_passkey_counter(str(passkey["credential_id"]), verified_passkey.new_sign_count)
+        except (InvalidAuthenticationResponse, InvalidRegistrationResponse, ValueError, TypeError) as exc:
+            raise HTTPException(status_code=403, detail="passkey_verification_invalid") from exc
         refresh = secrets.token_urlsafe(48)
         session = await users.create_session(user_id=str(user["user_id"]), device_id=str(device["device_id"]), refresh_verifier=_refresh_verifier(refresh), expires_at=_iso_after(30 * 24 * 60 * 60))
         access, claims = await _access_token(keys, user, session)

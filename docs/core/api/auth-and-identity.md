@@ -146,10 +146,14 @@ when reuse is detected. User disablement, deletion, role/password changes, and
 session revocation are checked against persisted state for every access token.
 
 An enrolled web-app installation relogs in through a two-step device-login
-challenge after password verification. The challenge is short-lived,
-single-use, and bound to the user, Core, and device. Core issues the new
-device-bound session only after verifying the installation's Ed25519 signature.
-Normal logout revokes only the current session and does not revoke enrollment.
+challenge without sending the account password. The challenge is short-lived,
+single-use, and bound to the user, Core, device, RP ID, and canonical HTTPS
+origin. Core issues the new device-bound session only after verifying both the
+installation's Ed25519 signature and a WebAuthn assertion with required user
+verification. Existing installations created before Task 1018 perform a
+one-time password-authenticated passkey upgrade that also requires their
+installation key. Normal logout revokes only the current session and does not
+revoke enrollment or the passkey.
 
 The compatible `hexe_admin_session` cookie remains same-origin and is not a
 remote-app credential.
@@ -165,10 +169,12 @@ Status: Implemented
 - `POST /api/auth/device-enrollments/{enrollment_id}/approve` explicitly
   approves the target user and device enrollment.
 - `GET /api/auth/device-enrollments/{enrollment_id}` returns sanitized state.
+- `POST /api/auth/device-enrollments/{enrollment_id}/passkey-options` returns
+  proof-gated, short-lived platform-passkey registration options after approval.
 - `POST /api/auth/device-enrollments/{enrollment_id}/complete` verifies the
-  one-time proof and Ed25519 device-key possession, atomically consumes the
-  enrollment, binds the device to the Core user, and issues a device-bound
-  human session.
+  one-time proof, Ed25519 device-key possession, and origin/RP-bound WebAuthn
+  registration with required platform user verification before binding the
+  device and issuing a device-bound human session.
 - `POST /api/auth/device-enrollments/{enrollment_id}/cancel` cancels an active
   enrollment.
 - `POST /api/auth/devices/{device_id}/rotate-key` requires a device-bound

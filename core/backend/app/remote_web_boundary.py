@@ -133,7 +133,7 @@ def _sensitive_public_auth_endpoint(path: str) -> bool:
         "/api/auth/user/device-login/complete",
         "/api/auth/user/login",
         "/api/auth/user/refresh",
-    } or (path.startswith("/api/auth/device-enrollments/") and path.endswith("/complete"))
+    } or (path.startswith("/api/auth/device-enrollments/") and path.endswith(("/complete", "/passkey-options")))
 
 
 class RemoteWebBoundaryMiddleware(BaseHTTPMiddleware):

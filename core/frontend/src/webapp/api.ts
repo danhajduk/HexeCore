@@ -23,7 +23,7 @@ export async function clearSession(): Promise<void> {
 export async function saveSession(access: string, refresh: string): Promise<void> { sessionStorage.setItem(ACCESS_KEY, access); await credentials("readwrite",store=>store.put(refresh,REFRESH_KEY)); }
 export async function rememberEnrolledDevice(deviceId: string): Promise<void> { await credentials("readwrite",store=>store.put(deviceId,DEVICE_ID_KEY)); }
 
-async function enrolledDeviceId(): Promise<string | null> {
+export async function enrolledDeviceId(): Promise<string | null> {
   const saved=await credentials<string>("readonly",store=>store.get(DEVICE_ID_KEY));
   if(saved)return saved;
   const db=await new Promise<IDBDatabase>((resolve,reject)=>{const request=indexedDB.open("hexe-web-app",2);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
@@ -41,6 +41,11 @@ async function installationKey(deviceId: string): Promise<CryptoKey | null> {
 }
 
 const b64url=(bytes:ArrayBuffer)=>btoa(String.fromCharCode(...new Uint8Array(bytes))).replaceAll("+","-").replaceAll("/","_").replace(/=+$/,"");
+const fromB64url=(value:string)=>Uint8Array.from(atob(value.replaceAll("-","+").replaceAll("_","/")+"=".repeat((4-value.length%4)%4)),char=>char.charCodeAt(0));
+function publicKeyCredentialJSON(value: PublicKeyCredential): Record<string, unknown> {
+  const response=value.response as AuthenticatorAssertionResponse|AuthenticatorAttestationResponse;
+  return {id:value.id,rawId:b64url(value.rawId),type:value.type,authenticatorAttachment:value.authenticatorAttachment,response:{clientDataJSON:b64url(response.clientDataJSON),...("attestationObject" in response?{attestationObject:b64url(response.attestationObject),transports:response.getTransports?.()}:{authenticatorData:b64url(response.authenticatorData),signature:b64url(response.signature),userHandle:response.userHandle?b64url(response.userHandle):null})}};
+}
 
 async function refreshAccessToken(): Promise<string | null> {
   if (refreshPromise) return refreshPromise;
@@ -84,15 +89,27 @@ export async function loginEnrolledDevice(username: string, password: string): P
   if(!deviceId){await login(username,password);return;}
   const key=await installationKey(deviceId);
   if(!key)throw new Error("enrolled_device_key_missing");
-  const challengeResponse=await fetch("/api/auth/user/device-login/challenge",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username,password,device_id:deviceId})});
+  const challengeResponse=await fetch("/api/auth/user/device-login/challenge",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({device_id:deviceId,...(username&&password?{username,password}:{})})});
   const challenge=await challengeResponse.json().catch(()=>({}));
   if(!challengeResponse.ok)throw new Error(typeof challenge.detail==="string"?challenge.detail:"device_login_failed");
   const message=`${DEVICE_LOGIN_VERSION}:${challenge.core_id}:${challenge.challenge_id}:${challenge.nonce}:${deviceId}`;
   const signature=b64url(await crypto.subtle.sign("Ed25519",key,new TextEncoder().encode(message)));
-  const response=await fetch("/api/auth/user/device-login/complete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({challenge_id:challenge.challenge_id,signature})});
+  if(!window.PublicKeyCredential)throw new Error("passkey_unavailable");
+  const credential=challenge.passkey_registration_required
+    ? await navigator.credentials.create({publicKey:{...challenge.registration_options,challenge:fromB64url(challenge.registration_options.challenge),user:{...challenge.registration_options.user,id:fromB64url(challenge.registration_options.user.id)}}}) as PublicKeyCredential|null
+    : await navigator.credentials.get({publicKey:{challenge:fromB64url(challenge.nonce),rpId:location.hostname,allowCredentials:[{type:"public-key",id:fromB64url(challenge.credential_id)}],userVerification:"required",timeout:120000}}) as PublicKeyCredential|null;
+  if(!credential)throw new Error("passkey_cancelled");
+  const response=await fetch("/api/auth/user/device-login/complete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({challenge_id:challenge.challenge_id,signature,passkey_credential:publicKeyCredentialJSON(credential)})});
   const body=await response.json().catch(()=>({}));
   if(!response.ok)throw new Error(typeof body.detail==="string"?body.detail:"device_login_failed");
   await saveSession(body.access_token,body.refresh_token);
+}
+
+export async function createPasskey(options:any): Promise<Record<string,unknown>> {
+  if(!window.PublicKeyCredential)throw new Error("passkey_unavailable");
+  const credential=await navigator.credentials.create({publicKey:{...options,challenge:fromB64url(options.challenge),user:{...options.user,id:fromB64url(options.user.id)}}}) as PublicKeyCredential|null;
+  if(!credential)throw new Error("passkey_cancelled");
+  return publicKeyCredentialJSON(credential);
 }
 
 export async function logout(): Promise<void> {

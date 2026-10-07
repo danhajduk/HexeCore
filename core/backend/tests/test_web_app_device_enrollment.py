@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
+from types import SimpleNamespace
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -27,6 +28,9 @@ class TestWebAppDeviceEnrollment(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.env = patch.dict(os.environ, {"HEXE_CORE_ID": "0123456789abcdef", "PLATFORM_DOMAIN": "hexe-ai.com"}, clear=False)
         self.env.start()
+        self.registration_verify = patch("app.system.auth.device_enrollment.verify_registration_response", side_effect=lambda **kwargs: SimpleNamespace(credential_id=kwargs["credential"]["id"].encode(), credential_public_key=b"public-key-1", sign_count=0))
+        self.authentication_verify = patch("app.system.auth.device_enrollment.verify_authentication_response", side_effect=lambda **kwargs: SimpleNamespace(credential_id=kwargs["credential"]["id"].encode(), new_sign_count=1))
+        self.registration_verify.start(); self.authentication_verify.start()
         path = os.path.join(self.tmp.name, "users.db")
         self.settings = SettingsStore(os.path.join(self.tmp.name, "settings.db"))
         asyncio.run(self.settings.set("platform.core_id", "0123456789abcdef"))
@@ -42,7 +46,7 @@ class TestWebAppDeviceEnrollment(unittest.TestCase):
         self.auth = {"Authorization": f"Bearer {login['access_token']}"}
 
     def tearDown(self):
-        self.env.stop(); self.tmp.cleanup()
+        self.authentication_verify.stop(); self.registration_verify.stop(); self.env.stop(); self.tmp.cleanup()
 
     def create_approved(self, user_id=None):
         body = {"display_name": "Phone"}
@@ -58,7 +62,7 @@ class TestWebAppDeviceEnrollment(unittest.TestCase):
     def complete(self, enrollment, private_key, device_id="device-phone-1", proof=None, browser_metadata=None):
         public = b64(private_key.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw))
         message = f"{CONTRACT_VERSION}:0123456789abcdef:{enrollment['enrollment_id']}:{device_id}"
-        return self.client.post(f"/api/auth/device-enrollments/{enrollment['enrollment_id']}/complete", json={"proof": proof or enrollment["proof"], "device_id": device_id, "public_key": public, "signature": b64(private_key.sign(message.encode())), "platform": "test", "browser_metadata": browser_metadata or {}})
+        return self.client.post(f"/api/auth/device-enrollments/{enrollment['enrollment_id']}/complete", json={"proof": proof or enrollment["proof"], "device_id": device_id, "public_key": public, "signature": b64(private_key.sign(message.encode())), "passkey_credential": {"id": device_id}, "platform": "test", "browser_metadata": browser_metadata or {}})
 
     def test_discovery_is_safe_and_enrollment_is_single_use(self):
         discovery = self.client.get("/api/auth/web-app/discovery")
@@ -83,27 +87,44 @@ class TestWebAppDeviceEnrollment(unittest.TestCase):
         self.assertEqual(challenged.status_code, 200, challenged.text)
         challenge = challenged.json()
         message = f"{DEVICE_LOGIN_VERSION}:{challenge['core_id']}:{challenge['challenge_id']}:{challenge['nonce']}:device-phone-1"
-        relogin = self.client.post("/api/auth/user/device-login/complete", json={"challenge_id": challenge["challenge_id"], "signature": b64(key.sign(message.encode()))})
+        relogin = self.client.post("/api/auth/user/device-login/complete", json={"challenge_id": challenge["challenge_id"], "signature": b64(key.sign(message.encode())), "passkey_credential": {"id": "device-phone-1"}})
         self.assertEqual(relogin.status_code, 200, relogin.text)
         self.assertEqual(relogin.json()["claims"]["device_id"], "device-phone-1")
         self.assertEqual(self.client.get("/api/auth/devices", headers={"Authorization": f"Bearer {relogin.json()['access_token']}"}).status_code, 200)
 
-        replay = self.client.post("/api/auth/user/device-login/complete", json={"challenge_id": challenge["challenge_id"], "signature": b64(key.sign(message.encode()))})
+        replay = self.client.post("/api/auth/user/device-login/complete", json={"challenge_id": challenge["challenge_id"], "signature": b64(key.sign(message.encode())), "passkey_credential": {"id": "device-phone-1"}})
         self.assertEqual(replay.status_code, 409, replay.text)
         self.assertEqual(replay.json()["detail"], "device_login_challenge_replayed")
+
+    def test_existing_enrolled_device_can_add_passkey_once(self):
+        key = Ed25519PrivateKey.generate()
+        self.assertEqual(self.complete(self.create_approved(), key).status_code, 200)
+        db = sqlite3.connect(os.path.join(self.tmp.name, "users.db"))
+        db.execute("DELETE FROM web_app_passkeys WHERE device_id='device-phone-1'")
+        db.commit(); db.close()
+        denied = self.client.post("/api/auth/user/device-login/challenge", json={"device_id": "device-phone-1"})
+        self.assertEqual(denied.status_code, 401)
+        challenged = self.client.post("/api/auth/user/device-login/challenge", json={"username": "Dan", "password": "owner-pass", "device_id": "device-phone-1"})
+        self.assertEqual(challenged.status_code, 200, challenged.text)
+        challenge = challenged.json()
+        self.assertTrue(challenge["passkey_registration_required"])
+        message = f"{DEVICE_LOGIN_VERSION}:{challenge['core_id']}:{challenge['challenge_id']}:{challenge['nonce']}:device-phone-1"
+        completed = self.client.post("/api/auth/user/device-login/complete", json={"challenge_id": challenge["challenge_id"], "signature": b64(key.sign(message.encode())), "passkey_credential": {"id": "device-phone-1"}})
+        self.assertEqual(completed.status_code, 200, completed.text)
+        self.assertEqual(completed.json()["claims"]["device_id"], "device-phone-1")
 
     def test_device_login_rejects_wrong_key_and_expired_challenge(self):
         key = Ed25519PrivateKey.generate()
         self.assertEqual(self.complete(self.create_approved(), key).status_code, 200)
         challenged = self.client.post("/api/auth/user/device-login/challenge", json={"username": "Dan", "password": "owner-pass", "device_id": "device-phone-1"}).json()
-        wrong = self.client.post("/api/auth/user/device-login/complete", json={"challenge_id": challenged["challenge_id"], "signature": b64(Ed25519PrivateKey.generate().sign(b"wrong"))})
+        wrong = self.client.post("/api/auth/user/device-login/complete", json={"challenge_id": challenged["challenge_id"], "signature": b64(Ed25519PrivateKey.generate().sign(b"wrong")), "passkey_credential": {"id": "device-phone-1"}})
         self.assertEqual(wrong.status_code, 403, wrong.text)
 
         expired = self.client.post("/api/auth/user/device-login/challenge", json={"username": "Dan", "password": "owner-pass", "device_id": "device-phone-1"}).json()
         db = sqlite3.connect(os.path.join(self.tmp.name, "users.db"))
         db.execute("UPDATE web_app_device_login_challenges SET expires_at=? WHERE challenge_id=?", ((datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat(), expired["challenge_id"]))
         db.commit(); db.close()
-        response = self.client.post("/api/auth/user/device-login/complete", json={"challenge_id": expired["challenge_id"], "signature": b64(key.sign(b"unused"))})
+        response = self.client.post("/api/auth/user/device-login/complete", json={"challenge_id": expired["challenge_id"], "signature": b64(key.sign(b"unused")), "passkey_credential": {"id": "credential-1"}})
         self.assertEqual(response.status_code, 409, response.text)
         self.assertEqual(response.json()["detail"], "device_login_challenge_expired")
 
@@ -114,8 +135,17 @@ class TestWebAppDeviceEnrollment(unittest.TestCase):
         self.assertEqual(wrong_proof.status_code, 409, wrong_proof.text)
         other = Ed25519PrivateKey.generate()
         public = b64(key.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw))
-        response = self.client.post(f"/api/auth/device-enrollments/{enrollment['enrollment_id']}/complete", json={"proof": enrollment["proof"], "device_id": "device-phone-1", "public_key": public, "signature": b64(other.sign(b"wrong-message"))})
+        response = self.client.post(f"/api/auth/device-enrollments/{enrollment['enrollment_id']}/complete", json={"proof": enrollment["proof"], "device_id": "device-phone-1", "public_key": public, "signature": b64(other.sign(b"wrong-message")), "passkey_credential": {"id": "credential-1"}})
         self.assertEqual(response.status_code, 403, response.text)
+
+    def test_invalid_passkey_registration_does_not_consume_enrollment(self):
+        enrollment = self.create_approved()
+        with patch("app.system.auth.device_enrollment.verify_registration_response", side_effect=ValueError("bad attestation")):
+            response = self.complete(enrollment, Ed25519PrivateKey.generate())
+        self.assertEqual(response.status_code, 403, response.text)
+        self.assertEqual(response.json()["detail"], "passkey_registration_invalid")
+        state = self.client.get(f"/api/auth/device-enrollments/{enrollment['enrollment_id']}", headers=self.auth)
+        self.assertEqual(state.json()["status"], "approved")
 
     def test_cancelled_enrollment_cannot_complete(self):
         enrollment = self.create_approved()

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { rememberEnrolledDevice, saveSession } from "./api";
+import { createPasskey, rememberEnrolledDevice, saveSession } from "./api";
 import "./webapp.css";
 
 const b64url = (bytes: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(bytes))).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
@@ -24,10 +24,13 @@ export default function EnrollmentPage() {
       const deviceKey=await crypto.subtle.importKey("pkcs8",privateBytes,{name:"Ed25519"},false,["sign"]);
       const message=new TextEncoder().encode(`hexe.web-app-enrollment.v1:${coreId}:${enrollmentId}:${deviceId}`);
       const signature=b64url(await crypto.subtle.sign("Ed25519",deviceKey,message));
-      const response=await fetch(`/api/auth/device-enrollments/${encodeURIComponent(enrollmentId)}/complete`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({proof,device_id:deviceId,public_key:publicKey,signature,platform:navigator.platform||"web",browser_metadata:{browser_name:navigator.userAgent.slice(0,80)}})});
+      const optionsResponse=await fetch(`/api/auth/device-enrollments/${encodeURIComponent(enrollmentId)}/passkey-options`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({proof})});
+      const options=await optionsResponse.json().catch(()=>({})); if(!optionsResponse.ok)throw new Error(String(options.detail||"Passkey registration unavailable").replaceAll("_"," "));
+      const passkeyCredential=await createPasskey(options);
+      const response=await fetch(`/api/auth/device-enrollments/${encodeURIComponent(enrollmentId)}/complete`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({proof,device_id:deviceId,public_key:publicKey,signature,passkey_credential:passkeyCredential,platform:navigator.platform||"web",browser_metadata:{browser_name:navigator.userAgent.slice(0,80)}})});
       const body=await response.json().catch(()=>({})); if(!response.ok) throw new Error(String(body.detail||`Request failed (${response.status})`).replaceAll("_"," "));
       await keepKey(deviceId,deviceKey); await rememberEnrolledDevice(deviceId); await saveSession(body.access_token,body.refresh_token); history.replaceState({},"","/app"); location.assign("/app");
     } catch(error) { setState(error instanceof Error?error.message:"Enrollment failed"); } finally { setBusy(false); }
   }
-  return <main className="webapp"><section className="login-card"><span className="eyebrow">Secure device enrollment</span><h1>Add this browser</h1><p>{state}</p><p>The link expires quickly and works only once. Ask a Core owner to approve it, then continue here.</p><button disabled={busy||!enrollmentId||!proof} onClick={()=>void complete()}>{busy?"Binding…":"Complete enrollment"}</button><a className="text-link" href="/app">Return to sign in</a></section></main>;
+  return <main className="webapp"><section className="login-card"><span className="eyebrow">Secure device enrollment</span><h1>Add this browser</h1><p>{state}</p><p>The link expires quickly and works only once. Continuing creates a passkey protected by this device’s Face ID, Touch ID, PIN, or other platform verification.</p><button disabled={busy||!enrollmentId||!proof} onClick={()=>void complete()}>{busy?"Securing…":"Enroll this device"}</button><a className="text-link" href="/app">Return to sign in</a></section></main>;
 }

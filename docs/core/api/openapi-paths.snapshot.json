@@ -1,5 +1,5 @@
 {
-  "path_count": 323,
+  "path_count": 324,
   "paths": {
     "/api/addons": [
       "get"
@@ -160,6 +160,9 @@
       "post"
     ],
     "/api/auth/device-enrollments/{enrollment_id}/complete": [
+      "post"
+    ],
+    "/api/auth/device-enrollments/{enrollment_id}/passkey-options": [
       "post"
     ],
     "/api/auth/devices": [

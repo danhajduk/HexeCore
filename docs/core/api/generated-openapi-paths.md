@@ -5,7 +5,7 @@ Status: Generated
 This file is generated from `openapi-paths.snapshot.json`.
 Do not edit path rows by hand; run `python tools/update_api_route_appendix.py --write`.
 
-Path count: 323
+Path count: 324
 
 | Path | Methods |
 | --- | --- |
@@ -62,6 +62,7 @@ Path count: 323
 | `/api/auth/device-enrollments/{enrollment_id}/approve` | `POST` |
 | `/api/auth/device-enrollments/{enrollment_id}/cancel` | `POST` |
 | `/api/auth/device-enrollments/{enrollment_id}/complete` | `POST` |
+| `/api/auth/device-enrollments/{enrollment_id}/passkey-options` | `POST` |
 | `/api/auth/devices` | `GET` |
 | `/api/auth/devices/admin` | `GET` |
 | `/api/auth/devices/admin/prune` | `POST` |
