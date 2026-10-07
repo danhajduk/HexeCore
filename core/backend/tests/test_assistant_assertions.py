@@ -14,6 +14,21 @@ from app.system.assistant_auth import (
 )
 from app.system.settings.store import SettingsStore
 from app.system.service_access import ServiceAccessGrantStore
+from app.system.auth import ServiceTokenKeyStore, sign_hs256
+
+
+def _service_authorization(settings, *, subject: str, audience: str, scopes: list[str]) -> tuple[ServiceTokenKeyStore, str]:
+    import time
+    keys = ServiceTokenKeyStore(settings)
+    key = asyncio.run(keys.active_key())
+    now = int(time.time())
+    claims = {
+        "iss": "hexe-core", "sub": subject, "aud": audience, "scp": scopes,
+        "iat": now, "exp": now + 120, "jti": "test-service-authorization",
+        "token_use": "node_service", "authorization_id": "grant:provider:node",
+        "provider_node_id": audience.split(":", 2)[1],
+    }
+    return keys, sign_hs256({"alg": "HS256", "typ": "JWT", "kid": str(key["kid"])}, claims, str(key["secret"]))
 
 
 def test_actor_assertion_round_trip_and_jwks(tmp_path):
@@ -341,6 +356,7 @@ def test_trusted_voice_issuance_uses_exact_grant_and_core_person_state(tmp_path)
     settings = SettingsStore(str(tmp_path / "settings.db"))
     service = AssistantAssertionService(settings)
     audience = "node-service:node-interaction-1:interaction.assistant.turn"
+    service_token_keys, service_token = _service_authorization(settings, subject="node-voice-1", audience=audience, scopes=["assistant.turn.submit"])
     grants = ServiceAccessGrantStore(tmp_path / "grants.json")
     grants.create(
         subject_node_id="node-voice-1",
@@ -381,6 +397,7 @@ def test_trusted_voice_issuance_uses_exact_grant_and_core_person_state(tmp_path)
             registrations=Registrations(),
             grants=grants,
             family=Family(),
+            service_token_keys=service_token_keys,
             issuer="core-1",
         )
     )
@@ -404,11 +421,16 @@ def test_trusted_voice_issuance_uses_exact_grant_and_core_person_state(tmp_path)
     issued = client.post(
         "/api/system/nodes/assistant/actor-assertions",
         json=request,
-        headers={"X-Node-Id": "node-voice-1", "X-Node-Trust-Token": "trusted"},
+        headers={"X-Node-Id": "node-voice-1", "X-Node-Trust-Token": "trusted", "Authorization": f"Bearer {service_token}"},
     )
     mismatch = client.post(
         "/api/system/nodes/assistant/actor-assertions",
         json={**request, "requester_node_id": "node-other"},
+        headers={"X-Node-Id": "node-voice-1", "X-Node-Trust-Token": "trusted", "Authorization": f"Bearer {service_token}"},
+    )
+    missing_service_authorization = client.post(
+        "/api/system/nodes/assistant/actor-assertions",
+        json=request,
         headers={"X-Node-Id": "node-voice-1", "X-Node-Trust-Token": "trusted"},
     )
 
@@ -419,12 +441,15 @@ def test_trusted_voice_issuance_uses_exact_grant_and_core_person_state(tmp_path)
     assert issued.json()["claims"]["household_id"] == "household-1"
     assert mismatch.status_code == 403
     assert mismatch.json()["detail"] == "assistant_requester_mismatch"
+    assert missing_service_authorization.status_code == 401
+    assert missing_service_authorization.json()["detail"] == "assistant_service_authorization_required"
 
 
 def test_voice_person_evidence_downgrades_without_verification_threshold(tmp_path):
     settings = SettingsStore(str(tmp_path / "settings.db"))
     service = AssistantAssertionService(settings)
     audience = "node-service:node-interaction-1:interaction.assistant.turn"
+    service_token_keys, service_token = _service_authorization(settings, subject="node-voice-1", audience=audience, scopes=["assistant.turn.submit"])
     grants = ServiceAccessGrantStore(tmp_path / "grants.json")
     grants.create(subject_node_id="node-voice-1", audience=audience, scopes=["assistant.turn.submit"], expires_at=None)
 
@@ -450,7 +475,7 @@ def test_voice_person_evidence_downgrades_without_verification_threshold(tmp_pat
             }
 
     app = FastAPI()
-    app.include_router(build_assistant_auth_router(service, trust=Trust(), registrations=Registrations(), grants=grants, family=Family(), issuer="core-1"))
+    app.include_router(build_assistant_auth_router(service, trust=Trust(), registrations=Registrations(), grants=grants, family=Family(), service_token_keys=service_token_keys, issuer="core-1"))
     response = TestClient(app).post(
         "/api/system/nodes/assistant/actor-assertions",
         json={
@@ -466,7 +491,7 @@ def test_voice_person_evidence_downgrades_without_verification_threshold(tmp_pat
             "confidence": 0.7,
             "evidence": [{"evidence_type": "speaker_id", "provider": "hexevoice", "observed_at": "2026-10-07T04:00:00Z"}],
         },
-        headers={"X-Node-Id": "node-voice-1", "X-Node-Trust-Token": "trusted"},
+        headers={"X-Node-Id": "node-voice-1", "X-Node-Trust-Token": "trusted", "Authorization": f"Bearer {service_token}"},
     )
 
     assert response.status_code == 200

@@ -47,8 +47,12 @@ audiences and untrusted providers fail with authorization errors.
 
 Trusted channel nodes request an actor assertion through
 `POST /api/system/nodes/assistant/actor-assertions`. Core requires the caller's
-node ID to match the request, an active exact-audience service-access grant,
-and a trusted Interaction provider audience. Person evidence must resolve to
+node ID to match the request, the short-lived bearer token returned by
+`POST /api/system/nodes/services/authorize`, and a trusted Interaction provider
+audience. Core verifies the token signature, expiry, `node_service` use,
+requester subject, exact audience, and requested scopes. A separate persistent
+service-access grant is not part of ordinary Assistant workload execution.
+Person evidence must resolve to
 an active Core-owned person and household; endpoint context must match Core's
 room assignment. Node-originated assertions never acquire a `user_id`.
 Claimed verified speaker identity is downgraded to probable unless evidence is

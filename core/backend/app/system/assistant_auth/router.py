@@ -8,6 +8,7 @@ from app.system.onboarding.trust import NodeTrustIssuanceService
 from app.system.family_identity import FamilyIdentityStore
 from app.system.service_access import ServiceAccessGrantStore
 from app.system.users.store import UsersStore
+from app.system.auth import ServiceTokenError, ServiceTokenKeyStore, validate_claims, verify_hs256
 
 from .service import AssistantAssertionError, AssistantAssertionService
 
@@ -159,6 +160,7 @@ def build_assistant_auth_router(
     grants: ServiceAccessGrantStore | None = None,
     family: FamilyIdentityStore | None = None,
     users: UsersStore | None = None,
+    service_token_keys: ServiceTokenKeyStore | None = None,
     issuer: str = "hexe-core",
 ) -> APIRouter:
     router = APIRouter(tags=["assistant-authorization"])
@@ -200,6 +202,7 @@ def build_assistant_auth_router(
         body: AssistantActorAssertionIssueRequest,
         x_node_id: str | None = Header(default=None),
         x_node_trust_token: str | None = Header(default=None),
+        authorization: str | None = Header(default=None),
     ) -> AssistantActorAssertionIssueResponse:
         caller_node_id = str(x_node_id or "").strip()
         require_trusted_node(caller_node_id, x_node_trust_token)
@@ -215,9 +218,25 @@ def build_assistant_auth_router(
         clean_scopes = sorted({str(scope).strip() for scope in body.requested_scopes if str(scope).strip()})
         if any(scope not in {"assistant.turn.submit", "assistant.turn.cancel"} for scope in clean_scopes):
             raise HTTPException(status_code=403, detail="assistant_actor_scope_not_issuable")
-        grant = grants.find_authorizing(subject_node_id=caller_node_id, audience=body.audience, required_scopes=clean_scopes) if grants is not None else None
-        if grant is None:
-            raise HTTPException(status_code=403, detail="assistant_service_access_not_authorized")
+        bearer_parts = str(authorization or "").strip().split(" ", 1)
+        if len(bearer_parts) != 2 or bearer_parts[0].lower() != "bearer" or not bearer_parts[1].strip():
+            raise HTTPException(status_code=401, detail="assistant_service_authorization_required")
+        if service_token_keys is None:
+            raise HTTPException(status_code=503, detail="assistant_authorization_unavailable")
+        try:
+            _, payload = verify_hs256(bearer_parts[1].strip(), await service_token_keys.verification_keys())
+            caller_authorization = validate_claims(
+                payload,
+                audience=body.audience,
+                expected_issuer="hexe-core",
+                allowed_token_uses={"node_service"},
+            )
+        except ServiceTokenError as exc:
+            raise HTTPException(status_code=403, detail=f"assistant_service_authorization_{str(exc)}") from exc
+        if caller_authorization.sub != caller_node_id:
+            raise HTTPException(status_code=403, detail="assistant_service_authorization_subject_mismatch")
+        if any(scope not in set(caller_authorization.scp) for scope in clean_scopes):
+            raise HTTPException(status_code=403, detail="assistant_service_authorization_scope_insufficient")
 
         person_id, household_id, room_id = body.person_id, body.household_id, body.room_id
         identity_state = body.identity_state
@@ -269,7 +288,7 @@ def build_assistant_auth_router(
             confidence=body.confidence,
             evidence=[item.model_dump() for item in body.evidence],
         )
-        return AssistantActorAssertionIssueResponse(token=token, claims=claims, grant_id=grant.grant_id)
+        return AssistantActorAssertionIssueResponse(token=token, claims=claims, grant_id=caller_authorization.authorization_id)
 
     @router.post(
         "/api/system/nodes/assistant/assertions/introspect",

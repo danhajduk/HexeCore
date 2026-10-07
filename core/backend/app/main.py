@@ -1469,6 +1469,7 @@ def create_app() -> FastAPI:
             grants=service_access_grant_store,
             family=family_identity_store,
             users=users_store,
+            service_token_keys=service_token_keys,
             issuer=str(os.getenv("HEXE_CORE_ID", "hexe-core")),
         )
     )
