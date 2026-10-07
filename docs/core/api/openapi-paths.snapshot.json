@@ -1,6 +1,9 @@
 {
-  "path_count": 324,
+  "path_count": 327,
   "paths": {
+    "/.well-known/hexe-core-jwks.json": [
+      "get"
+    ],
     "/api/addons": [
       "get"
     ],
@@ -279,6 +282,12 @@
       "get"
     ],
     "/api/schemas/client-core/v1/README.md": [
+      "get"
+    ],
+    "/api/schemas/client-core/v1/assistant-actor-assertion-claims.v1.schema.json": [
+      "get"
+    ],
+    "/api/schemas/client-core/v1/assistant-approval-assertion-claims.v1.schema.json": [
       "get"
     ],
     "/api/schemas/client-core/v1/node-management-authorization-contract.md": [

@@ -5,10 +5,11 @@ Status: Generated
 This file is generated from `openapi-paths.snapshot.json`.
 Do not edit path rows by hand; run `python tools/update_api_route_appendix.py --write`.
 
-Path count: 324
+Path count: 327
 
 | Path | Methods |
 | --- | --- |
+| `/.well-known/hexe-core-jwks.json` | `GET` |
 | `/api/addons` | `GET` |
 | `/api/addons/errors` | `GET` |
 | `/api/addons/install/start` | `POST` |
@@ -99,6 +100,8 @@ Path count: 324
 | `/api/policy/revocations` | `GET, POST` |
 | `/api/schemas/client-core/v1` | `GET` |
 | `/api/schemas/client-core/v1/README.md` | `GET` |
+| `/api/schemas/client-core/v1/assistant-actor-assertion-claims.v1.schema.json` | `GET` |
+| `/api/schemas/client-core/v1/assistant-approval-assertion-claims.v1.schema.json` | `GET` |
 | `/api/schemas/client-core/v1/node-management-authorization-contract.md` | `GET` |
 | `/api/schemas/client-core/v1/schema-catalog.v1.response.schema.json` | `GET` |
 | `/api/schemas/client-core/v1/service-token-security-contract.md` | `GET` |
