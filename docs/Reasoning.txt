@@ -5,6 +5,14 @@ What changed: Updated root README links/layout, updated branding validators to s
 Verification: Branding validators passed for both Core and Supervisor; tracked docs now live under root docs with no tracked files under core/docs or supervisor/docs.
 ###########
 
+Task #1014 notification resume latency
+Step objective: Remove the observed 30-second delay between iOS app launch and panel presentation.
+Issue cause: Resume checked only the click marker while the authenticated feed refreshed on a 15-second interval, allowing one or two missed cycles around token refresh.
+Chosen fix: Refresh the feed immediately on `pageshow` and visibility changes and poll every five seconds while visible.
+Verification: Pending tests, build, deployment, and physical timing check.
+
+###########
+
 Task #1014 completion
 Step objective: Close the revised one-user acceptance scope with physical evidence.
 What changed: Verified iOS delivery, added a device-scoped in-app notification feed and panel, repaired gateway-valid deep links, and added an iOS feed-driven presentation fallback. Preserved original two-user acceptance as deferred Task 1028.

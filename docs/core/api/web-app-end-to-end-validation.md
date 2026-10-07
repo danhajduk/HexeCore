@@ -61,7 +61,7 @@ The acceptance check also exposed a separate app defect: Core persisted the
 notification, but the PWA had no in-app notification surface and its deep link
 targeted a route that did not exist. The PWA now reads the enrolled-device-
 scoped `GET /api/web-app/notifications` feed, displays a notification panel,
-refreshes it every 15 seconds while visible, and uses
+refreshes it immediately on resume and every five seconds while visible, and uses
 `/app/notifications` as the valid notification-click target. The feed omits
 subscription references and user/device identifiers and is constrained by the
 authenticated token's enrolled user and device.
@@ -154,7 +154,7 @@ Task 1028 preserves the postponed original acceptance work:
   device identifiers across Core audit/outbox state and gateway redacted
   telemetry. Do not log the raw subscription endpoint.
 - If the OS notification arrives but the in-app list is stale, reopen the
-  notification panel or use **Refresh**. A visible app polls at 15-second
+  notification panel or use **Refresh**. A visible app polls at five-second
   intervals; an expired or revoked enrolled session must reauthenticate.
 - If a revoked device still appears in browser storage, server-side revocation
   remains authoritative. Clear the local installation only after preserving
