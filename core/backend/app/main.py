@@ -1436,7 +1436,14 @@ def create_app() -> FastAPI:
         prefix="/api",
     )
     app.include_router(build_client_core_catalog_router(), prefix="/api")
-    app.include_router(build_assistant_auth_router(assistant_assertions))
+    app.include_router(
+        build_assistant_auth_router(
+            assistant_assertions,
+            trust=node_trust_issuance,
+            registrations=node_registrations_store,
+            issuer=str(os.getenv("HEXE_CORE_ID", "hexe-core")),
+        )
+    )
     app.include_router(build_policy_router(policy_store, mqtt_manager, audit_store), prefix="/api/policy", tags=["policy"])
     app.include_router(build_telemetry_router(telemetry_store, service_token_keys), prefix="/api/telemetry", tags=["telemetry"])
     app.include_router(

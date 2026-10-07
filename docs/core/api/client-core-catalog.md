@@ -35,6 +35,14 @@ verification keys. Assistant signing keys remain in Core's sensitive settings
 boundary, and retired public keys remain discoverable only through the latest
 assertion expiry plus the 30-second clock-skew window.
 
+Trusted Assistant providers use
+`POST /api/system/nodes/assistant/assertions/introspect` before consequential
+execution and approval resumption. Core authenticates the provider node,
+requires it to own the exact service audience, rechecks the assertion binding
+and current authorization epochs, and atomically consumes approval assertions
+when requested. Invalid assertions return stable inactive error codes; foreign
+audiences and untrusted providers fail with authorization errors.
+
 Provider introspection, governed privileged-scope issuance, and lifetime-based
 rotation retention are implemented. Universal provider enforcement is marked
 `Partially implemented` because each service node must adopt the contract.

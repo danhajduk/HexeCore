@@ -15,6 +15,7 @@ from app.system.settings.store import SettingsStore
 
 ASSISTANT_ASSERTION_KEYRING_REF = "assistant.assertion.signing_keys.v1"
 ASSISTANT_AUTHORIZATION_EPOCHS_REF = "assistant.authorization_epochs.v1"
+ASSISTANT_CONSUMED_APPROVALS_REF = "assistant.consumed_approvals.v1"
 ASSISTANT_ASSERTION_TTL_SECONDS = 60
 ASSISTANT_ASSERTION_CLOCK_SKEW_SECONDS = 30
 ASSISTANT_ASSERTION_MAX_KEY_HISTORY = 3
@@ -161,6 +162,15 @@ class AssistantAssertionService:
         await self._settings.set(ASSISTANT_AUTHORIZATION_EPOCHS_REF, epochs)
         return int(values[key])
 
+    async def _sign_claims(self, claims: dict[str, Any]) -> str:
+        key = await self.keys.active_key()
+        header = {"alg": "EdDSA", "typ": "JWT", "kid": str(key["kid"])}
+        signing_input = f"{_b64url_encode(_json_bytes(header))}.{_b64url_encode(_json_bytes(claims))}"
+        private_key = Ed25519PrivateKey.from_private_bytes(_b64url_decode(str(key["private_key"])))
+        token = f"{signing_input}.{_b64url_encode(private_key.sign(signing_input.encode('ascii')))}"
+        await self.keys.record_expiry(kid=str(key["kid"]), exp=int(claims["exp"]))
+        return token
+
     async def issue_actor_assertion(
         self,
         *,
@@ -227,13 +237,100 @@ class AssistantAssertionService:
             "constraints": {"room_id": room_id, "endpoint_id": endpoint_id, "device_id": device_id},
             "authorization_epochs": epochs,
         }
-        key = await self.keys.active_key()
-        header = {"alg": "EdDSA", "typ": "JWT", "kid": str(key["kid"])}
-        signing_input = f"{_b64url_encode(_json_bytes(header))}.{_b64url_encode(_json_bytes(claims))}"
-        private_key = Ed25519PrivateKey.from_private_bytes(_b64url_decode(str(key["private_key"])))
-        token = f"{signing_input}.{_b64url_encode(private_key.sign(signing_input.encode('ascii')))}"
-        await self.keys.record_expiry(kid=str(key["kid"]), exp=exp)
-        return token, claims
+        return await self._sign_claims(claims), claims
+
+    async def issue_approval_assertion(
+        self,
+        *,
+        actor_claims: dict[str, Any],
+        approval_id: str,
+        action: str,
+        intent_id: str,
+        intent_revision: str,
+        canonical_arguments_hash: str,
+        target_capability: str,
+        correlation_id: str,
+        now: int | None = None,
+    ) -> tuple[str, dict[str, Any]]:
+        if len(canonical_arguments_hash) != 64 or any(character not in "0123456789abcdefABCDEF" for character in canonical_arguments_hash):
+            raise AssistantAssertionError("approval_arguments_hash_invalid")
+        selected_now = int(time.time()) if now is None else int(now)
+        claims = dict(actor_claims)
+        claims.update(
+            {
+                "iat": selected_now,
+                "nbf": selected_now,
+                "exp": selected_now + ASSISTANT_ASSERTION_TTL_SECONDS,
+                "jti": secrets.token_urlsafe(24),
+                "approval": {
+                    "approval_id": str(approval_id),
+                    "action": str(action),
+                    "intent_id": str(intent_id),
+                    "intent_revision": str(intent_revision),
+                    "canonical_arguments_hash": canonical_arguments_hash.lower(),
+                    "target_capability": str(target_capability),
+                    "correlation_id": str(correlation_id),
+                },
+            }
+        )
+        if any(not str(claims["approval"][field]).strip() for field in ("approval_id", "action", "intent_id", "intent_revision", "target_capability", "correlation_id")):
+            raise AssistantAssertionError("approval_binding_required")
+        return await self._sign_claims(claims), claims
+
+    async def introspect(
+        self,
+        token: str,
+        *,
+        audience: str,
+        issuer: str,
+        requester_node_id: str,
+        conversation_id: str,
+        turn_id: str,
+        required_scopes: list[str] | None = None,
+        consume_approval: bool = False,
+        now: int | None = None,
+    ) -> dict[str, Any]:
+        selected_now = int(time.time()) if now is None else int(now)
+        claims = verify_assistant_assertion(
+            token,
+            jwks=await self.keys.jwks(now=selected_now),
+            audience=audience,
+            issuer=issuer,
+            requester_node_id=requester_node_id,
+            conversation_id=conversation_id,
+            turn_id=turn_id,
+            required_scopes=required_scopes,
+            now=selected_now,
+        )
+        actor = claims.get("actor") if isinstance(claims.get("actor"), dict) else {}
+        constraints = claims.get("constraints") if isinstance(claims.get("constraints"), dict) else {}
+        current_epochs = await self.authorization_epochs(
+            user_id=str(actor.get("user_id") or "") or None,
+            device_id=str(constraints.get("device_id") or "") or None,
+            node_id=requester_node_id,
+            household_id=str(claims.get("household_id") or "") or None,
+        )
+        if claims.get("authorization_epochs") != current_epochs:
+            raise AssistantAssertionError("actor_assertion_revoked")
+        if consume_approval:
+            if not isinstance(claims.get("approval"), dict):
+                raise AssistantAssertionError("approval_assertion_required")
+            await self._consume_approval(str(claims.get("jti") or ""), exp=int(claims["exp"]), now=selected_now)
+        return claims
+
+    async def _consume_approval(self, jti: str, *, exp: int, now: int) -> None:
+        if not jti:
+            raise AssistantAssertionError("approval_jti_required")
+        raw = await self._settings.get(ASSISTANT_CONSUMED_APPROVALS_REF)
+        consumed = {
+            str(key): int(value)
+            for key, value in dict(raw or {}).items()
+            if int(value) + ASSISTANT_ASSERTION_CLOCK_SKEW_SECONDS >= now
+        }
+        if jti in consumed:
+            raise AssistantAssertionError("approval_assertion_replayed")
+        consumed[jti] = int(exp)
+        await self._settings.set(ASSISTANT_CONSUMED_APPROVALS_REF, consumed)
 
 
 def verify_assistant_assertion(

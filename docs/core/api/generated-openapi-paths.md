@@ -5,7 +5,7 @@ Status: Generated
 This file is generated from `openapi-paths.snapshot.json`.
 Do not edit path rows by hand; run `python tools/update_api_route_appendix.py --write`.
 
-Path count: 327
+Path count: 328
 
 | Path | Methods |
 | --- | --- |
@@ -201,6 +201,7 @@ Path count: 327
 | `/api/system/mqtt/users/import` | `POST` |
 | `/api/system/mqtt/users/{principal_id}` | `DELETE, PATCH` |
 | `/api/system/mqtt/users/{principal_id}/rotate` | `POST` |
+| `/api/system/nodes/assistant/assertions/introspect` | `POST` |
 | `/api/system/nodes/budgets` | `GET` |
 | `/api/system/nodes/budgets/declaration` | `POST` |
 | `/api/system/nodes/budgets/export` | `GET` |

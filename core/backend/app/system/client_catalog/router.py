@@ -460,6 +460,7 @@ def _catalog_payload() -> ClientCoreCatalogResponse:
             _api("service_token_introspection", "POST", "/api/system/nodes/services/introspect", "Validate a Core-issued service token for the authenticated provider.", "X-Node-Id and X-Node-Trust-Token"),
             _api("service_access_authorize", "POST", "/api/system/nodes/service-access/authorize", "Issue a service-management token from an explicit Core-owned grant."),
             _api("assistant_jwks", "GET", "/.well-known/hexe-core-jwks.json", "Read public Ed25519 keys for local Assistant assertion verification.", "Public verification material"),
+            _api("assistant_assertion_introspection", "POST", "/api/system/nodes/assistant/assertions/introspect", "Recheck Assistant assertion binding, scopes, authorization epochs, and single-use approval state.", "X-Node-Id and X-Node-Trust-Token"),
             _api("service_access_grant_list", "GET", "/api/system/nodes/service-access/grants", "List privileged service-access grants.", "Core administrator"),
             _api("service_access_grant_create", "POST", "/api/system/nodes/service-access/grants", "Create a privileged service-access grant.", "Core administrator"),
             _api("service_access_grant_detail", "GET", "/api/system/nodes/service-access/grants/{grant_id}", "Read one privileged service-access grant.", "Core administrator"),
