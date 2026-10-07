@@ -1569,3 +1569,18 @@ Original task details:
 - Let trusted Core engines and add-ons publish validated events; they must not select recipients or bypass Core notification policy.
 - Preserve current browser PushManager, per-Core VAPID, gateway bootstrap, subscription, and notification APIs.
 - Verification: recipient/consent policy, privacy redaction, per-device preferences, deduplication/rate limits, retries, revocation cleanup, and end-to-end Web Push tests.
+
+## Task 1029
+Original task details:
+- Coordination request: `HEXE-REQ-20261006-ASSISTANT-MIGRATION-CORE` from `core` to `core`.
+- Depends on: `HEXE-REQ-20261006-ASSISTANT-MIGRATION-INTERACTION` and `HEXE-REQ-20260930-WEBAPP-CORE`.
+- Priority: high.
+- Add the Core control-plane support required for the HexeInteraction Assistant Engine without making Core the transcript relay for direct node-originated turns.
+- Advertise and resolve the versioned Assistant Engine capability. Issue short-lived credentials bound to the requester node, Assistant Engine audience, Core or household, session or turn, permitted operation, expiry, and replay protection, with effective revocation.
+- Produce a signed actor authorization context for authenticated app typers and Voice speaker evidence. Preserve user ID, explicitly linked person ID, device or endpoint, room, roles, scopes, identity state, confidence, and provenance as applicable. Never infer a user ID from a Voice person ID without an explicit Core-owned link.
+- Keep the browser behind the Core-hosted Web App boundary: the browser submits authenticated turns to Core, Core calls Interaction on the user's behalf, and node service credentials are never exposed to the browser.
+- Keep durable conversation ownership, approvals, audit, retention/deletion, budgets, provider authorization, and consequential-action policy in Core.
+- Authorize intent registration and selected intent execution against current node capability ownership, permissions, and revocation state.
+- Acceptance: Browser and direct-node paths enforce cross-user and cross-Core isolation; forged actor data, expired or replayed turns, revoked nodes/intents, stale approvals, and provider denial fail closed.
+- Acceptance: Integration evidence proves Core supplies discovery and authorization while Voice sends its transcript directly to Interaction.
+- Verification: Add focused contract, authorization, identity-link, replay, revocation, browser-boundary, approval, and direct-node integration tests; update API/configuration/security documentation and generated artifacts where applicable.
