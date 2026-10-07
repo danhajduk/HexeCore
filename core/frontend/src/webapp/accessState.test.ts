@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accessPrompt, assistantEntry } from "./accessState";
+import { accessPrompt, assistantEntry, backgroundSessionExpired } from "./accessState";
 
 describe("accessPrompt", () => {
   it("does not expose either authentication form before device discovery completes", () => {
@@ -19,5 +19,11 @@ describe("accessPrompt", () => {
   it("allows ordinary authenticated browsers without a device passkey", () => {
     expect(assistantEntry(false, true, false)).toBe("authenticated");
     expect(assistantEntry(false, false, false)).toBe("locked");
+  });
+
+  it("expires only sessions that exceeded the background timeout", () => {
+    expect(backgroundSessionExpired(1_000, 301_000)).toBe(true);
+    expect(backgroundSessionExpired(1_000, 300_999)).toBe(false);
+    expect(backgroundSessionExpired(0, 999_999)).toBe(false);
   });
 });

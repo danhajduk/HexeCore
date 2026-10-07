@@ -23,7 +23,7 @@ export async function clearSession(): Promise<void> {
   try { if(token)await fetch("/api/auth/user/logout",{method:"POST",headers:{Authorization:`Bearer ${token}`}}); }
   finally { await clearLocalSession(); }
 }
-export async function saveSession(access: string, refresh: string): Promise<void> { sessionStorage.setItem(ACCESS_KEY, access); sessionStorage.setItem(UNLOCKED_KEY,"1"); await credentials("readwrite",store=>store.put(refresh,REFRESH_KEY)); }
+export async function saveSession(access: string, refresh: string): Promise<void> { sessionStorage.setItem(ACCESS_KEY, access); sessionStorage.setItem(UNLOCKED_KEY,"1"); localStorage.removeItem("hexe.app-backgrounded-at"); await credentials("readwrite",store=>store.put(refresh,REFRESH_KEY)); }
 export async function rememberEnrolledDevice(deviceId: string): Promise<void> { await credentials("readwrite",store=>store.put(deviceId,DEVICE_ID_KEY)); }
 
 export async function enrolledDeviceId(): Promise<string | null> {

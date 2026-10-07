@@ -11,3 +11,7 @@ export function assistantEntry(enrolled: boolean, hasAccessToken: boolean, unloc
   if (enrolled && !unlocked) return "locked";
   return "authenticated";
 }
+
+export function backgroundSessionExpired(backgroundedAt: number, now: number, timeoutMs = 5 * 60 * 1000): boolean {
+  return backgroundedAt > 0 && now - backgroundedAt >= timeoutMs;
+}
