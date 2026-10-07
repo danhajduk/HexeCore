@@ -1628,3 +1628,9 @@ Original task details:
   ordinary-turn denial, denied consent, archived exclusion, pagination,
   sensitive-field absence, expiry/replay/wrong-node/wrong-person denial,
   revocation propagation, and a live enrollment flow.
+- Coordination incident: `HEXE-REQ-20261007-DE0170` from `interaction` to
+  `core`. Publish `/.well-known/hexe-core-jwks.json` through the persisted
+  public Core base URL instead of allowing nginx's SPA fallback to return
+  HTML. The public route must return the same public-only Ed25519 JWKS as port
+  9001 while preserving existing SPA and `/api` routing. Verify with the live
+  Interaction authorization loader.
