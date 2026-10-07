@@ -1591,3 +1591,40 @@ Original task details:
 - Locked schema ownership: publish Core actor and approval assertion schemas through `/api/schemas/client-core/v1`; consume Interaction transport and intent schemas from `/api/schemas/client-node/v2` using pinned versions and hashes rather than per-turn downloads.
 - Locked capabilities: keep `interaction.assistant.turn` separate from `interaction.assistant.intents`; Core selects the exact provider endpoint, service ID, audience, contract version, operations, scopes, schema catalog, and health path.
 - Locked Interaction retention defaults: 10-minute active turn, 15-minute clarification, 10-minute approval, one-hour reconnect event stream, and a content-free 24-hour idempotency tombstone, all configurable downward within Core policy.
+- Coordination request: `HEXE-REQ-20261007-2B7AB1` from `voice` to `core`.
+- Add a versioned intent-execution authorization exchange. Interaction must be
+  able to exchange a valid actor assertion for short-lived, exact-owner
+  execution authority bound to requester node, actor, identity state,
+  conversation, turn, intent ID, contract version, revision, action or target
+  capability, canonical arguments hash, correlation ID, required scopes, and
+  expiry. The intent owner must introspect that authority using node trust.
+- Intent-execution authorization must return only opaque actor identity,
+  identity state, effective scopes, expiry, and safe denial codes. Never place
+  a user display name, raw speaker evidence, transcript, service credential,
+  or reusable actor assertion in MQTT. Unknown and conflicted speakers remain
+  eligible for ordinary low-risk scopes; administrative actions require a
+  current Core-confirmed administrative scope and fail closed.
+- Intent-execution verification must cover anonymous, unknown, probable,
+  verified, and conflicted speakers; ordinary allow and admin allow/deny;
+  revocation, expiry, wrong owner, binding changes, replay/idempotency, and
+  unavailable-Core behavior; plus a live Voice-to-Interaction flow.
+- Coordination request: `HEXE-REQ-20261007-A730A2` from `voice` to `core`.
+- Add a versioned Voice enrollment-management contract that lets a trusted
+  Voice node acting through an explicitly authorized enrollment session list
+  consent-eligible active people in the operator household and obtain a
+  short-lived one-time enrollment grant bound to person, household, Voice
+  node, endpoint, enrollment session, purpose, and expiry.
+- Enrollment directory responses may contain only opaque `person_id`, a safe
+  human-readable enrollment label, consent and eligibility state, and safe
+  enrollment status/reason fields. They must be household-scoped and
+  paginated. Ordinary turns, anonymous actors, and intent handlers cannot
+  enumerate people.
+- Voice retains enrollment audio, embeddings, voiceprints, and speaker
+  profiles. Core retains people, households, consent, links, grants, and
+  revocation. Withdrawal, archival, household removal, and grant revocation
+  must be observable and invalidate the local binding without exposing
+  credentials, contacts, account identifiers, roles/scopes, or biometrics.
+- Enrollment verification must cover authorized listing, cross-household and
+  ordinary-turn denial, denied consent, archived exclusion, pagination,
+  sensitive-field absence, expiry/replay/wrong-node/wrong-person denial,
+  revocation propagation, and a live enrollment flow.
