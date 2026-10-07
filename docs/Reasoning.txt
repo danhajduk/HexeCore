@@ -5,6 +5,15 @@ What changed: Updated root README links/layout, updated branding validators to s
 Verification: Branding validators passed for both Core and Supervisor; tracked docs now live under root docs with no tracked files under core/docs or supervisor/docs.
 ###########
 
+Task #1014 completion
+Step objective: Close the revised one-user acceptance scope with physical evidence.
+What changed: Verified iOS delivery, added a device-scoped in-app notification feed and panel, repaired gateway-valid deep links, and added an iOS feed-driven presentation fallback. Preserved original two-user acceptance as deferred Task 1028.
+Verification: User confirmed iOS receipt and automatic panel opening; feed displayed 12 scoped notifications. Final focused backend tests, 101 frontend tests, production build, OpenAPI checks, live deployment, and public fail-closed probes passed.
+
+#############
+All Tasks completed 10/06/2026 17:01:00
+#############
+
 Task #1014 notification age-window correction
 Step objective: Keep the pending in-app presentation valid across delayed iOS delivery and later authentication refresh.
 Issue cause: The app authenticated 11 minutes 30 seconds after the newest event, just outside the temporary 10-minute window, so it loaded the count but suppressed the panel.

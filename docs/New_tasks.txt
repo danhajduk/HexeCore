@@ -49,7 +49,6 @@ Do not edit above this line:
 #######################################################################
 
 [FUTURE TODO] Task 1000: Validate and document the inverted BLE onboarding flow across Supervisor and endpoint roles
-[WIP] Task 1014: Validate and document the Core-hosted web app and notification workflow for one live user
 [FUTURE TODO] Task 1028: Complete two-user physical-device web app and Web Push isolation acceptance
 [TODO] Task 1018: Preserve enrolled-device login and add passkey-protected app unlock
 [TODO] Task 1019: Add owner-approved enrollment requests and installation notifications

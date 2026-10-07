@@ -1,7 +1,7 @@
 # Core Web App End-to-End Validation
 
-Status: Partially implemented for the user-approved one-user validation scope;
-two-user physical-device isolation is deferred to Task 1028
+Status: Implemented for the user-approved one-user validation scope; two-user
+physical-device isolation is deferred to Task 1028
 
 This record covers Core Task 1014 and the live validation performed on
 2026-10-06. It complements the normative
@@ -73,6 +73,13 @@ opens the panel once for each newly observed notification less than 24 hours
 old, keyed by `event_id` in local browser storage. This provides deterministic
 in-app presentation from the authenticated feed without weakening server-side
 ownership checks or repeatedly reopening an already-seen event.
+
+Physical acceptance completed on 2026-10-06. The user confirmed prompt iOS
+delivery of the final test and confirmed that, after authentication refresh,
+the app loaded 12 device-scoped notifications and automatically opened the
+notification panel using the unseen-event feed fallback. Direct URL navigation,
+transient worker messaging, and a one-time click marker were insufficient on
+this iOS installation; the feed-driven fallback is the verified behavior.
 
 Production push latency includes a gateway queue boundary. Core submits the
 intent immediately, but the Website gateway currently drains its durable queue
