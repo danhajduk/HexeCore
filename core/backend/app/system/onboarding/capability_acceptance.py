@@ -22,6 +22,20 @@ def _allowed_providers() -> set[str]:
     return _normalized_set(os.getenv("HEXE_NODE_ALLOWED_PROVIDERS", ""))
 
 
+def _canonical_node_type(manifest: dict[str, Any]) -> str:
+    node = manifest.get("node")
+    raw = str(node.get("node_type") or "") if isinstance(node, dict) else ""
+    value = raw.strip().lower()
+    return value[:-5] if value.endswith("-node") else value
+
+
+def _reserved_namespace_violation(*, node_type: str, task_families: list[str]) -> str | None:
+    for family in task_families:
+        if family.startswith("interaction.") and node_type != "interaction":
+            return family
+    return None
+
+
 @dataclass
 class CapabilityAcceptanceResult:
     accepted: bool
@@ -56,6 +70,16 @@ class NodeCapabilityAcceptanceService:
         requested_families = [
             str(v).strip().lower() for v in list(manifest.get("requested_task_families") or []) if str(v).strip()
         ]
+        namespace_violation = _reserved_namespace_violation(
+            node_type=_canonical_node_type(manifest),
+            task_families=families,
+        )
+        if namespace_violation:
+            return CapabilityAcceptanceResult(
+                accepted=False,
+                error_code="capability_namespace_not_owned",
+                message=namespace_violation,
+            )
         providers_supported = [
             str(v).strip().lower() for v in list(manifest.get("supported_providers") or []) if str(v).strip()
         ]

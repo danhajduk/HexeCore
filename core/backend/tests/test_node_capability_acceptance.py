@@ -70,6 +70,39 @@ class TestNodeCapabilityAcceptance(unittest.TestCase):
         self.assertEqual(result.profile.declared_task_families, ["task.voice.intent.dispatch"])
         self.assertEqual(result.profile.requested_task_families, ["task.chat"])
 
+    def test_interaction_node_can_claim_interaction_namespace(self) -> None:
+        manifest = self._manifest()
+        manifest["node"]["node_type"] = "interaction-node"
+        manifest["declared_task_families"] = ["interaction.assistant.turn", "interaction.assistant.intents"]
+
+        result = self.service.evaluate(node_id="node-abc123", manifest=manifest)
+
+        self.assertTrue(result.accepted)
+        assert result.profile is not None
+        self.assertEqual(
+            result.profile.provided_task_families,
+            ["interaction.assistant.turn", "interaction.assistant.intents"],
+        )
+
+    def test_non_interaction_node_cannot_claim_interaction_namespace(self) -> None:
+        manifest = self._manifest()
+        manifest["declared_task_families"] = ["interaction.assistant.turn"]
+
+        result = self.service.evaluate(node_id="node-abc123", manifest=manifest)
+
+        self.assertFalse(result.accepted)
+        self.assertEqual(result.error_code, "capability_namespace_not_owned")
+        self.assertEqual(result.message, "interaction.assistant.turn")
+
+    def test_task_namespace_remains_shared(self) -> None:
+        manifest = self._manifest()
+        manifest["node"]["node_type"] = "voice-node"
+        manifest["declared_task_families"] = ["task.chat"]
+
+        result = self.service.evaluate(node_id="node-abc123", manifest=manifest)
+
+        self.assertTrue(result.accepted)
+
     def test_normalizes_provider_model_duplicates_into_single_descriptor(self) -> None:
         manifest = self._manifest()
         manifest["provider_intelligence"] = [
