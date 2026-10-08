@@ -386,10 +386,12 @@ def build_service_access_router(
     grant_store: ServiceAccessGrantStore,
     trust: NodeTrustIssuanceService,
     registrations: NodeRegistrationsStore,
+    core_id: str | None = None,
     audit: AuditLogStore | None = None,
 ) -> APIRouter:
     router = APIRouter(tags=["service-access"])
     limiter = _RateLimiter()
+    configured_core_id = str(core_id or "").strip()
 
     @router.get("/system/nodes/service-access/grants", response_model=ServiceAccessGrantListResponse)
     def list_grants(request: Request, x_admin_token: str | None = Header(default=None)) -> dict[str, Any]:
@@ -504,17 +506,19 @@ def build_service_access_router(
             return _inactive("token_audience_mismatch")
         if not set(body.required_scopes).issubset(set(claims.scp)):
             return _inactive("token_scope_insufficient")
-        if trust.trusted_node(claims.sub) is None:
-            return _inactive("token_subject_untrusted")
-        subject_registration = registrations.get(claims.sub)
-        if subject_registration is None or str(subject_registration.trust_status or "").strip().lower() != "trusted":
-            return _inactive("token_subject_untrusted")
         if claims.token_use == "node_service_access":
             grant = grant_store.get(str(claims.authorization_id or ""))
             if grant is None or not grant.is_active():
                 return _inactive("token_authorization_revoked")
             if grant.subject_node_id != claims.sub or grant.audience != claims.aud or not set(claims.scp).issubset(set(grant.scopes)):
                 return _inactive("token_authorization_revoked")
+        core_subject = claims.token_use == "node_service_access" and bool(configured_core_id) and claims.sub == configured_core_id
+        if not core_subject:
+            if trust.trusted_node(claims.sub) is None:
+                return _inactive("token_subject_untrusted")
+            subject_registration = registrations.get(claims.sub)
+            if subject_registration is None or str(subject_registration.trust_status or "").strip().lower() != "trusted":
+                return _inactive("token_subject_untrusted")
 
         result = ServiceTokenIntrospectionResponse(active=True, claims=IntrospectionClaims.model_validate(claims.to_dict()))
         if audit is not None:

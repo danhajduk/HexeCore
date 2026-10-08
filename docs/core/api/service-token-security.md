@@ -143,6 +143,12 @@ Provider-authentication and availability failures use:
 Providers must fail closed unless the result is HTTP 200 with `active=true`.
 Core never logs or returns the submitted bearer token or signing material.
 
+The configured Core identity may be the subject of a `node_service_access`
+token without also being registered as a node. This first-party path still
+requires an active service-access grant whose subject, audience, and scopes
+authorize the signed token exactly. Every other subject must remain a trusted,
+registered node at introspection time.
+
 ## Identity and operation binding
 
 The service node owns request binding after successful introspection:

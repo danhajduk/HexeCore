@@ -66,6 +66,7 @@ class TestServiceAccessSecurityApi:
                 grant_store=self.grants,
                 trust=self.trust,
                 registrations=self.registrations,
+                core_id="core-primary",
             ),
             prefix="/api",
         )
@@ -232,6 +233,74 @@ class TestServiceAccessSecurityApi:
         job_token = self._authorize(["ai.jobs.read"])["token"]
         assert self.trust.revoke_node(self.caller_id, reason="test") is True
         assert self._introspect(job_token).json()["error_code"] == "token_subject_untrusted"
+
+    def test_explicitly_granted_core_subject_does_not_require_node_registration(self) -> None:
+        grant = self.grants.create(
+            subject_node_id="core-primary",
+            audience=self.audience,
+            scopes=["assistant.turn.submit"],
+            expires_at=None,
+        )
+        key = asyncio.run(self.keys.active_key())
+        now = int(time.time())
+        claims = {
+            "iss": "hexe-core",
+            "token_use": "node_service_access",
+            "authorization_id": grant.grant_id,
+            "provider_node_id": self.provider_id,
+            "sub": "core-primary",
+            "aud": self.audience,
+            "scp": ["assistant.turn.submit"],
+            "iat": now,
+            "exp": now + 120,
+            "jti": "core-assistant-turn",
+        }
+        token = sign_hs256(
+            {"alg": "HS256", "typ": "JWT", "kid": key["kid"]},
+            claims,
+            str(key["secret"]),
+        )
+
+        response = self._introspect(
+            token,
+            expected_audience=self.audience,
+            required_scopes=["assistant.turn.submit"],
+        )
+
+        assert response.status_code == 200, response.text
+        assert response.json()["active"] is True
+        assert response.json()["claims"]["sub"] == "core-primary"
+
+    def test_unregistered_non_core_subject_remains_untrusted(self) -> None:
+        grant = self.grants.create(
+            subject_node_id="unregistered-caller",
+            audience=self.audience,
+            scopes=["assistant.turn.submit"],
+            expires_at=None,
+        )
+        key = asyncio.run(self.keys.active_key())
+        now = int(time.time())
+        token = sign_hs256(
+            {"alg": "HS256", "typ": "JWT", "kid": key["kid"]},
+            {
+                "iss": "hexe-core",
+                "token_use": "node_service_access",
+                "authorization_id": grant.grant_id,
+                "provider_node_id": self.provider_id,
+                "sub": "unregistered-caller",
+                "aud": self.audience,
+                "scp": ["assistant.turn.submit"],
+                "iat": now,
+                "exp": now + 120,
+                "jti": "unregistered-assistant-turn",
+            },
+            str(key["secret"]),
+        )
+
+        response = self._introspect(token)
+
+        assert response.status_code == 200, response.text
+        assert response.json()["error_code"] == "token_subject_untrusted"
 
     def test_management_scope_requires_explicit_grant(self) -> None:
         denied = self.client.post(

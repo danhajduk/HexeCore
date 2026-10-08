@@ -1446,6 +1446,7 @@ def create_app() -> FastAPI:
             grant_store=service_access_grant_store,
             trust=node_trust_issuance,
             registrations=node_registrations_store,
+            core_id=str(os.getenv("HEXE_CORE_ID", "hexe-core")).strip() or "hexe-core",
             audit=audit_store,
         ),
         prefix="/api",
