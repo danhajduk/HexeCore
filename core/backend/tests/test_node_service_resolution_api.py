@@ -492,6 +492,43 @@ class TestNodeServiceResolutionApi(unittest.TestCase):
         self.assertEqual(candidate["budget_view"]["budget_node_id"], provider_node_id)
         self.assertEqual(candidate["models_allowed"], ["gpt-4o-mini"])
 
+    def test_trusted_chat_requester_can_authorize_owned_prompt_reconciliation(self) -> None:
+        self._configure_declared_chat_provider()
+        node_id, trust_token = self._trusted_node()
+        declared = self.client.post(
+            "/api/system/nodes/capabilities/declaration",
+            json={"manifest": self._manifest(
+                node_id, task_families=["task.voice.intent.dispatch"],
+                requested_task_families=["task.chat"], provider_intelligence=[],
+            )},
+            headers={"X-Node-Trust-Token": trust_token},
+        )
+        self.assertEqual(declared.status_code, 200, declared.text)
+        resolved = self.client.post(
+            "/api/system/nodes/services/resolve",
+            headers={"X-Node-Trust-Token": trust_token},
+            json={"node_id": node_id, "task_family": "task.chat"},
+        )
+        self.assertEqual(resolved.status_code, 200, resolved.text)
+        candidate = resolved.json()["candidates"][0]
+
+        authorized = self.client.post(
+            "/api/system/nodes/services/authorize",
+            headers={"X-Node-Trust-Token": trust_token},
+            json={
+                "node_id": node_id, "task_family": "task.chat",
+                "task_context": {"type": "ai", "operation": "owned_prompt_reconciliation"},
+                "service_id": candidate["service_id"],
+                "requested_scopes": ["ai.prompts.read", "ai.prompts.write"],
+            },
+        )
+
+        self.assertEqual(authorized.status_code, 200, authorized.text)
+        self.assertEqual(
+            set(authorized.json()["claims"]["scp"]),
+            {"service.execute:task.chat", "ai.prompts.read", "ai.prompts.write"},
+        )
+
     def test_requester_cannot_resolve_task_not_in_requested_task_families(self) -> None:
         self._configure_declared_chat_provider()
         voice_node_id, voice_trust_token = self._trusted_node()

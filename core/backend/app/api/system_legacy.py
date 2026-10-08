@@ -2224,10 +2224,20 @@ def build_system_router(
         if candidate.budget_view is None or not bool(candidate.budget_view.admissible):
             raise HTTPException(status_code=403, detail={"error": "budget_not_admissible", "message": "no admissible budget grant available"})
         _, selected_model_id = _candidate_model_match(candidate)
+        requested_scopes = set(body.requested_scopes)
+        prompt_management_scopes = {"ai.prompts.read", "ai.prompts.write"}
+        if requested_scopes - prompt_management_scopes:
+            raise HTTPException(status_code=400, detail={"error": "unsupported_requested_scopes"})
+        if requested_scopes and (
+            str(body.task_family or "").strip() != "task.chat"
+            or str(body.task_context.get("operation") or "").strip() != "owned_prompt_reconciliation"
+        ):
+            raise HTTPException(status_code=403, detail={"error": "prompt_management_context_required"})
+        issued_scopes = sorted(set(candidate.required_scopes or []) | requested_scopes)
         token, claims = await _issue_service_token_for_node(
             node_id=node_id,
             audience=candidate.service_id,
-            scopes=list(candidate.required_scopes or []),
+            scopes=issued_scopes,
             provider_node_id=str(candidate.provider_node_id or "").strip() or None,
         )
         _record_audit(
@@ -2251,7 +2261,7 @@ def build_system_router(
             "provider": candidate.provider,
             "model_id": selected_model_id,
             "grant_id": candidate.grant_id,
-            "required_scopes": list(candidate.required_scopes or []),
+            "required_scopes": issued_scopes,
             "expires_at": datetime.fromtimestamp(int(claims["exp"]), tz=timezone.utc).isoformat(),
             "token": token,
             "claims": claims,

@@ -107,6 +107,12 @@ class NodeServiceAuthorizeRequest(TaskExecutionResolutionRequest):
     service_id: str | None = None
     provider: str | None = None
     model_id: str | None = None
+    requested_scopes: list[str] = Field(default_factory=list, max_length=16)
+
+    @field_validator("requested_scopes")
+    @classmethod
+    def _clean_requested_scopes(cls, value: list[str]) -> list[str]:
+        return sorted({str(item or "").strip() for item in value if str(item or "").strip()})
 
     @field_validator("service_id", "provider", "model_id")
     @classmethod
