@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -290,7 +291,10 @@ class NodeServiceResolutionService:
         request: TaskExecutionResolutionRequest,
         governance_bundle: dict[str, Any],
         budget_service,
+        phase_timings_ms: dict[str, float] | None = None,
     ) -> TaskExecutionResolutionResponse:
+        selection_started = time.perf_counter()
+        budget_evaluation_ms = 0.0
         task_family = _clean_text(request.task_family, lower=True)
         preferred_provider = _clean_text(request.preferred_provider, lower=True)
         preferred_model = _clean_text(request.preferred_model, lower=True)
@@ -369,12 +373,17 @@ class NodeServiceResolutionService:
                     preferred_model=candidate_model,
                     allowed_models=allowed_models,
                 )
-                budget_view_payload = budget_service.effective_budget_view(
-                    node_id=provider_node_id or request.node_id,
-                    task_family=task_family,
-                    provider=provider or None,
-                    model_id=candidate_model or None,
-                )
+                budget_started = time.perf_counter()
+                try:
+                    budget_view_payload = budget_service.effective_budget_view(
+                        node_id=provider_node_id or request.node_id,
+                        task_family=task_family,
+                        provider=provider or None,
+                        model_id=candidate_model or None,
+                    )
+                finally:
+                    nonlocal budget_evaluation_ms
+                    budget_evaluation_ms += (time.perf_counter() - budget_started) * 1000.0
                 budget_view = NodeEffectiveBudgetView.model_validate(budget_view_payload)
                 if budget_view.status in {"no_matching_grant", "not_configured", "revoked", "expired"}:
                     continue
@@ -439,6 +448,12 @@ class NodeServiceResolutionService:
             )
         )
         selected_service_id = candidates[0].service_id if candidates else None
+        if phase_timings_ms is not None:
+            selection_total_ms = (time.perf_counter() - selection_started) * 1000.0
+            phase_timings_ms["budget_evaluation"] = round(budget_evaluation_ms, 3)
+            phase_timings_ms["candidate_selection"] = round(
+                max(0.0, selection_total_ms - budget_evaluation_ms), 3
+            )
         return TaskExecutionResolutionResponse(
             node_id=request.node_id,
             task_family=task_family,

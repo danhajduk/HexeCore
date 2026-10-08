@@ -385,6 +385,30 @@ class TestNodeServiceResolutionApi(unittest.TestCase):
         self.assertEqual(event["details"]["selected_service_id"], "summary-service")
         self.assertEqual(event["details"]["candidate_count"], 1)
         self.assertEqual(event["details"]["result"], "resolved")
+        timing_events = [
+            item for item in self._audit_events() if item.get("event_type") == "node_service_authorization_timing"
+        ]
+        self.assertGreaterEqual(len(timing_events), 1)
+        timing_details = timing_events[-1]["details"]
+        self.assertEqual(timing_details["node_id"], node_id)
+        self.assertEqual(timing_details["service_id"], "summary-service")
+        self.assertEqual(timing_details["latency_expectation_ms"], 1000)
+        self.assertNotIn("token", json.dumps(timing_details).lower())
+        self.assertEqual(
+            set(timing_details["phase_timings_ms"]),
+            {
+                "requester_authentication",
+                "governance_evaluation",
+                "budget_evaluation",
+                "candidate_selection",
+                "candidate_authorization",
+                "signing_key_access",
+                "service_credential_signing",
+                "expiry_metadata_persistence",
+                "audit_recording",
+                "total",
+            },
+        )
 
     def test_resolution_uses_provider_node_budget_for_delegating_node(self) -> None:
         provider_node_id, _provider_trust_token = self._configure_node_for_resolution()

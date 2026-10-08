@@ -683,11 +683,19 @@ def build_system_router(
             raise HTTPException(status_code=403, detail={"error": "untrusted_node", "message": "node not registered"})
 
     async def _issue_service_token_for_node(
-        *, node_id: str, audience: str, scopes: list[str], provider_node_id: str | None = None
+        *,
+        node_id: str,
+        audience: str,
+        scopes: list[str],
+        provider_node_id: str | None = None,
+        phase_timings_ms: dict[str, float] | None = None,
     ) -> tuple[str, dict[str, object]]:
         if service_token_key_store is None:
             raise HTTPException(status_code=503, detail="service_token_key_store_unavailable")
+        key_started = time.perf_counter()
         key = await service_token_key_store.active_key()
+        if phase_timings_ms is not None:
+            phase_timings_ms["signing_key_access"] = round((time.perf_counter() - key_started) * 1000.0, 3)
         now = int(time.time())
         ttl_s = 600
         try:
@@ -708,8 +716,18 @@ def build_system_router(
             "iat": now,
         }
         header = {"alg": "HS256", "typ": "JWT", "kid": str(key["kid"])}
+        signing_started = time.perf_counter()
         token = sign_hs256(header, payload, secret=str(key["secret"]))
+        if phase_timings_ms is not None:
+            phase_timings_ms["service_credential_signing"] = round(
+                (time.perf_counter() - signing_started) * 1000.0, 3
+            )
+        persistence_started = time.perf_counter()
         await service_token_key_store.record_token_expiry(kid=str(key["kid"]), exp=int(payload["exp"]))
+        if phase_timings_ms is not None:
+            phase_timings_ms["expiry_metadata_persistence"] = round(
+                (time.perf_counter() - persistence_started) * 1000.0, 3
+            )
         return token, payload
 
     async def _publish_budget_policy_snapshot(node_id: str):
@@ -2160,6 +2178,9 @@ def build_system_router(
         request: Request,
         x_node_trust_token: str | None = Header(default=None),
     ):
+        authorization_started = time.perf_counter()
+        phase_timings_ms: dict[str, float] = {}
+        phase_started = time.perf_counter()
         node_id = str(body.node_id or "").strip()
         node_token = str(x_node_trust_token or "").strip()
         if not node_id:
@@ -2180,19 +2201,24 @@ def build_system_router(
         if registration is None or str(registration.trust_status or "").strip().lower() != "trusted":
             raise HTTPException(status_code=403, detail={"error": "untrusted_node", "message": "node not registered"})
         _reject_if_outdated_for_new_contracts(node_id)
+        phase_timings_ms["requester_authentication"] = round((time.perf_counter() - phase_started) * 1000.0, 3)
+        phase_started = time.perf_counter()
         governance_bundle = _ensure_node_governance_bundle(node_id)
         if governance_bundle is None:
             raise HTTPException(status_code=409, detail={"error": "governance_not_issued", "message": "governance bundle not issued"})
+        phase_timings_ms["governance_evaluation"] = round((time.perf_counter() - phase_started) * 1000.0, 3)
         resolution = await node_service_resolution.resolve_for_node(
             request=TaskExecutionResolutionRequest.model_validate(body.model_dump(mode="json")),
             governance_bundle=governance_bundle.to_dict(),
             budget_service=node_budget_service,
+            phase_timings_ms=phase_timings_ms,
         )
         if not resolution.candidates:
             raise HTTPException(status_code=404, detail={"error": "service_provider_not_found", "message": "no candidate service available"})
         service_id = str(body.service_id or "").strip()
         provider = str(body.provider or body.preferred_provider or "").strip().lower()
         requested_model_id = str(body.model_id or body.preferred_model or "").strip().lower()
+        phase_started = time.perf_counter()
 
         def _candidate_model_match(item) -> tuple[bool, str | None]:
             candidate_models = [str(v).strip().lower() for v in item.models_allowed]
@@ -2243,12 +2269,15 @@ def build_system_router(
         ):
             raise HTTPException(status_code=403, detail={"error": "prompt_management_context_required"})
         issued_scopes = sorted(set(candidate.required_scopes or []) | requested_scopes)
+        phase_timings_ms["candidate_authorization"] = round((time.perf_counter() - phase_started) * 1000.0, 3)
         token, claims = await _issue_service_token_for_node(
             node_id=node_id,
             audience=candidate.service_id,
             scopes=issued_scopes,
             provider_node_id=str(candidate.provider_node_id or "").strip() or None,
+            phase_timings_ms=phase_timings_ms,
         )
+        audit_started = time.perf_counter()
         _record_audit(
             audit_store,
             event_type="node_service_authorized",
@@ -2261,6 +2290,22 @@ def build_system_router(
                 "grant_id": candidate.grant_id,
                 "task_family": str(body.task_family or "").strip(),
                 "source_ip": str(request.client.host if request.client else "unknown"),
+            },
+        )
+        phase_timings_ms["audit_recording"] = round((time.perf_counter() - audit_started) * 1000.0, 3)
+        phase_timings_ms["total"] = round((time.perf_counter() - authorization_started) * 1000.0, 3)
+        _record_audit(
+            audit_store,
+            event_type="node_service_authorization_timing",
+            actor_role="node",
+            actor_id=node_id,
+            details={
+                "node_id": node_id,
+                "service_id": candidate.service_id,
+                "task_family": str(body.task_family or "").strip(),
+                "phase_timings_ms": dict(phase_timings_ms),
+                "latency_expectation_ms": 1000,
+                "latency_within_expectation": phase_timings_ms["total"] < 1000,
             },
         )
         return {

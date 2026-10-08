@@ -702,3 +702,10 @@ What changed: Added proof-gated passkey registration, passwordless dual-proof de
 Verification: Focused backend security tests and frontend build passed; deployment and physical iPhone verification remain pending.
 
 ###########
+Task #1030
+Step objective: Instrument the intermittent node-service authorization latency incident.
+Issue cause: Existing audit events recorded only completion timestamps, so the reported 2.160-second interval could not be attributed to authentication, resolution, signing-key access, expiry persistence, or audit I/O.
+Chosen fix: Record sanitized per-phase monotonic timings in a dedicated authorization timing audit event while preserving all authorization decisions and the existing primary audit event.
+What changed: Added resolver budget/candidate timing, authorization and signing timing, a 1,000 ms expectation marker, regression coverage, and operator guidance. Audit phase names avoid credential sanitizer keywords while recording durations only.
+Verification: PYTHONPATH=core/backend core/backend/.venv/bin/pytest -q core/backend/tests/test_node_service_resolution_api.py (15 passed).
+###########

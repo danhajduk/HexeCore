@@ -113,6 +113,11 @@ Troubleshooting checklist:
 4. If operator action fails with CSRF mismatch, ensure request origin/referer aligns with Core base URL.
 5. If API returns `rate_limited`, retry after window cooldown.
 6. For expired sessions, restart onboarding from session creation.
+
+Node service authorization latency:
+- Successful `/api/system/nodes/services/authorize` calls emit a sanitized `node_service_authorization_timing` audit event with per-phase milliseconds for requester authentication, governance evaluation, budget evaluation, candidate selection and authorization, signing-key access, service-credential signing, expiry-metadata persistence, and the primary authorization audit write.
+- Warm authorization should remain below 1,000 ms. Treat any event with `latency_within_expectation=false` as an unexplained latency incident until its dominant phase and concurrent Core activity are identified.
+- Timing events contain node, service, and task-family identifiers only; they never contain trust credentials, signing material, or issued service credentials.
 7. If legacy clients call `/api/system/ai-nodes/onboarding/sessions*`, treat `Deprecation` and `Sunset` headers as migration urgency signals.
 
 ## 9) Node Phase 2 Capability And Governance Runbook
