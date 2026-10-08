@@ -1591,6 +1591,7 @@ Original task details:
 - Locked schema ownership: publish Core actor and approval assertion schemas through `/api/schemas/client-core/v1`; consume Interaction transport and intent schemas from `/api/schemas/client-node/v2` using pinned versions and hashes rather than per-turn downloads.
 - Locked capabilities: keep `interaction.assistant.turn` separate from `interaction.assistant.intents`; Core selects the exact provider endpoint, service ID, audience, contract version, operations, scopes, schema catalog, and health path.
 - Locked Interaction retention defaults: 10-minute active turn, 15-minute clarification, 10-minute approval, one-hour reconnect event stream, and a content-free 24-hour idempotency tombstone, all configurable downward within Core policy.
+
 - Coordination request: `HEXE-REQ-20261007-2B7AB1` from `voice` to `core`.
 - Add a versioned intent-execution authorization exchange. Interaction must be
   able to exchange a valid actor assertion for short-lived, exact-owner
@@ -1634,3 +1635,14 @@ Original task details:
   HTML. The public route must return the same public-only Ed25519 JWKS as port
   9001 while preserving existing SPA and `/api` routing. Verify with the live
   Interaction authorization loader.
+
+## Task 1030
+Original task details:
+- Coordination request: `HEXE-REQ-20261008-4368FD` from `interaction` to `core`.
+- Priority: high.
+- Interaction resolves `task.image_generation` and can enqueue a Core-authorized local AI image job, but polling requires `ai.jobs.read` and artifact completion requires `ai.artifacts.read` plus `ai.artifacts.ack`.
+- Extend the governed `task.image_generation` service authorization contract to permit exactly `ai.jobs.read`, `ai.artifacts.read`, and `ai.artifacts.ack` as bounded follow-up scopes for the authorized caller and selected provider.
+- Preserve trusted requester authentication, governance, budget admission, selected candidate identity, and exact provider audience binding.
+- Do not grant unrelated privileged scopes or allow these lifecycle scopes for other task families.
+- Acceptance: Core authorizes `task.image_generation` with the three bounded lifecycle scopes for trusted Interaction; the token remains bound to the selected provider audience; Interaction can enqueue, poll, download, acknowledge, and persist one live weather background without `unsupported_requested_scopes` or `token_scope_insufficient`.
+- Verification: Add focused positive tests for the exact image lifecycle scopes and negative tests for unrelated scopes, wrong task family, and wrong provider/candidate binding.
