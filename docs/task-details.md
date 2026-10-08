@@ -1646,3 +1646,10 @@ Original task details:
 - Do not grant unrelated privileged scopes or allow these lifecycle scopes for other task families.
 - Acceptance: Core authorizes `task.image_generation` with the three bounded lifecycle scopes for trusted Interaction; the token remains bound to the selected provider audience; Interaction can enqueue, poll, download, acknowledge, and persist one live weather background without `unsupported_requested_scopes` or `token_scope_insufficient`.
 - Verification: Add focused positive tests for the exact image lifecycle scopes and negative tests for unrelated scopes, wrong task family, and wrong provider/candidate binding.
+
+Coordinated incident `HEXE-REQ-20261008-90FC6B`:
+- Source: Interaction; target: Core; priority: high; dependencies: none.
+- Investigate the intermittent latency in Core's node-service authorization path observed during live Voice-to-Interaction weather requests. The reported outlier was 2.160 seconds between resolution and authorization, followed by a 0.169-second request; separate warm samples were approximately 33-38 ms per phase after one initial 394 ms combined sample.
+- Record sanitized per-phase timing for requester authentication, governance and budget evaluation, candidate selection, signing-key access, token signing, token-expiry persistence, and audit recording. Never log credentials, signing material, or issued tokens.
+- Reproduce or identify the phase responsible for the greater-than-two-second spike, including realistic concurrent budget/governance refresh and authorization activity. Remediate blocking I/O or lock contention without weakening trust, governance, budget, scope, audience, token, or audit semantics.
+- Acceptance: repeated warm and concurrent measurements meet a documented latency expectation with no unexplained authorization spike above one second; focused tests pass; record the Core implementation commit and concise before-and-after evidence.
