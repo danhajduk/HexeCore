@@ -303,7 +303,7 @@ class NodeUiProxy:
             )
         if upstream.status_code == 401:
             self._invalidate_management_cache(request, node_id)
-        response_headers = self._proxy.safe_response_headers(upstream.headers)
+        response_headers = self._proxy.decoded_response_headers(upstream.headers)
         await upstream.aclose()
         if render_navigation_json_page:
             callback_page = self._render_browser_json_navigation_page(
@@ -597,7 +597,7 @@ class NodeUiProxy:
             return await self._proxy.stream_response(upstream)
 
         content = await upstream.aread()
-        response_headers = self._proxy.safe_response_headers(upstream.headers)
+        response_headers = self._proxy.decoded_response_headers(upstream.headers)
         await upstream.aclose()
         callback_page = self._render_browser_json_navigation_page(
             request=request,

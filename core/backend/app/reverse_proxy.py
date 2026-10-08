@@ -125,6 +125,13 @@ class ReverseProxyService:
         return headers
 
     @staticmethod
+    def decoded_response_headers(source: httpx.Headers) -> dict[str, str]:
+        """Return headers for a body decoded by httpx before forwarding."""
+        headers = ReverseProxyService.safe_response_headers(source)
+        headers.pop("content-encoding", None)
+        return headers
+
+    @staticmethod
     def rewrite_root_relative_urls(
         content: bytes,
         content_type: str | None,

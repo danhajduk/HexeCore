@@ -143,6 +143,19 @@ class TestReverseProxyService(unittest.TestCase):
 
         self.assertEqual(headers["X-Forwarded-Proto"], "https")
 
+    def test_decoded_response_headers_remove_stale_content_encoding(self) -> None:
+        headers = ReverseProxyService.decoded_response_headers(httpx.Headers({
+            "Content-Type": "text/css",
+            "Content-Encoding": "gzip",
+            "ETag": 'W/"asset"',
+            "Content-Length": "123",
+        }))
+
+        self.assertEqual(headers["content-type"], "text/css")
+        self.assertEqual(headers["etag"], 'W/"asset"')
+        self.assertNotIn("content-encoding", headers)
+        self.assertNotIn("content-length", headers)
+
     def test_rewrite_root_relative_urls_respects_proxy_prefix_and_ignore_list(self) -> None:
         original = b"""
         <script src="/assets/main.js"></script>
