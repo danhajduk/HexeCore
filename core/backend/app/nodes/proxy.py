@@ -238,6 +238,11 @@ class NodeUiProxy:
             public_prefix=effective_public_prefix,
             extra_headers={"X-Hexe-Node-Id": node_id, **await self._management_headers(request, node_id)},
         )
+        # UI bodies can be rewritten below, so upstream validators do not
+        # describe the bytes held by the browser at the public proxy URL.
+        for header_name in tuple(headers):
+            if header_name.lower() in {"if-none-match", "if-modified-since"}:
+                headers.pop(header_name, None)
         try:
             upstream = await self._proxy.send(
                 request=request,
@@ -304,6 +309,8 @@ class NodeUiProxy:
         if upstream.status_code == 401:
             self._invalidate_management_cache(request, node_id)
         response_headers = self._proxy.decoded_response_headers(upstream.headers)
+        response_headers.pop("etag", None)
+        response_headers.pop("last-modified", None)
         await upstream.aclose()
         if render_navigation_json_page:
             callback_page = self._render_browser_json_navigation_page(
