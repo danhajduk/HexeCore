@@ -529,6 +529,20 @@ class TestNodeServiceResolutionApi(unittest.TestCase):
             {"service.execute:task.chat", "ai.prompts.read", "ai.prompts.write"},
         )
 
+        image_scopes_for_chat = self.client.post(
+            "/api/system/nodes/services/authorize",
+            headers={"X-Node-Trust-Token": trust_token},
+            json={
+                "node_id": node_id,
+                "task_family": "task.chat",
+                "task_context": {"type": "ai", "operation": "owned_prompt_reconciliation"},
+                "service_id": candidate["service_id"],
+                "requested_scopes": ["ai.jobs.read", "ai.artifacts.read", "ai.artifacts.ack"],
+            },
+        )
+        self.assertEqual(image_scopes_for_chat.status_code, 400, image_scopes_for_chat.text)
+        self.assertEqual(image_scopes_for_chat.json()["detail"]["error"], "unsupported_requested_scopes")
+
     def test_requester_cannot_resolve_task_not_in_requested_task_families(self) -> None:
         self._configure_declared_chat_provider()
         voice_node_id, voice_trust_token = self._trusted_node()
@@ -749,11 +763,37 @@ class TestNodeServiceResolutionApi(unittest.TestCase):
                 "task_family": "task.image_generation",
                 "provider": "openai",
                 "model_id": "mini",
+                "service_id": candidate["service_id"],
+                "requested_scopes": ["ai.jobs.read", "ai.artifacts.read", "ai.artifacts.ack"],
             },
         )
         self.assertEqual(authorized.status_code, 200, authorized.text)
         self.assertEqual(authorized.json()["model_id"], "gpt-image-1-mini")
         self.assertEqual(authorized.json()["resolution"]["models_allowed"], ["gpt-image-1-mini"])
+        self.assertEqual(
+            set(authorized.json()["claims"]["scp"]),
+            {
+                "service.execute:task.image_generation",
+                "ai.jobs.read",
+                "ai.artifacts.read",
+                "ai.artifacts.ack",
+            },
+        )
+        self.assertEqual(authorized.json()["claims"]["aud"], candidate["service_id"])
+
+        unrelated = self.client.post(
+            "/api/system/nodes/services/authorize",
+            headers={"X-Node-Trust-Token": provider_trust_token},
+            json={
+                "node_id": provider_node_id,
+                "task_family": "task.image_generation",
+                "provider": "openai",
+                "service_id": candidate["service_id"],
+                "requested_scopes": ["ai.jobs.cancel"],
+            },
+        )
+        self.assertEqual(unrelated.status_code, 400, unrelated.text)
+        self.assertEqual(unrelated.json()["detail"]["error"], "unsupported_requested_scopes")
 
     def test_resolution_and_authorization_accept_top_level_type(self) -> None:
         node_id, trust_token = self._configure_node_for_resolution()

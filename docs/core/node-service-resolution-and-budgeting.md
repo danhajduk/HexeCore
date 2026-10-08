@@ -208,6 +208,16 @@ Example:
 
 For `task.image_generation` with provider `openai`, Core defaults an unspecified model to `gpt-image-1-mini`. Callers may also send `preferred_model` or `model_id` as `mini`; Core resolves that shorthand to `gpt-image-1-mini` during resolution and authorization.
 
+An authorized `task.image_generation` caller may request the bounded follow-up
+scopes `ai.jobs.read`, `ai.artifacts.read`, and `ai.artifacts.ack` on the same
+authorization request. Core adds only those scopes to the normal
+`service.execute:task.image_generation` scope after trusted-node, governance,
+candidate, provider-audience, model, and budget checks succeed. The scopes let
+the caller poll the created job and read and acknowledge its resulting artifact;
+they do not grant job cancellation, prompt management, template management, or
+access to another provider. Core rejects these lifecycle scopes for every other
+task family.
+
 ### Assistant Engine declarations
 
 An Interaction node that provides `interaction.assistant.turn` or

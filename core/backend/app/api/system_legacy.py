@@ -2226,11 +2226,20 @@ def build_system_router(
         _, selected_model_id = _candidate_model_match(candidate)
         requested_scopes = set(body.requested_scopes)
         prompt_management_scopes = {"ai.prompts.read", "ai.prompts.write"}
-        if requested_scopes - prompt_management_scopes:
+        image_job_lifecycle_scopes = {"ai.jobs.read", "ai.artifacts.read", "ai.artifacts.ack"}
+        task_family = str(body.task_family or "").strip()
+        allowed_requested_scopes = (
+            prompt_management_scopes
+            if task_family == "task.chat"
+            else image_job_lifecycle_scopes
+            if task_family == "task.image_generation"
+            else set()
+        )
+        if requested_scopes - allowed_requested_scopes:
             raise HTTPException(status_code=400, detail={"error": "unsupported_requested_scopes"})
         if requested_scopes and (
-            str(body.task_family or "").strip() != "task.chat"
-            or str(body.task_context.get("operation") or "").strip() != "owned_prompt_reconciliation"
+            task_family == "task.chat"
+            and str(body.task_context.get("operation") or "").strip() != "owned_prompt_reconciliation"
         ):
             raise HTTPException(status_code=403, detail={"error": "prompt_management_context_required"})
         issued_scopes = sorted(set(candidate.required_scopes or []) | requested_scopes)
