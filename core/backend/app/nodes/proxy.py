@@ -98,7 +98,7 @@ class NodeUiProxy:
         actor_id, actor_role = admin_request_actor(request)
         if actor_id not in {"admin_token", "legacy_admin_session"}:
             user = await self._users.get_user(actor_id) if self._users is not None else None
-            if user is None or not bool(user.get("enabled")) or str(user.get("role")) != "admin":
+            if user is None or not bool(user.get("enabled")) or str(user.get("role")) not in {"owner", "admin"}:
                 raise HTTPException(status_code=403, detail="operator_access_revoked")
         registration = self._registrations.get(node_id) if self._registrations is not None else None
         trusted = self._node_trust.trusted_node(node_id) if self._node_trust is not None else None

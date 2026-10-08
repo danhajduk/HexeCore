@@ -417,6 +417,50 @@ class TestNodeUiProxyManagementAuthorization(unittest.TestCase):
         self.assertEqual(set(management.calls[0]["scopes"]), set(NODE_MANAGEMENT_PERMISSIONS))
         self.assertEqual(management.calls[0]["target_node_id"], "node-1")
 
+    def test_proxy_accepts_enabled_owner_for_management_authorization(self) -> None:
+        class _Management:
+            class _Store:
+                def get(self, _authorization_id): return None
+            def __init__(self):
+                self.calls = []
+                self.store = self._Store()
+            async def issue(self, **kwargs):
+                self.calls.append(kwargs)
+                return "owner-token", {
+                    "exp": int(time.time()) + 300,
+                    "authorization_id": "nma-owner",
+                    "scp": kwargs["scopes"],
+                }
+        class _Registrations:
+            def get(self, node_id): return type("Registration", (), {"trust_status": "trusted"})()
+        class _Trust:
+            def trusted_node(self, node_id): return object()
+        class _Users:
+            async def get_user(self, user_id):
+                return {"user_id": user_id, "role": "owner", "enabled": True}
+
+        management = _Management()
+        proxy = NodeUiProxy(
+            _TargetService(type("Node", (), {"ui_enabled": True, "ui_base_url": "http://node/ui"})()),
+            management_authorization=management,
+            node_trust=_Trust(),
+            registrations=_Registrations(),
+            users=_Users(),
+        )
+        request = Request({
+            "type": "http", "http_version": "1.1", "method": "GET", "scheme": "https",
+            "path": "/api/nodes/node-1/status", "raw_path": b"/api/nodes/node-1/status",
+            "query_string": b"", "headers": [(b"host", b"core.local")],
+            "client": ("127.0.0.1", 1), "server": ("core.local", 443),
+        })
+
+        with patch("app.nodes.proxy.admin_request_actor", return_value=("owner-user", "owner")):
+            headers = asyncio.run(proxy._management_headers(request, "node-1"))
+
+        self.assertEqual(headers, {"X-Hexe-Management-Authorization": "owner-token"})
+        self.assertEqual(management.calls[0]["operator_id"], "owner-user")
+        self.assertEqual(management.calls[0]["operator_role"], "owner")
+
 
 class _TargetService:
     def __init__(self, node) -> None:

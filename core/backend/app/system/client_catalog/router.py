@@ -286,7 +286,7 @@ not management credentials and are rejected by this validation boundary.
 ## Operator identity and issuance
 
 Core users are local authenticated users with an enabled role. The current
-management role is `admin`. The Core WebUI authenticates with the HttpOnly
+management roles are `owner` and `admin`. The Core WebUI authenticates with the HttpOnly
 `hexe_admin_session` cookie; automation may use the configured `X-Admin-Token`.
 
 An authenticated operator requests a five-minute authorization with:
@@ -397,7 +397,7 @@ contract and must not provide a management bypass.
 
 ## Revocation, recovery, and public routes
 
-Core rechecks the authorization record and the operator's enabled admin role
+Core rechecks the authorization record and the operator's enabled owner or admin role
 on every introspection. Explicit revocation is available at
 `POST /api/system/nodes/management/authorizations/{authorization_id}/revoke`.
 Expiry, revocation, user disablement, role removal, or target trust loss denies

@@ -296,7 +296,7 @@ def build_management_access_router(
             return ManagementIntrospectionResponse(active=False, error_code="management_authorization_revoked")
         if claims.sub not in {"admin_token", "legacy_admin_session"}:
             user = await users.get_user(claims.sub)
-            if user is None or not bool(user.get("enabled")) or str(user.get("role")) != "admin":
+            if user is None or not bool(user.get("enabled")) or str(user.get("role")) not in {"owner", "admin"}:
                 if audit:
                     await audit.record(event_type="node_management_introspected", actor_role="node", actor_id=node_id, details={"authorization_id": claims.authorization_id, "operator_id": claims.sub, "jti": claims.jti, "result": "inactive", "error_code": "operator_access_revoked"})
                 return ManagementIntrospectionResponse(active=False, error_code="operator_access_revoked")

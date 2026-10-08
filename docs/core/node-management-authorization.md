@@ -4,7 +4,7 @@ Core uses a separate operator authorization boundary for management APIs on
 every managed node. Workload service tokens (`node_service` and
 `node_service_access`) cannot authorize node management.
 
-An authenticated Core administrator requests a five-minute, single-node token
+An authenticated, enabled Core owner or administrator requests a five-minute, single-node token
 at `POST /api/system/nodes/management/authorize`. The token identifies the
 operator in `sub`, binds the target as `aud=node-management:<node-id>`, uses
 `token_use=node_management`, and carries only the requested permissions:
@@ -26,14 +26,14 @@ Trusted-node management introspection is limited per node and source address
 to 1,200 requests per rolling minute. This accommodates concurrent management
 UI initialization and polling while retaining abuse protection.
 
-Core rechecks authorization revocation, token expiry, current operator role and
-enabled state, exact target binding, current target trust, and permissions.
+Core rechecks authorization revocation, token expiry, the current operator's
+enabled `owner` or `admin` role, exact target binding, current target trust, and permissions.
 Core retains rotated verification keys through token lifetime. It audits
 issuance, successful validation, and revocation without recording tokens or
 signing secrets.
 
 For the supported browser flow, the Core WebUI never receives the token. The
-operator opens `/nodes/proxy/ui/<node-id>/...`; Core validates the HttpOnly admin
+operator opens `/nodes/proxy/ui/<node-id>/...`; Core validates the HttpOnly owner/admin
 session and current target trust, issues and caches a five-minute authorization
 containing all seven permissions, strips any caller-supplied management header,
 and injects its own `X-Hexe-Management-Authorization` into UI, API, binary asset,

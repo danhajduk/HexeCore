@@ -72,6 +72,7 @@ def test_client_core_catalog_publishes_schema_and_documents() -> None:
     assert management.status_code == 200
     assert "Status: Implemented" in management.text
     assert "Workload service tokens are" in management.text
+    assert "management roles are `owner` and `admin`" in management.text
     assert "X-Hexe-Management-Authorization" in management.text
 
 

@@ -136,6 +136,16 @@ class TestNodeManagementAccessApi:
         assert denied["active"] is False
         assert denied["error_code"] == "operator_access_revoked"
 
+    def test_enabled_owner_authorization_remains_active(self):
+        asyncio.run(self.users.upsert_user(username="owner-operator", role="owner", enabled=True, password="secret"))
+        token, _ = asyncio.run(self.service.issue(operator_id="owner-operator", operator_role="owner",
+            target_node_id=self.node_id, scopes=["node.manage.read"]))
+
+        inspected = self._inspect(token).json()
+
+        assert inspected["active"] is True
+        assert inspected["claims"]["sub"] == "owner-operator"
+
     def test_cookie_authorization_requires_same_origin_csrf(self):
         asyncio.run(self.users.upsert_user(username="browser-admin", role="admin", enabled=True, password="secret"))
         login = self.client.post("/api/admin/session/login-user", json={"username": "browser-admin", "password": "secret"})
