@@ -709,3 +709,10 @@ Chosen fix: Record sanitized per-phase monotonic timings in a dedicated authoriz
 What changed: Added resolver budget/candidate timing, authorization and signing timing, a 1,000 ms expectation marker, regression coverage, and operator guidance. Audit phase names avoid credential sanitizer keywords while recording durations only.
 Verification: PYTHONPATH=core/backend core/backend/.venv/bin/pytest -q core/backend/tests/test_node_service_resolution_api.py (15 passed).
 ###########
+Task #1030
+Step objective: Remove the measured signing-key settings-lock contention.
+Issue cause: Every authorization read the persisted keyring twice, and both reads serialized with expiry persistence and unrelated settings operations. A 50-authorization concurrent live run measured signing-key access at 233.355 ms and client latency up to 312.958 ms.
+Chosen fix: Cache the persisted keyring in `ServiceTokenKeyStore` while serializing rotation and expiry mutations and continuing to persist every increased maximum expiry.
+What changed: Added a defensive-copy keyring cache, mutation locking, cache refresh after durable changes, a regression test proving one settings read across repeated signing and expiry persistence, and non-redacted timing phase names.
+Verification: 31 focused auth, service-access, and node-resolution tests passed. Post-fix live measurements pending deployment.
+###########

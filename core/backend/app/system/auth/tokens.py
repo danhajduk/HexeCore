@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import base64
+import asyncio
+import copy
 import hashlib
 import hmac
 import json
@@ -74,52 +76,70 @@ class ServiceTokenError(ValueError):
 class ServiceTokenKeyStore:
     def __init__(self, settings: SettingsStore) -> None:
         self._settings = settings
+        self._keyring_cache: list[dict[str, Any]] | None = None
+        self._mutation_lock = asyncio.Lock()
 
-    async def ensure_keyring(self) -> list[dict[str, Any]]:
+    @staticmethod
+    def _copy_ring(ring: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return copy.deepcopy(ring)
+
+    async def _load_or_create_keyring(self) -> list[dict[str, Any]]:
+        if self._keyring_cache is not None:
+            return self._copy_ring(self._keyring_cache)
         ring = await self._settings.get(KEYRING_SETTING_KEY)
         if isinstance(ring, list) and any(isinstance(k, dict) for k in ring):
-            return [k for k in ring if isinstance(k, dict)]
+            normalized = [k for k in ring if isinstance(k, dict)]
+            self._keyring_cache = self._copy_ring(normalized)
+            return self._copy_ring(normalized)
         now = _utc_ts()
-        new_key = {
+        normalized = [{
             "kid": f"k-{now}-{secrets.token_hex(4)}",
             "secret": secrets.token_urlsafe(48),
             "created_at": now,
             "active": True,
-        }
-        ring = [new_key]
-        await self._settings.set(KEYRING_SETTING_KEY, ring)
-        return ring
+        }]
+        await self._settings.set(KEYRING_SETTING_KEY, normalized)
+        self._keyring_cache = self._copy_ring(normalized)
+        return self._copy_ring(normalized)
+
+    async def ensure_keyring(self) -> list[dict[str, Any]]:
+        if self._keyring_cache is not None:
+            return self._copy_ring(self._keyring_cache)
+        async with self._mutation_lock:
+            return await self._load_or_create_keyring()
 
     async def rotate(self) -> list[dict[str, Any]]:
-        ring = await self.ensure_keyring()
-        now = _utc_ts()
-        for key in ring:
-            if bool(key.get("active")):
-                key["active"] = False
-                key["retired_at"] = now
-                latest_signed_expiry = int(key.get("max_token_exp") or (now + LEGACY_TOKEN_RETENTION_FLOOR_SECONDS))
-                key["verify_until"] = max(
-                    latest_signed_expiry + DEFAULT_CLOCK_SKEW_SECONDS,
-                    now + DEFAULT_CLOCK_SKEW_SECONDS,
-                )
-        ring.insert(
-            0,
-            {
-                "kid": f"k-{now}-{secrets.token_hex(4)}",
-                "secret": secrets.token_urlsafe(48),
-                "created_at": now,
-                "active": True,
-            },
-        )
-        retained = [
-            key
-            for key in ring[1:]
-            if int(key.get("verify_until") or (now + DEFAULT_CLOCK_SKEW_SECONDS)) >= now
-        ]
-        expired_history = [key for key in ring[1:] if key not in retained][:(MAX_KEY_HISTORY - 1)]
-        ring = [ring[0], *retained, *expired_history]
-        await self._settings.set(KEYRING_SETTING_KEY, ring)
-        return ring
+        async with self._mutation_lock:
+            ring = await self._load_or_create_keyring()
+            now = _utc_ts()
+            for key in ring:
+                if bool(key.get("active")):
+                    key["active"] = False
+                    key["retired_at"] = now
+                    latest_signed_expiry = int(key.get("max_token_exp") or (now + LEGACY_TOKEN_RETENTION_FLOOR_SECONDS))
+                    key["verify_until"] = max(
+                        latest_signed_expiry + DEFAULT_CLOCK_SKEW_SECONDS,
+                        now + DEFAULT_CLOCK_SKEW_SECONDS,
+                    )
+            ring.insert(
+                0,
+                {
+                    "kid": f"k-{now}-{secrets.token_hex(4)}",
+                    "secret": secrets.token_urlsafe(48),
+                    "created_at": now,
+                    "active": True,
+                },
+            )
+            retained = [
+                key
+                for key in ring[1:]
+                if int(key.get("verify_until") or (now + DEFAULT_CLOCK_SKEW_SECONDS)) >= now
+            ]
+            expired_history = [key for key in ring[1:] if key not in retained][:(MAX_KEY_HISTORY - 1)]
+            ring = [ring[0], *retained, *expired_history]
+            await self._settings.set(KEYRING_SETTING_KEY, ring)
+            self._keyring_cache = self._copy_ring(ring)
+            return self._copy_ring(ring)
 
     async def active_key(self) -> dict[str, Any]:
         ring = await self.ensure_keyring()
@@ -142,18 +162,20 @@ class ServiceTokenKeyStore:
         ]
 
     async def record_token_expiry(self, *, kid: str, exp: int) -> None:
-        ring = await self.ensure_keyring()
-        changed = False
-        for key in ring:
-            if str(key.get("kid") or "") != str(kid or ""):
-                continue
-            previous = int(key.get("max_token_exp") or 0)
-            if int(exp) > previous:
-                key["max_token_exp"] = int(exp)
-                changed = True
-            break
-        if changed:
-            await self._settings.set(KEYRING_SETTING_KEY, ring)
+        async with self._mutation_lock:
+            ring = await self._load_or_create_keyring()
+            changed = False
+            for key in ring:
+                if str(key.get("kid") or "") != str(kid or ""):
+                    continue
+                previous = int(key.get("max_token_exp") or 0)
+                if int(exp) > previous:
+                    key["max_token_exp"] = int(exp)
+                    changed = True
+                break
+            if changed:
+                await self._settings.set(KEYRING_SETTING_KEY, ring)
+                self._keyring_cache = self._copy_ring(ring)
 
 
 def sign_hs256(header: dict[str, Any], payload: dict[str, Any], secret: str) -> str:

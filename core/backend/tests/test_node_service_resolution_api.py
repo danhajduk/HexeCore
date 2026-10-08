@@ -403,7 +403,7 @@ class TestNodeServiceResolutionApi(unittest.TestCase):
                 "candidate_selection",
                 "candidate_authorization",
                 "signing_key_access",
-                "service_credential_signing",
+                "signature_computation",
                 "expiry_metadata_persistence",
                 "audit_recording",
                 "total",

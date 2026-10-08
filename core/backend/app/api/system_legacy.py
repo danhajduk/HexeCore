@@ -719,7 +719,7 @@ def build_system_router(
         signing_started = time.perf_counter()
         token = sign_hs256(header, payload, secret=str(key["secret"]))
         if phase_timings_ms is not None:
-            phase_timings_ms["service_credential_signing"] = round(
+            phase_timings_ms["signature_computation"] = round(
                 (time.perf_counter() - signing_started) * 1000.0, 3
             )
         persistence_started = time.perf_counter()

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import time
@@ -13,8 +14,10 @@ from app.system.auth import ServiceTokenKeyStore, build_auth_router, verify_hs25
 class _FakeSettingsStore:
     def __init__(self) -> None:
         self._data: dict[str, object] = {}
+        self.get_calls = 0
 
     async def get(self, key: str):
+        self.get_calls += 1
         return self._data.get(key)
 
     async def set(self, key: str, value):
@@ -64,6 +67,19 @@ class TestAuthApi(unittest.TestCase):
         self.assertEqual(resp.status_code, 200, resp.text)
         payload = resp.json()
         self.assertEqual(payload["issued_by"]["mode"], "admin")
+
+    def test_keyring_cache_avoids_repeated_settings_reads_and_preserves_expiry(self) -> None:
+        first = asyncio.run(self.key_store.active_key())
+        second = asyncio.run(self.key_store.active_key())
+        asyncio.run(self.key_store.record_token_expiry(kid=str(first["kid"]), exp=int(time.time()) + 600))
+        third = asyncio.run(self.key_store.active_key())
+
+        self.assertEqual(self.settings.get_calls, 1)
+        self.assertEqual(first["kid"], second["kid"])
+        self.assertEqual(second["kid"], third["kid"])
+        persisted = self.settings._data["auth.service_token.keys"]
+        self.assertIsInstance(persisted, list)
+        self.assertGreater(int(persisted[0]["max_token_exp"]), int(time.time()))  # type: ignore[index]
 
     def test_issue_token_with_service_principal(self) -> None:
         exp = int(time.time()) + 600
