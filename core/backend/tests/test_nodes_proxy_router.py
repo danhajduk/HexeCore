@@ -264,7 +264,7 @@ class TestNodeUiProxyHtmlRewrite(unittest.TestCase):
         self.assertIn('href="/nodes/proxy/node-123/src/index.css"', rewritten)
         self.assertIn('action="/nodes/proxy/node-123/submit"', rewritten)
         self.assertIn('src="/nodes/proxy/node-123/logo.svg"', rewritten)
-        self.assertIn('"/node/status"', rewritten)
+        self.assertIn('"/api/nodes/node-123/node/status"', rewritten)
 
     def test_leaves_non_html_responses_unchanged(self) -> None:
         original = b'{"ok":true,"path":"/status"}'
@@ -308,9 +308,9 @@ class TestNodeUiProxyHtmlRewrite(unittest.TestCase):
             api_public_prefix="/api/nodes/node-123",
         ).decode("utf-8")
 
-        self.assertIn('"/node/status"', rewritten)
-        self.assertIn('"/v1/models"', rewritten)
-        self.assertIn('`/providers/openai/models/latest?limit=${OPENAI_LATEST_MODELS_LIMIT}`', rewritten)
+        self.assertIn('"/api/nodes/node-123/node/status"', rewritten)
+        self.assertIn('"/api/nodes/node-123/v1/models"', rewritten)
+        self.assertIn('`/api/nodes/node-123/providers/openai/models/latest?limit=${OPENAI_LATEST_MODELS_LIMIT}`', rewritten)
 
     def test_rewrites_proxied_node_path_detector_for_new_canonical_prefix(self) -> None:
         original = b"""

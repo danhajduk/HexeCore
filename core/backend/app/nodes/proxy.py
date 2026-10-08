@@ -477,9 +477,9 @@ class NodeUiProxy:
             if not should_rewrite(path):
                 return path
             if path == "/api":
-                return "/"
+                return normalized_api_prefix
             if path.startswith("/api/"):
-                return path.removeprefix("/api") or "/"
+                return f"{normalized_api_prefix}{path.removeprefix('/api')}"
             return f"{normalized_ui_prefix}{path}"
 
         rewritten = text
