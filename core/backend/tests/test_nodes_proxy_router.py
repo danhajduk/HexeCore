@@ -138,6 +138,7 @@ class TestNodeUiProxyRouter(unittest.TestCase):
     def test_node_api_proxy_routes_forward(self) -> None:
         checks = [
             ("GET", "/nodes/proxy/node-1/status", "status"),
+            ("GET", "/nodes/proxy/node-1/api/node/status", "node/status"),
             ("POST", "/nodes/proxy/node-1/v1/infer", "v1/infer"),
             ("GET", "/nodes/proxy/no-json/node-1/google/gmail/callback", "google/gmail/callback"),
             ("POST", "/nodes/proxy/no-json/node-1/v1/infer", "v1/infer"),
@@ -155,6 +156,7 @@ class TestNodeUiProxyRouter(unittest.TestCase):
             self.proxy.api_calls,
             [
                 ("GET", "node-1", "status"),
+                ("GET", "node-1", "node/status"),
                 ("POST", "node-1", "v1/infer"),
                 ("GET", "node-1", "google/gmail/callback"),
                 ("POST", "node-1", "v1/infer"),

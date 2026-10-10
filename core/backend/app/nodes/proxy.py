@@ -59,6 +59,15 @@ def _public_node_oauth_callback_path(path: str) -> bool:
     return normalized in {"google/callback", "google/gmail/callback"}
 
 
+def _canonical_node_api_path(path: str) -> str:
+    normalized = str(path or "").lstrip("/")
+    if normalized == "api":
+        return ""
+    if normalized.startswith("api/"):
+        return normalized.removeprefix("api/")
+    return normalized
+
+
 class NodeUiProxy:
     def __init__(
         self,
@@ -749,7 +758,12 @@ def build_node_ui_proxy_router(proxy: NodeUiProxy) -> APIRouter:
             if exc.status_code == 401 and request.method in {"GET", "HEAD"}:
                 return _admin_login_redirect(request)
             raise
-        return await proxy.forward_api(request, node_id, path, public_prefix=f"/nodes/proxy/{node_id}")
+        return await proxy.forward_api(
+            request,
+            node_id,
+            _canonical_node_api_path(path),
+            public_prefix=f"/nodes/proxy/{node_id}",
+        )
 
     @router.api_route(
         "/nodes/proxy/{node_id}/",
