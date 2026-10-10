@@ -26,6 +26,7 @@ HTML_ROOT_URL_ATTR_RE = re.compile(r'(?P<prefix>\b(?:src|href|action)=["\'])(?P<
 ROOT_URL_STRING_RE = re.compile(r'(?P<quote>["\'`])(?P<path>/[^"\'`]*)(?P=quote)')
 PROXIED_NODE_PATH_DETECTOR = r"/^\/nodes\/([^/]+)\/ui(?:\/.*)?$/i"
 PROXIED_NODE_PATH_DETECTOR_REWRITE = r"/^\/nodes\/proxy\/([^/]+)(?:\/.*)?$/i"
+CANONICAL_PROXIED_NODE_PATH_DETECTOR = r"/^\/nodes\/proxy\/ui\/([^/]+)(?:\/.*)?$/i"
 
 
 def _env_float(name: str, default: float) -> float:
@@ -461,6 +462,7 @@ class NodeUiProxy:
         normalized_ui_prefix = public_prefix.rstrip("/")
         normalized_api_prefix = api_public_prefix.rstrip("/")
         ignore_prefixes = ("/nodes/proxy/", "/nodes/", "/ui/nodes/", "/api/nodes/")
+        proxy_aware_javascript = is_js and CANONICAL_PROXIED_NODE_PATH_DETECTOR in text
 
         def should_rewrite(path: str) -> bool:
             if not path.startswith("/") or path == "/":
@@ -482,6 +484,8 @@ class NodeUiProxy:
 
         def rewrite_string_path(path: str) -> str:
             if not should_rewrite(path):
+                return path
+            if proxy_aware_javascript and (path == "/api" or path.startswith("/api/")):
                 return path
             if path == "/api":
                 return normalized_api_prefix

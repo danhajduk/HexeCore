@@ -312,6 +312,26 @@ class TestNodeUiProxyHtmlRewrite(unittest.TestCase):
         self.assertIn('"/api/nodes/node-123/v1/models"', rewritten)
         self.assertIn('`/api/nodes/node-123/providers/openai/models/latest?limit=${OPENAI_LATEST_MODELS_LIMIT}`', rewritten)
 
+    def test_leaves_api_paths_for_proxy_aware_javascript(self) -> None:
+        original = rb'''
+        function proxyBase() {
+          const match = window.location.pathname.match(/^\/nodes\/proxy\/ui\/([^/]+)(?:\/.*)?$/i);
+          return match ? `${window.location.origin}/nodes/proxy/${match[1]}` : "";
+        }
+        const statusPath = "/api/node/status";
+        const assetPath = "/assets/icon.svg";
+        '''
+
+        rewritten = NodeUiProxy._rewrite_root_urls(
+            original,
+            "text/javascript",
+            public_prefix="/nodes/proxy/ui/node-123",
+            api_public_prefix="/nodes/proxy/node-123",
+        ).decode("utf-8")
+
+        self.assertIn('const statusPath = "/api/node/status"', rewritten)
+        self.assertIn('const assetPath = "/nodes/proxy/ui/node-123/assets/icon.svg"', rewritten)
+
     def test_rewrites_proxied_node_path_detector_for_new_canonical_prefix(self) -> None:
         original = b"""
         const match = pathname.match(/^\/nodes\/([^/]+)\/ui(?:\/.*)?$/i);
