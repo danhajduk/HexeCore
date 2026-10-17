@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+coordination_root="${HEXE_COORDINATION_ROOT:-$(dirname "$repository_root")/HexeCoordination}"
+
+exec "$coordination_root/scripts/hexe-tasks" \
+  --project supervisor \
+  --project-root "$repository_root" \
+  "$@"
